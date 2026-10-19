@@ -1,16 +1,24 @@
 {
- "_comment": "Alfie's default face, ported from xy-bench figures.py (superintendent_face, MOODS, ANIMATIONS). Units are ring radii, y up. Lids are lines y = h + s*u in eye radii, u toward the nose: [hu, su, hl, sl]. Animation keys are [seconds, channels, ease]; a closing [0.45, {}, 'spring'] is implied when the last key is not empty.",
+ "_comment": "Alfie's default face, ported from xy-bench figures.py (superintendent_face, MOODS, ANIMATIONS). Units are ring radii, y up. Lids are lines y = h + s*u in eye radii, u toward the nose: [hu, su, hl, sl]. Animation keys are [seconds, channels, ease]; a closing [0.45, {}, 'spring'] is implied when the last key is not empty. Shapes are specs turned into outlines by alfie-face.js outline(): circle, polygon {sides, roundness}, star {points, inner, roundness}, superellipse {n}, path {points}; any takes rotation (degrees) and stretch [sx, sy]. An expression may carry its own 'shapes' (eye, left_eye, right_eye) and blends into them.",
  "geometry": {
   "eye_x": 0.42,
   "eye_r": 0.25,
-  "eye_sides": 64,
-  "ring_res": 96,
+  "eye_sides": 120,
+  "ring_res": 120,
   "blend": 0.8,
   "damping": 0.45,
   "spring": 11.7,
   "blink": 0.16,
   "blink_slot": 5.0,
   "droop_line": 0.1
+ },
+ "shapes": {
+  "head": {
+   "type": "circle"
+  },
+  "eye": {
+   "type": "circle"
+  }
  },
  "expressions": {
   "neutral": {

@@ -54,3 +54,30 @@ def test_version_matches_manifest():
     from alfie.const import VERSION
     with open(os.path.join(os.path.dirname(FACE), "..", "manifest.json")) as f:
         assert json.load(f)["version"] == VERSION
+
+
+SHAPE_TYPES = {"circle", "polygon", "star", "superellipse", "path"}
+SHAPE_PARTS = {"head", "eye", "left_eye", "right_eye"}
+
+
+def _check_shapes(shapes, where):
+    assert set(shapes) <= SHAPE_PARTS, (where, set(shapes) - SHAPE_PARTS)
+    for part, spec in shapes.items():
+        assert spec.get("type", "circle") in SHAPE_TYPES, (where, part)
+        if spec.get("type") == "polygon":
+            assert spec.get("sides", 4) >= 3, (where, part)
+        if spec.get("type") == "star":
+            assert spec.get("points", 5) >= 2 and 0 < spec.get("inner", 0.5) <= 1, (where, part)
+        if spec.get("type") == "path":
+            assert len(spec["points"]) >= 3, (where, part)
+        if "stretch" in spec:
+            assert len(spec["stretch"]) == 2 and all(v > 0 for v in spec["stretch"]), (where, part)
+
+
+def test_shapes_are_well_formed():
+    d = face()
+    _check_shapes(d["shapes"], "face")
+    for name, e in d["expressions"].items():
+        if "shapes" in e:
+            assert set(e["shapes"]) <= {"eye", "left_eye", "right_eye"}, name
+            _check_shapes(e["shapes"], name)
