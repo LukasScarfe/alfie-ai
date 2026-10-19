@@ -11,9 +11,20 @@
 - **5⅞ (Oscilloscope):** A to D and F (the settings page) are done; the sidecar runs on
   Numbat. E (Lukas on the CRT) is open.
 
-Version 0.8.6.
+Version 0.8.7.
 
-**Latest (0.8.6): Text size on every screen, the scope's settings page, condense without dots.**
+**Latest (0.8.7): no jump before a screen leaves on the scope.** Lukas saw screens glitch just
+before their transition, the sky most and the plants too. A recording of the feed showed each
+screen drawn two ways during its turn. In the second or so that condense's slow ends leave
+nothing visibly moving, `condenseLines` drew the evenly spaced samples, which cut corners and
+shrink small marks. So the picture changed shape when the leave began, and again a second after
+it arrived. Settled neighbouring grains now draw the stroke between them through its own
+vertices, and a stroke wholly in place is its own path. Re-recorded: one shape for the whole
+turn, and the same beam path into the leave.
+- `bridge.js` gained `RECORD=<file>`: every frame appended as a JSON line, for this kind of
+  check (`./dev scope` doesn't set it; run the container by hand with a volume).
+
+**Before that (0.8.6): Text size on every screen, the scope's settings page, condense without dots.**
 Lukas asked for a text size wherever a screen has text, a graphical way to set the scope's card
 (he picked a page on Numbat), and a condense that starts disintegrating at once instead of
 first turning into big dots.

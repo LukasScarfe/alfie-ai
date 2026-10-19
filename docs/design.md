@@ -594,7 +594,11 @@ keeps the DAC, the planner, the wiring correction, music and its own screens.
   canvas version). Each stroke is resampled and each pair of samples is a grain of dust drifting
   in, so until they settle the beam draws lines between random points. Each stroke stays its
   own stroke, so the joins between strokes stay faint jumps. (One path for the whole picture
-  made them solid lines just before the end.)
+  made them solid lines just before the end.) Two neighbouring grains in their places draw the
+  stroke between them through its own corners. The samples alone cut corners and shrank small
+  marks, so for the second or so that condense's slow ends leave the picture still, it was drawn
+  a little differently from the screen itself: a visible jump just before a screen left, and
+  after it arrived (Lukas saw it most on the sky).
 - **60 Hz, from a timer** (Lukas: "always 60"). `scope/page.html` replaces
   `requestAnimationFrame` with a timer at `FPS` (default 60), so the feed can match xy-bench
   whatever its rate. Alfie's frames are long, so xy-bench used to stretch them to its 50 fps

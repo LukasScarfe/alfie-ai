@@ -31,6 +31,7 @@ try { CARD = JSON.parse(fs.readFileSync(CARD_FILE, "utf8")); } catch (_) { /* no
 const SETTINGS_PORT = Number(env("SETTINGS_PORT", "8642"));   // 0: no settings page
 const SETTINGS_PASSWORD = env("SETTINGS_PASSWORD", "");
 const DUMP = env("DUMP", "");   // a file to write the newest frame to on each status line (debugging)
+const RECORD = env("RECORD", "");   // a file to append every frame to, one JSON line each (debugging)
 const STATS = Number(env("STATS", "60"));   // seconds between status lines
 const WIDTH = 640;   // canvas pixels; strokes leave in [-1, 1], so only rounding sees this
 
@@ -115,6 +116,7 @@ async function open() {
     }
     lastAt = now;
     frames++; strokes = f.strokes.length; newest = f;
+    if (RECORD) fs.appendFileSync(RECORD, JSON.stringify(f) + "\n");
     offer(f);
   });
   await page.evaluateOnNewDocument((s) => { window.SCOPE = s; },
@@ -197,7 +199,7 @@ function serveSettings() {
         return json(res, 200, { card: await saveCard(await body(req)) });
       }
       if (u.pathname === "/api/frame" && req.method === "GET") {
-        return newest ? json(res, 200, { strokes: newest.strokes, aspect: newest.aspect, status }) : json(res, 200, { strokes: [], status });
+        return newest ? json(res, 200, { strokes: newest.strokes, aspect: newest.aspect, t: newest.t, n: frames, status }) : json(res, 200, { strokes: [], status });
       }
       if (u.pathname === "/api/ws" && req.method === "POST") {
         const msg = JSON.parse(await body(req));
