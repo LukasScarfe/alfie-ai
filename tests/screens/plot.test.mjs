@@ -36,6 +36,19 @@ check(x0 >= -1.4 && x1 <= 1.4 && y0 >= -0.85 && y1 <= 0.85, "everything stays in
 check(run(two, { axis: false }).length < s2.length, "axis off draws less");
 check(run(two, { now: false }).length < s2.length, "readouts off draws less");
 
+// The line's end and readout follow the live state, not the cached history.
+{
+  const one = { series: [row("a", ramp(48, 50))] };
+  const at = (states) => plot.draw({ w: 1.4, h: 0.85, t: 0, data: one, options: { ...defaults, entities: [], range: "fixed", y_min: 0, y_max: 100 }, states, config: {}, memo: {}, S });
+  const lowY = (strokes) => Math.min(...strokes.filter((s) => s.role === "line" && s.w === 1).flatMap((s) => s.pts.map((p) => p[1])));
+  const stale = at({}), live = at({ "sensor.a": { state: "12" } });
+  check(lowY(live) < lowY(stale) - 0.2, "the live state pulls the line's end down");
+  check(JSON.stringify(at({ "sensor.a": { state: "unavailable" } })) === JSON.stringify(stale), "an unavailable state keeps the history");
+  const memo = {}, ctx = (st) => ({ w: 1.4, h: 0.85, t: 0, data: one, options: { ...defaults, entities: [] }, states: st, config: {}, memo, S });
+  const a1 = plot.draw(ctx({ "sensor.a": { state: "40" } })), a2 = plot.draw(ctx({ "sensor.a": { state: "12" } }));
+  check(a1 !== a2, "a state change rebuilds the memo");
+}
+
 // Dotted, per series.
 const dot = run(two, { styles: "solid, dotted" });
 check(dot.filter((s) => s.w === S.DOTTED).length === 1, "one dotted series");

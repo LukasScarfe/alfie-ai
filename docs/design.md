@@ -345,8 +345,8 @@ letters: accents drop to the base letter, and letters it can't decompose (Ł) ar
       (Hello: his mood's face and a nod);
     - it can also be `none` or a story id;
     - the card fetches the timed actions over `alfie/story/expand` and plays them itself.
-  - **Coming back waits for the screen:** when Alfie takes the stage back, the screen leaves
-    first and only then does he come in, out of his corner or by the transition (morph alone
+  - **Coming back:** in corner mode the screen leaves first and only then does Alfie spring out
+    of his corner. In hand over he comes in by the transition while the screen goes (morph
     turns one into the other). A story he plays himself starts once he is back.
   - Otherwise he appears when a trigger plays a story, on every display. In corner mode he comes
     out to the centre for it, then goes back to the corner and the rotation carries on.
