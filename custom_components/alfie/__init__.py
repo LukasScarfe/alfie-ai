@@ -1,0 +1,76 @@
+"""Alfie: a lively face that is the visible soul of the home."""
+
+from __future__ import annotations
+
+import voluptuous as vol
+
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.typing import ConfigType
+
+from .const import DOMAIN
+from .engine import AlfieEngine
+from .frontend import async_register_frontend
+from .websocket_api import async_register as async_register_ws
+
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SELECT]
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+
+def _engine(hass: HomeAssistant) -> AlfieEngine:
+    engine = hass.data.get(DOMAIN, {}).get("engine")
+    if engine is None:
+        raise HomeAssistantError("Alfie is not set up")
+    return engine
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    hass.data.setdefault(DOMAIN, {})
+
+    async def set_expression(call: ServiceCall) -> None:
+        try:
+            _engine(hass).set_expression(call.data["expression"], call.data.get("duration"))
+        except ValueError as e:
+            raise ServiceValidationError(str(e)) from e
+
+    async def play_animation(call: ServiceCall) -> None:
+        try:
+            _engine(hass).play(call.data["animation"], "Asked by a service call.", "service")
+        except ValueError as e:
+            raise ServiceValidationError(str(e)) from e
+
+    hass.services.async_register(DOMAIN, "set_expression", set_expression, schema=vol.Schema({
+        vol.Required("expression"): cv.string,
+        vol.Optional("duration"): vol.Coerce(float),
+    }))
+    hass.services.async_register(DOMAIN, "play_animation", play_animation, schema=vol.Schema({
+        vol.Required("animation"): cv.string,
+    }))
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    engine = AlfieEngine(hass, entry)
+    await engine.async_start()
+    hass.data[DOMAIN]["engine"] = engine
+    entry.async_on_unload(engine.async_stop)
+
+    await async_register_frontend(hass)
+    async_register_ws(hass)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(entry.add_update_listener(_async_reload))
+    return True
+
+
+async def _async_reload(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        hass.data[DOMAIN].pop("engine", None)
+    return unloaded

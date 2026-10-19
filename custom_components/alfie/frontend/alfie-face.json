@@ -1,0 +1,820 @@
+{
+ "_comment": "Alfie's default face, ported from xy-bench figures.py (superintendent_face, MOODS, ANIMATIONS). Units are ring radii, y up. Lids are lines y = h + s*u in eye radii, u toward the nose: [hu, su, hl, sl]. Animation keys are [seconds, channels, ease]; a closing [0.45, {}, 'spring'] is implied when the last key is not empty.",
+ "geometry": {
+  "eye_x": 0.42,
+  "eye_r": 0.25,
+  "eye_sides": 64,
+  "ring_res": 96,
+  "blend": 0.8,
+  "damping": 0.45,
+  "spring": 11.7,
+  "blink": 0.16,
+  "blink_slot": 5.0,
+  "droop_line": 0.1
+ },
+ "expressions": {
+  "neutral": {
+   "left": [
+    1,
+    0,
+    -1,
+    0
+   ],
+   "right": [
+    1,
+    0,
+    -1,
+    0
+   ],
+   "size": 1.0,
+   "look": [
+    0,
+    0
+   ]
+  },
+  "angry": {
+   "left": [
+    0.15,
+    -0.55,
+    -1,
+    0
+   ],
+   "right": [
+    0.15,
+    -0.55,
+    -1,
+    0
+   ],
+   "size": 1.0,
+   "look": [
+    0,
+    0
+   ]
+  },
+  "sad": {
+   "left": [
+    0.15,
+    0.55,
+    -1,
+    0
+   ],
+   "right": [
+    0.15,
+    0.55,
+    -1,
+    0
+   ],
+   "size": 1.0,
+   "look": [
+    0,
+    0
+   ]
+  },
+  "bored": {
+   "left": [
+    0,
+    0,
+    -1,
+    0
+   ],
+   "right": [
+    0,
+    0,
+    -1,
+    0
+   ],
+   "size": 1.0,
+   "look": [
+    0,
+    0
+   ]
+  },
+  "skeptical": {
+   "left": [
+    1,
+    0,
+    -1,
+    0
+   ],
+   "right": [
+    0,
+    0,
+    -1,
+    0
+   ],
+   "size": 1.0,
+   "look": [
+    0,
+    0
+   ]
+  },
+  "happy": {
+   "left": [
+    1,
+    0,
+    0.1,
+    0
+   ],
+   "right": [
+    1,
+    0,
+    0.1,
+    0
+   ],
+   "size": 1.0,
+   "look": [
+    0,
+    0
+   ]
+  },
+  "surprised": {
+   "left": [
+    1,
+    0,
+    -1,
+    0
+   ],
+   "right": [
+    1,
+    0,
+    -1,
+    0
+   ],
+   "size": 1.2,
+   "look": [
+    0,
+    0
+   ]
+  },
+  "alarmed": {
+   "left": [
+    0.35,
+    0.4,
+    -1,
+    0
+   ],
+   "right": [
+    0.35,
+    0.4,
+    -1,
+    0
+   ],
+   "size": 1.15,
+   "look": [
+    0,
+    0
+   ]
+  },
+  "suspicious": {
+   "left": [
+    0.22,
+    -0.1,
+    -0.3,
+    0
+   ],
+   "right": [
+    0.22,
+    -0.1,
+    -0.3,
+    0
+   ],
+   "size": 1.0,
+   "look": [
+    0,
+    0
+   ]
+  },
+  "sleepy": {
+   "left": [
+    -0.25,
+    0.3,
+    -1,
+    0
+   ],
+   "right": [
+    -0.25,
+    0.3,
+    -1,
+    0
+   ],
+   "size": 1.0,
+   "look": [
+    0,
+    0
+   ]
+  },
+  "confused": {
+   "left": [
+    0.3,
+    -0.45,
+    -1,
+    0
+   ],
+   "right": [
+    0.05,
+    0.5,
+    -1,
+    0
+   ],
+   "size": 1.0,
+   "look": [
+    0,
+    0
+   ]
+  },
+  "closed": {
+   "left": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "right": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "size": 1.0,
+   "look": [
+    0,
+    0
+   ]
+  }
+ },
+ "animations": {
+  "wink_left": {
+   "keys": [
+    [
+     0.18,
+     {
+      "shut_l": 1.0
+     },
+     "ease"
+    ],
+    [
+     0.25,
+     {
+      "shut_l": 1.0
+     },
+     "ease"
+    ]
+   ]
+  },
+  "wink_right": {
+   "keys": [
+    [
+     0.18,
+     {
+      "shut_r": 1.0
+     },
+     "ease"
+    ],
+    [
+     0.25,
+     {
+      "shut_r": 1.0
+     },
+     "ease"
+    ]
+   ]
+  },
+  "look_around": {
+   "keys": [
+    [
+     0.4,
+     {
+      "dx": -0.16
+     },
+     "spring"
+    ],
+    [
+     0.45,
+     {
+      "dx": -0.16
+     },
+     "ease"
+    ],
+    [
+     0.6,
+     {
+      "dx": 0.16
+     },
+     "spring"
+    ],
+    [
+     0.45,
+     {
+      "dx": 0.16
+     },
+     "ease"
+    ],
+    [
+     0.5,
+     {},
+     "spring"
+    ]
+   ]
+  },
+  "glance_left": {
+   "keys": [
+    [
+     0.25,
+     {
+      "dx": -0.16
+     },
+     "spring"
+    ],
+    [
+     0.35,
+     {
+      "dx": -0.16
+     },
+     "ease"
+    ],
+    [
+     0.4,
+     {},
+     "spring"
+    ]
+   ]
+  },
+  "glance_right": {
+   "keys": [
+    [
+     0.25,
+     {
+      "dx": 0.16
+     },
+     "spring"
+    ],
+    [
+     0.35,
+     {
+      "dx": 0.16
+     },
+     "ease"
+    ],
+    [
+     0.4,
+     {},
+     "spring"
+    ]
+   ]
+  },
+  "nod": {
+   "keys": [
+    [
+     0.2,
+     {
+      "dy": -0.09
+     },
+     "spring"
+    ],
+    [
+     0.2,
+     {},
+     "spring"
+    ],
+    [
+     0.2,
+     {
+      "dy": -0.09
+     },
+     "spring"
+    ],
+    [
+     0.35,
+     {},
+     "spring"
+    ]
+   ]
+  },
+  "shake": {
+   "keys": [
+    [
+     0.12,
+     {
+      "dx": -0.1
+     },
+     "ease"
+    ],
+    [
+     0.16,
+     {
+      "dx": 0.1
+     },
+     "ease"
+    ],
+    [
+     0.16,
+     {
+      "dx": -0.1
+     },
+     "ease"
+    ],
+    [
+     0.16,
+     {
+      "dx": 0.1
+     },
+     "ease"
+    ],
+    [
+     0.35,
+     {},
+     "spring"
+    ]
+   ]
+  },
+  "eye_roll": {
+   "procedural": "eye_roll",
+   "length": 1.5
+  },
+  "startle": {
+   "keys": [
+    [
+     0.12,
+     {
+      "size": 0.25,
+      "open": 1.0,
+      "fy": 0.03
+     },
+     "spring"
+    ],
+    [
+     0.4,
+     {
+      "size": 0.25,
+      "open": 1.0,
+      "fy": 0.03
+     },
+     "ease"
+    ],
+    [
+     0.6,
+     {},
+     "spring"
+    ]
+   ]
+  },
+  "double_take": {
+   "keys": [
+    [
+     0.18,
+     {
+      "dx": 0.15
+     },
+     "spring"
+    ],
+    [
+     0.25,
+     {
+      "dx": 0.15
+     },
+     "ease"
+    ],
+    [
+     0.18,
+     {},
+     "spring"
+    ],
+    [
+     0.2,
+     {},
+     "ease"
+    ],
+    [
+     0.12,
+     {
+      "size": 0.25,
+      "open": 1.0,
+      "fy": 0.03
+     },
+     "spring"
+    ],
+    [
+     0.35,
+     {
+      "size": 0.25,
+      "open": 1.0,
+      "fy": 0.03
+     },
+     "ease"
+    ],
+    [
+     0.6,
+     {},
+     "spring"
+    ]
+   ]
+  },
+  "laugh": {
+   "keys": [
+    [
+     0.12,
+     {
+      "dy": 0.05
+     },
+     "ease"
+    ],
+    [
+     0.12,
+     {},
+     "ease"
+    ],
+    [
+     0.12,
+     {
+      "dy": 0.05
+     },
+     "ease"
+    ],
+    [
+     0.12,
+     {},
+     "ease"
+    ],
+    [
+     0.12,
+     {
+      "dy": 0.05
+     },
+     "ease"
+    ],
+    [
+     0.12,
+     {},
+     "ease"
+    ],
+    [
+     0.12,
+     {
+      "dy": 0.05
+     },
+     "ease"
+    ],
+    [
+     0.12,
+     {},
+     "ease"
+    ],
+    [
+     0.3,
+     {},
+     "spring"
+    ]
+   ]
+  },
+  "sigh": {
+   "keys": [
+    [
+     0.8,
+     {
+      "droop": 0.8,
+      "dy": -0.04
+     },
+     "ease"
+    ],
+    [
+     0.5,
+     {
+      "droop": 0.8,
+      "dy": -0.04
+     },
+     "ease"
+    ],
+    [
+     0.8,
+     {},
+     "ease"
+    ]
+   ]
+  },
+  "squint": {
+   "keys": [
+    [
+     0.25,
+     {
+      "shut": 0.55
+     },
+     "spring"
+    ],
+    [
+     0.7,
+     {
+      "shut": 0.55
+     },
+     "ease"
+    ],
+    [
+     0.4,
+     {},
+     "spring"
+    ]
+   ]
+  },
+  "flinch": {
+   "keys": [
+    [
+     0.08,
+     {
+      "shut": 0.8,
+      "fx": -0.04,
+      "size": -0.12
+     },
+     "ease"
+    ],
+    [
+     0.15,
+     {
+      "shut": 0.8,
+      "fx": -0.04,
+      "size": -0.12
+     },
+     "ease"
+    ],
+    [
+     0.6,
+     {},
+     "spring"
+    ]
+   ]
+  },
+  "scan": {
+   "keys": [
+    [
+     0.35,
+     {
+      "dx": -0.16,
+      "droop": 0.35
+     },
+     "ease"
+    ],
+    [
+     1.6,
+     {
+      "dx": 0.16,
+      "droop": 0.35
+     },
+     "ease"
+    ],
+    [
+     0.5,
+     {},
+     "spring"
+    ]
+   ]
+  },
+  "processing": {
+   "keys": [
+    [
+     0.07,
+     {
+      "shut": 1.0
+     },
+     "ease"
+    ],
+    [
+     0.07,
+     {},
+     "ease"
+    ],
+    [
+     0.07,
+     {
+      "shut": 1.0
+     },
+     "ease"
+    ],
+    [
+     0.07,
+     {},
+     "ease"
+    ],
+    [
+     0.07,
+     {
+      "shut": 1.0
+     },
+     "ease"
+    ],
+    [
+     0.07,
+     {},
+     "ease"
+    ],
+    [
+     0.07,
+     {
+      "shut": 1.0
+     },
+     "ease"
+    ],
+    [
+     0.07,
+     {},
+     "ease"
+    ],
+    [
+     0.07,
+     {
+      "shut": 1.0
+     },
+     "ease"
+    ],
+    [
+     0.07,
+     {},
+     "ease"
+    ],
+    [
+     0.1,
+     {},
+     "ease"
+    ]
+   ]
+  },
+  "glitch": {
+   "procedural": "glitch",
+   "length": 0.5
+  },
+  "dizzy": {
+   "procedural": "dizzy",
+   "length": 2.0
+  },
+  "nod_off": {
+   "keys": [
+    [
+     1.4,
+     {
+      "shut": 0.85,
+      "droop": 0.4,
+      "dy": -0.03
+     },
+     "ease"
+    ],
+    [
+     0.4,
+     {
+      "shut": 0.85,
+      "droop": 0.4,
+      "dy": -0.03
+     },
+     "ease"
+    ],
+    [
+     0.12,
+     {
+      "open": 0.5,
+      "size": 0.15
+     },
+     "spring"
+    ],
+    [
+     0.3,
+     {
+      "open": 0.5,
+      "size": 0.15
+     },
+     "ease"
+    ],
+    [
+     0.6,
+     {},
+     "spring"
+    ]
+   ]
+  },
+  "wake_up": {
+   "keys": [
+    [
+     0.2,
+     {
+      "shut": 1.0
+     },
+     "ease"
+    ],
+    [
+     0.4,
+     {
+      "shut": 1.0
+     },
+     "ease"
+    ],
+    [
+     0.7,
+     {
+      "size": 0.12
+     },
+     "spring"
+    ],
+    [
+     0.4,
+     {},
+     "spring"
+    ]
+   ]
+  }
+ }
+}

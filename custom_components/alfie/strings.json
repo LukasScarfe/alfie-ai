@@ -1,0 +1,91 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Alfie",
+        "description": "Alfie is a lively face for your home. You can rename him.",
+        "data": {
+          "name": "Name"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Alfie is already set up. There is one Alfie per home.",
+      "single_instance_allowed": "Alfie is already set up. There is one Alfie per home."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Alfie engine",
+        "data": {
+          "combine": "How signals combine into a mood",
+          "idle_interval": "Seconds between idle fidgets (when content)",
+          "motion_debounce": "Seconds a motion glance holds off the next",
+          "celebrate_fix": "Celebrate when something bad is fixed"
+        }
+      }
+    }
+  },
+  "selector": {
+    "combine": {
+      "options": {
+        "worst": "Worst one wins (priority ladder)",
+        "weighted": "Weighted severities",
+        "count": "Simple count (each good cancels a bad)"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "mood": {
+        "name": "Mood",
+        "state": {
+          "miserable": "Miserable",
+          "sad": "Sad",
+          "uneasy": "Uneasy",
+          "content": "Content",
+          "bubbly": "Bubbly"
+        }
+      }
+    },
+    "select": {
+      "mode": {
+        "name": "Mode",
+        "state": {
+          "auto": "Auto",
+          "normal": "Normal",
+          "night": "Night",
+          "away": "Away",
+          "guests": "Guests"
+        }
+      }
+    }
+  },
+  "services": {
+    "set_expression": {
+      "name": "Set expression",
+      "description": "Make Alfie wear an expression, for a while or until set back to auto.",
+      "fields": {
+        "expression": {
+          "name": "Expression",
+          "description": "One of the 12 expressions, or auto to follow his mood."
+        },
+        "duration": {
+          "name": "Duration",
+          "description": "Seconds to hold it; empty or 0 holds it until changed."
+        }
+      }
+    },
+    "play_animation": {
+      "name": "Play animation",
+      "description": "Make Alfie do something once, on every display.",
+      "fields": {
+        "animation": {
+          "name": "Animation",
+          "description": "One of the 20 animations."
+        }
+      }
+    }
+  }
+}
