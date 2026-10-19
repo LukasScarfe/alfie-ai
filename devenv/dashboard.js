@@ -14,6 +14,8 @@
       { type: "grid", cards: [{ type: "custom:alfie-card", style: "flat" },
                               { type: "entities", entities: ["sensor.alfie_mood", "select.alfie_mode"] }] },
       { type: "grid", cards: [{ type: "custom:alfie-card", style: "theme", eye_fill: true }] },
+      { type: "grid", cards: [{ type: "custom:alfie-card", style: "neon", mode: "rotation", rotation: "demo", present: "handover", aspect: 1.6 },
+                              { type: "custom:alfie-card", style: "neon", mode: "rotation", rotation: "demo", present: "corner", aspect: 1.6 }] },
       { type: "grid", cards: [{ type: "custom:alfie-card", style: "crt",
         shapes: { head: { type: "polygon", sides: 4, roundness: 0.12 }, eye: { type: "star", points: 5, inner: 0.5 } } }] },
     ] }] } });

@@ -62,6 +62,9 @@ Ways of working:
 - A saved config that no longer validates is logged and run on the defaults, without being
   overwritten.
 - `./dev js FILE.js [ms]` runs a script in a logged-in dev HA page and prints its console.log.
+  HA's frontend reloads a headless page about 10 s in, so a longer in-page trace gets cut
+  ("Execution context was destroyed"). That's the harness, not Alfie. Load the dashboard URL
+  directly with shot.js rather than using `pushState`.
 - The dev directory is `devenv/`, not `dev/`, because `./dev` is the wrapper.
 - Fake entities from `./dev seed`/`state` vanish on restart. Re-seed after `./dev restart`.
 - `./dev dashboard` rewrites the Alfie dev dashboard.

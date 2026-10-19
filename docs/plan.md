@@ -41,7 +41,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
 - [~] **3. Screens.** Port the templates to JS (plot, bars/value, weather, home clock, sky, stars,
       map, text) with entity pickers, add the rotation display mode and transitions. Built by
       parallel Sonnet agents with disjoint files; the research is in `docs/m3-screens.md`.
-  - [ ] A. Foundation: the stroke model and the card's screen renderer, the font (JSON from
+  - [x] A. Foundation: the stroke model and the card's screen renderer, the font (JSON from
         xy), the view helpers and icons, `screens` and `rotations` in the config,
         `alfie/screen_data` and the provider registry, the card's rotation mode and presenting
         (handover and corner), `alfie.show_screen`, and the harness `sheet=screen`.
@@ -53,6 +53,17 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [ ] B6. Intros: the stroke transforms and fade, then materialise, condense and morph.
   - [ ] C. The panel's Screens tab: build screens from each type's schema, rotations, and a
         live preview.
+  - [ ] D. Card visual editor (`alfie-card-editor.js`, the card's `getConfigElement`): every card
+        option in groups (look, display mode and rotation, presenting, personality, advanced),
+        with a live preview, so no YAML is needed. Runs in parallel with B.
+  - [ ] E. **Look** tab and **Playground** in the panel (after C, same file):
+    - Alfie's global default look: style, colours, line width, glow, eye fill, padding and the
+      head and eye shapes (type plus parameter sliders). It's saved in a new `look` section of
+      the config and sent to the cards, and a card's own options still win.
+    - A playground with a big live face: a button for each of the 12 expressions and 20
+      animations, a mood-level picker, and energy and personality sliders. It plays locally,
+      with an optional "play on every display".
+    - The full shape, expression and animation editors stay in M7.
   - [ ] Dev HA: a rotation card in both presenting styles, screenshots for Lukas.
 - [ ] **4. Triggers and stories.** Trigger config (any entity, per-motion-sensor actions, mood
       changes, signal crossings), the fill-in story template and the advanced sequence builder, the
@@ -61,7 +72,8 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
 - [ ] **5. House modes.** Night, away, guests and user-defined modes with overrides.
 - [ ] **6. Voice.** React to all `assist_satellite` states, the what's-wrong LLM tool and intent,
       optional persona, mood-aware replies, TTS announcement step.
-- [ ] **7. Editors and polish.** Shape, expression and animation editors; card render styles and
+- [ ] **7. Editors and polish.** Shape (freehand path), expression and animation editors,
+      building on M3's Look tab and Playground; card render styles and
       themes; the why panel; standard tap actions. The shape editor covers the head and the eyes,
       with every shape type in design.md ("Shapes are swappable data"), plus a freehand `path`
       (true rounded corners are already done).

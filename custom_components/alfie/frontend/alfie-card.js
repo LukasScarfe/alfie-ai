@@ -9,9 +9,18 @@
 
 const V = new URL(import.meta.url).search; // ?v=<version>: carry it to our own files
 const F = await import(`./alfie-face.js${V}`);
+const S = await import(`./alfie-screens.js${V}`);
+const I = await import(`./alfie-intros.js${V}`);
 const FACE_URL = new URL(`./alfie-face.json${V}`, import.meta.url);
 
 let faceData = null;
+// A screen's options with the type's defaults under them.
+function withDefaults(type, options) {
+  const out = { ...(options || {}) };
+  for (const o of type?.options ?? []) if (out[o.key] === undefined && o.default !== undefined) out[o.key] = o.default;
+  return out;
+}
+
 function loadFace() {
   faceData ??= fetch(FACE_URL).then((r) => {
     if (!r.ok) throw new Error(`alfie-face.json: HTTP ${r.status}`);
@@ -48,7 +57,23 @@ const DEFAULTS = {
   card: true,             // false drops the ha-card frame
   shapes: null,           // {head, eye, left_eye, right_eye} over the face's own; see alfie-face.js
   personality: null,      // a preset name or {exaggeration, speed, bounce, blink_rate, energy_bias}; null follows Alfie's
+  mode: "companion",      // companion: just Alfie (screens only on a show_screen); rotation: run `rotation`
+  rotation: null,         // a rotation id, or an inline [{screen, seconds}]
+  present: "handover",    // handover: Alfie leaves while a screen shows; corner: he shrinks aside and stays alive
+  corner: "bottom_right", // bottom_right | bottom_left | top_right | top_left
+  corner_size: 0.3,       // Alfie's size in the corner, share of his full size (0.15 to 0.5)
+  transition: null,       // an intro style; null takes the rotation's, then fade
+  text_color: null,       // screen text; null takes the face colour
+  accent_color: null,     // screen accents; null takes the face colour
+  screen_line_width: 0.02, // ring radii: screens draw finer than the face
 };
+
+const MODES = ["companion", "rotation"];
+const PRESENTS = ["handover", "corner"];
+const CORNERS = ["bottom_right", "bottom_left", "top_right", "top_left"];
+const CORNER_SECONDS = 0.8;   // how long the face takes to move to or from its corner
+const DATA_STALE = 300;       // seconds before a shown screen's data is fetched again
+const DATA_RETRY = 30;        // seconds before retrying a failed fetch
 
 const QUEUE = 2;          // animations waiting behind the one playing
 const ANIMATION_FRESH = 5; // seconds: an older one is not replayed on (re)connect
@@ -147,6 +172,36 @@ class FaceState {
   }
 }
 
+// A polyline as a smooth path (quadratics through the edge midpoints) except at
+// deliberate corners, which stay sharp. Shared by the face (closed outlines) and
+// screens (open or closed strokes). Adds to the current path; the caller strokes.
+function trace(ctx, pts, closed = true) {
+  const m = pts.length, mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  if (!closed) {
+    ctx.moveTo(...pts[0]);
+    if (m < 3) { for (let i = 1; i < m; i++) ctx.lineTo(...pts[i]); return; }
+    const flags = F.cornerFlags(pts);
+    for (let i = 1; i < m - 1; i++) {
+      if (flags[i]) { ctx.lineTo(...pts[i]); continue; }
+      ctx.lineTo(...mid(pts[i - 1], pts[i]));
+      ctx.quadraticCurveTo(...pts[i], ...mid(pts[i], pts[i + 1]));
+    }
+    ctx.lineTo(...pts[m - 1]);
+    return;
+  }
+  const flags = F.cornerFlags(pts);
+  const s = flags.indexOf(true);
+  if (s >= 0) ctx.moveTo(...pts[s]);
+  else ctx.moveTo(...mid(pts[m - 1], pts[0]));
+  for (let j = s >= 0 ? 1 : 0; j < m; j++) {
+    const i = s >= 0 ? (s + j) % m : j, v = pts[i];
+    if (flags[i]) { ctx.lineTo(...v); continue; }
+    ctx.lineTo(...mid(pts[(i + m - 1) % m], v));
+    ctx.quadraticCurveTo(...v, ...mid(v, pts[(i + 1) % m]));
+  }
+  ctx.closePath();
+}
+
 class AlfieCard extends HTMLElement {
   constructor() {
     super();
@@ -161,6 +216,7 @@ class AlfieCard extends HTMLElement {
     this._last = 0;
     this._t0 = performance.now();
     this._error = null;
+    this._resetScreens();
   }
 
   static getStubConfig() {
@@ -171,6 +227,13 @@ class AlfieCard extends HTMLElement {
     if (!config || typeof config !== "object") throw new Error("Invalid configuration");
     for (const k of ["line_width", "padding", "aspect", "fps", "liveliness"]) {
       if (config[k] !== undefined && !(Number(config[k]) >= 0)) throw new Error(`${k} must be a number`);
+    }
+    for (const [k, list] of [["mode", MODES], ["present", PRESENTS], ["corner", CORNERS]]) {
+      if (config[k] !== undefined && !list.includes(config[k])) throw new Error(`${k} must be one of ${list.join(", ")}`);
+    }
+    if (config.corner_size !== undefined && !(Number(config.corner_size) > 0)) throw new Error("corner_size must be a number");
+    if (config.rotation != null && typeof config.rotation !== "string" && !Array.isArray(config.rotation)) {
+      throw new Error("rotation must be a rotation id or a list of {screen, seconds}");
     }
     if (config.style && !STYLES[config.style]) {
       throw new Error(`style must be one of ${Object.keys(STYLES).join(", ")}`);
@@ -183,6 +246,7 @@ class AlfieCard extends HTMLElement {
       throw new Error("personality must be a preset name or a mapping of sliders");
     }
     this._config = { ...DEFAULTS, ...config };
+    this._rot = null;   // rebuilt from the new rotation option
     this._partsCache = null;
     if (this._face.expression !== null && faceData) {
       const name = this._face.expression;
@@ -255,6 +319,7 @@ class AlfieCard extends HTMLElement {
     this._scene = scene;
     this._error = null;
     this._showError();
+    if (scene.screens_rev !== this._screensRev) this._fetchScreens(scene.screens_rev);
     const t = this._now();
     const global = this._global = F.personalityOf(scene.personality, face.personalities);
     const p = this._personality(face, global);
@@ -346,7 +411,7 @@ class AlfieCard extends HTMLElement {
       cv.width = w;
       cv.height = h;
     }
-    if (redraw && this._still) this._draw(this._stillFrame);
+    if (redraw && this._still) this._draw(this._stillFrame, this._stillScr || null);
   }
 
   // Colours may be CSS variables; the canvas needs them resolved.
@@ -361,7 +426,10 @@ class AlfieCard extends HTMLElement {
       return out;
     };
     const face = probe(c.face_color || st.color);
-    this._colors = { face, eye: c.eye_color ? probe(c.eye_color) : face, glow: c.glow ?? st.glow };
+    this._colors = {
+      face, eye: c.eye_color ? probe(c.eye_color) : face, glow: c.glow ?? st.glow,
+      text: c.text_color ? probe(c.text_color) : face, accent: c.accent_color ? probe(c.accent_color) : face,
+    };
   }
 
   _now() {
@@ -387,7 +455,7 @@ class AlfieCard extends HTMLElement {
       if (this._face.expression !== null) {
         const t = this._now();
         this._face.tick(t, dt);
-        this._draw(this._frame(t));
+        this._draw(this._frame(t), this._presentation(t, dt));
       }
     }
     requestAnimationFrame((m) => this._loop(m));
@@ -420,24 +488,9 @@ class AlfieCard extends HTMLElement {
     return F.faceShapes(p, shape.eyes, shape.face, F.GEOMETRY, parts);
   }
 
-  _draw(shapes) {
-    // A closed outline as a smooth curve (quadratics through the edge
-    // midpoints) except at deliberate corners, which stay sharp.
-    const trace = (ctx, pts) => {
-      const m = pts.length, flags = F.cornerFlags(pts), mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-      const s = flags.indexOf(true);
-      ctx.beginPath();
-      if (s >= 0) ctx.moveTo(...pts[s]);
-      else ctx.moveTo(...mid(pts[m - 1], pts[0]));
-      for (let j = s >= 0 ? 1 : 0; j < m; j++) {
-        const i = s >= 0 ? (s + j) % m : j, v = pts[i];
-        if (flags[i]) { ctx.lineTo(...v); continue; }
-        ctx.lineTo(...mid(pts[(i + m - 1) % m], v));
-        ctx.quadraticCurveTo(...v, ...mid(v, pts[(i + 1) % m]));
-      }
-      ctx.closePath();
-    };
-
+  // `scr` is null (Alfie alone, exactly as ever) or what `_presentation` built:
+  // how the face is placed and faded, and the screen's strokes.
+  _draw(shapes, scr = null) {
     const cv = this._canvas;
     if (!cv || !shapes) return;
     // A canvas with no size yet (hidden, not laid out) draws nothing; the
@@ -451,29 +504,290 @@ class AlfieCard extends HTMLElement {
     const w = cv.width, h = cv.height;
     ctx.clearRect(0, 0, w, h);
     const R = (Math.min(w, h) / 2) * (1 - clamp(Number(c.padding), 0, 0.45));
-    const lw = Math.max(1, Number(c.line_width) * R);
-    const cx = w / 2, cy = h / 2;
-    const X = (x) => cx + x * R, Y = (y) => cy - y * R;
-    ctx.lineWidth = lw;
+    const L = scr ? this._layout(scr, w, h, R) : null;
+    const fs = L ? L.face.s : 1;
+    const Rf = R * fs;
+    const lw = Math.max(1, Number(c.line_width) * Rf);
+    const cx = L ? L.face.cx : w / 2, cy = L ? L.face.cy : h / 2;
+    const X = (x) => cx + x * Rf, Y = (y) => cy - y * Rf;
+    const faceAlpha = scr ? scr.faceAlpha : 1;
+    if (faceAlpha > 0.003) {
+      if (faceAlpha < 1) ctx.globalAlpha = faceAlpha;
+      ctx.lineWidth = lw;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.shadowBlur = col.glow * lw * 3;
+
+      // The head's outline sits just inside the drawing area, so its stroke fits.
+      const hs = (Rf - lw / 2) / Rf;
+      const [hx, hy] = shapes.ring;
+      ctx.strokeStyle = ctx.shadowColor = col.face;
+      ctx.beginPath();
+      trace(ctx, shapes.head.map(([x, y]) => [X(hx + (x - hx) * hs), Y(hy + (y - hy) * hs)]));
+      ctx.stroke();
+
+      ctx.strokeStyle = ctx.fillStyle = ctx.shadowColor = col.eye;
+      for (const eye of [shapes.left, shapes.right]) {
+        ctx.beginPath();
+        trace(ctx, eye.map(([x, y]) => [X(x), Y(y)]));
+        if (c.eye_fill) ctx.fill();
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+    if (scr && scr.alpha > 0.003) {
+      const strokes = scr.strokes(L.box.hw / R, L.box.hh / R);
+      if (strokes?.length) this._drawStrokes(ctx, strokes, L.box.cx, L.box.cy, R, scr.alpha);
+    }
+  }
+
+  // Where Alfie sits and what is left for the screen, in canvas pixels. `k` is
+  // 0 with Alfie centred and full size, 1 with him settled in his corner.
+  _layout(scr, w, h, R) {
+    const c = this._config, side = Math.min(w, h);
+    const m = (side / 2) * clamp(Number(c.padding), 0, 0.45);
+    const full = { cx: w / 2, cy: h / 2, hw: w / 2 - m, hh: h / 2 - m };
+    if (scr.present !== "corner") return { face: { cx: w / 2, cy: h / 2, s: 1 }, box: full };
+    const size = clamp(Number(scr.size) || 0.3, 0.15, 0.5), Rf = R * size;
+    const right = scr.corner.endsWith("right"), bottom = scr.corner.startsWith("bottom");
+    const fx = right ? w - m - Rf : m + Rf, fy = bottom ? h - m - Rf : m + Rf;
+    const gap = 2 * Rf + m * 0.5;
+    // Cut the corner's strip off whichever side leaves the larger screen.
+    const W = 2 * full.hw, H = 2 * full.hh;
+    let box;
+    if ((W - gap) * H >= W * (H - gap)) {
+      box = { hw: (W - gap) / 2, hh: full.hh, cy: full.cy, cx: right ? m + (W - gap) / 2 : w - m - (W - gap) / 2 };
+    } else {
+      box = { hw: full.hw, hh: (H - gap) / 2, cx: full.cx, cy: bottom ? m + (H - gap) / 2 : h - m - (H - gap) / 2 };
+    }
+    const k = scr.k;
+    return { face: { cx: w / 2 + (fx - w / 2) * k, cy: h / 2 + (fy - h / 2) * k, s: 1 + (size - 1) * k }, box };
+  }
+
+  // Screen strokes in the box at pixel centre (bx, by); one canvas unit is R px.
+  _drawStrokes(ctx, strokes, bx, by, R, alpha) {
+    const c = this._config, col = this._colors;
+    const lw = Math.max(1.25, Number(c.screen_line_width) * R);
+    const X = (x) => bx + x * R, Y = (y) => by - y * R;
+    const color = { line: col.face, text: col.text, accent: col.accent, dim: col.face };
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
-    ctx.shadowBlur = col.glow * lw * 3;
-
-    // The head's outline sits just inside the drawing area, so its stroke fits.
-    const hs = (R - lw / 2) / R;
-    const [hx, hy] = shapes.ring;
-    ctx.strokeStyle = ctx.shadowColor = col.face;
-    ctx.beginPath();
-    trace(ctx, shapes.head.map(([x, y]) => [X(hx + (x - hx) * hs), Y(hy + (y - hy) * hs)]));
-    ctx.stroke();
-
-    ctx.strokeStyle = ctx.fillStyle = ctx.shadowColor = col.eye;
-    for (const eye of [shapes.left, shapes.right]) {
+    for (const st of strokes) {
+      const pts = st.pts;
+      if (!pts?.length) continue;
+      const w = Number.isFinite(st.w) ? st.w : 1;
+      const dashed = w < 0.3, dim = dashed || st.role === "dim";
+      const sw = dashed ? lw : lw * clamp(w, 0.45, 2.5);
+      const colr = color[st.role] || col.face;
+      ctx.globalAlpha = alpha * (dim ? 0.5 : 1);
+      ctx.strokeStyle = ctx.fillStyle = ctx.shadowColor = colr;
+      ctx.lineWidth = sw;
+      ctx.shadowBlur = col.glow * sw * 3;
+      if (pts.length === 1) {
+        ctx.beginPath();
+        ctx.arc(X(pts[0][0]), Y(pts[0][1]), sw * 0.9, 0, 2 * Math.PI);
+        ctx.fill();
+        continue;
+      }
+      ctx.setLineDash(dashed ? [sw * 1.2, sw * 2.6] : []);
       ctx.beginPath();
-      trace(ctx, eye.map(([x, y]) => [X(x), Y(y)]));
-      if (c.eye_fill) ctx.fill();
+      trace(ctx, pts.map(([x, y]) => [X(x), Y(y)]), !!st.closed);
+      if (st.fill) { ctx.globalAlpha = alpha * 0.3; ctx.fill(); ctx.globalAlpha = alpha * (dim ? 0.5 : 1); }
       ctx.stroke();
     }
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+  }
+
+  // ----------------------------------------------------------- screens
+
+  _resetScreens() {
+    this._screensRev = undefined;
+    this._screens = null;      // {rev, screens, rotations, types} from alfie/screens
+    this._screenIndex = new Map();
+    this._data = new Map();    // screen id -> {data, error, at (ms), inflight}
+    this._memo = new Map();    // screen id -> memo object for its module
+    this._bad = new Set();     // screen ids whose module failed (logged once)
+    this._cur = null;          // {id, tIn, tOut}: the screen on show
+    this._rot = null;
+    this._rotClock = 0;        // seconds of rotation time; stops while hidden
+    this._override = null;
+    this._lastWant = -1;
+  }
+
+  async _fetchScreens(rev) {
+    this._screensRev = rev;
+    try {
+      const r = await this._hass.connection.sendMessagePromise({ type: "alfie/screens" });
+      this._screens = r;
+      this._screensRev = rev ?? r.rev;
+      this._screenIndex = new Map((r.screens || []).map((s) => [s.id, s]));
+      this._memo.clear();
+      this._bad.clear();
+      for (const d of this._data.values()) d.at = 0;   // keep what we have, fetch afresh
+      this._rot = null;
+      this._lastWant = -1;
+    } catch (e) {
+      this._screensRev = undefined;   // try again with the next scene
+      if (!this._warnedScreens) { this._warnedScreens = true; console.warn("alfie: can't load screens", e); }
+    }
+  }
+
+  _typeOf(screen) {
+    return this._screens?.types?.[screen.type] ?? this._screens?.types?.find?.((t) => t.type === screen.type) ?? null;
+  }
+
+  async _ensureData(id) {
+    const screen = this._screenIndex.get(id);
+    if (!screen || !this._typeOf(screen)?.needs || !this._hass) return;
+    const d = this._data.get(id) ?? { data: null, error: null, at: 0, inflight: false };
+    this._data.set(id, d);
+    const age = (Date.now() - d.at) / 1000;
+    if (d.inflight || age < (d.error ? DATA_RETRY : DATA_STALE)) return;
+    d.inflight = true;
+    try {
+      const r = await this._hass.connection.sendMessagePromise({ type: "alfie/screen_data", screen: id });
+      d.data = r.data ?? d.data;
+      d.error = r.error ?? null;
+    } catch (e) {
+      d.error = String(e?.message || e?.code || e);
+    }
+    d.at = Date.now();
+    d.inflight = false;
+  }
+
+  _rotationSteps() {
+    const r = this._config.rotation;
+    if (this._config.mode !== "rotation" || !r) return null;
+    let steps = r, face = null, transition = null;
+    if (typeof r === "string") {
+      const rot = this._screens?.rotations?.find((x) => x.id === r);
+      if (!rot) return null;
+      steps = rot.steps; face = rot.face_seconds ?? null; transition = rot.transition ?? null;
+    }
+    steps = (steps || []).filter((st) => this._screenIndex.has(st.screen) && Number(st.seconds) > 0);
+    return steps.length ? { steps, face, transition } : null;
+  }
+
+  // The screen id wanted at this moment, and the one after it (to prefetch).
+  _wanted(dt) {
+    const sc = this._scene?.screen;
+    if (sc && sc.until * 1000 > Date.now() && this._screenIndex.has(sc.id)) {
+      this._override = sc.id;
+      return { id: sc.id, next: null };   // the rotation waits (its clock is not advanced)
+    }
+    this._override = null;
+    if (this._rot === null || this._rot.stale) {
+      const spec = this._rotationSteps();
+      this._rot = spec ? { ...spec, idx: 0, phase: "screen", t0: this._rotClock } : { steps: null };
+      this._rot.key = JSON.stringify(spec);
+    }
+    const rot = this._rot;
+    if (!rot.steps) return { id: null, next: null };
+    this._rotClock += dt;
+    for (let guard = 0; guard < rot.steps.length * 2 + 2; guard++) {
+      const step = rot.steps[rot.idx];
+      const dur = rot.phase === "screen" ? Number(step.seconds) : Number(rot.face ?? 20);
+      if (this._rotClock - rot.t0 < dur) break;
+      rot.t0 += dur;
+      if (rot.phase === "screen") rot.phase = "face";
+      else { rot.phase = "screen"; rot.idx = (rot.idx + 1) % rot.steps.length; }
+    }
+    const step = rot.steps[rot.idx], after = rot.steps[(rot.idx + 1) % rot.steps.length];
+    return rot.phase === "screen" ? { id: step.screen, next: null } : { id: null, next: after.screen };
+  }
+
+  _transitionStyle() {
+    const c = this._config;
+    let style = c.transition || this._rot?.transition || "fade";
+    if (style === "random") style = I.STYLES[Math.floor(Math.random() * I.STYLES.length)];
+    return I.STYLES.includes(style) ? style : "fade";
+  }
+
+  // Decide what is on show at `t` and build the draw description for it, or null
+  // when it is Alfie alone (the common, free case).
+  _presentation(t, dt) {
+    if (this._config.mode === "companion" && !this._scene?.screen && !this._cur) return null;
+    const want = this._wanted(dt);
+    if (t - this._lastWant > 1 && this._hass) {
+      this._lastWant = t;
+      if (want.id) this._ensureData(want.id);
+      if (want.next) this._ensureData(want.next);
+    }
+    let cur = this._cur;
+    if (cur && cur.tOut == null && want.id !== cur.id) {
+      if (want.id) cur = this._cur = { id: want.id, tIn: t - 99, tOut: null, style: cur.style };   // screen to screen: cut
+      else cur.tOut = t;
+    }
+    if (!cur && want.id) cur = this._cur = { id: want.id, tIn: t, tOut: null, style: this._transitionStyle() };
+    if (!cur) return null;
+    const c = this._config, corner = c.present === "corner";
+    const durS = I.SECONDS[cur.style] ?? 0.6, durM = corner ? CORNER_SECONDS : 0;
+    const leaving = cur.tOut != null;
+    const age = t - (leaving ? cur.tOut : cur.tIn);
+    if (leaving && age >= Math.max(durS, durM)) { this._cur = null; return null; }
+    const uS = durS ? clamp(age / durS, 0, 1) : 1, uM = durM ? clamp(age / durM, 0, 1) : 1;
+    const p = I.presence(cur.style, uS, leaving);
+    const k = corner ? (leaving ? 1 - F.spring(uM) : F.spring(uM)) : 0;
+    return this._describe(cur.id, cur.style, p, leaving, k, t);
+  }
+
+  _describe(id, style, p, leaving, k, t) {
+    const c = this._config, corner = c.present === "corner";
+    const screen = this._screenIndex.get(id);
+    let faceAlpha = 1;
+    if (!corner) faceAlpha = I.apply(style, 1 - clamp(p, 0, 1), false, [], null).alpha;
+    return {
+      present: c.present, corner: c.corner, size: c.corner_size, k, faceAlpha,
+      alpha: I.apply(style, p, leaving, [], null).alpha,
+      strokes: (hw, hh) => this._screenStrokes(screen, hw, hh, t, style, p, leaving),
+    };
+  }
+
+  // The strokes for a screen in a box, never throwing: a module that fails
+  // gets its title drawn instead and a single log line.
+  _screenStrokes(screen, hw, hh, tCard, style, p, leaving) {
+    const box = { w: hw, h: hh };
+    let strokes = null;
+    const d = this._data.get(screen.id);
+    const mod = screen.__mod;
+    if (!mod && !this._bad.has(screen.id) && !screen.__loading) {
+      screen.__loading = true;
+      Promise.all([S.fontReady() ? 0 : S.loadFont(), S.loadScreen(screen.type)]).then(([, m]) => { screen.__mod = m; })
+        .catch((e) => this._fail(screen, e)).finally(() => { screen.__loading = false; });
+    }
+    if (mod && !this._bad.has(screen.id) && S.fontReady()) {
+      try {
+        if (!this._memo.has(screen.id)) this._memo.set(screen.id, {});
+        strokes = mod.draw({
+          w: hw, h: hh, t: Date.now() / 1000, data: d?.data ?? null,
+          options: this._withDefaults(screen), states: this._hass?.states ?? {}, config: this._hass?.config ?? {},
+          memo: this._memo.get(screen.id), S,
+        });
+      } catch (e) {
+        this._fail(screen, e);
+      }
+    }
+    if (!strokes) strokes = S.fontReady() ? this._titleStrokes(screen, hw, hh) : [];
+    return I.apply(style, p, leaving, strokes, box).strokes;
+  }
+
+  _fail(screen, e) {
+    if (this._bad.has(screen.id)) return;
+    this._bad.add(screen.id);
+    console.warn(`alfie: screen "${screen.id}" (${screen.type}) failed`, e);
+  }
+
+  _titleStrokes(screen, hw, hh) {
+    const words = S.title(screen.title || screen.type || "");
+    const ht = Math.min(0.3, hh * 0.5);
+    return S.wrap(words, (2 * hw * 0.9) / ht).flatMap((l, i, a) => S.text(l, ht, 0, ((a.length - 1) / 2 - i) * 1.6 * ht, { role: "dim" }));
+  }
+
+  _withDefaults(screen) {
+    const type = this._typeOf(screen);
+    return withDefaults(type, screen.options);
   }
 
   // For the panel's live preview: play an animation on this card only (the
@@ -509,6 +823,42 @@ class AlfieCard extends HTMLElement {
     this._stillFrame = this._frame(0, { pose, parts, channels, noBreath: true, noBlink: true });
     this._resize();
     this._draw(this._stillFrame);
+  }
+
+  // For tests and the dev harness: one still frame of a screen with Alfie, no
+  // clock, no HA. {type, options, typeInfo (the type's JSON, for defaults), data,
+  // t (epoch s), present, corner, u (0..1, how far the screen has arrived),
+  // expression}. Uses the fade transition.
+  async renderScreenStill({ type, options = {}, typeInfo = null, data = null, t = 0, present = this._config.present,
+    corner = this._config.corner, u = 1, expression = "neutral", title = null } = {}) {
+    const face = await loadFace();
+    await S.loadFont();
+    const mod = await S.loadScreen(type);
+    this._still = true;
+    this._running = false;
+    this._face = new FaceState();
+    const p = this._personality(face);
+    this._face.energy = this._face.energyTarget = Math.max(0.05, 0.8 + p.energy_bias);
+    this._applyExpression(face, expression, 0);
+    this._stillFrame = this._frame(0, { pose: this._face.target, parts: this._face.targetParts, channels: {}, noBreath: true, noBlink: true });
+    const opts = withDefaults(typeInfo, options);
+    const pres = I.presence("fade", u, false);
+    const k = present === "corner" ? F.spring(u) : 0;
+    this._config = { ...this._config, present, corner };
+    this._stillScr = {
+      present, corner, size: this._config.corner_size, k,
+      faceAlpha: present === "corner" ? 1 : 1 - pres, alpha: pres,
+      strokes: (hw, hh) => {
+        try {
+          return mod.draw({ w: hw, h: hh, t, data, options: opts, states: {}, config: {}, memo: {}, S });
+        } catch (e) {
+          console.error(e);
+          return this._titleStrokes({ title: title || type }, hw, hh);
+        }
+      },
+    };
+    this._resize();
+    this._draw(this._stillFrame, this._stillScr);
   }
 }
 

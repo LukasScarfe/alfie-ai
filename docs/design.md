@@ -161,6 +161,17 @@ A personality is six sliders plus a named preset. Alfie has one; a card may over
   - **Behaviour**: sleep entity and expression, the motion gaze map, notice and idle fidgets,
     idle interval, motion debounce, celebrate, and the critical/recover/wake reactions.
   - **Personality**: preset and the six sliders.
+  - **Screens** (M3): build screens from each type's schema, plus the named rotations.
+  - **Look** (M3, decided): Alfie's global default look: style, colours, line width, glow, eye
+    fill, padding, and the head and eye shapes (type plus parameter sliders). It's stored as a
+    `look` section and sent to every card. Precedence is the card's own option, then the global
+    look, then the style's default.
+  - **Playground** (M3, decided): a big live face with a button per expression and animation, a
+    mood-level picker, and energy and personality sliders. It plays on the panel only, with an
+    optional "play on every display" that uses the services.
+- **Card visual editor** (M3, decided): `custom:alfie-card` has a Lovelace visual editor for
+  every option, grouped (look, display mode and rotation, presenting, personality, advanced), so
+  no card needs YAML.
 - **Live preview:** edits are sent to `alfie/config/preview`, which validates and evaluates the
   draft without saving or touching the running engine. It shows the resulting mood, the active
   signals and each pattern's matches.
