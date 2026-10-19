@@ -32,12 +32,23 @@ function placeholder({ w, h, options, S }) {
   return S.text(word, ht, 0, 0);
 }
 
-function build({ w, h, data, options: o, S }) {
+// Each series' live value, from the states the card already has: history is
+// cached for a while, but the line's end and its readout should say what it is now.
+function liveOf(rows, states, S) {
+  return rows.map((r) => (r.entity_id && states?.[r.entity_id] ? S.number(states[r.entity_id].state) : null));
+}
+
+function build({ w, h, data, options: o, states, S }) {
   const rows = Array.isArray(data?.series) ? data.series.slice(0, 6) : null;
   if (!rows || !rows.length) return placeholder({ w, h, options: o, S });
   const n = rows.length;
   const labels = list(o.labels), marks = list(o.markers), styles = list(o.styles);
-  const vals = rows.map((r) => S.series(r.values, o.buckets));
+  const live = liveOf(rows, states, S);
+  const vals = rows.map((r, i) => {
+    const v = S.series(r.values, o.buckets);
+    if (live[i] !== null && v.length) v[v.length - 1] = live[i];
+    return v;
+  });
   const names = rows.map((r, i) => S.title(labels[i] || r.name || r.entity_id || ""));
   const kinds = rows.map((_, i) => {
     const m = (marks[i] || MARKERS[i % 3]).toLowerCase();
@@ -114,9 +125,10 @@ function build({ w, h, data, options: o, S }) {
 export default {
   type: "plot",
   draw(ctx) {
-    const { w, h, data, options, memo } = ctx;
+    const { w, h, data, options, states, memo, S } = ctx;
     // The card hands over a fresh options object each frame, so compare by value.
-    const key = JSON.stringify(options);
+    const rows = Array.isArray(data?.series) ? data.series.slice(0, 6) : [];
+    const key = JSON.stringify(options) + JSON.stringify(liveOf(rows, states, S));
     if (memo.data !== data || memo.key !== key || memo.w !== w || memo.h !== h || !memo.out) {
       Object.assign(memo, { data, key, w, h, out: build(ctx) });
     }
