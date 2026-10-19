@@ -5,6 +5,10 @@ __pycache__/
 .venv/
 .pytest_cache/
 node_modules/
-dev/config/
 *.log
 .DS_Store
+
+# Dev Home Assistant runtime (throwaway instance state, never committed)
+devenv/config/*
+!devenv/config/configuration.yaml
+devenv/out/

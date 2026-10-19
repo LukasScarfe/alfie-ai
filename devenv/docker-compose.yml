@@ -1,0 +1,17 @@
+# Throwaway Home Assistant instance for developing Alfie.
+# NOT a production stack: lives in this repo, not in LukasScarfe/containers.
+# The integration is bind-mounted from the checkout, so Python edits load on a
+# restart and card edits on a hard refresh. Use ./dev rather than calling this
+# directly. State under ./config is gitignored apart from configuration.yaml.
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: alfie-dev-ha
+    restart: unless-stopped
+    ports:
+      - "8125:8123"          # 8124 is sun-beams-dev-ha
+    environment:
+      - TZ=America/Vancouver
+    volumes:
+      - ./config:/config
+      - ../custom_components/alfie:/config/custom_components/alfie:ro
