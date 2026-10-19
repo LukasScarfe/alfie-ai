@@ -1,0 +1,15 @@
+{"type": "text", "title": "Text", "needs": "calendar",
+ "options": [
+   {"key": "source", "kind": "choice", "label": "Source", "default": "calendar", "choices": ["calendar", "entity", "fixed"]},
+   {"key": "calendars", "kind": "entities", "label": "Calendars (source: calendar)", "domain": ["calendar"]},
+   {"key": "days", "kind": "number", "label": "Days ahead, 1 = today only", "default": 1, "min": 1, "max": 14},
+   {"key": "events", "kind": "choice", "label": "Events", "default": "all", "choices": ["all", "all_day"]},
+   {"key": "entity", "kind": "entity", "label": "Entity (source: entity)"},
+   {"key": "attribute", "kind": "text", "label": "Attribute (empty = the state)", "default": ""},
+   {"key": "fixed", "kind": "text", "label": "Text (source: fixed; separate several with |)", "default": ""},
+   {"key": "template", "kind": "text", "label": "Template, {name} is the title", "default": "{name}"},
+   {"key": "seconds", "kind": "number", "label": "Seconds per title", "default": 6, "min": 2, "max": 600},
+   {"key": "max_lines", "kind": "number", "label": "Maximum lines", "default": 4, "min": 1, "max": 8},
+   {"key": "size", "kind": "number", "label": "Largest text size", "default": 0.3, "min": 0.05, "max": 1},
+   {"key": "empty", "kind": "text", "label": "When there is nothing to show", "default": "--"}
+ ]}

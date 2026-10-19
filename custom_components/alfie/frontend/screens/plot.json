@@ -1,0 +1,20 @@
+{"type": "plot", "title": "Plot", "needs": "history",
+ "options": [
+   {"key": "entities", "kind": "entities", "label": "Series (1 to 6 sensors)", "required": true, "domain": ["sensor", "input_number", "number", "counter"]},
+   {"key": "title", "kind": "text", "label": "Title", "default": ""},
+   {"key": "labels", "kind": "text", "label": "Series labels, comma separated (default: friendly names)", "default": ""},
+   {"key": "markers", "kind": "text", "label": "Series markers, comma separated: ring, diamond, square, house, sun, none", "default": "ring, diamond, square"},
+   {"key": "styles", "kind": "text", "label": "Series lines, comma separated: solid or dotted", "default": "solid"},
+   {"key": "hours", "kind": "number", "label": "Span (hours)", "default": 72, "min": 1, "max": 2160},
+   {"key": "buckets", "kind": "number", "label": "Points per series", "default": 36, "min": 4, "max": 60},
+   {"key": "range", "kind": "choice", "label": "Value range", "default": "auto", "choices": ["auto", "fixed", "reach"]},
+   {"key": "y_min", "kind": "number", "label": "Range minimum (fixed, or always reached)", "default": 0, "min": -100000, "max": 100000},
+   {"key": "y_max", "kind": "number", "label": "Range maximum (fixed, or always reached)", "default": 100, "min": -100000, "max": 100000},
+   {"key": "min_span", "kind": "number", "label": "Smallest auto range", "default": 4, "min": 0.01, "max": 100000},
+   {"key": "unit", "kind": "text", "label": "Unit (default: the sensor's)", "default": ""},
+   {"key": "decimals", "kind": "number", "label": "Decimals", "default": 0, "min": 0, "max": 3},
+   {"key": "axis", "kind": "bool", "label": "Value axis and ticks", "default": true},
+   {"key": "ticks", "kind": "number", "label": "Most ticks on the axis", "default": 3, "min": 2, "max": 6},
+   {"key": "now", "kind": "bool", "label": "Latest values at the right", "default": true},
+   {"key": "legend", "kind": "bool", "label": "Series labels beside the values", "default": false}
+ ]}

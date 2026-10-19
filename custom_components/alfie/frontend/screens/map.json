@@ -1,0 +1,10 @@
+{"type": "map", "title": "Map", "needs": "streets",
+ "options": [
+   {"key": "trackers", "kind": "entities", "label": "Trackers", "domain": ["device_tracker", "person"]},
+   {"key": "radius", "kind": "number", "label": "Radius in metres (0 = automatic)", "default": 0, "min": 0, "max": 500},
+   {"key": "labels", "kind": "bool", "label": "Initial letters in the markers", "default": true},
+   {"key": "show_home", "kind": "bool", "label": "Show the house at home", "default": true},
+   {"key": "title", "kind": "text", "label": "Title", "default": ""},
+   {"key": "allow_network", "kind": "bool", "label": "Fetch streets from the internet (sends a position rounded to about 100 m to the Overpass service)", "default": false},
+   {"key": "endpoint", "kind": "text", "label": "Overpass endpoint", "default": "https://overpass-api.de/api/interpreter"}
+ ]}

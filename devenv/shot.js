@@ -44,7 +44,14 @@ function arg(name, def) {
     }, tokens);
   }
 
-  await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
+  // A busy page (many live cards) may never go network-idle; settle for a
+  // loaded DOM after a while rather than failing the shot.
+  try {
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
+  } catch (e) {
+    if (e.name !== "TimeoutError") throw e;
+    console.error("[shot] not network-idle after 30 s; shooting anyway");
+  }
   const js = arg("--eval");
   if (js) await page.evaluate(js);
   await new Promise((r) => setTimeout(r, Number(arg("--wait", "1500"))));
