@@ -58,6 +58,63 @@ IDLE_FIDGETS = ("squint", "eye_roll", "scan", "glance_left", "glance_right", "si
                 "look_around")
 IDLE_INTERVAL = 180.0           # seconds between fidgets at content energy
 
-# Mood transitions that play an animation (from level -> to level; "*" any).
+# Stories and the triggers that play them (see stories.py, triggers.py). They
+# reproduce M1's reactions (a startle when something turns critical, a nod
+# when something is fixed, wake_up on waking) and add design.md's mood-change
+# and bad-news stories. One change plays one story, the highest priority.
 ON_CRITICAL = "startle"
 ON_RECOVER = "nod"
+ON_WAKE = "wake_up"
+
+
+def _morph() -> list[dict]:
+    """The visible mood change: the old mood's face, then a slow blend to the new."""
+    return [{"kind": "expression", "name": "@old_mood", "hold": 1, "blend": 0},
+            {"kind": "expression", "name": "@mood", "hold": 1.5, "blend": 1.5}]
+
+
+def _screen(which: str) -> dict:
+    return {"kind": "screen", "screen": which, "seconds": 12, "present": "card",
+            "transition": ""}
+
+
+def _anim(name: str) -> dict:
+    return {"kind": "animation", "name": name, "wait": True}
+
+
+TEMPLATE = {"expression": "", "animation": "", "screen": "@why", "seconds": 15,
+            "present": "card", "transition": "", "closing": ""}
+
+STORIES: tuple[dict, ...] = (
+    {"id": "alarm", "name": "Alarm", "mode": "steps", "template": dict(TEMPLATE),
+     "steps": [_anim(ON_CRITICAL), _screen("@wrong"), _anim("shake")]},
+    {"id": "bad_news", "name": "Bad news", "mode": "steps", "template": dict(TEMPLATE),
+     "steps": [*_morph(), _screen("@wrong"), _anim("shake")]},
+    {"id": "mood_change", "name": "Mood change", "mode": "steps", "template": dict(TEMPLATE),
+     "steps": [*_morph(), _screen("@why"), _anim("nod")]},
+    {"id": "celebrate", "name": "Celebrate the fix", "mode": "steps",
+     "template": dict(TEMPLATE),
+     "steps": [{"kind": "expression", "name": "happy", "hold": 0.5, "blend": 0},
+               _anim(ON_RECOVER), _anim("laugh"), {"kind": "wait", "seconds": 1.5}]},
+    {"id": "wake_up", "name": "Wake up", "mode": "template",
+     "template": {**TEMPLATE, "animation": ON_WAKE, "screen": ""}, "steps": []},
+)
+
+
+def _trigger(tid: str, name: str, kind: str, story: str, priority: int, **fields) -> dict:
+    return {"id": tid, "name": name, "enabled": True, "kind": kind, "story": story,
+            "priority": priority, "busy": "auto", "cooldown": 0, "while_asleep": False,
+            "moods": [], **fields}
+
+
+TRIGGERS: tuple[dict, ...] = (
+    _trigger("critical", "Something turns critical", "mood", "alarm", 90,
+             direction="worse", **{"from": [], "to": ["miserable"]}),
+    _trigger("mood_worse", "Mood gets worse", "mood", "bad_news", 50,
+             direction="worse", **{"from": [], "to": []}),
+    _trigger("fixed", "Something bad is fixed", "signal", "celebrate", 45,
+             signals=[], edge="recovers"),
+    _trigger("mood_better", "Mood gets better", "mood", "mood_change", 40,
+             direction="better", **{"from": [], "to": []}),
+    _trigger("wake", "Waking up", "wake", "wake_up", 30, edge="wakes"),
+)
