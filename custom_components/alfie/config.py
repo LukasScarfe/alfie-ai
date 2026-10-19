@@ -1,11 +1,12 @@
 """Alfie's whole user configuration as one plain dict, kept in HA's Store.
 
-PURE (no HA import), so the tests run under plain python. Six sections:
+PURE (no HA import), so the tests run under plain python. Seven sections:
 
   signals      the good and bad signals (see signals.py)
   mood         how they combine into a level, and each level's look
   behaviour    sleep, the motion gaze map, fidgets and the reaction animations
   personality  a preset plus the motion sliders it fills in
+  look         Alfie's global default look: style, colours, widths, shapes
   screens      the user's screens: a type plus its options (screen_types.py)
   rotations    ordered lists of screens with seconds each
 
@@ -40,7 +41,10 @@ from .mood import (
 from .signals import OPERATORS, SEVERITIES, Signal
 
 CONFIG_VERSION = 1
-SECTIONS = ("signals", "mood", "behaviour", "personality", "screens", "rotations")
+SECTIONS = ("signals", "mood", "behaviour", "personality", "look", "screens", "rotations")
+STYLES = ("neon", "flat", "crt", "theme")     # the card's render styles
+SHAPE_TYPES = ("circle", "polygon", "star", "superellipse", "path")
+SHAPE_SLOTS = ("head", "eye", "left_eye", "right_eye")
 STEP_SECONDS = (3.0, 3600.0)     # how long a rotation step may show its screen
 DEFAULT_TRANSITION = "fade"
 
@@ -91,6 +95,14 @@ def personality_values(name: str, face: Mapping[str, Any] | None = None) -> dict
     return {**base, **{k: float(v) for k, v in presets.get(name, {}).items() if k in base}}
 
 
+def default_look() -> dict[str, Any]:
+    """The card's own defaults, so an untouched look changes nothing."""
+    return {"style": "neon", "face_color": "", "eye_color": "", "background": "",
+            "text_color": "", "accent_color": "", "line_width": 0.035,
+            "screen_line_width": 0.02, "glow": None, "eye_fill": False, "padding": 0.08,
+            "shapes": {"head": {"type": "circle"}, "eye": {"type": "circle"}}}
+
+
 def default_config() -> dict[str, Any]:
     return {
         "version": CONFIG_VERSION,
@@ -118,6 +130,7 @@ def default_config() -> dict[str, Any]:
             "on_wake": "wake_up",
         },
         "personality": {"preset": "bubbly", **personality_values("bubbly")},
+        "look": default_look(),
         "screens": [],        # Alfie ships none: the user builds them
         "rotations": [],
     }
@@ -321,6 +334,103 @@ def _personality(raw: Mapping[str, Any], face: Mapping[str, Any], ck: _Check) ->
                for k, (d, lo, hi) in PERSONALITY.items()}}
 
 
+_VAR = r"var\(--[A-Za-z0-9_-]+(?:\s*,[^()]*)?\)"
+
+
+def _colour(where: str, v: Any, ck: _Check) -> str:
+    """A CSS colour for the look: "" (from the style), #hex or var(--x)."""
+    from .screen_types import _COLOR   # lazy: screen_types imports this module
+    if v is None:
+        return ""
+    if not isinstance(v, str):
+        ck.bad(where, "must be text")
+        return ""
+    v = v.strip()
+    if v and not _COLOR.match(v) and not re.fullmatch(_VAR, v):
+        ck.bad(where, "must be a colour like #ffcc00 or var(--primary-color)")
+        return ""
+    return v
+
+
+def _shape(where: str, raw: Any, ck: _Check) -> dict[str, Any]:
+    """A shape spec checked for type and ranges; unknown keys are dropped and
+    only the keys given are kept (the face file supplies the rest)."""
+    if not isinstance(raw, Mapping):
+        ck.bad(where, "must be a mapping")
+        return {"type": "circle"}
+    typ = ck.choice(f"{where} type", raw.get("type", "circle"), SHAPE_TYPES, "circle")
+    out: dict[str, Any] = {"type": typ}
+
+    def num(key: str, lo: float, hi: float, integer: bool = False) -> None:
+        if raw.get(key) is None:
+            return
+        x = ck.number(f"{where} {key}", raw[key], lo, hi, lo)
+        out[key] = int(round(x)) if integer else _num(x)
+
+    if typ == "polygon":
+        num("sides", 3, 12, True)
+        num("roundness", 0, 1)
+    elif typ == "star":
+        num("points", 2, 12, True)
+        num("inner", 0.05, 1)
+        num("roundness", 0, 1)
+    elif typ == "superellipse":
+        num("n", 0.2, 10)
+    elif typ == "path":
+        pts = raw.get("points")
+        good = isinstance(pts, list) and 3 <= len(pts) <= 200 and all(
+            isinstance(q, (list, tuple)) and len(q) == 2
+            and all(isinstance(c, (int, float)) and not isinstance(c, bool) and -1 <= c <= 1
+                    for c in q) for q in pts)
+        if good:
+            out["points"] = [[_num(q[0]), _num(q[1])] for q in pts]
+        else:
+            ck.bad(f"{where} points", "needs 3 to 200 [x, y] points, each between -1 and 1")
+            out["points"] = [[1, 0], [-1, 1], [-1, -1]]
+        num("roundness", 0, 1)
+    num("rotation", -360, 360)
+    st = raw.get("stretch")
+    if st is not None:
+        if isinstance(st, (list, tuple)) and len(st) == 2:
+            out["stretch"] = [_num(ck.number(f"{where} stretch", c, 0.3, 3, 1.0)) for c in st]
+        else:
+            ck.bad(f"{where} stretch", "must be [x, y]")
+    return out
+
+
+def _look(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str, Any]:
+    got = raw.get("look")
+    lk = {**base, **got} if isinstance(got, Mapping) else dict(base)
+    glow = lk.get("glow")
+    shapes_in = lk.get("shapes") if isinstance(lk.get("shapes"), Mapping) else base["shapes"]
+    shapes = {}
+    for slot in SHAPE_SLOTS:
+        if slot in shapes_in:
+            shapes[slot] = _shape(f"look shape {slot}", shapes_in[slot], ck)
+        elif slot in base["shapes"]:
+            shapes[slot] = dict(base["shapes"][slot])
+    for slot in shapes_in:
+        if slot not in SHAPE_SLOTS:
+            ck.bad("look shapes", f"unknown shape {slot!r}")
+    bg = lk.get("background")
+    return {
+        "style": ck.choice("look style", lk.get("style"), STYLES, "neon"),
+        "face_color": _colour("look face colour", lk.get("face_color"), ck),
+        "eye_color": _colour("look eye colour", lk.get("eye_color"), ck),
+        "background": "" if bg == "none" else _colour("look background", bg, ck),
+        "text_color": _colour("look text colour", lk.get("text_color"), ck),
+        "accent_color": _colour("look accent colour", lk.get("accent_color"), ck),
+        "line_width": ck.number("look line width", lk.get("line_width"), 0.005, 0.2,
+                                base["line_width"]),
+        "screen_line_width": ck.number("look screen line width", lk.get("screen_line_width"),
+                                       0.003, 0.1, base["screen_line_width"]),
+        "glow": None if glow in (None, "") else ck.number("look glow", glow, 0, 2, 0.0),
+        "eye_fill": bool(lk.get("eye_fill")),
+        "padding": ck.number("look padding", lk.get("padding"), 0, 0.45, base["padding"]),
+        "shapes": shapes,
+    }
+
+
 def _num(x: float) -> int | float:
     """Whole numbers as ints, so the stored JSON reads 20, not 20.0."""
     return int(x) if float(x).is_integer() else x
@@ -422,6 +532,7 @@ def validate(raw: Any, face: Mapping[str, Any],
         "mood": _mood(raw, base["mood"], expressions, ck),
         "behaviour": _behaviour(raw, base["behaviour"], expressions, animations, ck),
         "personality": _personality(raw, face, ck),
+        "look": _look(raw, base["look"], ck),
     }
     cfg["screens"] = _screens(raw.get("screens", base["screens"]), types or {}, ck)
     cfg["rotations"] = _rotations(raw.get("rotations", base["rotations"]),

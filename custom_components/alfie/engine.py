@@ -435,6 +435,7 @@ class AlfieEngine:
             "mode": self.mode,
             "personality": {"preset": self.config.get("personality", {}).get("preset"),
                             **self.personality},
+            "look": self.config.get("look") or {},
             "signals": signals,
             "reason": "Asleep." if self.asleep else (m.reason if m else ""),
             "story": None,
