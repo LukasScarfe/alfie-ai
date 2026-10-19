@@ -548,11 +548,21 @@ keeps the DAC, the planner, the wiring correction, music and its own screens.
   - x is scaled by aspect, then the frame to 0.95.
   - After 3 s without a frame it shows a struck-through ring.
   - `GET /api/status` reports `alfie {age, strokes}`.
-  - Keep `ordered` true: a re-solved tour costs about 125 ms a frame.
+  - Keep `ordered` true: a re-solved tour costs about 125 ms a frame. xy-bench then only picks
+    each stroke's direction and each loop's entry.
   - `w` is *relative*: each stroke's share of the frame's samples. So a whole-picture fade does
     not dim the scope; only one part against another does.
-- **Cost:** 30 fps (the default; keep fps a divisor of 60) is about a third of a core and
-  ~210 MB on raccoon.
+- **The beam's tour is the card's job** (`vector_order: tour`, the default; `drawn` sends strokes
+  as painted). An X-Y scope can't blank, so every jump between strokes is a drawn line that
+  also takes samples from the strokes. `alfie-stage.js` `tourStrokes` orders each frame as a
+  short closed tour (greedy walks from several starts, then 2-opt; open strokes turned, loops
+  re-started at the vertex nearest their neighbours). It matches xy-bench's own full solve within
+  a few percent in about 1 ms, and on Lukas's screens it halves the jumps (stars 9.3 → 4.0).
+  The order is kept while the frame's strokes stay the same kind and it stays within 15% of a
+  fresh solve (re-checked every 15 frames), so moving parts don't make the jumps flicker.
+- **60 fps** (the sidecar's default; keep fps a divisor of 60, Chromium's frame clock). xy-bench
+  plays 50 to 60 frames a second, so 30 showed each frame twice and judders. Lukas wants 50 at
+  least. 30 cost about a third of a core and ~210 MB on raccoon; 60 is about twice the CPU.
 
 ## Non-goals (for now)
 

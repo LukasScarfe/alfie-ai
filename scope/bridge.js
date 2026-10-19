@@ -18,7 +18,7 @@ const HA_URL = env("HA_URL", "").replace(/\/+$/, "");
 const HA_TOKEN = env("HA_TOKEN", "");
 const XYBENCH_URL = env("XYBENCH_URL", "").replace(/\/+$/, "");
 const XYBENCH_TOKEN = env("XYBENCH_TOKEN", "");
-const FPS = Number(env("FPS", "30"));
+const FPS = Number(env("FPS", "60"));
 const ASPECT = Number(env("ASPECT", "1"));
 const ORDERED = env("ORDERED", "true") !== "false";
 const CARD = JSON.parse(env("ALFIE_CARD", "{}"));
@@ -65,9 +65,11 @@ function send() {
     headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body),
                ...(XYBENCH_TOKEN ? { Authorization: `Bearer ${XYBENCH_TOKEN}` } : {}) },
   }, (res) => {
-    res.resume();
+    let reply = "";
+    res.on("data", (b) => { if (reply.length < 300) reply += b; });
     res.on("end", () => {
-      if (res.statusCode >= 300) { failed++; lastError = `HTTP ${res.statusCode}`; } else sent++;
+      // xy-bench says why it refused a frame ({"error": ...}); the status line shows the last one.
+      if (res.statusCode >= 300) { failed++; lastError = `HTTP ${res.statusCode} ${reply.trim()}`.trim(); } else sent++;
       inflight = false;
       send();
     });

@@ -10,6 +10,7 @@ function eq(a, b, what) {
     console.error(`FAIL ${what}\n  got  ${JSON.stringify(a)}\n  want ${JSON.stringify(b)}`);
   }
 }
+function ok(v, what) { eq(!!v, true, what); }
 function near(a, b, what, tol = 1e-6) {
   checks++;
   if (Math.abs(a - b) > tol) { failures++; console.error(`FAIL ${what}: got ${a}, want ${b}`); }
@@ -197,6 +198,39 @@ const spec = { steps: [{ screen: "a", seconds: 10 }, { screen: "b", seconds: 5 }
   eq(G.vectorStroke([[10, 10], [10, 10]], true, 1, 100, 100), { p: [[-0.8, 0.8]], c: false, w: 1 }, "a dot is never closed");
   eq(G.vectorStroke([[10, 10]], false, 0.001, 100, 100), null, "too faint to send");
   eq(G.vectorStroke([[100 / 3, 0]], false, 1, 100, 100).p, [[-0.333, 1]], "rounded to 3 decimals");
+}
+
+// Non-finite points are dropped, not sent: xy-bench refuses a frame with one.
+eq(G.vectorStroke([[0, 0], [NaN, 5], [100, 100]], false, 1, 100, 100).p, [[-1, 1], [1, -1]], "a NaN point dropped");
+eq(G.vectorStroke([[NaN, 0]], false, 1, 100, 100), null, "nothing left to send");
+
+// The scope's tour: short jumps, open strokes turned, loops re-started, kept steady.
+{
+  const jumps = (st) => st.reduce((j, a, k) => {
+    const b = st[(k + 1) % st.length];
+    return j + Math.hypot(...[0, 1].map((i) => (a.c ? a.p[0] : a.p[a.p.length - 1])[i] - b.p[0][i]));
+  }, 0);
+  const line = (x0, x1, y) => ({ p: [[x0, y], [x1, y]], c: false, w: 1 });
+  // Four rungs drawn in a bad order, every other one backwards.
+  const rungs = [line(-1, 1, 0.9), line(-1, 1, -0.9), line(1, -1, 0.3), line(1, -1, -0.3)];
+  const t = G.tourStrokes(rungs);
+  ok(jumps(t.strokes) < jumps(rungs) * 0.75, "rungs toured shorter");
+  eq(t.strokes.length, 4, "every stroke kept");
+  eq(t.strokes.map((s) => s.p[0][1]).sort((a, b) => a - b), [-0.9, -0.3, 0.3, 0.9], "each rung once");
+  ok(t.strokes.every((s, k) => k === 0 || Math.abs(s.p[0][0] - t.strokes[k - 1].p[1][0]) < 1e-9),
+     "a zigzag: each rung starts where the last one ended");
+  // A loop is entered at its vertex nearest the beam.
+  const ring = { p: Array.from({ length: 12 }, (_, i) => [Math.cos(i * Math.PI / 6) * 0.2, Math.sin(i * Math.PI / 6) * 0.2]), c: true, w: 1 };
+  const r = G.tourStrokes([line(-1, -0.5, 0), ring, line(0.5, 1, 0)]).strokes.find((s) => s.c);
+  ok(Math.abs(Math.abs(r.p[0][0]) - 0.2) < 1e-9 && Math.abs(r.p[0][1]) < 1e-9, "the ring entered at a side, not anywhere");
+  // The same kind of frame keeps its order while it stays good.
+  const moved = rungs.map((s) => ({ ...s, p: s.p.map(([x, y]) => [x, y + 0.01]) }));
+  const again = G.tourStrokes(moved, t.plan);
+  eq(again.plan.order, t.plan.order, "a nudged frame keeps the order");
+  eq(G.tourStrokes(moved, { ...t.plan, age: 99 }).plan.order, t.plan.order, "and still does when re-checked");
+  ok(G.tourStrokes(rungs.slice(0, 3), t.plan).plan.order.length === 3, "a new kind of frame is solved afresh");
+  eq(G.tourStrokes([]).strokes, [], "no strokes");
+  eq(G.tourStrokes([ring]).strokes, [ring], "one stroke untouched");
 }
 
 console.log(`stage: ${checks - failures}/${checks} checks passed`);

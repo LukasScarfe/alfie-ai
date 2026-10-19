@@ -11,13 +11,24 @@
 - **5⅞ (Oscilloscope):** A to D are done; the sidecar runs on Numbat. E (Lukas on the CRT) is
   open.
 
-Version 0.8.2.
+Version 0.8.3.
+
+**Latest (0.8.3): the scope's beam tour and 60 fps.** Lukas disliked the screens on the scope
+(long jumps between strokes) and found 30 fps nauseating (50 at least).
+- `alfie-stage.js` `tourStrokes` orders the vector feed as a short tour; the card's
+  `vector_order` (`tour` default, `drawn`) and `this._tour` (the kept plan). design.md
+  "Oscilloscope" has the numbers. Measured on one frame of each production screen (captured with
+  dry-run sidecars against production) through a copy of xy-bench's planner.
+- The sidecar's default FPS is 60; Numbat's `.env` is set to `FPS=60`.
+- `vectorStroke` drops non-finite points. The live sidecar was logging HTTP 400s from xy-bench
+  (a few a minute, cause unseen); the status line now shows xy-bench's reason, so check
+  `docker compose logs` on Numbat for it.
 
 **Development now happens on production HA** (Lukas, 2026-10-19). Push, then `./dev prod
 deploy` (HACS refresh, install, restart, wait); `./dev prod get` / `./dev prod ws` read it.
 `devenv/prodtool.py` is a stdlib WebSocket client. The dev HA is still there for screenshots.
 
-**Latest (0.8.2): Alfie on the oscilloscope.** design.md "Oscilloscope" has the design.
+**Before that (0.8.2): Alfie on the oscilloscope.** design.md "Oscilloscope" has the design.
 - **The card:** `vector_out` / `paint` (`_tap` at the head, eyes and `_drawStrokes`;
   `G.vectorStroke`; `NO_PAINT` is a no-op 2D context). The harness has `vec=1` (feed under each
   card) and `vecjson=` (plot a dumped frame).
