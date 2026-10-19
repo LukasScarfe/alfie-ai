@@ -76,7 +76,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] B. Engine: trigger matching and coalescing, the story runner with priority/queue,
         scene `story`, `alfie.play_story` / `stop_story`, `alfie_story` events, WS
         `alfie/story/play` and `alfie/triggers/status`, per-signal repeats; tests.
-  - [ ] C. Card: story interrupts rotation, `place` spring (move/resize), per-step present and
+  - [x] C. Card: story interrupts rotation, `place` spring (move/resize), per-step present and
         transition, rotation `bad_news` and per-signal `in_rotation`; face checks.
   - [ ] D. Panel: Triggers and Stories tabs, Behaviour reactions removed, Signals repeat row,
         play-draft and last-fired status.

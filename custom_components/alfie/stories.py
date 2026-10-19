@@ -27,7 +27,7 @@ from typing import Any
 STEP_KINDS = ("expression", "animation", "screen", "wait", "move", "resize", "speak")
 MOOD_TOKENS = ("@mood", "@old_mood")
 SCREEN_TOKENS = ("@why", "@wrong")
-PRESENTS = ("card", "hand_over", "corner")    # "card": whatever the card is set to
+PRESENTS = ("card", "handover", "corner")     # "card": whatever the card is set to
 # Places on the card as fractions of the room Alfie has to move in, y up.
 PLACES = {"centre": (0.0, 0.0), "top_left": (-1.0, 1.0), "top_right": (1.0, 1.0),
           "bottom_left": (-1.0, -1.0), "bottom_right": (1.0, -1.0)}
