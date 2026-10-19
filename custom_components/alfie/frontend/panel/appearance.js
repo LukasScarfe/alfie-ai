@@ -1,5 +1,7 @@
 // The panel's Appearance section: Look (how Alfie is drawn on every card),
-// Personality (how all his motion feels) and Playground (try him out).
+// Personality (how all his motion feels) and Playground (try him out). They
+// all play on the shell's dock face (p.face); Look and Personality add their
+// extras under it with dock().
 
 const V = new URL(import.meta.url).search;
 const U = await import(`./ui.js${V}`);
@@ -54,7 +56,7 @@ function look(p) {
   const extra = Lk.shapes && (Lk.shapes.left_eye || Lk.shapes.right_eye)
     ? `<p class="muted">A separate left or right eye shape is kept as it is; edit it in YAML.</p>` : "";
   return `${U.intro("How Alfie is drawn on every card. A card's own options (in its editor) still win over these, one by one.")}
-    <div class="split"><div>
+    <div>
       <h3>Style and colour</h3>
       ${U.group("", `${U.field("Style", U.select("look.style", Lk.style, (p.choices.styles || CARD_STYLES).map((s) => [s, STYLE_TEXT[s] || U.human(s)])),
         "Sets the default colours and glow.")}${colors}`)}
@@ -68,16 +70,25 @@ function look(p) {
         ${U.check("look.eye_fill", Lk.eye_fill, "Fill the eyes")}</div>
       <h3>Shapes</h3>${shapes}${extra}
     </div>
-    <div class="live card"><alfie-card id="look"></alfie-card>
-      <div class="minis">${LOOK_EXPRESSIONS.map((e) => `<figure><alfie-card class="lookmini" data-expr="${e}"></alfie-card><figcaption>${U.human(e)}</figcaption></figure>`).join("")}</div>
-      <div class="chips">${LOOK_EXPRESSIONS.map((e) => `<button class="chip pick" data-action="pg" data-pg-kind="look-expr" data-name="${e}">${U.human(e)}</button>`).join("")}
-        <button class="chip pick on" data-action="pg" data-pg-kind="look-expr" data-name="">Follow mood</button></div>
-      <small>Live Alfie with the look as edited here, before you save.</small>
-    </div></div>
+    <style>
+      .shape { margin: 8px 0; display: grid; gap: 10px; }
+    </style>`;
+}
+
+// Under the dock face: Look's four stills and expression picks, and
+// Personality's animations (they play on this page only).
+export function dock(p, sub) {
+  if (sub === "personality") {
+    return `<div class="chips">${PREVIEW_ANIMS.map((a) => `<button class="chip pick" data-action="play" data-name="${a}">${U.human(a)}</button>`).join("")}</div>`;
+  }
+  if (sub !== "look") return "";
+  const pick = pgState(p).lookExpr;
+  return `<div class="minis">${LOOK_EXPRESSIONS.map((e) => `<figure><alfie-card class="lookmini" data-expr="${e}"></alfie-card><figcaption>${U.human(e)}</figcaption></figure>`).join("")}</div>
+    <div class="chips">${LOOK_EXPRESSIONS.map((e) => `<button class="chip pick ${pick === e ? "on" : ""}" data-action="pg" data-pg-kind="look-expr" data-name="${e}">${U.human(e)}</button>`).join("")}
+      <button class="chip pick ${pick ? "" : "on"}" data-action="pg" data-pg-kind="look-expr" data-name="">Follow mood</button></div>
     <style>
       .minis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0; }
       .minis figure { margin: 0; text-align: center; font-size: 12px; color: var(--muted); }
-      .shape { margin: 8px 0; display: grid; gap: 10px; }
     </style>`;
 }
 
@@ -106,11 +117,7 @@ function personality(p) {
       <output>${p.fmt(pr[k])}</output></label>`).join("");
   return `${U.intro("A personality shapes how all his motion feels, in every mood. Pick a preset, or move the sliders for your own.")}
     <div class="presets">${presets}</div>
-    <div class="split"><div class="sliders">${sliders}</div>
-      <div class="live card"><alfie-card id="live"></alfie-card>
-        <div class="chips">${PREVIEW_ANIMS.map((a) => `<button class="chip pick" data-action="play" data-name="${a}">${U.human(a)}</button>`).join("")}</div>
-        <small>Live Alfie with this personality. These buttons play here only.</small>
-      </div></div>
+    <div class="sliders">${sliders}</div>
     <style>
       .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
       .preset { margin: 0; padding: 10px 18px; color: var(--primary-text-color); font-weight: 500; }
@@ -118,15 +125,13 @@ function personality(p) {
     </style>`;
 }
 
-const personalityValues = (p) => Object.fromEntries(Object.keys(p.choices.sliders).map((k) => [k, p.draft.personality[k]]));
-
 // ------------------------------------------------------------ playground
 
 function playground(p) {
   const c = p.choices, pg = pgState(p);
   const chip = (kind, name, t, on) => `<button class="chip pick ${on ? "on" : ""}" data-action="pg" data-pg-kind="${kind}" data-name="${U.esc(name)}">${U.esc(t ?? U.human(name))}</button>`;
   return `${U.intro("Try Alfie out. Everything here plays on this page only, unless you turn on \"Play on every display\". Nothing here is saved.")}
-    <div class="split"><div>
+    <div>
       <h3>Expressions</h3>
       <div class="chips">${chip("expr", "", "Follow mood", pg.expr === "")}${c.expressions.map((e) => chip("expr", e, null, pg.expr === e)).join("")}</div>
       <h3>Animations</h3>
@@ -143,25 +148,30 @@ function playground(p) {
       <label class="check"><input type="checkbox" class="switch" data-pg="everywhere" ${pg.everywhere ? "checked" : ""}>
         <span><b>Play on every display</b><small>Uses the actions: expressions hold for 10 seconds.</small></span></label>
       <div class="row"><button class="flat" data-action="pg" data-pg-kind="reset">Reset everything</button></div>
-    </div>
-    <div class="live card"><alfie-card id="pg"></alfie-card>
-      <small>Live Alfie, following the house until you pick something.</small></div></div>`;
+    </div>`;
 }
 
-// Playground and Look clicks. Local previews go to the card on this page;
+// Playground and Look clicks. Local previews go to the dock face, which then
+// stops following the draft's mood (p.faceHold) until "Follow mood" or Reset;
 // "everywhere" calls the actions instead.
 function pgClick(p, el) {
   const kind = el.dataset.pgKind, name = el.dataset.name, pg = pgState(p);
-  const card = p.root.querySelector("#pg") || p.root.querySelector("#look");
+  const card = p.face;
+  const hold = (on) => {
+    p.faceHold = on;
+    p.syncFace(!on);
+  };
   const on = (btns, pick) => btns.forEach((b) => b.classList.toggle("on", pick(b)));
   const sibs = () => [...el.parentElement.querySelectorAll(`[data-pg-kind="${kind}"]`)];
   const call = (svc, data) => p.hass.callService("alfie", svc, data).catch((e) => p.flash(e?.message || String(e)));
   switch (kind) {
     case "expr": case "look-expr":
       if (kind === "expr") { pg.expr = name; pg.level = null; p.root.querySelectorAll('[data-pg-kind="level"]').forEach((b) => b.classList.remove("on")); }
+      else pg.lookExpr = name;
       on(sibs(), (b) => b === el);
       if (pg.everywhere && kind === "expr") call("set_expression", { expression: name || "auto", duration: 10 });
-      else card?.previewExpression?.(name || null);
+      else if (name) { hold(true); card?.previewExpression?.(name); }
+      else hold(false);
       return;
     case "anim":
       if (pg.everywhere) call("play_animation", { animation: name });
@@ -175,7 +185,7 @@ function pgClick(p, el) {
       const sl = p.root.querySelector("#pg-energy");
       if (sl) { sl.value = pg.energy; sl.parentElement.querySelector("output").textContent = p.fmt(pg.energy); }
       if (pg.everywhere) call("set_expression", { expression: pg.expr, duration: 10 });
-      else { card?.previewExpression?.(pg.expr); card?.previewEnergy?.(pg.energy); }
+      else { hold(true); card?.previewExpression?.(pg.expr); card?.previewEnergy?.(pg.energy); }
       return;
     }
     case "pers":
@@ -184,17 +194,15 @@ function pgClick(p, el) {
       return;
     case "reset":
       p.pg = null;
-      card?.previewExpression?.(null);
-      card?.previewEnergy?.(null);
-      card?.setPersonality?.(null);
       p.render();
+      hold(false);
   }
 }
 
 // ------------------------------------------------------------ live faces
 
+// The dock face follows the draft's look by itself (p.syncFace); the stills don't.
 function applyLook(p) {
-  p.root.querySelector("#look")?.previewLook?.(U.clone(p.draft.look));
   p.root.querySelectorAll(".lookmini").forEach((m) => drawLookMini(p, m));
 }
 
@@ -204,28 +212,14 @@ function drawLookMini(p, m) {
 }
 
 export function mount(p, sub) {
-  for (const sel of ["#look", "#pg"]) {
-    const c = p.root.querySelector(sel);
-    if (!c?.setConfig) continue;
-    c.setConfig({ card: false });
-    c.hass = p.hass;
-  }
   p.root.querySelectorAll(".lookmini").forEach((m) => { m.setConfig?.({ card: false, padding: 0.06 }); });
   if (sub === "look") applyLook(p);
-  const live = p.root.querySelector("#live");
-  if (live?.setConfig) {
-    live.setConfig({ card: false, personality: personalityValues(p) });
-    live.hass = p.hass;
-  }
 }
 
+// The shell lets go of the dock face after this (faceHold off, syncFace(true)),
+// so here only the picks are forgotten, to match.
 export function leave(p) {
-  for (const sel of ["#pg", "#look"]) {
-    const c = p.root.querySelector(sel);
-    c?.previewExpression?.(null);
-    c?.previewEnergy?.(null);
-    c?.previewLook?.(null);
-  }
+  if (p.pg) Object.assign(p.pg, { level: null, expr: "", lookExpr: "", energy: 0.8 });
 }
 
 // ------------------------------------------------------------ editing
@@ -234,15 +228,17 @@ export function leave(p) {
 export function tool(p, ev) {
   const el = ev.target.closest("[data-shape], [data-pg]");
   if (!el) return false;
-  const card = p.root.querySelector("#pg");
+  const card = p.face;
   if (el.dataset.pg === "energy") {
     const pg = pgState(p);
     pg.energy = Number(el.value);
     el.parentElement.querySelector("output").textContent = p.fmt(pg.energy);
+    p.faceHold = true;
+    p.syncFace();
     card?.previewEnergy?.(pg.energy);
   } else if (el.dataset.pg === "everywhere") {
     pgState(p).everywhere = el.checked;
-    if (el.checked) { card?.previewExpression?.(null); card?.previewEnergy?.(null); }
+    if (el.checked) { p.faceHold = false; p.syncFace(true); }
   } else if (el.dataset.shape) {
     const part = el.dataset.shape, Lk = p.draft.look;
     Lk.shapes ??= {};
@@ -267,14 +263,13 @@ export function afterInput(p, path) {
   if (path.startsWith("personality.") && path !== "personality.preset") {
     p.draft.personality.preset = "custom";
     p.root.querySelectorAll(".preset").forEach((b) => b.classList.toggle("on", b.dataset.name === "custom"));
-    p.root.querySelector("#live")?.setPersonality?.(personalityValues(p));
   }
 }
 
 export function click(p, a, el) {
   switch (a) {
     case "pg": pgClick(p, el); return true;
-    case "play": p.root.querySelector("#live")?.playLocal(el.dataset.name); return true;
+    case "play": p.face?.playLocal?.(el.dataset.name); return true;
     case "preset": {
       const name = el.dataset.name, vals = p.choices.personalities[name];
       p.draft.personality = { ...p.draft.personality, preset: name, ...(vals || {}) };
