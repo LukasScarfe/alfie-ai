@@ -1,0 +1,27 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>alfie card editor (standalone)</title>
+<style>
+  :root { --primary-text-color:#e1e1e1; --secondary-text-color:#9b9b9b; --divider-color:#3a3a3a;
+    --card-background-color:#1c1c1c; --secondary-background-color:#282828; --primary-color:#03a9f4; }
+  body { background:#111; margin:0; font:14px Roboto, sans-serif; color:var(--primary-text-color); }
+  #w { width: 400px; padding: 16px; box-sizing: border-box; }
+</style>
+<div id="w"></div>
+<script type="module">
+  const q = new URLSearchParams(location.search);
+  const cfg = JSON.parse(q.get("config") || '{"type":"custom:alfie-card"}');
+  const open = (q.get("open") || "look").split(",");
+  await import("../custom_components/alfie/frontend/alfie-card-editor.js");
+  const ed = document.createElement("alfie-card-editor");
+  ed.addEventListener("config-changed", (e) => console.log("config-changed " + JSON.stringify(e.detail.config)));
+  document.getElementById("w").append(ed);
+  ed._open = new Set(open);
+  ed.setConfig(cfg);
+  ed.hass = { connection: { sendMessagePromise: async (m) => {
+    if (q.get("fail")) throw new Error("nope");
+    return { rev: 1, types: {}, screens: [{ id: "plants", title: "Plants" }, { id: "weather", title: "Weather" }],
+      rotations: [{ id: "living_room", name: "Living room" }] };
+  } } };
+  window.ed = ed;
+</script>
