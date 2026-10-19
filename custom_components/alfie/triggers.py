@@ -8,6 +8,7 @@ of these kinds, plus the story it plays and how it behaves when Alfie is busy:
   mood    the mood level changes (worse, better, or either; from / to levels)
   signal  a signal goes bad or recovers (any signal, or chosen ones)
   wake    Alfie wakes up or falls asleep
+  mode    a house mode starts or ends (modes.py), e.g. leaving away: a welcome
 
 Entity and motion triggers are fed from the engine's one filtered listener;
 the rest are checked in its mood recompute, which already knows what moved.
@@ -23,12 +24,13 @@ from typing import Any
 from .mood import LEVELS
 from .signals import OPERATORS, compare, is_pattern
 
-KINDS = ("entity", "motion", "mood", "signal", "wake")
+KINDS = ("entity", "motion", "mood", "signal", "wake", "mode")
 BUSY = ("auto", "queue", "interrupt", "skip")
 ENTITY_OPS = ("changes", *OPERATORS)
 DIRECTIONS = ("worse", "better", "any")
 SIGNAL_EDGES = ("goes_bad", "recovers", "either")
 WAKE_EDGES = ("wakes", "sleeps")
+MODE_EDGES = ("enter", "leave", "either")
 
 
 def kind_fields(kind: str) -> dict[str, Any]:
@@ -39,6 +41,7 @@ def kind_fields(kind: str) -> dict[str, Any]:
         "mood": {"direction": "any", "from": [], "to": []},
         "signal": {"signals": [], "edge": "recovers"},
         "wake": {"edge": "wakes"},
+        "mode": {"modes": [], "edge": "enter"},
     }[kind]
 
 
@@ -80,8 +83,8 @@ def _value(v: Any) -> Any:
     return "" if v is None else str(v).strip()
 
 
-def validate_triggers(raw: Any, ck: Any, story_ids: set[str],
-                      signal_ids: set[str]) -> list[dict[str, Any]]:
+def validate_triggers(raw: Any, ck: Any, story_ids: set[str], signal_ids: set[str],
+                      mode_ids: set[str] | None = None) -> list[dict[str, Any]]:
     """Checked triggers from `raw`; problems go to `ck` (config._Check)."""
     if not isinstance(raw, list):
         ck.bad("triggers", "must be a list")
@@ -147,6 +150,12 @@ def validate_triggers(raw: Any, ck: Any, story_ids: set[str],
                 if s not in signal_ids:
                     ck.bad(where, f"signal {s!r} does not exist")
             out_t["edge"] = ck.choice(f"{where} edge", d["edge"], SIGNAL_EDGES, "recovers")
+        elif kind == "mode":
+            out_t["modes"] = _strings(d["modes"])
+            for m in out_t["modes"]:
+                if mode_ids is not None and m not in mode_ids:
+                    ck.bad(where, f"mode {m!r} does not exist")
+            out_t["edge"] = ck.choice(f"{where} edge", d["edge"], MODE_EDGES, "enter")
         else:
             out_t["edge"] = ck.choice(f"{where} edge", d["edge"], WAKE_EDGES, "wakes")
         out.append(out_t)
@@ -202,6 +211,17 @@ def signal_fires(trigger: Mapping[str, Any], went_bad: set[str],
 
 def wake_fires(trigger: Mapping[str, Any], woke: bool, slept: bool) -> bool:
     return woke if trigger["edge"] == "wakes" else slept
+
+
+def mode_fires(trigger: Mapping[str, Any], old: str, new: str) -> bool:
+    """A mode trigger when the mode goes from `old` to `new` ("normal": none).
+    With no modes chosen, any real mode entering or leaving fires it."""
+    if old == new:
+        return False
+    picked = trigger["modes"]
+    hit = (lambda m: m in picked) if picked else (lambda m: m != "normal")
+    edge = trigger["edge"]
+    return (edge in ("enter", "either") and hit(new)) or (edge in ("leave", "either") and hit(old))
 
 
 def allowed(trigger: Mapping[str, Any], level: str, asleep: bool) -> bool:

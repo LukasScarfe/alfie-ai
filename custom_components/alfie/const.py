@@ -16,7 +16,6 @@ FACE_FILE = "alfie-face.json"
 
 # House modes for select.alfie_mode. "auto" follows the sleep entity; milestone
 # 5 gives away/guests and user-defined modes their behaviour.
-MODES = ["auto", "normal", "night", "away", "guests"]
 
 EVENT_ANIMATION = "alfie_animation"   # fired whenever Alfie plays an animation
 EVENT_STORY = "alfie_story"           # a story starts, ends or is interrupted

@@ -23,6 +23,7 @@ from homeassistant.const import EVENT_STATE_CHANGED
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.helpers.event import async_call_later
 
+from . import modes as md
 from . import triggers as trig
 from .config import NOTICE, build, reset, validate
 from .const import (
@@ -36,7 +37,7 @@ from .const import (
 from .mood import Mood, MoodSettings, combine
 from .providers import provider_for
 from .screen_types import load_types
-from .signals import Signal, evaluate, evaluate_all, is_pattern, matching, watches
+from .signals import Signal, SignalResult, evaluate, evaluate_all, is_pattern, matching, watches
 from .stories import Action, Context, animation_length, expand, play_rate, steps_of
 from .store import AlfieStore
 
@@ -79,11 +80,14 @@ class AlfieEngine:
         self.behaviour: dict[str, Any] = {}
         self.personality: dict[str, float] = {}
         self.gaze_map: dict[str, str] = {}
-        self.sleep_entity: str | None = None
+        self._base_personality: dict[str, float] = {}   # before the mode's overrides
+        self._mode_signals: tuple[Signal, ...] = ()      # the modes' conditions
 
         self.expressions: set[str] = set()
         self.animations: set[str] = set()
-        self.mode = "auto"
+        self.mode = md.AUTO                 # select.alfie_mode: auto, normal or a mode id
+        self.active: dict[str, Any] | None = None   # the house mode now (None: normal)
+        self.mode_why: SignalResult | None = None   # the condition that chose it
         self.mood: Mood | None = None
         self.asleep = False
         self.override: str | None = None
@@ -169,9 +173,12 @@ class AlfieEngine:
         self.signals = built.signals
         self.settings = built.mood
         self.behaviour = built.behaviour
-        self.personality = built.personality
+        self._base_personality = built.personality
+        self.personality = md.personality(self.active, built.personality,
+                                          self.face.get("personalities") or {})
         self.gaze_map = {g["entity"]: g["action"] for g in self.behaviour["gaze_map"]}
-        self.sleep_entity = self.behaviour["sleep_entity"] or None
+        self._mode_signals = tuple(sig for m in cfg["modes"]
+                                   if (sig := md.condition_signal(m)) is not None)
         self.stories = {s["id"]: s for s in cfg["stories"]}
         self.triggers = [t for t in cfg["triggers"] if t["enabled"]]
         self._entity_triggers = [t for t in self.triggers if t["kind"] in ("entity", "motion")]
@@ -182,8 +189,8 @@ class AlfieEngine:
         # ever scans every state per change.
         self._signal_entities = {st.entity_id for st in self.hass.states.async_all()
                                  if self._is_signal_entity(st.entity_id)}
-        self._signal_entities |= {p for sig in self.signals for p in sig.entities
-                                  if not is_pattern(p)}
+        self._signal_entities |= {p for sig in (*self.signals, *self._mode_signals)
+                                  for p in sig.entities if not is_pattern(p)}
 
     @callback
     def apply_config(self, raw: Any) -> dict[str, Any]:
@@ -193,8 +200,6 @@ class AlfieEngine:
         self._apply(cfg)
         self.store.save(cfg)
         self._recompute(react=False)
-        if self._idle_unsub:
-            self._idle_unsub()
         self._schedule_idle()
         self._schedule_repeat()
         self._push()
@@ -235,15 +240,15 @@ class AlfieEngine:
     # -------------------------------------------------------------- reading
 
     def _is_signal_entity(self, entity_id: str) -> bool:
-        return any(watches(s, entity_id) for s in self.signals)
+        """A signal's entity, or a mode condition's: both feed _recompute."""
+        return any(watches(s, entity_id) for s in (*self.signals, *self._mode_signals))
 
     @callback
     def _relevant(self, event_data: Any) -> bool:
         eid = event_data["entity_id"]
         hit = self._relevant_cache.get(eid)
         if hit is None:
-            hit = (eid in self.gaze_map or eid == self.sleep_entity
-                   or self._is_signal_entity(eid)
+            hit = (eid in self.gaze_map or self._is_signal_entity(eid)
                    or any(trig.watches(t, eid) for t in self._entity_triggers))
             self._relevant_cache[eid] = hit
         return hit
@@ -262,7 +267,7 @@ class AlfieEngine:
         if eid not in self._signal_entities and self._is_signal_entity(eid):
             self._signal_entities.add(eid)
         fired: list[tuple[dict[str, Any], tuple[str, ...]]] = []
-        if eid == self.sleep_entity or eid in self._signal_entities:
+        if eid in self._signal_entities:
             fired = self._recompute(react=True)
         if self._entity_triggers:
             ns, os_ = (new.state if new else None), (old.state if old else None)
@@ -275,31 +280,56 @@ class AlfieEngine:
 
     # ------------------------------------------------------------- thinking
 
-    def _sleep_wanted(self) -> bool:
-        if self.mode == "night":
-            return True
-        if self.mode != "auto" or not self.sleep_entity:
-            return False
-        st = self.hass.states.get(self.sleep_entity)
-        return st is not None and st.state == "on"
+    @property
+    def mode_id(self) -> str:
+        """The house mode now, "normal" when none."""
+        return self.active["id"] if self.active else md.NORMAL
+
+    @property
+    def presence(self) -> str:
+        return self.active["presence"] if self.active else "normal"
+
+    @property
+    def quiet(self) -> bool:
+        """Idle or blank: no fidgets, no glances."""
+        return self.presence in ("idle", "blank")
 
     @callback
     def _recompute(self, react: bool) -> list[tuple[dict[str, Any], tuple[str, ...]]]:
-        """Re-evaluate the mood. With `react`, returns the mood, signal and
-        wake triggers this change fires (each with the signals behind it),
-        for the caller to coalesce with its own; it never plays them."""
-        old = self.mood
-        mood = combine(evaluate_all(self.signals, self._signal_states()), self.settings)
-        critical = mood.level == "miserable"
-        asleep = self._sleep_wanted() and not critical   # only critical wakes him
+        """Re-evaluate the house mode and the mood. With `react`, returns the
+        mood, signal, wake and mode triggers this change fires (each with the
+        signals behind it), for the caller to coalesce with its own; it never
+        plays them."""
+        old, old_mode = self.mood, self.mode_id
+        states = self._signal_states()
+        mode, self.mode_why = md.choose(self.config["modes"], states, self.mode)
+        if mode is not self.active:
+            self.active = mode
+            self.personality = md.personality(mode, self._base_personality,
+                                              self.face.get("personalities") or {})
+            if self.config.get("modes") is not None and self._unsubs:
+                self._schedule_idle()      # the mode may change the fidget rate
+        # A mode may hold back lesser bad news, and set a floor or a fixed mood.
+        results = [SignalResult(r.signal, False) if r.active and r.signal.kind == "bad"
+                   and md.held_back(mode, r.signal.severity) else r
+                   for r in evaluate_all(self.signals, states)]
+        mood = combine(results, self.settings)
+        level = md.mood_level(mode, mood.level)
+        if level != mood.level:
+            mood = Mood(level, mood.score, self.settings.expressions[level],
+                        self.settings.energy[level], mood.bad, mood.good)
+        asleep = self.presence == "asleep" and not md.wakes(
+            mode, [r.signal.severity for r in mood.bad])
         changed = (old is None or old.level != mood.level or asleep != self.asleep
+                   or old_mode != self.mode_id
                    or {r.signal.id for r in old.bad} != {r.signal.id for r in mood.bad}
                    or {r.signal.id for r in old.good} != {r.signal.id for r in mood.good})
         woke, slept = self.asleep and not asleep, asleep and not self.asleep
         self.mood, self.asleep = mood, asleep
         if not changed:
             return []
-        _LOGGER.debug("mood %s (%s) asleep=%s: %s", mood.level, mood.score, asleep, mood.reason)
+        _LOGGER.debug("mode %s, mood %s (%s) asleep=%s: %s", self.mode_id, mood.level, mood.score,
+                      asleep, mood.reason)
         now = time.monotonic()
         bad_now = {r.signal.id for r in mood.bad}
         self._bad_since = {s: self._bad_since.get(s, now) for s in bad_now}
@@ -320,12 +350,14 @@ class AlfieEngine:
                     fired.append((t, tuple(ids)))
                 elif k == "wake" and trig.wake_fires(t, woke, slept):
                     fired.append((t, changed_ids))
+                elif k == "mode" and trig.mode_fires(t, old_mode, self.mode_id):
+                    fired.append((t, ()))
         self._push()
         return fired
 
     @callback
     def _motion(self, entity_id: str) -> None:
-        if self.asleep:
+        if self.asleep or self.quiet:
             return
         now = time.monotonic()
         if now - self._last_motion < self.behaviour["motion_debounce"]:
@@ -351,6 +383,8 @@ class AlfieEngine:
                 break
 
     def _schedule_idle(self) -> None:
+        if self._idle_unsub:
+            self._idle_unsub()
         self._idle_unsub = None
         rate = self.personality.get("fidget_rate", 1.0)
         if rate <= 0 or not self.behaviour.get("idle_fidgets"):
@@ -363,7 +397,7 @@ class AlfieEngine:
     @callback
     def _idle(self, _now: Any) -> None:
         self._idle_unsub = None
-        if not self.asleep and time.monotonic() - self._last_anim > IDLE_QUIET_AFTER:
+        if not self.asleep and not self.quiet and time.monotonic() - self._last_anim > IDLE_QUIET_AFTER:
             self.play(random.choice(self.behaviour["idle_fidgets"]), "Idle fidget.", "idle")
         self._schedule_idle()
 
@@ -387,7 +421,8 @@ class AlfieEngine:
     def energy(self) -> float:
         if self.asleep:
             return SLEEP_ENERGY
-        return self._biased(self.mood.energy if self.mood else 0.8, self.personality)
+        e = self._biased(self.mood.energy if self.mood else 0.8, self.personality)
+        return round(e * md.IDLE_ENERGY, 3) if self.quiet else e
 
     @callback
     def play(self, name: str, reason: str = "", source: str = "service",
@@ -460,8 +495,9 @@ class AlfieEngine:
         old_expression, self._old_expression = self._old_expression, None
         now = time.monotonic()
         ok = []
+        off = set(self.active["triggers_off"]) if self.active else set()
         for t, why in fired:
-            if not trig.allowed(t, level, self.asleep):
+            if t["id"] in off or not trig.allowed(t, level, self.asleep):
                 continue
             if t["cooldown"] and now - self._last_fired.get(t["id"], -1e9) < t["cooldown"]:
                 self._note(t["id"], "cooldown")
@@ -736,7 +772,12 @@ class AlfieEngine:
             "asleep": self.asleep,
             "gaze": None,
             "animation": self.animation,
-            "mode": self.mode,
+            "mode": self.mode_id,
+            "mode_pick": self.mode,
+            "mode_info": {"name": self.active["name"] if self.active else "Normal",
+                          "presence": self.presence,
+                          "rotation": self.active["rotation"] if self.active else "",
+                          "why": list(self.mode_why.entities) if self.mode_why else []},
             "personality": {"preset": self.config.get("personality", {}).get("preset"),
                             **self.personality},
             "look": self.config.get("look") or {},
@@ -763,6 +804,7 @@ class AlfieEngine:
         # Entities write state (a recorder row each) only when this changes,
         # never for an animation: fidgets and glances must not churn the DB.
         self.state_key = (m.level if m else None, self.expression, self.asleep, self.mode,
+                          self.mode_id, tuple(x["id"] for x in self.config.get("modes", [])),
                           tuple(r.signal.id for r in (*m.bad, *m.good)) if m else ())
         scene = self.scene()
         for listener in list(self._listeners):

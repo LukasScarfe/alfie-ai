@@ -40,6 +40,8 @@ class AlfieMoodSensor(AlfieEntity, SensorEntity):
             "energy": s["mood"]["energy"],
             "score": s["mood"]["score"],
             "asleep": s["asleep"],
+            "mode": s["mode"],
+            "mode_why": s["mode_info"]["why"],
             "reason": s["reason"],
             "bad": [x["label"] for x in s["signals"] if x["kind"] == "bad"],
             "good": [x["label"] for x in s["signals"] if x["kind"] == "good"],

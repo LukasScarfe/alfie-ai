@@ -104,6 +104,9 @@ STORIES: tuple[dict, ...] = (
      "template": {**TEMPLATE, "animation": ON_WAKE, "screen": ""}, "steps": []},
     {"id": "hello", "name": "Hello", "mode": "steps", "template": dict(TEMPLATE),
      "steps": [{"kind": "expression", "name": "@mood", "hold": 1.5, "blend": 0}, _anim("nod")]},
+    {"id": "welcome_home", "name": "Welcome home", "mode": "steps", "template": dict(TEMPLATE),
+     "steps": [_anim(ON_WAKE), {"kind": "expression", "name": "happy", "hold": 1.5, "blend": 0},
+               _anim("nod")]},
 )
 
 
@@ -123,4 +126,28 @@ TRIGGERS: tuple[dict, ...] = (
     _trigger("mood_better", "Mood gets better", "mood", "mood_change", 40,
              direction="better", **{"from": [], "to": []}),
     _trigger("wake", "Waking up", "wake", "wake_up", 30, edge="wakes"),
+    _trigger("welcome", "Welcome home", "mode", "welcome_home", 60, modes=["away"], edge="leave"),
+)
+
+# House modes (modes.py), first match wins. Night is the old sleep entity; away
+# is zone.home's count of people home dropping below 1.
+AWAY_ENTITY = "zone.home"
+
+
+def _mode(mid: str, name: str, condition: dict | None, **over) -> dict:
+    return {"id": mid, "name": name, "enabled": True, "condition": condition,
+            "presence": "normal", "wake": "critical", "hold_back": "none",
+            "mood_floor": "", "mood_fixed": "", "personality": "", "energy_bias": None,
+            "fidget_rate": None, "rotation": "", "triggers_off": [], **over}
+
+
+def night_mode(entity: str = SLEEP_ENTITY) -> dict:
+    cond = {"entities": [entity], "match": "any", "op": "is", "value": "on"} if entity else None
+    return _mode("night", "Night", cond, presence="asleep")
+
+
+MODES: tuple[dict, ...] = (
+    night_mode(),
+    _mode("away", "Away", {"entities": [AWAY_ENTITY], "match": "any", "op": "below", "value": 1},
+          presence="idle", triggers_off=["mood_worse", "fixed", "mood_better", "wake"]),
 )

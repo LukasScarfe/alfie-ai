@@ -185,6 +185,8 @@ def test_configs_before_appear_stories_get_hello_once():
 
 def test_old_config_without_bad_news_still_validates():
     old = default_config()
+    old["version"] = 2
+    del old["modes"]
     del old["behaviour"]["appear_story_bad"], old["behaviour"]["appear_story_ok"]
     old["stories"] = [s for s in old["stories"] if s["id"] != "bad_news"]
     old["triggers"] = [t for t in old["triggers"] if t["story"] != "bad_news"]
