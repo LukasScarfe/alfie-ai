@@ -11,9 +11,18 @@
 - **5⅞ (Oscilloscope):** A to D and F (the settings page) are done; the sidecar runs on
   Numbat. E (Lukas on the CRT) is open.
 
-Version 0.8.9.
+Version 0.8.10.
 
-**Latest (0.8.9): Alfie keeps the rotation's beat.** Lukas saw Alfie come in and out of a
+**Latest (0.8.10): Alfie comes and goes like a screen.** After 0.8.9 Lukas still saw Alfie
+come in a moment early. In hand over he came in while the screen left, and left while the next
+screen came in, where one screen to the next is leave, then arrive. Now `_presentation` does the
+same for him: after a screen leaves, he comes in by the transition (the `back` phase, as the
+corner spring was), and a screen coming after him waits for him to go (`cur.pre`). Morph still
+turns one into the other at once. A recorded feed (fade and draw) showed every hand-over on the
+same beat, Alfie or not. Also `const.py` `VERSION` had stayed at 0.8.8 under 0.8.9 (the test
+caught it); both are 0.8.10.
+
+**Before that (0.8.9): Alfie keeps the rotation's beat.** Lukas saw Alfie come in and out of a
 rotation at odd times. A screen's turn lasted its seconds, but an Alfie step (or `face_seconds`
 gap) also waited, with no end, while his story was fetched, then lasted as long as the story when
 that was longer, plus the time the screen took to leave and him to come back. Now his turn lasts
