@@ -183,6 +183,40 @@ A personality is six sliders plus a named preset. Alfie has one; a card may over
   A stored config that no longer validates is logged and run on the defaults, but not overwritten
   until the user saves.
 
+## Words (decided, 2026-10-19)
+
+One vocabulary across the panel, the card editor, services, entity names and docs. The full
+field-by-field list is in [settings-contract.md](settings-contract.md) "Words".
+
+- **Terms:**
+  - **signal** (good or bad, how bad);
+  - **mood** and its five **mood levels**;
+  - **trigger** → plays a **story** made of **steps**;
+  - **house mode**: what Alfie is in it is **Awake, Asleep, Quiet or Hidden**;
+  - **screen**, shown in a **rotation**;
+  - **presenting**: **Hand over** or **Corner**;
+  - **transition**, **look**, **personality**.
+
+  "Mode" alone is never used for anything else: a card's **display** is Companion or Rotation,
+  and a story's **form** is Simple or Steps.
+- **Every user-made item has a Name.** Its ID is generated from the name and kept under "More
+  options".
+- **Text:**
+  - option text is in Sentence case, with a hint after a colon;
+  - every default reads "Default (from …)";
+  - units go in the field suffix;
+  - expressions and animations show humanised names;
+  - British spelling, and Alfie is "he".
+- **Config keys follow the words** (config v4, `migrate_v3`):
+  - signal `name`;
+  - story `form` and `simple`;
+  - house mode `alfie`;
+  - `behaviour.motion_sensors`;
+  - `look.ring_color`;
+  - card `display` and `ring_color`.
+
+  Old card YAML keys are still read.
+
 ## Display modes (per card)
 
 1. **Companion**: Alfie is always on screen and just reacts.

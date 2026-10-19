@@ -98,6 +98,16 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] D. Panel: Modes tab, mode trigger kind, Behaviour sleep pointer; click-through.
   - [x] E. Dev HA: Night, Away and Welcome home live, PNGs to Lukas; design.md; version 0.5.0.
   - [ ] F. Shown on the real tablet against dev HA (Lukas).
+- [~] **5½. Settings tidy-up.** One vocabulary everywhere (design.md "Words"), the panel
+      regrouped into six sections with sub-tabs and "More options" folds, a generic starter config
+      with a Get started guide (Lukas's house moves to `devenv/house.json`), config v4 key renames.
+      Interfaces: [settings-contract.md](settings-contract.md).
+  - [ ] A. Backend: config v4 + `migrate_v3`, starter defaults, `alfie/suggest`, house.json and
+        `./dev house`, strings and services; tests.
+  - [ ] B. Panel shell, `panel/ui.js`, Overview with Get started, import and export.
+  - [ ] C. Panel sections: Mood, Reactions, House modes, Screens, Appearance.
+  - [ ] D. Card and card editor: regrouped editor, new keys with old ones still read.
+  - [ ] E. Dev HA: fresh install and house import checked, PNGs to Lukas; design.md; 0.6.0.
 - [ ] **6. Voice.** React to all `assist_satellite` states, the what's-wrong LLM tool and intent,
       optional persona, mood-aware replies, TTS announcement step.
 - [ ] **7. Editors and polish.** Shape (freehand path), expression and animation editors,
