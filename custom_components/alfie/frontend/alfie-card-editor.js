@@ -17,6 +17,7 @@ export const DEFAULTS = {
   shapes: null, personality: null, mode: "companion", rotation: null,
   present: "handover", corner: "bottom_right", corner_size: 0.3, transition: null,
   text_color: null, accent_color: null, screen_line_width: 0.02,
+  bad_news: true, bad_seconds: 10,
 };
 
 export const PRESETS = ["bubbly", "stoic", "grumpy", "sleepy", "nervous"];
@@ -273,7 +274,12 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
         this._select("Mode", t("mode"), [["companion", "Companion: just Alfie"], ["rotation", "Rotation: cycle through screens"]], { rerender: true,
           hint: "A companion shows screens only when something asks for one." }),
       ];
-      if (this._get("mode") === "rotation") out.push(this._rotationField());
+      if (this._get("mode") === "rotation") {
+        out.push(this._rotationField(),
+          this._bool("Bad news when he appears", t("bad_news"),
+            "While something is wrong, each time Alfie comes round he shows its screens, then shakes his head."),
+          this._range("Bad-news screen seconds", t("bad_seconds"), 3, 60, 1));
+      }
       out.push(this._select("Presenting a screen", t("present"), [["handover", "Handover: Alfie leaves"], ["corner", "Corner: Alfie shrinks aside"]], { rerender: true }));
       if (this._get("present") === "corner") {
         out.push(

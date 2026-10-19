@@ -697,9 +697,10 @@ class AlfieEngine:
         if m is not None:
             for r in (*m.bad, *m.good):
                 s = r.signal
+                rep = self._repeat_of(s.id) or {}
                 signals.append({"id": s.id, "label": s.label, "kind": s.kind,
                                 "severity": s.severity, "entities": list(r.entities),
-                                "screen": s.screen})
+                                "screen": s.screen, "in_rotation": bool(rep.get("in_rotation"))})
         return {
             "v": SCENE_VERSION,
             "seq": self.seq,

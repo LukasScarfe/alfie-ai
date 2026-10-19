@@ -12,6 +12,7 @@ const F = await import(`./alfie-face.js${V}`);
 const S = await import(`./alfie-screens.js${V}`);
 const L = await import(`./alfie-look.js${V}`);
 const I = await import(`./alfie-intros.js${V}`);
+const G = await import(`./alfie-stage.js${V}`);
 const FACE_URL = new URL(`./alfie-face.json${V}`, import.meta.url);
 
 let faceData = null;
@@ -64,6 +65,8 @@ const DEFAULTS = {
   corner: "bottom_right", // bottom_right | bottom_left | top_right | top_left
   corner_size: 0.3,       // Alfie's size in the corner, share of his full size (0.15 to 0.5)
   transition: null,       // an intro style; null takes the rotation's, then fade
+  bad_news: true,         // rotation: while something is wrong, Alfie shows its screens each time he appears
+  bad_seconds: 10,        // rotation: how long each of those screens shows
   text_color: null,       // screen text; null takes the face colour
   accent_color: null,     // screen accents; null takes the face colour
   screen_line_width: 0.02, // ring radii: screens draw finer than the face
@@ -111,7 +114,8 @@ class FaceState {
 
   // `key` names the pose exactly (the expression and how exaggerated), so a
   // personality change re-blends even when the expression stays.
-  setExpression(name, pose, t, parts, key = name) {
+  // `blend` (seconds, 0 for the usual) slows one change down, e.g. a story's mood morph.
+  setExpression(name, pose, t, parts, key = name, blend = 0) {
     if (this.expression === name && this.key === key && this.targetParts === parts) return;
     const first = this.expression === null;
     this.start = first ? pose : this.poseAt(t);
@@ -122,7 +126,7 @@ class FaceState {
     this.key = key;
     this.since = t;
     // Low energy: a slower blend that settles without bouncing.
-    this.blendLength = F.GEOMETRY.blend / this.rate;
+    this.blendLength = blend > 0 ? blend : F.GEOMETRY.blend / this.rate;
     this.damping = F.bounced(clamp(F.GEOMETRY.damping + 0.35 * (1 - this.energy), 0.2, 0.92),
       this.personality.bounce);
   }
@@ -222,6 +226,8 @@ class AlfieCard extends HTMLElement {
     this._last = 0;
     this._t0 = performance.now();
     this._error = null;
+    this._place = { ...G.HOME };   // where a story has put Alfie, sprung toward each frame
+    this._badKey = "";
     this._resetScreens();
   }
 
@@ -333,6 +339,13 @@ class AlfieCard extends HTMLElement {
     this._error = null;
     this._showError();
     if (scene.screens_rev !== this._screensRev) this._fetchScreens(scene.screens_rev);
+    // What is wrong (and which of it asks to join the rotation) reshapes the rotation.
+    const badKey = (scene.signals || []).filter((s) => s.kind === "bad")
+      .map((s) => `${s.id}:${s.screen}:${s.in_rotation ? 1 : 0}`).join(",");
+    if (badKey !== this._badKey) {
+      this._badKey = badKey;
+      if (this._rot) this._rot.stale = true;
+    }
     const t = this._now();
     const global = this._global = F.personalityOf(scene.personality, face.personalities);
     const p = this._personality(face, global);
@@ -340,7 +353,7 @@ class AlfieCard extends HTMLElement {
     // own personality swaps that bias for its own.
     const energy = (scene.mood?.energy ?? 0.8) - global.energy_bias + p.energy_bias;
     this._face.setEnergy(Math.max(0.05, this._energyPreview ?? energy) * this._config.liveliness, t);
-    this._applyExpression(face, this._exprPreview ?? scene.expression, t);
+    this._applyExpression(face, this._exprPreview ?? scene.expression, t, scene.story?.blend || 0);
     const a = scene.animation;
     if (a && a.id !== this._lastAnimId) {
       const first = this._lastAnimId === null;
@@ -381,12 +394,12 @@ class AlfieCard extends HTMLElement {
     return p;
   }
 
-  _applyExpression(face, name, t) {
+  _applyExpression(face, name, t, blend = 0) {
     if (!(name in face.expressions)) name = "neutral";
     const e = face.expressions[name];
     const k = this._face.personality.exaggeration;
     const pose = F.exaggerated(F.poseOf(e), F.poseOf(face.expressions.neutral), k);
-    this._face.setExpression(name, pose, t, this._parts(face, e), `${name}|${k}`);
+    this._face.setExpression(name, pose, t, this._parts(face, e), `${name}|${k}`, blend);
   }
 
   // The unit outlines for an expression: the face's shapes, this card's
@@ -489,6 +502,7 @@ class AlfieCard extends HTMLElement {
       if (this._face.expression !== null) {
         const t = this._now();
         this._face.tick(t, dt);
+        this._place = G.placeToward(this._place, this._scene?.story?.place ?? null, dt);
         this._draw(this._frame(t), this._presentation(t, dt));
       }
     }
@@ -539,10 +553,13 @@ class AlfieCard extends HTMLElement {
     ctx.clearRect(0, 0, w, h);
     const R = (Math.min(w, h) / 2) * (1 - clamp(Number(c.padding), 0, 0.45));
     const L = scr ? this._layout(scr, w, h, R) : null;
-    const fs = L ? L.face.s : 1;
+    // A story's move/resize places him, except while a corner screen holds him there.
+    const P = !(scr && scr.present === "corner") && !G.atHome(this._place)
+      ? G.placeAt(this._place, w, h, R) : null;
+    const fs = P ? P.s : L ? L.face.s : 1;
     const Rf = R * fs;
     const lw = Math.max(1, Number(c.line_width) * Rf);
-    const cx = L ? L.face.cx : w / 2, cy = L ? L.face.cy : h / 2;
+    const cx = P ? P.cx : L ? L.face.cx : w / 2, cy = P ? P.cy : L ? L.face.cy : h / 2;
     const X = (x) => cx + x * Rf, Y = (y) => cy - y * Rf;
     const faceAlpha = scr ? scr.faceAlpha : 1;
     if (scr?.face) {
@@ -710,7 +727,16 @@ class AlfieCard extends HTMLElement {
       steps = rot.steps; face = rot.face_seconds ?? null; transition = rot.transition ?? null;
     }
     steps = (steps || []).filter((st) => this._screenIndex.has(st.screen) && Number(st.seconds) > 0);
+    // A bad signal set to "add to the rotation" joins it while it is bad.
+    for (const sig of this._badSignals()) {
+      if (sig.in_rotation && !steps.some((st) => st.screen === sig.screen)) steps = [...steps, { screen: sig.screen, seconds: 15 }];
+    }
     return steps.length ? { steps, face, transition } : null;
+  }
+
+  // Active bad signals whose screen exists, worst first (the engine's order).
+  _badSignals() {
+    return (this._scene?.signals || []).filter((s) => s.kind === "bad" && s.screen && this._screenIndex.has(s.screen));
   }
 
   // The screen id wanted at this moment, and the one after it (to prefetch).
@@ -720,30 +746,31 @@ class AlfieCard extends HTMLElement {
       this._override = sc.id;
       return { id: sc.id, next: null };   // the rotation waits (its clock is not advanced)
     }
+    if (this._scene?.story) {
+      this._override = "story";
+      return { id: null, next: null };    // a story has Alfie himself on show; the rotation waits
+    }
     this._override = null;
     if (this._rot === null || this._rot.stale) {
       const spec = this._rotationSteps();
-      this._rot = spec ? { ...spec, idx: 0, phase: "screen", t0: this._rotClock } : { steps: null };
-      this._rot.key = JSON.stringify(spec);
+      this._rot = spec ? (this._rot?.steps ? G.carry(this._rot, spec) : G.start(spec, this._rotClock)) : { steps: null };
     }
     const rot = this._rot;
     if (!rot.steps) return { id: null, next: null };
     this._rotClock += dt;
-    for (let guard = 0; guard < rot.steps.length * 2 + 2; guard++) {
-      const step = rot.steps[rot.idx];
-      const dur = rot.phase === "screen" ? Number(step.seconds) : Number(rot.face ?? 20);
-      if (this._rotClock - rot.t0 < dur) break;
-      rot.t0 += dur;
-      if (rot.phase === "screen") rot.phase = "face";
-      else { rot.phase = "screen"; rot.idx = (rot.idx + 1) % rot.steps.length; }
-    }
-    const step = rot.steps[rot.idx], after = rot.steps[(rot.idx + 1) % rot.steps.length];
-    return rot.phase === "screen" ? { id: step.screen, next: null } : { id: null, next: after.screen };
+    const c = this._config;
+    const want = G.advance(rot, this._rotClock, {
+      badNews: c.bad_news !== false, badSeconds: clamp(Number(c.bad_seconds) || 10, 3, 600),
+      badNow: () => [...new Set(this._badSignals().map((s) => s.screen))],
+    });
+    if (want.shake) this.playLocal("shake");
+    return want;
   }
 
   _transitionStyle() {
     const c = this._config;
-    let style = c.transition || this._rot?.transition || "fade";
+    const sc = this._scene?.screen;
+    let style = (this._override && this._override === sc?.id && sc.transition) || c.transition || this._rot?.transition || "fade";
     if (style === "random") style = I.RANDOM_STYLES[Math.floor(Math.random() * I.RANDOM_STYLES.length)];
     return I.STYLES.includes(style) ? style : "fade";
   }
@@ -759,13 +786,16 @@ class AlfieCard extends HTMLElement {
       if (want.next) this._ensureData(want.next);
     }
     let cur = this._cur;
+    const c = this._config, sc = this._scene?.screen;
+    // A story step may say how its screen is presented; otherwise the card does.
+    const presentOf = (id) => (this._override === id && sc?.id === id && sc.present) || c.present;
     if (cur && cur.tOut == null && want.id !== cur.id) {
-      if (want.id) cur = this._cur = { id: want.id, tIn: t - 99, tOut: null, style: cur.style };   // screen to screen: cut
+      if (want.id) cur = this._cur = { id: want.id, tIn: t - 99, tOut: null, style: cur.style, present: presentOf(want.id) };   // screen to screen: cut
       else cur.tOut = t;
     }
-    if (!cur && want.id) cur = this._cur = { id: want.id, tIn: t, tOut: null, style: this._transitionStyle() };
+    if (!cur && want.id) cur = this._cur = { id: want.id, tIn: t, tOut: null, style: this._transitionStyle(), present: presentOf(want.id) };
     if (!cur) return null;
-    const c = this._config, corner = c.present === "corner";
+    const corner = cur.present === "corner";
     const durS = I.SECONDS[cur.style] ?? 0.6, durM = corner ? CORNER_SECONDS : 0;
     const leaving = cur.tOut != null;
     const age = t - (leaving ? cur.tOut : cur.tIn);
@@ -773,11 +803,11 @@ class AlfieCard extends HTMLElement {
     const uS = durS ? clamp(age / durS, 0, 1) : 1, uM = durM ? clamp(age / durM, 0, 1) : 1;
     const p = I.presence(cur.style, uS, leaving);
     const k = corner ? (leaving ? 1 - F.spring(uM) : F.spring(uM)) : 0;
-    return this._describe(cur.id, cur.style, p, leaving, k, t);
+    return this._describe(cur.id, cur.style, p, leaving, k, t, cur.present);
   }
 
-  _describe(id, style, p, leaving, k, t) {
-    const c = this._config, corner = c.present === "corner";
+  _describe(id, style, p, leaving, k, t, present = this._config.present) {
+    const c = this._config, corner = present === "corner";
     const screen = this._screenIndex.get(id);
     // In "hand over" the face goes by the same transition the screen comes by
     // (drawn, zoomed, wiped away...); fade and cut just change its alpha, and
@@ -785,7 +815,7 @@ class AlfieCard extends HTMLElement {
     const faceAlpha = corner ? 1 : I.faceAlpha(style, p);
     const shaped = !corner && !["cut", "fade", "morph"].includes(style) && p > 0 && p < 1;
     return {
-      present: c.present, corner: c.corner, size: c.corner_size, k, faceAlpha,
+      present, corner: c.corner, size: c.corner_size, k, faceAlpha,
       alpha: I.apply(style, p, leaving, [], null).alpha,
       face: shaped ? (shapes, box) => I.apply(style, 1 - clamp(p, 0, 1), !leaving, I.faceStrokes(shapes), box) : null,
       strokes: (hw, hh, shapes) => this._screenStrokes(screen, hw, hh, t, style, p, leaving,
