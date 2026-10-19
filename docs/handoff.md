@@ -1,26 +1,32 @@
 # Alfie: handoff
 
-**Milestones 1 to 3 are done (M3 approved on the tablet 2026-10-19); M4 (Triggers and stories) is
-claimed and being planned.** Version 0.3.0.
+**Milestones 1 to 3 are done (M3 approved on the tablet 2026-10-19). M4 (Triggers and stories)
+is built and verified in dev HA; only F, the tablet check with Lukas, is left.** Version 0.4.0.
 
 ## M4 status (2026-10-19)
 
-- **A (model), B (engine) and C (card) are done.** `stories.py` and `triggers.py` are the pure models.
-  Config is v2: the old behaviour reactions became the default triggers and stories via
-  `migrate_v1`. The engine runs stories (priority, queue, coalescing) and offers `play_story`,
-  `stop_story`, the `alfie_story` events, the WS commands `alfie/story/play` and
-  `alfie/triggers/status`, and the per-signal repeats. The card follows `scene.story`
-  (rotation waits, move/resize place spring, per-step present and transition), with rotation
-  `bad_news`; the logic lives in `frontend/alfie-stage.js`, tested by `tests/stage.test.mjs`.
-  All the default stories were verified live in dev HA.
-- **D (panel) is `[~]`:** the Triggers and Stories tabs, the Behaviour reactions note and the
-  Signals repeat row are written, and `./dev test` is green. Not yet checked:
-  `devenv/out/m4-panel-triggers.png` and `m4-panel-stories.png` were shot but not reviewed.
-  Next: look at them, click through add, edit, kind change, convert-to-steps and play in dev HA,
-  and fix what's broken. Then tick D and do E (design.md "Triggers and stories" in place,
-  screenshots to Lukas). Version is already 0.4.0.
+- **A to E are done.** `stories.py` and `triggers.py` are the pure models. Config is v2: the old
+  behaviour reactions became the default triggers and stories via `migrate_v1`. The engine runs
+  stories (priority, queue, coalescing) and offers `play_story`, `stop_story`, the `alfie_story`
+  events, the WS commands `alfie/story/play` and `alfie/triggers/status`, and the per-signal
+  repeats. The card follows `scene.story`. The panel has the Triggers and Stories tabs.
+  design.md "Triggers and stories" describes it all as built.
+- **The panel was clicked through in dev HA** with `devenv/out/m4-click.js`, which drives the
+  panel by script and logs the draft. It covers adding every trigger kind, kind change, entity
+  add, mood picks, duplicate and delete, adding a story, template edits, convert-to-steps, every
+  step kind, reorder and remove, story rename (trigger refs follow), mode switch, play-draft,
+  save, and the last-fired badges. Run it in parts (`window.PART='A'|'B'|'C'`, plus
+  `window.FAST=1` for short sleeps), because HA reloads a headless page about 10 s in:
+  `SHOT_VERBOSE=1 ./dev shot alfie out.png --size 1200x1500 --wait 6000 --eval "window.PART='B'; window.FAST=1; $(cat devenv/out/m4-click.js)"`.
+  Part C saves a test story. Put dev back with `./dev js devenv/out/m4-reset.js`.
+- PNGs sent to Lukas: `devenv/out/m4-panel-triggers.png`, `m4-panel-stories.png`,
+  `m4-badnews.png`.
+- **Next: F.** Lukas checks M4 on the real tablet against dev HA. Then claim M5 (house modes):
+  plan it in plan mode with Lukas's OK first.
 - Gotcha: timers passed to `async_call_later` must be `@callback` (or `callback(lambda ...)`),
   or they run in an executor thread and HA raises.
+- A played story whose `@why` / `@wrong` resolve to no screens just skips those steps, so a panel
+  play while all's well shows fewer steps than the draft has (by design).
 
 ## Working, in dev HA (`./dev up`, then `http://192.168.1.241:8125`)
 
@@ -47,20 +53,16 @@ claimed and being planned.** Version 0.3.0.
 - **True rounded corners** (pulled forward from M7): roundness is a real fillet and rounded
   outlines are sampled by arc length. The card strokes smooth curves but keeps corners over 25°
   sharp. Compare `devenv/out/corner-before.png` with `corner-after.png`.
-- `./dev test` is green: pytest, including `tests/test_config.py`, plus 937 face-maths checks.
+- `./dev test` is green: 144 pytest tests, plus the node checks (face maths, stage, screens, panel forms).
 
-## Next
+## Screens (M3)
 
-**M3 is built:** every step in plan.md is ticked except the tablet check.
 - Every screen type, the providers, 13 transitions, rotations and both presenting styles work
   live on the **Alfie dev → Screens** view, with one card per screen held on its own one-step
   `only_<id>` rotation.
 - The card has a visual editor.
 - The panel has the Screens, Look and Playground tabs, and the global `look` reaches every
   card (a card's own options win).
-
-1. **Next: M4, Triggers and stories.** Plan it in plan mode with Lukas's OK. Presenting is already
-   decided (design.md "Screens"), and `alfie.show_screen` is the hook stories build on.
 
 Known gaps:
 - the font has no accented letters;

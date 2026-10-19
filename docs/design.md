@@ -191,27 +191,54 @@ A personality is six sliders plus a named preset. Alfie has one; a card may over
 
 ## Triggers and stories
 
-- **Triggers are fully user-chosen**:
-  - any entity change;
-  - specific motion sensors, each with its own action (look in a direction, appear, play a story);
-  - voice activity;
-  - **mood changes**;
-  - signals going bad or recovering.
+Built in M4: `triggers.py` and `stories.py` (pure models), the engine's story runner, and the
+panel's **Triggers** and **Stories** tabs. Motion gaze and idle fidgets stay in Behaviour; they
+are not triggers.
 
-  Lukas will use motion plus house events.
-- A **story** is what Alfie does when a trigger fires. The panel offers both:
-  - a **fill-in template**: react (expression and/or animation), then show a screen for N s, then
-    return with a closing gesture, then resume;
-  - an **advanced free sequence builder**: an ordered list of steps (expression, animation, screen,
-    wait, move, resize, speak).
-- **Mood-change story (default):** Alfie comes up, visibly morphs from the old mood to the new one,
-  shows the screen explaining why (if there is one), then leaves.
-- **Bad news (default):** every time he appears while sad, he shows the screens for what's wrong,
-  **one after another if several things are wrong**, then shakes his head and returns to the
-  rotation.
-- **Celebrate the fix (default on):** when a bad signal clears, a happy story plays (nod, bounce).
-- Per-signal repeat options exist but are off by default: replay on walk-in, every N hours, or add
-  the screen to the rotation.
+- **Triggers are fully user-chosen** (config `triggers`, a list). Kinds:
+  - `entity`: an entity or pattern changes at all, or starts passing a test (above, below, is,
+    is not);
+  - `motion`: chosen motion sensors turn on, optionally only while something is wrong (a walk-in
+    reminder);
+  - `mood`: the mood level gets worse, better or either, optionally from and to chosen levels;
+  - `signal`: any or chosen signals go bad, recover, or either;
+  - `wake`: Alfie wakes up or falls asleep.
+
+  Voice activity becomes a kind in M6. Every trigger also has: the story it plays, a **priority**
+  (0 to 100), **when busy** (`auto`: a higher priority interrupts, otherwise it queues; `queue`;
+  `interrupt`; `skip`), a **cooldown**, **even while he sleeps**, and **only while the mood is**.
+  Entity and motion triggers are fed by the engine's one filtered listener. The other kinds are
+  checked in the mood recompute, which already knows what moved.
+- **Coalescing:** when one change fires several triggers, only the highest priority plays. The
+  others are noted as `outranked`. At most 3 stories queue behind the one playing, highest
+  priority first, and a queued story older than 60 s is dropped.
+- A **story** (config `stories`) is what every display does together when a trigger fires. The
+  panel offers both forms, and **Convert to steps** turns a template into steps:
+  - a **fill-in template**: react (an expression and/or an animation), show a screen for N s
+    (presented and transitioned as chosen, or as the card is set), then a closing gesture;
+  - **free steps**, in order: `expression` (hold and blend), `animation` (optionally waiting for
+    it), `screen` (seconds, present, transition), `wait`, `move` (centre, a corner, or custom x/y,
+    springing over N s), `resize` (0.3× to 1.5×), and `speak` (a placeholder until M6).
+  - Tokens: `@mood` is the mood's face now and `@old_mood` the one before the change. `@why` shows
+    the screens of the signals that caused the trigger, and `@wrong` those of everything bad, one
+    after another. A token with no screens adds nothing.
+- **Defaults** (seeded, and migrated from v1's reactions):
+  - **Something turns critical → Alarm** (priority 90): startle, the `@wrong` screens, shake;
+  - **Mood gets worse → Bad news** (50): old mood, morph to the new one, the `@wrong` screens,
+    shake;
+  - **Something bad is fixed → Celebrate the fix** (45): happy, nod, laugh;
+  - **Mood gets better → Mood change** (40): morph, the `@why` screens, nod;
+  - **Waking up → Wake up** (30).
+- **Rotation bad news (card option, on by default):** while something is wrong, each time Alfie
+  appears in a rotation he shows its screens first.
+- **Per-signal repeats** (off by default): replay a story (default Bad news) on walk-in or every N
+  hours while the signal is bad, at priority 20, queued. Or add the signal's screen to the
+  rotation while it is bad (`in_rotation`).
+- **Automations and the panel:** the `alfie.play_story` and `alfie.stop_story` services, and
+  `alfie_story` events (`start`, `end`, `interrupted`). `alfie/story/play` plays an unsaved draft
+  from the panel. `alfie/triggers/status` gives each trigger's last outcome (played, queued,
+  skipped, cooling down, outranked) and what is playing now. The scene carries the playing
+  `story` (id, step, expression, blend, place), which the card follows.
 
 ## House modes
 

@@ -78,9 +78,9 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         `alfie/story/play` and `alfie/triggers/status`, per-signal repeats; tests.
   - [x] C. Card: story interrupts rotation, `place` spring (move/resize), per-step present and
         transition, rotation `bad_news` and per-signal `in_rotation`; face checks.
-  - [~] D. Panel: Triggers and Stories tabs, Behaviour reactions removed, Signals repeat row,
+  - [x] D. Panel: Triggers and Stories tabs, Behaviour reactions removed, Signals repeat row,
         play-draft and last-fired status.
-  - [ ] E. Dev HA: each default story live, PNGs to Lukas; design.md, version 0.4.0.
+  - [x] E. Dev HA: each default story live, PNGs to Lukas; design.md, version 0.4.0.
   - [ ] F. Shown on the real tablet against dev HA (Lukas).
 - [ ] **5. House modes.** Night, away, guests and user-defined modes with overrides.
 - [ ] **6. Voice.** React to all `assist_satellite` states, the what's-wrong LLM tool and intent,
