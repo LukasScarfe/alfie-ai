@@ -1,6 +1,6 @@
 # Alfie: handoff
 
-**Milestones 1 and 2 are done; M3 (Screens) is nearly done.** Version 0.2.0.
+**Milestones 1 and 2 are done; M3 (Screens) is built, waiting on the tablet check.** Version 0.3.0.
 (2026-10-18)
 
 ## Working, in dev HA (`./dev up`, then `http://192.168.1.241:8125`)
@@ -32,19 +32,23 @@
 
 ## Next
 
-**M3 (Screens) is mostly built** (see plan.md):
-- **Done:** A (the foundation), B1 to B6 (every screen type, the providers, 13 transitions) and D
-  (the card visual editor). All ten screen types run live in dev HA on the **Alfie dev → Screens**
-  view, with one card per screen held on a one-step `only_<id>` rotation.
-- **Running when this was written:** C and E. C is the panel's Screens tab. E is the Look tab
-  and the Playground, plus the global `look` config section (contract: docs/screens-contract.md,
-  "Look and playground"). If plan.md still shows them `[ ]`, check `git status` for partial
-  work before redoing anything.
-- **After C and E:**
-  - a tablet check with Lukas;
-  - update design.md (screens, look, editor);
-  - bump the version;
-  - tick M3.
+**M3 is built:** every step in plan.md is ticked except the tablet check.
+- Every screen type, the providers, 13 transitions, rotations and both presenting styles work
+  live on the **Alfie dev → Screens** view, with one card per screen held on its own one-step
+  `only_<id>` rotation.
+- The card has a visual editor.
+- The panel has the Screens, Look and Playground tabs, and the global `look` reaches every
+  card (a card's own options win).
+
+1. **Next: Lukas checks it on the tablet** against dev HA (screens, rotation, presenting, the
+   card editor). Then tick M3.
+2. **Then M4, Triggers and stories.** Plan it in plan mode with Lukas's OK. Presenting is already
+   decided (design.md "Screens"), and `alfie.show_screen` is the hook stories build on.
+
+Known gaps:
+- the font has no accented letters;
+- neon looks poor on HA's light theme (the "theme" style follows it);
+- once glow is set in the card editor, it can't be put back to "inherit" except in YAML.
 
 Ways of working:
 - Lukas likes Sonnet subagents in parallel, each owning disjoint files.

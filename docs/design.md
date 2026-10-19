@@ -225,18 +225,45 @@ A personality is six sliders plus a named preset. Alfie has one; a card may over
 ## Screens
 
 Screens are **templates filled by picking entities**, ported from xy-bench (Python, to JS for the
-card):
+card). How the pieces fit together (types, providers, the scene fields) is in
+`docs/screens-contract.md`. Each type is a pair, `frontend/screens/<type>.json` (its option schema,
+which the panel turns into a form) and `<type>.js` (a pure draw function returning strokes). The
+built types:
 
-- **Plot:** multiple series with customisable ranges and span, for example temperature in and out
-  over N days (HA history).
-- **Bars and single value:** plant moisture; a big readout with an icon.
-- **Weather:** forecast curves, rain bars and a condition icon from any `weather.*`. **Home clock:**
-  in and out temperatures with a day/night rim.
-- **Sky** (sun, moon, planets) and **stars** (constellations), from HA's home location.
-- **Map:** streets around chosen device trackers (fetched from Overpass and cached).
-- **Text/names:** calendar-driven, such as birthdays.
-- **Transitions** between screens come from xy-bench's intros (draw, zoom, slide, condense,
-  morph…), as options.
+- **plot**: 1 to 6 series over a span, bucketed server-side from the recorder (long-term
+  statistics for spans over 10 days), with markers, dotted or solid lines, and auto, fixed or
+  "reach" ranges.
+- **value**: one big readout with an icon (auto by device class) and threshold colouring.
+- **bars**: several entities as bars, e.g. soil moisture, with a highlight below a threshold.
+- **weather**: the condition icon and temperature now, an hourly curve with rain bars, or daily
+  columns, from `weather.get_forecasts`.
+- **clock**: analogue or digital, a solar day/night rim from `sun.sun`, in and out temperatures,
+  and a house with smoke.
+- **sky** (a top-down disc with sun, moon, paths and rise/set times) and **stars** (stick-figure
+  constellations, planets, the moon in phase). Both are computed in the browser from HA's home
+  location with Schlyter's formulas (`alfie-sky.js`), golden-tested against xy. The
+  constellation data is d3-celestial's (BSD, see `THIRD_PARTY.md`).
+- **map**: streets around trackers, with markers and a house. **Privacy (decided): off unless the
+  screen's `allow_network` option is on.** Only a position rounded to about 100 m goes to
+  Overpass, each cell is cached on disk forever, and the endpoint is an option.
+- **text**: word-wrapped, shrink-to-fit titles from calendars (e.g. birthdays, with a template),
+  any entity, or fixed text.
+- **label**: plain text, the reference type.
+
+Data and cost:
+- Server data (history, forecast, calendar, streets) comes from providers in `providers/`. They
+  are lazy (fetched only when a card asks), cached with a TTL and a backoff, and run in executors
+  where blocking.
+- Everything else reads `hass.states` in the card. Slow work (ephemeris, layouts) is memoised
+  per minute.
+
+The vector font is xy's, dumped to `alfie-font.json` (`tools/font_dump.py`). It has no accented
+letters: accents drop to the base letter, and letters it can't decompose (Ł) are dropped.
+
+- **Transitions (decided):** 13 styles from xy's intros, used both ways (a screen arriving, and
+  Alfie leaving in "hand over"): cut, fade, draw, stagger, zoom, power_on, slide, flip, wipe,
+  tune, materialise, condense and morph. Morph turns the face itself into the screen, and
+  `random` picks any but cut.
 - **Presenting (decided):** two styles, a user option per card (and per story step later):
   - **Hand over:** Alfie leaves with a transition, the screen takes the whole card, then he
     comes back when it ends.
@@ -245,6 +272,10 @@ card):
 - **Rotation (decided):** the user builds their own screens first, then picks which ones rotate,
   in what order and for how long each. Alfie ships no fixed default rotation; with no screens
   built, a rotation card is simply the face.
+  - Named rotations are built in the panel (steps, transition, and `face_seconds` of Alfie
+    between screens), and a card picks one or lists its own steps.
+  - The timer runs in the card and pauses while it is hidden or off screen.
+  - `alfie.show_screen` interrupts every card, then the rotation resumes.
 
 ## Voice
 

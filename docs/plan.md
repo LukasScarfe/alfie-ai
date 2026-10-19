@@ -51,12 +51,12 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] B4. Sky maths (golden-tested against xy), sky and stars.
   - [x] B5. Map (opt-in Overpass, rounded cells, disk cache) and text (calendar).
   - [x] B6. Intros: the stroke transforms and fade, then materialise, condense and morph.
-  - [ ] C. The panel's Screens tab: build screens from each type's schema, rotations, and a
+  - [x] C. The panel's Screens tab: build screens from each type's schema, rotations, and a
         live preview.
   - [x] D. Card visual editor (`alfie-card-editor.js`, the card's `getConfigElement`): every card
         option in groups (look, display mode and rotation, presenting, personality, advanced),
         with a live preview, so no YAML is needed. Runs in parallel with B.
-  - [ ] E. **Look** tab and **Playground** in the panel (after C, same file):
+  - [x] E. **Look** tab and **Playground** in the panel (after C, same file):
     - Alfie's global default look: style, colours, line width, glow, eye fill, padding and the
       head and eye shapes (type plus parameter sliders). It's saved in a new `look` section of
       the config and sent to the cards, and a card's own options still win.
@@ -64,7 +64,9 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
       animations, a mood-level picker, and energy and personality sliders. It plays locally,
       with an optional "play on every display".
     - The full shape, expression and animation editors stay in M7.
-  - [ ] Dev HA: a rotation card in both presenting styles, screenshots for Lukas.
+  - [x] Dev HA: a rotation card in both presenting styles, screenshots for Lukas.
+  - [ ] Shown on the real tablet against dev HA (Lukas): screens, rotation, both presenting
+        styles, the card editor.
 - [ ] **4. Triggers and stories.** Trigger config (any entity, per-motion-sensor actions, mood
       changes, signal crossings), the fill-in story template and the advanced sequence builder, the
       default mood-change, bad-news and celebrate stories. Presenting is agreed (design.md
