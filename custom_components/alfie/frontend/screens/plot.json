@@ -3,7 +3,7 @@
    {"key": "entities", "kind": "entities", "label": "Series", "required": true, "domain": ["sensor", "input_number", "number", "counter"], "hint": "1 to 6 sensors."},
    {"key": "title", "kind": "text", "label": "Title", "default": ""},
    {"key": "labels", "kind": "text", "label": "Series labels", "default": "", "hint": "Comma separated. Empty: the friendly names."},
-   {"key": "markers", "kind": "text", "label": "Series markers", "default": "ring, diamond, square", "hint": "Comma separated: ring, diamond, square, house, sun or none."},
+   {"key": "markers", "kind": "text", "label": "Series markers", "default": "ring, diamond, square", "hint": "Comma separated: ring, diamond, square, house, sun, none, or an icon such as mdi:account."},
    {"key": "styles", "kind": "text", "label": "Series lines", "default": "solid", "hint": "Comma separated: solid or dotted."},
    {"key": "hours", "kind": "number", "label": "Span", "default": 72, "min": 1, "max": 2160, "unit": "h"},
    {"key": "buckets", "kind": "number", "label": "Points per series", "default": 36, "min": 4, "max": 60},

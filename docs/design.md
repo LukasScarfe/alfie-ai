@@ -249,6 +249,10 @@ field-by-field list is in [settings-contract.md](settings-contract.md) "Words".
 
 ## Display (per card)
 
+The card's shape is its **aspect** (width over height). The panel's Look sets it for every card
+(Appearance → Look, 0.5 to 3, default 1), so one change suits a new display such as the
+oscilloscope; a card's own `aspect` still wins.
+
 The card option `display` (it was `mode` before config v4; old YAML still works):
 
 1. **Companion**: Alfie is always on screen and just reacts.
@@ -351,6 +355,7 @@ or the `alfie.show_icon` action (with `alfie.clear_icons`), and every display sh
   - a badge is in the scene's `icons` list, and one engine timer clears each;
   - none of it is entity state. `alfie_icon` events (`show`, `end`) tell automations.
 - **Per card:** `icons: false` leaves icons out on that display.
+- **In screen text and plot markers** too: see Screens.
 - **The panel's Icon step** has **Try it**, which plays it on the dock's Alfie only.
 - **Lukas's house** (`devenv/house.json`):
   - **Bright living room** fires when `sensor.living_room_motion_sensor_illuminance` goes above
@@ -432,7 +437,13 @@ built types:
   screen's `allow_network` option is on.** Only a position rounded to about 100 m goes to
   Overpass, each cell is cached on disk forever, and the endpoint is an option.
 - **text**: word-wrapped, shrink-to-fit titles from calendars (e.g. birthdays, with a template),
-  any entity, or fixed text.
+  any entity, or fixed text. `match` keeps only titles containing a word (`birthday`). In a
+  rotation it can skip itself while there is nothing to show (`skip_empty`), and its turn
+  lengthens so each title shows once (`extend`, on by default); titles cycle from when it
+  came in.
+- **Icons in screen text and markers** (2026-10-19): an icon name typed in any screen text
+  (`mdi:plex Viewers`) is drawn as the icon, and a plot series marker may be one
+  (`mdi:account`).
 - **label**: plain text, the reference type.
 
 Data and cost:

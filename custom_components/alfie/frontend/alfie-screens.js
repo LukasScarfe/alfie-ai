@@ -124,34 +124,59 @@ export function clean(s) {
   return out;
 }
 
-// `clean` plus runs of space collapsed: xy's `_title`.
-export const title = (s) => clean(s).split(/\s+/).filter(Boolean).join(" ");
+// -------------------------------------------------------------------- icons
 
-// How wide `s` sets, in cap heights, without trailing tracking.
-function widthCaps(s) {
-  const tr = metrics().tracking;
-  let n = 0, sum = 0;
-  for (const ch of s) {
-    const g = GLYPHS.get(ch);
-    if (g) { sum += g.w; n++; }
+// A word of screen text that is an icon name (`mdi:plex`) draws as the icon.
+// The card hands over the source: name -> strokes in [-1, 1]² (y up), null
+// while it loads (its slot stays empty), false if it never will (then the
+// name is set as text). Without a source (node tests) names are text.
+let iconSource = null;
+let iconCount = 0;
+export const ICON_W = 1.3;   // an icon in text, in cap heights, wide and tall
+export const isIcon = (word) => /^[a-z][a-z0-9_-]*:[a-z0-9_-]*[a-z][a-z0-9_-]*$/.test(word);
+export function setIconSource(fn) { iconSource = fn; iconCount++; }
+// The card bumps this when an icon arrives; screens that cache their strokes key on it.
+export const iconLoaded = () => { iconCount++; };
+export const iconStamp = () => iconCount;
+const iconOf = (word) => (iconSource && isIcon(word) ? iconSource(word) ?? null : false);
+
+// `clean` plus runs of space collapsed: xy's `_title`. Icon names stay whole.
+export const title = (s) => String(s ?? "").split(/\s+/).map((wd) => (isIcon(wd) ? wd : clean(wd)))
+  .join(" ").split(/\s+/).filter(Boolean).join(" ");
+
+// `s` as the pieces it sets: glyphs, and icons ({icon: strokes | null}).
+function pieces(s) {
+  const out = [];
+  for (const part of String(s ?? "").split(/(\s+)/)) {
+    const ic = part ? iconOf(part) : false;
+    if (ic !== false) { out.push({ icon: ic, w: ICON_W }); continue; }
+    for (const ch of clean(part)) out.push({ g: GLYPHS.get(ch), w: GLYPHS.get(ch).w });
   }
-  return sum + tr * Math.max(0, n - 1);
+  return out;
 }
 
+// How wide pieces set, in cap heights, without trailing tracking.
+const piecesWidth = (ps) => ps.reduce((t, p) => t + p.w, 0) + metrics().tracking * Math.max(0, ps.length - 1);
+const widthCaps = (s) => piecesWidth(pieces(s));
+
 export function width(s, height = 1) {
-  return widthCaps(clean(s)) * height;
+  return widthCaps(s) * height;
 }
 
 // `s` set `height` tall (cap height) and centred on (cx, cy). Dots become
-// one-point strokes. opts: {role = "text", w = 1}.
+// one-point strokes; an icon is ICON_W tall, centred on the capitals.
+// opts: {role = "text", w = 1}.
 export function text(s, height, cx = 0, cy = 0, { role = "text", w = 1 } = {}) {
-  s = clean(s);
-  const ox = cx - (widthCaps(s) * height) / 2, oy = cy - height / 2, tr = metrics().tracking;
+  const ps = pieces(s);
+  const ox = cx - (piecesWidth(ps) * height) / 2, oy = cy - height / 2, tr = metrics().tracking;
   const out = [];
   let x = 0;
-  for (const ch of s) {
-    const g = GLYPHS.get(ch);
-    for (const st of g.strokes) {
+  for (const p of ps) {
+    if (p.icon) {
+      const k = (ICON_W * height) / 2, ix = ox + (x + ICON_W / 2) * height;
+      for (const st of p.icon) out.push({ ...st, role, w: (st.w ?? 1) * w, pts: st.pts.map(([px, py]) => [ix + px * k, cy + py * k]) });
+    }
+    for (const st of p.g?.strokes ?? []) {
       if (st.dot) {
         out.push(stroke([[ox + (x + st.dot[0]) * height, oy + st.dot[1] * height]], { role, w }));
       } else {
@@ -159,7 +184,7 @@ export function text(s, height, cx = 0, cy = 0, { role = "text", w = 1 } = {}) {
           { closed: st.closed, role, w }));
       }
     }
-    x += g.w + tr;
+    x += p.w + tr;
   }
   return out;
 }
@@ -253,8 +278,16 @@ export function axis(x, y0, h, lo, hi, ticks, { unit = "", labelH = 0.075, tick 
   return [stroke(pts, { w: weight }), ...labels];
 }
 
+// An icon name as `kind` draws that icon, MARKER_ICON times the size, outlined;
+// a ring while it loads or if it never does.
+export const MARKER_ICON = 2.6;
 export function marker(kind, cx, cy, size, { role = "line" } = {}) {
   const r = size / 2;
+  const ic = isIcon(kind) && iconSource ? iconSource(kind, { fill: "none" }) : null;
+  if (ic) {
+    const k = (MARKER_ICON * size) / 2;
+    return ic.map((st) => ({ ...st, role, pts: st.pts.map(([px, py]) => [cx + px * k, cy + py * k]) }));
+  }
   if (kind === "house") return house(cx, cy + size / 2, size);
   if (kind === "sun") return [sunIcon(cx, cy, r * 0.6, 8, 0.8)];
   let pts;

@@ -222,6 +222,7 @@
   "glow": null,
   "eye_fill": false,
   "padding": 0.08,
+  "aspect": 1,
   "shapes": {
    "head": {
     "type": "circle"
@@ -421,6 +422,9 @@
     "entity": "",
     "attribute": "",
     "fixed": "",
+    "match": "",
+    "skip_empty": false,
+    "extend": true,
     "template": "Happy birthday {name}!",
     "seconds": 6,
     "max_lines": 4,

@@ -9,13 +9,27 @@
 - **5¾ (Icons):** built and checked in dev HA, with the PNGs sent to Lukas (A to E). F is
   waiting on his review.
 
-Version 0.7.1.
+Version 0.8.0.
 
-**Latest (0.7.1): counts on a plot.** Lukas plotted Plex viewers (`3 watching`). The Unit
-option on plot, value and bars now takes `none` (`S.unitOf`). Plot gained Combine points
+**Latest (0.8.0): aspect, icons in text, a smarter text screen.**
+- **Global aspect:** `look.aspect` (config.py, `LOOK_KEYS`), the Appearance → Look slider, and
+  the card editor's Aspect is unset (follows the panel) until moved. `_applyLook` rebuilds the
+  card when the aspect or background changes.
+- **Icons in text and markers:** `alfie-screens.js` `pieces()` lays out glyphs and icon words;
+  `setIconSource` / `iconLoaded` / `iconStamp`; `marker()` takes icon names. The card's source
+  is at the top of `alfie-card.js`; `renderScreenStill` dry-draws, then waits for icons.
+  `devenv/icons.json` gained mdi:plex, mdi:account and mdi:cake-variant (paths from dev HA's
+  `hass_frontend/static/mdi`).
+- **Text screen:** `match`, `skip_empty`, `extend`; modules may export `rotation()`, which
+  `G.advance(rot, clock, fit)` asks as a turn starts (card `_fit`); `shown` in the draw ctx.
+- **Checks:** `devenv/out/plex-icons.png`, `aspect-dash.png`, `aspect-panel.png` (sent to Lukas);
+  `devenv/out/aspect.js` sets the look's aspect in dev HA.
+
+**Before that (0.7.1): counts on a plot.** Lukas plotted Plex viewers (`3 watching`). The Unit
+option on plot, value and bars takes `none` (`S.unitOf`). Plot gained Combine points
 (`combine`: mean, max, min, last; `bucketize(..., combine)` in `providers/history.py`, and the
 matching statistics field for long spans, mean standing in for last) and Line shape
-(`shape`: straight or steps; `S.curve(..., { steps })`). Render: `devenv/out/plex-steps.png`.
+(`shape`: straight or steps; `S.curve(..., { steps })`).
 
 **Before that (0.7.0): icons.** Lukas asked for Alfie to show any HA icon in stories and from
 automations. design.md "Icons" has what was decided; here is where it lives:

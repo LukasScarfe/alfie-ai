@@ -51,8 +51,10 @@ function build({ w, h, data, options: o, states, S }) {
   });
   const names = rows.map((r, i) => S.title(labels[i] || r.name || r.entity_id || ""));
   const kinds = rows.map((_, i) => {
-    const m = (marks[i] || MARKERS[i % 3]).toLowerCase();
-    return m === "none" ? null : MARKERS.includes(m) ? m : MARKERS[i % 3];
+    const m = marks[i] || MARKERS[i % 3];
+    if (S.isIcon(m)) return m;   // an icon such as mdi:account
+    const k = m.toLowerCase();
+    return k === "none" ? null : MARKERS.includes(k) ? k : MARKERS[i % 3];
   });
   const dotted = rows.map((_, i) => (styles[i] ?? styles[0] ?? "solid").toLowerCase() === "dotted");
   const unit = S.clean(S.unitOf(o.unit, rows.every((r) => r.unit === rows[0].unit) ? rows[0].unit : ""));
@@ -86,7 +88,9 @@ function build({ w, h, data, options: o, states, S }) {
   const labH = 0.06 * sc;
   const readW = o.now ? Math.max(...last.map((v) => S.readoutWidth(v, readH, { decimals: o.decimals }))) : 0;
   const legW = o.legend ? Math.max(...names.map((s) => S.width(s, labH))) : 0;
-  const rightM = o.now || o.legend ? Math.max(readW, legW) + 0.07 * sc : 0;
+  // An icon marker is wider than the built-in ones: keep it clear of the readouts.
+  const iconHalf = kinds.some((k) => k && S.isIcon(k)) ? (S.MARKER_ICON * mSize) / 2 : 0;
+  const rightM = (o.now || o.legend ? Math.max(readW, legW) + 0.07 * sc : 0) + iconHalf;
 
   const x0 = -w + pad + leftM;
   const cw = 2 * w - 2 * pad - leftM - rightM;
@@ -128,7 +132,7 @@ export default {
     const { w, h, data, options, states, memo, S } = ctx;
     // The card hands over a fresh options object each frame, so compare by value.
     const rows = Array.isArray(data?.series) ? data.series.slice(0, 6) : [];
-    const key = JSON.stringify(options) + JSON.stringify(liveOf(rows, states, S));
+    const key = JSON.stringify(options) + JSON.stringify(liveOf(rows, states, S)) + S.iconStamp();
     if (memo.data !== data || memo.key !== key || memo.w !== w || memo.h !== h || !memo.out) {
       Object.assign(memo, { data, key, w, h, out: build(ctx) });
     }

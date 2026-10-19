@@ -50,6 +50,8 @@ def test_ranges_and_style():
     assert errors(screen_line_width=1)
     assert look(glow=2)["glow"] == 2 and look(glow="")["glow"] is None
     assert look(eye_fill=True)["eye_fill"] is True
+    assert look()["aspect"] == 1 and look(aspect=2.5)["aspect"] == 2.5
+    assert errors(aspect=0.2) and errors(aspect=4)
 
 
 def test_colours():

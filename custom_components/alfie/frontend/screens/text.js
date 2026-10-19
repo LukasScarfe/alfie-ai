@@ -1,7 +1,8 @@
 // Names and titles (xy `_title`, `_wrap`, `_set_title`, `_birthday`): word-wrapped
 // text set as large as fits, one title or cycling through several.
 // Sources: calendar events (the provider's data), any entity's state or
-// attribute, or fixed text.
+// attribute, or fixed text, kept to those `match`ing. In a rotation it can be
+// skipped while there is nothing, and lengthened so each title shows once.
 const PITCH = 1.6;   // line to line, in cap heights
 
 // The titles to show right now, before the template.
@@ -22,8 +23,14 @@ export function titles(options, data, states) {
   } else {
     list = String(o.fixed ?? "").split("|");
   }
-  return list.map((x) => String(x));
+  const words = String(o.match ?? "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+  list = list.map((x) => String(x));
+  return words.length ? list.filter((x) => words.some((wd) => x.toLowerCase().includes(wd))) : list;
 }
+
+// The titles as shown: through the template, set as the font can.
+const shownTitles = (options, data, states, S) =>
+  titles(options, data, states).map((n) => S.title(applyTemplate(options.template, n))).filter(Boolean);
 
 // `title` through the template. A template without {name} is a prefix.
 export function applyTemplate(template, name) {
@@ -51,11 +58,17 @@ export function fit(S, s, bw, bh, max, maxLines) {
 
 export default {
   type: "text",
-  draw({ w, h, t, data, options, states, memo, S }) {
-    const list = titles(options, data, states).map((n) => S.title(applyTemplate(options.template, n))).filter(Boolean);
+  // Its say in a rotation turn (alfie-stage `advance`).
+  rotation({ data, options, states, S }) {
+    const n = shownTitles(options, data, states, S).length;
+    return { skip: !!options.skip_empty && n === 0, seconds: options.extend ? n * Math.max(1, Number(options.seconds) || 6) : 0 };
+  },
+  // `shown`: seconds since it came in, so a turn starts on the first title.
+  draw({ w, h, t, shown: since = t, data, options, states, memo, S }) {
+    const list = shownTitles(options, data, states, S);
     const secs = Math.max(1, Number(options.seconds) || 6);
-    const shown = list.length ? list[Math.floor(t / secs) % list.length] : S.title(options.empty) || "--";
-    const key = [shown, w.toFixed(3), h.toFixed(3), options.size, options.max_lines].join("|");
+    const shown = list.length ? list[Math.floor(since / secs) % list.length] : S.title(options.empty) || "--";
+    const key = [shown, w.toFixed(3), h.toFixed(3), options.size, options.max_lines, S.iconStamp()].join("|");
     if (memo.key !== key) {
       memo.key = key;
       const f = fit(S, shown, w * 0.92, h * 0.88, Math.max(0.05, Number(options.size) || 0.3), Math.max(1, options.max_lines | 0 || 4));

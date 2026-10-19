@@ -102,17 +102,31 @@ export default {
   type: "plot",
   // Called once per frame while the screen is visible. It must be cheap: cache anything slow on
   // `memo`, which belongs to this screen instance and persists between calls.
-  draw({ w, h, t, data, options, states, config, memo, S }) { return strokes; },
+  draw({ w, h, t, shown, data, options, states, config, memo, S }) { return strokes; },
+  // Optional: its say in a rotation turn, asked once as the turn starts (alfie-stage `advance`).
+  rotation({ data, options, states, S }) { return { skip: false, seconds: 0 }; },
 };
 ```
 
 - **The box:** x runs over [-w, w] and y over [-h, h], with y up, in the face's units (the
   ring has radius 1). The card picks `w` and `h` from its aspect and the presenting style.
-- `t` is epoch seconds, `data` is the provider's data or null, and `options` is validated with
-  defaults filled in.
+- `t` is epoch seconds, `shown` is seconds since this screen came in (0 when not the one on
+  show), `data` is the provider's data or null, and `options` is validated with defaults filled in.
+- **`rotation()`** is asked only once the module and its data are in (unknown never skips).
+  `skip` passes the screen over at no time cost and with no gap of Alfie; when every screen in
+  a rotation skips, Alfie has the stage and it looks again each second. `seconds` lengthens the
+  turn past the step's own; the length is fixed as the turn starts. The card keeps a skipped
+  screen's data fresh so it can come back. The text screen uses it (`skip_empty`, `extend`).
 - `states` is `hass.states`, and `config` is `hass.config` (latitude, longitude, time_zone,
   unit_system).
 - `S` is `alfie-screens.js`: `text`, `width`, the helpers and the icons.
+- **Icon names in text:** any word of screen text that is an icon name (`S.isIcon`: lowercase
+  `prefix:name`, e.g. `mdi:plex`) is set as that icon, `S.ICON_W` cap heights wide and tall, in
+  the text's role, soft fill. `S.title` keeps such words whole. The card gives the source
+  (`S.setIconSource`, HA's `<ha-icon>` via `alfie-icons.js`); a loading icon keeps its slot
+  empty, a name that never resolves is set as text. A screen that caches strokes on `memo` puts
+  `S.iconStamp()` in its key, so it redraws when an icon arrives. `S.marker` takes an icon name
+  too (`S.MARKER_ICON` times the size, outlined; a ring until it loads).
 - **A stroke** is `{pts: [[x, y], ...], closed: bool, w: number, role: "line" | "text" | "accent" | "dim", fill: bool}`.
   - `w` is a weight. 1 is normal, more than 1 is bolder, and 0.15 is xy's "dotted": the card
     draws it dashed and dim.
@@ -161,7 +175,7 @@ card defaults exactly):
 ```json
 "look": {"style": "neon", "ring_color": "", "eye_color": "", "background": "",
          "text_color": "", "accent_color": "", "line_width": 0.035, "screen_line_width": 0.02,
-         "glow": null, "eye_fill": false, "padding": 0.08,
+         "glow": null, "eye_fill": false, "padding": 0.08, "aspect": 1.0,
          "shapes": {"head": {"type": "circle"}, "eye": {"type": "circle"}}}
 ```
 
@@ -169,6 +183,8 @@ card defaults exactly):
 - In the colour fields, `""` means "from the style". A value is a CSS colour, `#hex` or
   `var(--x)`.
 - `glow`: null means "from the style", else 0 to 2.
+- `aspect`: every card's width over height, 0.5 to 3. A card's own `aspect` wins; the card
+  editor leaves it unset (following the panel) until it is moved.
 - `shapes` holds the shape specs from design.md "Shapes are swappable data", checked for type
   and numeric ranges.
 - The scene gains `"look": {...}` (the whole section; it's small).
