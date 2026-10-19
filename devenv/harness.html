@@ -5,8 +5,10 @@
        sheet=energy&expr=neutral    one expression across energy levels
        sheet=shapes                 head/eye shape combinations across expressions
        sheet=personality            each preset across expressions and an animation frame
-       sheet=screen&type=label&opts=<json>&data=<json>[&present=corner&u=1]   one screen
+       sheet=screen&type=label&opts=<json>&data=<json>[&states=<json>&hcfg=<json>&present=corner&u=1]   one screen
        sheet=present                label screen, both presenting styles, u = 0, .25, .5, 1, and the four corners
+       sheet=intros[&only=draw,zoom][&kind=screen|face]   every intro style at u = 0, .25, .5, .75, 1: a label screen arriving, and
+                                    the face leaving as strokes (morph from the face); about SIZE=2000x1900 at both kinds
        sheet=font                   every glyph of the vector font, large
        expr=happy[&anim=X&u=0.3]    one face
      plus cfg=<url-encoded JSON card config> and cols=N. -->
@@ -66,7 +68,9 @@
     }
   } else if (sheet === "screen" || sheet === "present" || sheet === "font") {
     const J = (k, d) => (q.get(k) ? JSON.parse(q.get(k)) : d);
-    const base = { type: q.get("type") || "label", options: J("opts", {}), data: J("data", null), t: Number(q.get("t") || 0) };
+    // states= and hcfg= stand in for hass.states and hass.config.
+    const base = { type: q.get("type") || "label", options: J("opts", {}), data: J("data", null), t: Number(q.get("t") || 0),
+                   states: J("states", {}), config: J("hcfg", {}) };
     if (sheet === "font") {
       base.options = { text: "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 :.-\u00b0%'!", size: 0.3 };
       frames = [{ ...base, label: "font", present: "handover", u: 1 }];
@@ -87,12 +91,24 @@
     }
     const info = await (await fetch(`../custom_components/alfie/frontend/screens/${base.type}.json`)).json();
     for (const f of frames) f.typeInfo = info;
+  } else if (sheet === "intros") {
+    const I = await import("../custom_components/alfie/frontend/alfie-intros.js?v=dev");
+    const info = await (await fetch("../custom_components/alfie/frontend/screens/label.json")).json();
+    const only = q.get("only") ? q.get("only").split(",") : I.STYLES, kind = q.get("kind") || "both";
+    for (const style of only) {
+      for (const k of ["screen", "face"]) {
+        if (kind !== "both" && kind !== k) continue;
+        for (const u of [0, 0.25, 0.5, 0.75, 1]) frames.push({ label: `${style} ${k} u=${u}`, intro: { I, style, k, u }, type: "label", typeInfo: info,
+          options: { text: "Hello Alfie 12:30" }, present: "handover", u: 1 });
+      }
+    }
+    cfg.aspect = 1.6;
   } else {
     frames = [{ label: q.get("expr") || "neutral", expression: q.get("expr") || "neutral",
                 animation: q.get("anim"), u: Number(q.get("u") || 0) }];
   }
   const g = document.getElementById("g");
-  g.style.gridTemplateColumns = `repeat(${q.get("cols") || (sheet === "present" ? 4 : sheet === "screen" || sheet === "font" ? 1 : sheet === "shapes" ? 4 : sheet === "personality" ? 5 : Math.min(frames.length, 6))}, 1fr)`;
+  g.style.gridTemplateColumns = `repeat(${q.get("cols") || (sheet === "present" ? 4 : sheet === "screen" || sheet === "font" ? 1 : sheet === "shapes" ? 4 : sheet === "personality" ? 5 : sheet === "intros" ? (q.get("kind") ? 5 : 10) : Math.min(frames.length, 6))}, 1fr)`;
   for (const f of frames) {
     const fig = document.createElement("figure");
     const el = document.createElement("alfie-card");
@@ -100,7 +116,24 @@
     fig.appendChild(el);
     fig.insertAdjacentHTML("beforeend", `<figcaption>${f.label}</figcaption>`);
     g.appendChild(fig);
-    if (f.type) await el.renderScreenStill(f); else await el.renderStill(f);
+    if (f.intro) {
+      // Drive the card's own _draw with intro-shaped strokes, the way the card will:
+      // the screen arrives with presence p, the face leaves as strokes (flipped direction).
+      await el.renderScreenStill(f);
+      const { I, style, k, u } = f.intro, p = I.presence(style, u, false), base = el._stillScr.strokes;
+      const faceS = I.faceStrokes(el._stillFrame);
+      const box = (hw, hh) => ({ w: hw, h: hh });
+      el._stillScr = k === "screen" ? {
+        ...el._stillScr, faceAlpha: I.faceAlpha(style, p),
+        get alpha() { return I.apply(style, p, false, [], null, faceS).alpha; },
+        strokes: (hw, hh) => I.apply(style, p, false, base(hw, hh), box(hw, hh), faceS).strokes,
+      } : {
+        ...el._stillScr, faceAlpha: 0,
+        get alpha() { return I.apply(style, 1 - Math.min(1, p), true, faceS, null, []).alpha; },
+        strokes: (hw, hh) => I.apply(style, 1 - Math.min(1, p), true, faceS, box(hw, hh), base(hw, hh)).strokes,
+      };
+      el._draw(el._stillFrame, el._stillScr);
+    } else if (f.type) await el.renderScreenStill(f); else await el.renderStill(f);
   }
   document.body.dataset.ready = "1";
 </script>

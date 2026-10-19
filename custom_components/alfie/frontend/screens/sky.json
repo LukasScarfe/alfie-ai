@@ -1,0 +1,13 @@
+{"type": "sky", "title": "Sky", "needs": null,
+ "options": [
+   {"key": "latitude", "kind": "text", "label": "Latitude override (blank: Home Assistant's home)", "default": ""},
+   {"key": "longitude", "kind": "text", "label": "Longitude override (blank: Home Assistant's home)", "default": ""},
+   {"key": "labels", "kind": "bool", "label": "Compass letters", "default": true},
+   {"key": "times", "kind": "bool", "label": "Show rise and set times", "default": true},
+   {"key": "moon_times", "kind": "bool", "label": "Also show moonrise and moonset", "default": false},
+   {"key": "rings", "kind": "bool", "label": "30 and 60 degree rings", "default": true},
+   {"key": "sun_path", "kind": "bool", "label": "Dotted sun path for today", "default": true},
+   {"key": "moon_path", "kind": "bool", "label": "Dotted moon pass", "default": true},
+   {"key": "moon_fill", "kind": "bool", "label": "Fill the lit part of the moon", "default": false},
+   {"key": "size", "kind": "number", "label": "Sun and moon size", "default": 1, "min": 0.5, "max": 2.5}
+ ]}

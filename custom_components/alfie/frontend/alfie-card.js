@@ -516,7 +516,15 @@ class AlfieCard extends HTMLElement {
     const cx = L ? L.face.cx : w / 2, cy = L ? L.face.cy : h / 2;
     const X = (x) => cx + x * Rf, Y = (y) => cy - y * Rf;
     const faceAlpha = scr ? scr.faceAlpha : 1;
-    if (faceAlpha > 0.003) {
+    if (scr?.face) {
+      // The face as strokes, shaped by the transition, in the same units as the screen.
+      const out = scr.face(shapes, { w: w / 2 / R, h: h / 2 / R });
+      const a = faceAlpha * (out.alpha ?? 1);
+      if (a > 0.003 && out.strokes?.length) {
+        this._drawStrokes(ctx, out.strokes, cx, cy, R, a,
+          { lw, palette: { line: col.face, accent: col.eye, text: col.face, dim: col.face } });
+      }
+    } else if (faceAlpha > 0.003) {
       if (faceAlpha < 1) ctx.globalAlpha = faceAlpha;
       ctx.lineWidth = lw;
       ctx.lineJoin = "round";
@@ -541,7 +549,7 @@ class AlfieCard extends HTMLElement {
       ctx.globalAlpha = 1;
     }
     if (scr && scr.alpha > 0.003) {
-      const strokes = scr.strokes(L.box.hw / R, L.box.hh / R);
+      const strokes = scr.strokes(L.box.hw / R, L.box.hh / R, shapes);
       if (strokes?.length) this._drawStrokes(ctx, strokes, L.box.cx, L.box.cy, R, scr.alpha);
     }
   }
@@ -570,11 +578,12 @@ class AlfieCard extends HTMLElement {
   }
 
   // Screen strokes in the box at pixel centre (bx, by); one canvas unit is R px.
-  _drawStrokes(ctx, strokes, bx, by, R, alpha) {
+  // `face` (optional) draws the face this way instead: its line width, its colours.
+  _drawStrokes(ctx, strokes, bx, by, R, alpha, face = null) {
     const c = this._config, col = this._colors;
-    const lw = Math.max(1.25, Number(c.screen_line_width) * R);
+    const lw = face ? face.lw : Math.max(1.25, Number(c.screen_line_width) * R);
     const X = (x) => bx + x * R, Y = (y) => by - y * R;
-    const color = { line: col.face, text: col.text, accent: col.accent, dim: col.face };
+    const color = face ? face.palette : { line: col.face, text: col.text, accent: col.accent, dim: col.face };
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     for (const st of strokes) {
@@ -706,7 +715,7 @@ class AlfieCard extends HTMLElement {
   _transitionStyle() {
     const c = this._config;
     let style = c.transition || this._rot?.transition || "fade";
-    if (style === "random") style = I.STYLES[Math.floor(Math.random() * I.STYLES.length)];
+    if (style === "random") style = I.RANDOM_STYLES[Math.floor(Math.random() * I.RANDOM_STYLES.length)];
     return I.STYLES.includes(style) ? style : "fade";
   }
 
@@ -741,18 +750,23 @@ class AlfieCard extends HTMLElement {
   _describe(id, style, p, leaving, k, t) {
     const c = this._config, corner = c.present === "corner";
     const screen = this._screenIndex.get(id);
-    let faceAlpha = 1;
-    if (!corner) faceAlpha = I.apply(style, 1 - clamp(p, 0, 1), false, [], null).alpha;
+    // In "hand over" the face goes by the same transition the screen comes by
+    // (drawn, zoomed, wiped away...); fade and cut just change its alpha, and
+    // morph turns the face itself into the screen.
+    const faceAlpha = corner ? 1 : I.faceAlpha(style, p);
+    const shaped = !corner && !["cut", "fade", "morph"].includes(style) && p > 0 && p < 1;
     return {
       present: c.present, corner: c.corner, size: c.corner_size, k, faceAlpha,
       alpha: I.apply(style, p, leaving, [], null).alpha,
-      strokes: (hw, hh) => this._screenStrokes(screen, hw, hh, t, style, p, leaving),
+      face: shaped ? (shapes, box) => I.apply(style, 1 - clamp(p, 0, 1), !leaving, I.faceStrokes(shapes), box) : null,
+      strokes: (hw, hh, shapes) => this._screenStrokes(screen, hw, hh, t, style, p, leaving,
+        style === "morph" && shapes && !corner ? I.faceStrokes(shapes) : null),
     };
   }
 
   // The strokes for a screen in a box, never throwing: a module that fails
   // gets its title drawn instead and a single log line.
-  _screenStrokes(screen, hw, hh, tCard, style, p, leaving) {
+  _screenStrokes(screen, hw, hh, tCard, style, p, leaving, from = null) {
     const box = { w: hw, h: hh };
     let strokes = null;
     const d = this._data.get(screen.id);
@@ -775,7 +789,7 @@ class AlfieCard extends HTMLElement {
       }
     }
     if (!strokes) strokes = S.fontReady() ? this._titleStrokes(screen, hw, hh) : [];
-    return I.apply(style, p, leaving, strokes, box).strokes;
+    return I.apply(style, p, leaving, strokes, box, from).strokes;
   }
 
   _fail(screen, e) {
@@ -833,9 +847,10 @@ class AlfieCard extends HTMLElement {
   // For tests and the dev harness: one still frame of a screen with Alfie, no
   // clock, no HA. {type, options, typeInfo (the type's JSON, for defaults), data,
   // t (epoch s), present, corner, u (0..1, how far the screen has arrived),
-  // expression}. Uses the fade transition.
+  // expression, states, config (stand-ins for hass.states and hass.config)}.
+  // Uses the fade transition.
   async renderScreenStill({ type, options = {}, typeInfo = null, data = null, t = 0, present = this._config.present,
-    corner = this._config.corner, u = 1, expression = "neutral", title = null } = {}) {
+    corner = this._config.corner, u = 1, expression = "neutral", title = null, states = {}, config = {} } = {}) {
     const face = await loadFace();
     await S.loadFont();
     const mod = await S.loadScreen(type);
@@ -855,7 +870,7 @@ class AlfieCard extends HTMLElement {
       faceAlpha: present === "corner" ? 1 : 1 - pres, alpha: pres,
       strokes: (hw, hh) => {
         try {
-          return mod.draw({ w: hw, h: hh, t, data, options: opts, states: {}, config: {}, memo: {}, S });
+          return mod.draw({ w: hw, h: hh, t, data, options: opts, states, config, memo: {}, S });
         } catch (e) {
           console.error(e);
           return this._titleStrokes({ title: title || type }, hw, hh);

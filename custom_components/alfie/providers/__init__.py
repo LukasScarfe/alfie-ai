@@ -135,3 +135,7 @@ def provider_for(kind: str) -> Provider | None:
 
 # --- Providers. Each data kind adds exactly one import line here, after the
 # registry above is defined (the module registers itself on import).
+from . import calendar  # noqa: E402,F401
+from . import forecast  # noqa: E402,F401
+from . import history  # noqa: E402,F401
+from . import streets  # noqa: E402,F401

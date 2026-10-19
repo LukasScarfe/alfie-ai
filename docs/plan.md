@@ -45,12 +45,12 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         xy), the view helpers and icons, `screens` and `rotations` in the config,
         `alfie/screen_data` and the provider registry, the card's rotation mode and presenting
         (handover and corner), `alfie.show_screen`, and the harness `sheet=screen`.
-  - [ ] B1. Plot plus the history provider.
-  - [ ] B2. Weather plus the forecast provider.
-  - [ ] B3. Home clock, value and bars.
-  - [ ] B4. Sky maths (golden-tested against xy), sky and stars.
-  - [ ] B5. Map (opt-in Overpass, rounded cells, disk cache) and text (calendar).
-  - [ ] B6. Intros: the stroke transforms and fade, then materialise, condense and morph.
+  - [x] B1. Plot plus the history provider.
+  - [x] B2. Weather plus the forecast provider.
+  - [x] B3. Home clock, value and bars.
+  - [x] B4. Sky maths (golden-tested against xy), sky and stars.
+  - [x] B5. Map (opt-in Overpass, rounded cells, disk cache) and text (calendar).
+  - [x] B6. Intros: the stroke transforms and fade, then materialise, condense and morph.
   - [ ] C. The panel's Screens tab: build screens from each type's schema, rotations, and a
         live preview.
   - [x] D. Card visual editor (`alfie-card-editor.js`, the card's `getConfigElement`): every card
