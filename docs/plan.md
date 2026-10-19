@@ -53,7 +53,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [ ] B6. Intros: the stroke transforms and fade, then materialise, condense and morph.
   - [ ] C. The panel's Screens tab: build screens from each type's schema, rotations, and a
         live preview.
-  - [ ] D. Card visual editor (`alfie-card-editor.js`, the card's `getConfigElement`): every card
+  - [x] D. Card visual editor (`alfie-card-editor.js`, the card's `getConfigElement`): every card
         option in groups (look, display mode and rotation, presenting, personality, advanced),
         with a live preview, so no YAML is needed. Runs in parallel with B.
   - [ ] E. **Look** tab and **Playground** in the panel (after C, same file):

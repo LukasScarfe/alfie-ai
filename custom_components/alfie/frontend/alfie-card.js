@@ -223,6 +223,11 @@ class AlfieCard extends HTMLElement {
     return { style: "neon" };
   }
 
+  static async getConfigElement() {
+    await import(`./alfie-card-editor.js${V}`);   // loaded only when the editor opens
+    return document.createElement("alfie-card-editor");
+  }
+
   setConfig(config) {
     if (!config || typeof config !== "object") throw new Error("Invalid configuration");
     for (const k of ["line_width", "padding", "aspect", "fps", "liveliness"]) {
