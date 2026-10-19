@@ -1,6 +1,6 @@
 """Alfie's whole user configuration as one plain dict, kept in HA's Store.
 
-PURE (no HA import), so the tests run under plain python. Seven sections:
+PURE (no HA import), so the tests run under plain python. Nine sections:
 
   signals      the good and bad signals (see signals.py)
   mood         how they combine into a level, and each level's look
@@ -9,6 +9,8 @@ PURE (no HA import), so the tests run under plain python. Seven sections:
   look         Alfie's global default look: style, colours, widths, shapes
   screens      the user's screens: a type plus its options (screen_types.py)
   rotations    ordered lists of screens with seconds each
+  stories      what Alfie does when a trigger fires (stories.py)
+  triggers     when he does it (triggers.py)
 
 `default_config()` is Lukas's house (defaults.py). `validate()` turns any
 stored or panel-sent dict into a complete, checked one, filling what is
@@ -39,9 +41,14 @@ from .mood import (
     MoodSettings,
 )
 from .signals import OPERATORS, SEVERITIES, Signal
+from .stories import validate_stories
+from .triggers import validate_triggers
 
-CONFIG_VERSION = 1
-SECTIONS = ("signals", "mood", "behaviour", "personality", "look", "screens", "rotations")
+# 2: the behaviour reactions (on_critical, on_recover, on_wake, celebrate)
+# became triggers and stories; migrate_v1 carries them over.
+CONFIG_VERSION = 2
+SECTIONS = ("signals", "mood", "behaviour", "personality", "look", "screens", "rotations",
+            "stories", "triggers")
 STYLES = ("neon", "flat", "crt", "theme")     # the card's render styles
 SHAPE_TYPES = ("circle", "polygon", "star", "superellipse", "path")
 SHAPE_SLOTS = ("head", "eye", "left_eye", "right_eye")
@@ -86,7 +93,14 @@ class Built:
 def signal_dict(s: Signal) -> dict[str, Any]:
     return {"id": s.id, "label": s.label, "entities": list(s.entities), "op": s.op,
             "value": s.value, "kind": s.kind, "severity": s.severity, "weight": s.weight,
-            "match": s.match, "screen": s.screen, "enabled": s.enabled}
+            "match": s.match, "screen": s.screen, "enabled": s.enabled,
+            "repeat": default_repeat()}
+
+
+def default_repeat() -> dict[str, Any]:
+    """A signal's repeat options, all off: replay its bad news on walk-in,
+    every N hours, or add its screen to the rotation while it is bad."""
+    return {"on_motion": False, "every_hours": 0, "in_rotation": False}
 
 
 def personality_values(name: str, face: Mapping[str, Any] | None = None) -> dict[str, float]:
@@ -124,15 +138,13 @@ def default_config() -> dict[str, Any]:
             "idle_fidgets": list(defaults.IDLE_FIDGETS),
             "idle_interval": defaults.IDLE_INTERVAL,
             "motion_debounce": defaults.MOTION_DEBOUNCE,
-            "celebrate": True,
-            "on_critical": defaults.ON_CRITICAL,
-            "on_recover": defaults.ON_RECOVER,
-            "on_wake": "wake_up",
         },
         "personality": {"preset": "bubbly", **personality_values("bubbly")},
         "look": default_look(),
         "screens": [],        # Alfie ships none: the user builds them
         "rotations": [],
+        "stories": copy.deepcopy(list(defaults.STORIES)),
+        "triggers": copy.deepcopy(list(defaults.TRIGGERS)),
     }
 
 
@@ -145,8 +157,53 @@ def migrate_options(cfg: dict[str, Any], options: Mapping[str, Any]) -> dict[str
         if isinstance(options.get(key), (int, float)):
             cfg["behaviour"][key] = float(options[key])
     if "celebrate_fix" in options:
-        cfg["behaviour"]["celebrate"] = bool(options["celebrate_fix"])
+        _enable(cfg, "fixed", bool(options["celebrate_fix"]))
     return cfg
+
+
+def _enable(cfg: dict[str, Any], trigger_id: str, on: bool) -> None:
+    for t in cfg["triggers"]:
+        if t["id"] == trigger_id:
+            t["enabled"] = on
+
+
+def _swap_animation(cfg: dict[str, Any], story_id: str, old: str, new: str) -> None:
+    for st in cfg["stories"]:
+        if st["id"] == story_id:
+            if st["template"].get("animation") == old:
+                st["template"]["animation"] = new
+            for step in st["steps"]:
+                if step.get("kind") == "animation" and step.get("name") == old:
+                    step["name"] = new
+                    return
+
+
+def migrate_v1(raw: Mapping[str, Any]) -> dict[str, Any]:
+    """A version 1 config as version 2: its behaviour reactions become the
+    default triggers and stories (an empty reaction disables its trigger, a
+    different animation goes into its story). Anything already v2 passes."""
+    raw = copy.deepcopy(dict(raw))
+    if raw.get("version", 1) >= 2 or "triggers" in raw:
+        return raw
+    base = default_config()
+    raw["version"] = CONFIG_VERSION
+    raw["stories"], raw["triggers"] = base["stories"], base["triggers"]
+    b = raw.get("behaviour") if isinstance(raw.get("behaviour"), Mapping) else {}
+    b = dict(b)
+    for key, trig, story, default in (("on_critical", "critical", "alarm", defaults.ON_CRITICAL),
+                                      ("on_recover", "fixed", "celebrate", defaults.ON_RECOVER),
+                                      ("on_wake", "wake", "wake_up", defaults.ON_WAKE)):
+        if key not in b:
+            continue
+        name = b.pop(key)
+        if not name:
+            _enable(raw, trig, False)
+        elif name != default:
+            _swap_animation(raw, story, default, str(name))
+    if "celebrate" in b and not b.pop("celebrate"):
+        _enable(raw, "fixed", False)
+    raw["behaviour"] = b
+    return raw
 
 
 # ---------------------------------------------------------------- validating
@@ -250,6 +307,7 @@ def _signals(raw: Any, ck: _Check) -> list[dict[str, Any]]:
             "match": ck.choice(f"{where} match", s.get("match", "any"), ("any", "all"), "any"),
             "screen": (str(s["screen"]).strip() or None) if s.get("screen") else None,
             "enabled": bool(s.get("enabled", True)),
+            "repeat": _repeat(where, s.get("repeat"), ck),
         }
         if d["op"] in ("above", "below"):
             if not isinstance(d["value"], (int, float)):
@@ -259,6 +317,15 @@ def _signals(raw: Any, ck: _Check) -> list[dict[str, Any]]:
                     ck.bad(where, f"'{d['op']}' needs a number")
         out.append(d)
     return out
+
+
+def _repeat(where: str, raw: Any, ck: _Check) -> dict[str, Any]:
+    base = default_repeat()
+    r = {**base, **raw} if isinstance(raw, Mapping) else base
+    return {"on_motion": bool(r["on_motion"]),
+            "every_hours": _num(ck.number(f"{where} repeat hours", r["every_hours"],
+                                          0, 168, 0)),
+            "in_rotation": bool(r["in_rotation"])}
 
 
 def _ordered(where: str, d: Mapping[str, float], ck: _Check) -> None:
@@ -296,7 +363,6 @@ def _mood(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
 def _behaviour(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
                animations: Any, ck: _Check) -> dict[str, Any]:
     b = _section(raw, "behaviour", base)
-    anim_or_none = (*animations, "")
     gaze = []
     for i, g in enumerate(b["gaze_map"] if isinstance(b["gaze_map"], list) else []):
         ent = str((g or {}).get("entity") or "").strip() if isinstance(g, Mapping) else ""
@@ -316,9 +382,6 @@ def _behaviour(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
                                    base["idle_interval"]),
         "motion_debounce": ck.number("motion debounce", b["motion_debounce"], 0, 600,
                                      base["motion_debounce"]),
-        "celebrate": bool(b["celebrate"]),
-        **{k: ck.choice(k.replace("_", " "), b[k] or "", anim_or_none, "")
-           for k in ("on_critical", "on_recover", "on_wake")},
     }
 
 
@@ -522,6 +585,7 @@ def validate(raw: Any, face: Mapping[str, Any],
     problem. Missing sections and keys take the defaults."""
     if not isinstance(raw, Mapping):
         raise ConfigError(["config must be a mapping"])
+    raw = migrate_v1(raw)
     ck = _Check()
     base = default_config()
     expressions = tuple(face.get("expressions") or ())
@@ -537,6 +601,11 @@ def validate(raw: Any, face: Mapping[str, Any],
     cfg["screens"] = _screens(raw.get("screens", base["screens"]), types or {}, ck)
     cfg["rotations"] = _rotations(raw.get("rotations", base["rotations"]),
                                   {s["id"] for s in cfg["screens"]}, ck)
+    cfg["stories"] = validate_stories(raw.get("stories", base["stories"]), ck, expressions,
+                                      animations, {s["id"] for s in cfg["screens"]})
+    cfg["triggers"] = validate_triggers(raw.get("triggers", base["triggers"]), ck,
+                                        {s["id"] for s in cfg["stories"]},
+                                        {s["id"] for s in cfg["signals"]})
     if not ck.errors:
         try:
             build(cfg)

@@ -105,12 +105,10 @@ def test_thresholds_must_be_ordered():
 def test_behaviour_names_are_checked():
     errs = errors({"behaviour": {"idle_fidgets": ["squint", "moonwalk"],
                                  "gaze_map": [{"entity": "binary_sensor.m", "action": "wave"}],
-                                 "on_critical": "explode", "idle_interval": 2}})
+                                 "idle_interval": 2}})
     text = "\n".join(errs)
-    for want in ("moonwalk", "wave", "explode", "between 10"):
+    for want in ("moonwalk", "wave", "between 10"):
         assert want in text, want
-    # An empty reaction means "play nothing".
-    assert valid({"behaviour": {"on_recover": ""}})["behaviour"]["on_recover"] == ""
 
 
 def test_personality_presets_fill_sliders():
@@ -137,7 +135,7 @@ def test_migrate_m1_options():
     assert cfg["mood"]["combine"] == "weighted"
     assert cfg["behaviour"]["idle_interval"] == 90.0
     assert cfg["behaviour"]["motion_debounce"] == 5.0
-    assert cfg["behaviour"]["celebrate"] is False
+    assert not next(t for t in cfg["triggers"] if t["id"] == "fixed")["enabled"]
     assert migrate_options(default_config(), {}) == default_config()
 
 
