@@ -101,6 +101,8 @@ export function renameStoryRefs(draft, from, to) {
   if (from === to) return;
   for (const t of draft.triggers || []) if (t.story === from) t.story = to;
   for (const s of draft.signals || []) if (s.repeat?.story === from) s.repeat.story = to;
+  const b = draft.behaviour || {};
+  for (const k of ["appear_story_bad", "appear_story_ok"]) if (b[k] === from) b[k] = to;
 }
 
 // How many triggers play a story (for the delete warning).

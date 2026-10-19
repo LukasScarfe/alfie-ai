@@ -46,7 +46,7 @@ def async_register(hass: HomeAssistant) -> None:
     if data.get("_ws_registered"):
         return
     for cmd in (ws_subscribe, ws_config_get, ws_config_set, ws_config_reset, ws_config_preview,
-                ws_screens, ws_screen_data, ws_story_play, ws_triggers_status):
+                ws_screens, ws_screen_data, ws_story_play, ws_story_expand, ws_triggers_status):
         websocket_api.async_register_command(hass, cmd)
     data["_ws_registered"] = True
 
@@ -171,6 +171,7 @@ def ws_screens(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
         "screens": engine.config["screens"],
         "rotations": engine.config["rotations"],
         "types": engine.types,
+        "stories": [{"id": st["id"], "name": st["name"]} for st in engine.config["stories"]],
     })
 
 
@@ -218,6 +219,29 @@ def ws_story_play(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
         connection.send_error(msg["id"], "not_found", str(e))
         return
     connection.send_result(msg["id"], {"outcome": outcome})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "alfie/story/expand",
+                                  vol.Optional("story"): str})
+@callback
+def ws_story_expand(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+                    msg: dict[str, Any]) -> None:
+    """A story's timed actions for one card to play by itself, when Alfie
+    appears in its rotation. Without `story`, the most relevant one (mood-led).
+    Read only: nothing plays on the other displays."""
+    if (engine := _engine(hass, connection, msg["id"])) is None:
+        return
+    sid = msg.get("story") or engine.appear_story()
+    if not sid:
+        connection.send_result(msg["id"], {"story": None, "actions": []})
+        return
+    try:
+        actions = engine.expand_story(sid)
+    except ValueError as e:
+        connection.send_error(msg["id"], "not_found", str(e))
+        return
+    connection.send_result(msg["id"], {"story": sid, "actions": [
+        {"kind": a.kind, "value": a.value, "seconds": a.seconds} for a in actions]})
 
 
 @websocket_api.require_admin

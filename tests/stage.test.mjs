@@ -15,49 +15,80 @@ function near(a, b, what, tol = 1e-6) {
   if (Math.abs(a - b) > tol) { failures++; console.error(`FAIL ${what}: got ${a}, want ${b}`); }
 }
 
-const spec = { steps: [{ screen: "a", seconds: 10 }, { screen: "b", seconds: 5 }], face: 20 };
+const spec = { steps: [{ screen: "a", seconds: 10 }, { screen: "b", seconds: 5 }], face: 0 };
 
-// Plain cycle: a (10) -> face (20) -> b (5) -> face (20) -> a.
+// Screens follow screens: a (10) -> b (5) -> a, Alfie never in between.
 {
   const rot = G.start(spec, 0);
-  const at = (t) => G.advance(rot, t, { badNews: false });
-  eq(at(0).id, "a", "starts on the first screen");
-  eq(at(9.9).id, "a", "still a");
-  eq(at(10), { id: null, next: "b", shake: false }, "face after a, prefetching b");
-  eq(at(30).id, "b", "b after the face");
-  eq(at(35).id, null, "face after b");
-  eq(at(55).id, "a", "round to a");
+  eq(G.advance(rot, 0), { id: "a", next: "b", appear: false }, "starts on the first screen");
+  eq(G.advance(rot, 9.9).id, "a", "still a");
+  eq(G.advance(rot, 10), { id: "b", next: "a", appear: false }, "straight to b");
+  eq(G.advance(rot, 15).id, "a", "round to a");
 }
 
-// Bad news: after the face, each wrong screen, then back with one shake.
+// face > 0: Alfie between every pair of screens, appearing once each time.
 {
-  const rot = G.start(spec, 0);
-  let wrong = ["plants", "nas"];
-  const opt = { badSeconds: 10, badNow: () => wrong };
-  eq(G.advance(rot, 10, opt).id, null, "face");
-  eq(G.advance(rot, 30, opt), { id: "plants", next: "nas", shake: false }, "first wrong screen");
-  eq(G.advance(rot, 40, opt).id, "nas", "second wrong screen");
-  eq(G.advance(rot, 50, opt), { id: null, next: "b", shake: true }, "back, shaking");
-  eq(G.advance(rot, 51, opt).shake, false, "one shake only");
-  eq(G.advance(rot, 50 + G.BACK_SECONDS, opt).id, "b", "then the rotation resumes");
-  wrong = [];
-  eq(G.advance(rot, 58, opt).id, null, "face after b");
-  eq(G.advance(rot, 78, opt).id, "a", "nothing wrong: straight on");
+  const rot = G.start({ ...spec, face: 20 }, 0);
+  eq(G.advance(rot, 10), { id: null, next: "b", appear: true }, "Alfie after a");
+  eq(G.advance(rot, 11).appear, false, "appears once");
+  eq(G.advance(rot, 30).id, "b", "b after him");
+  eq(G.advance(rot, 35).id, null, "Alfie after b");
+  eq(G.advance(rot, 55).id, "a", "round to a");
+}
+
+// An Alfie step: he appears, and stays for his story when it runs longer.
+{
+  const rot = G.start({ steps: [{ screen: "a", seconds: 10 }, { alfie: true, seconds: 5 }, { screen: "b", seconds: 10 }], face: 20 }, 0);
+  eq(G.advance(rot, 10), { id: null, next: "b", appear: true }, "Alfie step, no gap before it");
+  rot.hold = 12;                                   // the card: his story runs 12 s
+  eq(G.advance(rot, 21).id, null, "held for the story");
+  eq(G.advance(rot, 22).id, "b", "then b, no gap after an Alfie step");
+  eq(G.advance(rot, 32).id, null, "a gap after b (face 20)");
+  eq(G.advance(rot, 52).id, "a", "and round");
+}
+
+// A rotation that starts on Alfie appears at once; only Alfie steps still terminate.
+{
+  const rot = G.start({ steps: [{ alfie: true, seconds: 5 }, { screen: "a", seconds: 5 }], face: 0 }, 0);
+  eq(G.advance(rot, 0), { id: null, next: "a", appear: true }, "starts on Alfie");
+  const solo = G.start({ steps: [{ alfie: true, seconds: 5 }], face: 0 }, 0);
+  eq(G.advance(solo, 1e4).id, null, "only Alfie terminates");
+}
+
+// runStory: expressions and places hold, screens only for their own time, animations fire once.
+{
+  const acts = [
+    { kind: "expression", value: { name: "sad", blend: 0 }, seconds: 1 },
+    { kind: "animation", value: "nod", seconds: 1 },
+    { kind: "screen", value: { id: "plants", seconds: 4 }, seconds: 4 },
+    { kind: "place", value: { x: 1, y: 1, scale: 0.5, seconds: 1 }, seconds: 1 },
+    { kind: "animation", value: "shake", seconds: 0 },
+  ];
+  eq(G.storyLength(acts), 7, "length");
+  const s0 = G.runStory(acts, -1, 0);
+  eq([s0.expression, s0.fire, s0.screen, s0.done], ["sad", [], null, false], "starts with the expression");
+  eq(G.runStory(acts, 0, 1).fire, ["nod"], "nod at 1 s");
+  eq(G.runStory(acts, 1, 1.5).fire, [], "nod only once");
+  eq(G.runStory(acts, 1.5, 3).screen?.id, "plants", "screen from 2 s");
+  const s6 = G.runStory(acts, 5.9, 6.5);
+  eq([s6.screen, s6.place?.x], [null, 1], "screen gone when the place starts");
+  const s7 = G.runStory(acts, 6.5, 7);
+  eq([s7.fire, s7.done, s7.expression], [["shake"], true, "sad"], "shake at the end, done");
 }
 
 // A jump far ahead (the tab was hidden) still lands somewhere sane.
 {
   const rot = G.start(spec, 0);
-  const w = G.advance(rot, 1e4, { badNews: false });
+  const w = G.advance(rot, 1e4);
   eq(typeof w.id === "string" || w.id === null, true, "a long jump terminates");
 }
 
 // Carrying a running rotation into new steps keeps its place.
 {
   const rot = G.start(spec, 0);
-  G.advance(rot, 31, { badNews: false });       // on b
+  G.advance(rot, 11);                           // on b
   const more = G.carry(rot, { ...spec, steps: [...spec.steps, { screen: "c", seconds: 15 }] });
-  eq([more.idx, more.phase, more.t0], [1, "screen", 30], "carry keeps idx, phase and clock");
+  eq([more.idx, more.phase, more.t0], [1, "screen", 10], "carry keeps idx, phase and clock");
   const fewer = G.carry(rot, { ...spec, steps: [spec.steps[0]] });
   eq(fewer.idx, 0, "carry wraps the index");
 }

@@ -35,9 +35,11 @@ const steps = P.compileTemplate({ expression: "happy", animation: "", screen: "@
 check(JSON.stringify(steps.map((x) => x.name || x.screen)) === '["happy","@wrong","shake"]', "template compiles");
 check(steps[1].seconds === 8 && steps[1].present === "corner" && steps[0].hold === 1, "template fields carried");
 const dr = { triggers: [{ story: "a" }, { story: "b" }], signals: [{ repeat: { story: "a" } }],
+  behaviour: { appear_story_bad: "a", appear_story_ok: "b" },
   stories: [{ template: { screen: "p" }, steps: [{ kind: "screen", screen: "p" }, { kind: "wait" }] }] };
 P.renameStoryRefs(dr, "a", "c");
 check(dr.triggers[0].story === "c" && dr.signals[0].repeat.story === "c" && P.storyUses(dr, "c") === 1, "story refs");
+check(dr.behaviour.appear_story_bad === "c" && dr.behaviour.appear_story_ok === "b", "appear story refs");
 P.renameScreenRefs(dr, "p", "q");
 check(dr.stories[0].template.screen === "q" && dr.stories[0].steps[0].screen === "q", "story screen rename");
 P.dropScreenRefs(dr, "q");

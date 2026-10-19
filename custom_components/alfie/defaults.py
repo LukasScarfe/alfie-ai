@@ -65,6 +65,10 @@ IDLE_INTERVAL = 180.0           # seconds between fidgets at content energy
 ON_CRITICAL = "startle"
 ON_RECOVER = "nod"
 ON_WAKE = "wake_up"
+# What Alfie plays when he appears in a rotation (an Alfie step, or between
+# screens): the bad story while something is wrong, otherwise the ok one.
+APPEAR_STORY_BAD = "bad_news"
+APPEAR_STORY_OK = "hello"
 
 
 def _morph() -> list[dict]:
@@ -98,6 +102,8 @@ STORIES: tuple[dict, ...] = (
                _anim(ON_RECOVER), _anim("laugh"), {"kind": "wait", "seconds": 1.5}]},
     {"id": "wake_up", "name": "Wake up", "mode": "template",
      "template": {**TEMPLATE, "animation": ON_WAKE, "screen": ""}, "steps": []},
+    {"id": "hello", "name": "Hello", "mode": "steps", "template": dict(TEMPLATE),
+     "steps": [{"kind": "expression", "name": "@mood", "hold": 1.5, "blend": 0}, _anim("nod")]},
 )
 
 

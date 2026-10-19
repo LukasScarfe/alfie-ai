@@ -81,6 +81,10 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] D. Panel: Triggers and Stories tabs, Behaviour reactions removed, Signals repeat row,
         play-draft and last-fired status.
   - [x] E. Dev HA: each default story live, PNGs to Lukas; design.md, version 0.4.0.
+  - [x] G. Rotations without Alfie in between (Lukas's review): screens follow screens and he
+        stays gone or in his corner; Alfie steps; `face_seconds` optional (default 0); on
+        appearing he plays the most relevant story on that card (`alfie/story/expand`,
+        behaviour `appear_story_bad` / `_ok`, the new Hello story, card `appear_story`).
   - [ ] F. Shown on the real tablet against dev HA (Lukas).
 - [ ] **5. House modes.** Night, away, guests and user-defined modes with overrides.
 - [ ] **6. Voice.** React to all `assist_satellite` states, the what's-wrong LLM tool and intent,

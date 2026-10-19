@@ -1,66 +1,92 @@
 // What a card has on show and where Alfie stands on it, as pure functions so
 // node can test them (tests/stage.test.mjs). No DOM, no HA.
 //
-// Rotation: screen -> face -> (bad news: each wrong screen, then back with a
-// shake) -> the next screen. Place: a story's move/resize, sprung toward.
+// Rotation: screens follow screens; Alfie stays as he is (gone, or in the
+// corner). He appears only in an Alfie step ({alfie: true, seconds}), or
+// between screens when the rotation's `face` seconds are over 0, and then
+// plays the most relevant story locally (runStory). Place: a story's
+// move/resize, sprung toward.
 
-export const BACK_SECONDS = 3;   // Alfie's time after bad news, shaking his head
 export const HOME = { x: 0, y: 0, s: 1 };
 
+const isAlfie = (st) => !!st?.alfie;
+
 export function start(spec, clock) {
-  return { ...spec, idx: 0, phase: "screen", t0: clock, bad: [], badIdx: 0 };
+  const alfie = isAlfie(spec.steps[0]);
+  return { ...spec, idx: 0, phase: alfie ? "alfie" : "screen", t0: clock, hold: 0, appear: alfie };
 }
 
 // A fresh spec (the steps changed under a running rotation) that keeps its place.
 export function carry(old, spec) {
   if (!old?.steps || !spec) return start(spec, old?.t0 ?? 0);
-  return { ...spec, idx: old.idx % spec.steps.length, phase: old.phase, t0: old.t0,
-    bad: old.bad, badIdx: old.badIdx };
+  const idx = old.idx % spec.steps.length;
+  const phase = old.phase === "gap" ? "gap" : isAlfie(spec.steps[idx]) ? "alfie" : "screen";
+  return { ...spec, idx, phase, t0: old.t0, hold: old.hold, appear: old.appear && phase !== "screen" };
 }
 
-function nextStep(rot) {
-  rot.phase = "screen";
-  rot.idx = (rot.idx + 1) % rot.steps.length;
-}
-
-function duration(rot, badSeconds) {
-  switch (rot.phase) {
-    case "screen": return Number(rot.steps[rot.idx].seconds);
-    case "face": return Number(rot.face ?? 20);
-    case "bad": return badSeconds;
-    default: return BACK_SECONDS;
+// The phase after `rot`'s current one: the next step, or a gap of Alfie
+// first when `face` asks for him between two screens.
+function next(rot) {
+  const n = rot.steps.length, j = (rot.idx + 1) % n;
+  if (rot.phase === "screen" && Number(rot.face) > 0 && !isAlfie(rot.steps[j])) {
+    rot.phase = "gap";
+  } else {
+    rot.idx = j;
+    rot.phase = isAlfie(rot.steps[j]) ? "alfie" : "screen";
   }
+  rot.hold = 0;
+  rot.appear = rot.phase !== "screen";
 }
 
-// Move `rot` on to `clock` (rotation seconds). `badNow()` lists the wrong
-// screens at the moment Alfie would tell them. Returns what is wanted now:
-// {id, next, shake}, where id is a screen or null for Alfie, next is the
-// screen to prefetch, and shake is true when he just came back from bad news.
-export function advance(rot, clock, { badNews = true, badSeconds = 10, badNow = () => [] } = {}) {
-  let shake = false;
+// Alfie's phases last their seconds, or as long as his story when that is
+// longer (`hold`, which the card sets once it knows the story).
+function duration(rot) {
+  const own = rot.phase === "gap" ? Number(rot.face) : Number(rot.steps[rot.idx].seconds);
+  return rot.phase === "screen" ? own : Math.max(own, rot.hold || 0);
+}
+
+// Move `rot` on to `clock` (rotation seconds). Returns what is wanted now:
+// {id, next, appear}, where id is a screen or null for Alfie, next is the
+// screen to prefetch, and appear is true once, when Alfie comes on (the card
+// then plays his story and sets rot.hold to its length).
+export function advance(rot, clock) {
   for (let guard = 0; guard < rot.steps.length * 4 + 8; guard++) {
-    const dur = duration(rot, badSeconds);
-    if (clock - rot.t0 < dur) break;
-    rot.t0 += dur;
-    if (rot.phase === "screen") {
-      rot.phase = "face";
-    } else if (rot.phase === "face") {
-      const bad = badNews ? badNow() : [];
-      if (bad.length) Object.assign(rot, { phase: "bad", bad, badIdx: 0 });
-      else nextStep(rot);
-    } else if (rot.phase === "bad") {
-      if (rot.badIdx + 1 < rot.bad.length) rot.badIdx++;
-      else { rot.phase = "back"; shake = true; }
-    } else {
-      nextStep(rot);
-    }
+    if (clock - rot.t0 < duration(rot)) break;
+    rot.t0 += duration(rot);
+    next(rot);
   }
-  const after = rot.steps[(rot.idx + 1) % rot.steps.length].screen;
-  switch (rot.phase) {
-    case "screen": return { id: rot.steps[rot.idx].screen, next: null, shake };
-    case "bad": return { id: rot.bad[rot.badIdx], next: rot.bad[rot.badIdx + 1] ?? null, shake };
-    default: return { id: null, next: after, shake };
+  const appear = rot.appear;
+  rot.appear = false;
+  let after = null;
+  for (let k = 1; k <= rot.steps.length; k++) {
+    const st = rot.steps[(rot.idx + k) % rot.steps.length];
+    if (!isAlfie(st)) { after = st.screen; break; }
   }
+  if (rot.phase === "screen") return { id: rot.steps[rot.idx].screen, next: after, appear };
+  return { id: null, next: after, appear };
+}
+
+// A story's length in seconds: its actions back to back.
+export const storyLength = (actions) => (actions || []).reduce((t, a) => t + (Number(a.seconds) || 0), 0);
+
+// Where a story played on one card stands `to` seconds in: the last
+// expression (with its blend) and place so far, the screen on show (only
+// while its own action lasts, as in the engine), the animations that start
+// in (from, to], and whether it is over. Mirrors engine._run_story.
+export function runStory(actions, from, to) {
+  const out = { expression: null, blend: 0, place: null, screen: null, fire: [], done: false };
+  let t = 0;
+  for (const a of actions || []) {
+    if (t > to) break;
+    const secs = Number(a.seconds) || 0;
+    if (a.kind === "expression") { out.expression = a.value.name; out.blend = a.value.blend || 0; }
+    else if (a.kind === "place") out.place = a.value;
+    else if (a.kind === "animation" && t > from) out.fire.push(a.value);
+    else if (a.kind === "screen" && to < t + secs) out.screen = a.value;
+    t += secs;
+  }
+  out.done = to >= t;
+  return out;
 }
 
 // One frame of springing from `cur` ({x, y, s}) toward a story's `target`

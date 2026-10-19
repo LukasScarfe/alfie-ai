@@ -140,3 +140,16 @@ def test_rotation_errors(types):
     # Edges are fine, and so is any slug transition (the intro names grow).
     validate(cfg_with(**kw, rotations=[{**rot, "transition": "condense_x", "steps": [
         {**step, "seconds": 3}, {**step, "seconds": 3600}]}]), FACE, types)
+
+
+def test_alfie_steps_and_face_seconds(types):
+    rot = {"id": "r", "name": "R", "transition": "fade",
+           "steps": [{"screen": "hello", "seconds": 20}, {"alfie": True, "seconds": 15},
+                     {"alfie": 1, "screen": "ghost", "seconds": 10}]}
+    out = validate(cfg_with(screens=SCREENS, rotations=[rot]), FACE, types)["rotations"][0]
+    # An Alfie step needs no screen (one given is ignored); between screens is off by default.
+    assert out["steps"][1:] == [{"alfie": True, "seconds": 15}, {"alfie": True, "seconds": 10}]
+    assert out["face_seconds"] == 0
+    assert errs(types, screens=SCREENS, rotations=[{**rot, "steps": [{"alfie": True, "seconds": 1}]}])
+    kept = validate(cfg_with(screens=SCREENS, rotations=[{**rot, "face_seconds": 20}]), FACE, types)
+    assert kept["rotations"][0]["face_seconds"] == 20

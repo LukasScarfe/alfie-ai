@@ -1,32 +1,53 @@
 # Alfie: handoff
 
 **Milestones 1 to 3 are done (M3 approved on the tablet 2026-10-19). M4 (Triggers and stories)
-is built and verified in dev HA; only F, the tablet check with Lukas, is left.** Version 0.4.0.
+is built and verified in dev HA, including G (Lukas's rotation review); only F, the tablet check
+with Lukas, is left.** Version 0.4.0.
 
 ## M4 status (2026-10-19)
 
-- **A to E are done.** `stories.py` and `triggers.py` are the pure models. Config is v2: the old
-  behaviour reactions became the default triggers and stories via `migrate_v1`. The engine runs
-  stories (priority, queue, coalescing) and offers `play_story`, `stop_story`, the `alfie_story`
-  events, the WS commands `alfie/story/play` and `alfie/triggers/status`, and the per-signal
-  repeats. The card follows `scene.story`. The panel has the Triggers and Stories tabs.
-  design.md "Triggers and stories" describes it all as built.
-- **The panel was clicked through in dev HA** with `devenv/out/m4-click.js`, which drives the
-  panel by script and logs the draft. It covers adding every trigger kind, kind change, entity
-  add, mood picks, duplicate and delete, adding a story, template edits, convert-to-steps, every
-  step kind, reorder and remove, story rename (trigger refs follow), mode switch, play-draft,
-  save, and the last-fired badges. Run it in parts (`window.PART='A'|'B'|'C'`, plus
-  `window.FAST=1` for short sleeps), because HA reloads a headless page about 10 s in:
+- **A to E and G are done.**
+  - `stories.py` and `triggers.py` are the pure models. Config is v2: the old behaviour
+    reactions became the default triggers and stories via `migrate_v1`.
+  - The engine runs stories (priority, queue, coalescing) and offers `play_story`,
+    `stop_story`, the `alfie_story` events, and WS `alfie/story/play`, `alfie/story/expand` and
+    `alfie/triggers/status`.
+  - The card follows `scene.story`. The panel has the Triggers and Stories tabs.
+  - design.md "Triggers and stories" and "Screens → Rotation" describe it as built.
+- **G, from Lukas's review:**
+  - In a rotation, screens follow screens with Alfie kept away or in his corner (`swap` and
+    `held` on the card's `_cur`).
+  - He comes on only for an Alfie step (`{alfie: true, seconds}`) or a `face_seconds` gap. That
+    is now optional and defaults to 0; dev's `demo` rotation was set to 0 with one Alfie step.
+  - When he appears he plays the most relevant story on that card only: `alfie-stage.js`
+    `advance` returns `appear`, the card fetches `alfie/story/expand`, and `runStory` drives a
+    local overlay.
+  - Mood-led: behaviour `appear_story_bad` (bad_news) while something is wrong, otherwise
+    `appear_story_ok` (the new Hello story). The card option `appear_story` (auto, none, or a
+    story id) replaces `bad_news` / `bad_seconds`; an old `bad_news: false` maps to none.
+  - Configs from before G get Hello and the two keys once (`config._add_appear`).
+  - Trigger stories still play on every display and beat a card's own; in corner mode Alfie
+    comes out and goes back.
+- **Dev checks** (dev dashboard view **Alfie dev → Rotation**, two `g_test` cards, hand-over
+  and corner; `g_test` is 3 s steps, Alfie first):
+  - `devenv/out/m4g-trace.js` logs both cards every 250 ms;
+  - `m4g-freeze.js` / `m4g-freeze2.js` freeze the cards on a `window.WHEN(card)` condition, for
+    a frame;
+  - frames are in `devenv/out/m4g/`, and were sent to Lukas with the panel shots
+    `m4g-panel-rotation.png` and `m4g-panel-behaviour.png`.
+  - HA reloads a headless page about 10 s in, so keep what you shoot well before that.
+- The panel's M4 click-through is `devenv/out/m4-click.js`. Run it in parts
+  (`window.PART='A'|'B'|'C'`, plus `window.FAST=1`):
   `SHOT_VERBOSE=1 ./dev shot alfie out.png --size 1200x1500 --wait 6000 --eval "window.PART='B'; window.FAST=1; $(cat devenv/out/m4-click.js)"`.
-  Part C saves a test story. Put dev back with `./dev js devenv/out/m4-reset.js`.
-- PNGs sent to Lukas: `devenv/out/m4-panel-triggers.png`, `m4-panel-stories.png`,
-  `m4-badnews.png`.
-- **Next: F.** Lukas checks M4 on the real tablet against dev HA. Then claim M5 (house modes):
-  plan it in plan mode with Lukas's OK first.
-- Gotcha: timers passed to `async_call_later` must be `@callback` (or `callback(lambda ...)`),
-  or they run in an executor thread and HA raises.
-- A played story whose `@why` / `@wrong` resolve to no screens just skips those steps, so a panel
-  play while all's well shows fewer steps than the draft has (by design).
+  Part C saves a test story; `./dev js devenv/out/m4-reset.js` puts triggers and stories back.
+- **Next: F.** Lukas checks M4 on the real tablet against dev HA, rotations included. Then claim
+  M5 (house modes), planned in plan mode with Lukas's OK first.
+- Gotchas:
+  - Timers passed to `async_call_later` must be `@callback` (or `callback(lambda ...)`), or they
+    run in an executor thread and HA raises.
+  - A story whose `@why` / `@wrong` resolve to no screens skips those steps (by design).
+  - An `alfie-panel` "already been used" error from Lukas's browser came from a panel module it
+    loaded before `customElements.define` was guarded. It should stop after a reload.
 
 ## Working, in dev HA (`./dev up`, then `http://192.168.1.241:8125`)
 

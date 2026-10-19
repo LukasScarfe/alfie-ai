@@ -139,6 +139,8 @@ def default_config() -> dict[str, Any]:
             "idle_fidgets": list(defaults.IDLE_FIDGETS),
             "idle_interval": defaults.IDLE_INTERVAL,
             "motion_debounce": defaults.MOTION_DEBOUNCE,
+            "appear_story_bad": defaults.APPEAR_STORY_BAD,
+            "appear_story_ok": defaults.APPEAR_STORY_OK,
         },
         "personality": {"preset": "bubbly", **personality_values("bubbly")},
         "look": default_look(),
@@ -204,6 +206,26 @@ def migrate_v1(raw: Mapping[str, Any]) -> dict[str, Any]:
     if "celebrate" in b and not b.pop("celebrate"):
         _enable(raw, "fixed", False)
     raw["behaviour"] = b
+    return raw
+
+
+def _add_appear(raw: dict[str, Any]) -> dict[str, Any]:
+    """A config from before the appearance stories gets them, once: the
+    default "hello" story is added, and Bad news is the bad one if it still
+    exists. After that the saved behaviour says what plays, and a deleted
+    hello stays deleted."""
+    b = raw.get("behaviour")
+    stories = raw.get("stories")
+    if (isinstance(b, Mapping) and "appear_story_ok" in b) or not isinstance(stories, list):
+        return raw
+    ids = {st.get("id") for st in stories if isinstance(st, Mapping)}
+    if defaults.APPEAR_STORY_OK not in ids:
+        hello = next(st for st in defaults.STORIES if st["id"] == defaults.APPEAR_STORY_OK)
+        raw["stories"] = [*stories, copy.deepcopy(hello)]
+    raw["behaviour"] = {**(b if isinstance(b, Mapping) else {}),
+                        "appear_story_ok": defaults.APPEAR_STORY_OK,
+                        "appear_story_bad": defaults.APPEAR_STORY_BAD
+                        if defaults.APPEAR_STORY_BAD in ids else ""}
     return raw
 
 
@@ -384,6 +406,9 @@ def _behaviour(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
                                    base["idle_interval"]),
         "motion_debounce": ck.number("motion debounce", b["motion_debounce"], 0, 600,
                                      base["motion_debounce"]),
+        # Story ids ("" for none), checked against the stories in validate().
+        "appear_story_bad": str(b.get("appear_story_bad") or "").strip(),
+        "appear_story_ok": str(b.get("appear_story_ok") or "").strip(),
     }
 
 
@@ -568,14 +593,19 @@ def _rotations(raw: Any, screen_ids: set[str], ck: _Check) -> list[dict[str, Any
             if not isinstance(st, Mapping):
                 ck.bad(sw, "must be a mapping")
                 continue
+            secs = ck.number(f"{sw} seconds", st.get("seconds", 20), *STEP_SECONDS, 20.0)
+            if st.get("alfie"):
+                # Alfie himself, playing the most relevant story (behaviour.appear_story_*).
+                out_steps.append({"alfie": True, "seconds": _num(secs)})
+                continue
             sc = str(st.get("screen") or "").strip()
             if sc not in screen_ids:
                 ck.bad(sw, f"screen {sc!r} does not exist")
                 continue
-            secs = ck.number(f"{sw} seconds", st.get("seconds", 20), *STEP_SECONDS, 20.0)
             out_steps.append({"screen": sc, "seconds": _num(secs)})
-        # Alfie's own time between screens; 0 goes straight from screen to screen.
-        face = ck.number(f"{where} face seconds", r.get("face_seconds", 20), 0, 3600, 20.0)
+        # Alfie between every pair of screens, as an Alfie step; 0 (the default)
+        # goes straight from screen to screen.
+        face = ck.number(f"{where} face seconds", r.get("face_seconds", 0), 0, 3600, 0.0)
         out.append({"id": rid, "name": str(r.get("name") or "").strip() or rid,
                     "transition": tr, "face_seconds": _num(face), "steps": out_steps})
     return out
@@ -587,7 +617,7 @@ def validate(raw: Any, face: Mapping[str, Any],
     problem. Missing sections and keys take the defaults."""
     if not isinstance(raw, Mapping):
         raise ConfigError(["config must be a mapping"])
-    raw = migrate_v1(raw)
+    raw = _add_appear(migrate_v1(raw))
     ck = _Check()
     base = default_config()
     expressions = tuple(face.get("expressions") or ())
@@ -609,6 +639,10 @@ def validate(raw: Any, face: Mapping[str, Any],
                                         {s["id"] for s in cfg["stories"]},
                                         {s["id"] for s in cfg["signals"]})
     story_ids = {s["id"] for s in cfg["stories"]}
+    for key in ("appear_story_bad", "appear_story_ok"):
+        sid = cfg["behaviour"][key]
+        if sid and sid not in story_ids:
+            ck.bad(f"behaviour {key.replace('_', ' ')}", f"story {sid!r} does not exist")
     for sig in cfg["signals"]:
         r = sig["repeat"]
         if (r["on_motion"] or r["every_hours"]) and r["story"] not in story_ids:

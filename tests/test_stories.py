@@ -154,3 +154,38 @@ def test_v1_reactions_carry_over():
 def test_migration_leaves_v2_alone():
     cfg = default_config()
     assert migrate_v1(cfg) == cfg
+
+
+def test_appear_stories():
+    cfg = valid(default_config())
+    assert cfg["behaviour"]["appear_story_bad"] == "bad_news"
+    assert cfg["behaviour"]["appear_story_ok"] == "hello"
+    assert any(s["id"] == "hello" for s in cfg["stories"])
+    # Either may be "" (nothing plays), but a story that is missing is an error.
+    off = default_config()
+    off["behaviour"]["appear_story_ok"] = ""
+    assert valid(off)["behaviour"]["appear_story_ok"] == ""
+    off["behaviour"]["appear_story_bad"] = "ghost"
+    with pytest.raises(ConfigError) as e:
+        valid(off)
+    assert any("ghost" in x for x in e.value.errors)
+
+
+def test_configs_before_appear_stories_get_hello_once():
+    old = default_config()
+    del old["behaviour"]["appear_story_bad"], old["behaviour"]["appear_story_ok"]
+    old["stories"] = [s for s in old["stories"] if s["id"] != "hello"]
+    cfg = valid(old)
+    assert [s["id"] for s in cfg["stories"]][-1] == "hello"
+    # Once the keys are saved, a deleted hello stays deleted.
+    cfg["stories"] = [s for s in cfg["stories"] if s["id"] != "hello"]
+    cfg["behaviour"]["appear_story_ok"] = ""
+    assert not any(s["id"] == "hello" for s in valid(cfg)["stories"])
+
+
+def test_old_config_without_bad_news_still_validates():
+    old = default_config()
+    del old["behaviour"]["appear_story_bad"], old["behaviour"]["appear_story_ok"]
+    old["stories"] = [s for s in old["stories"] if s["id"] != "bad_news"]
+    old["triggers"] = [t for t in old["triggers"] if t["story"] != "bad_news"]
+    assert valid(old)["behaviour"]["appear_story_bad"] == ""

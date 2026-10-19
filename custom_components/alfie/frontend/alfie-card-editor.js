@@ -17,7 +17,7 @@ export const DEFAULTS = {
   shapes: null, personality: null, mode: "companion", rotation: null,
   present: "handover", corner: "bottom_right", corner_size: 0.3, transition: null,
   text_color: null, accent_color: null, screen_line_width: 0.02,
-  bad_news: true, bad_seconds: 10,
+  appear_story: "auto",
 };
 
 export const PRESETS = ["bubbly", "stoic", "grumpy", "sleepy", "nervous"];
@@ -112,6 +112,7 @@ const STYLE_CSS = `
   button.x { padding: 6px 10px; flex: none; }
   .steps { display: grid; gap: 8px; }
   .steps .row input[type=number] { width: 80px; flex: none; }
+  .steps .alfie { flex: 1; opacity: 0.8; }
   .steps .row select, .steps .row input[type=text] { flex: 1; }
   .unset input[type=range] { opacity: .55; }
   .note { font-size: 0.85em; color: var(--secondary-text-color); }
@@ -126,6 +127,7 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
       this._open = new Set(["look"]);
       this._screens = null;     // null = not loaded, [] / [{id,...}] loaded
       this._rotations = [];
+      this._stories = [];
       this._failed = false;
       this._fields = [];
       this.attachShadow({ mode: "open" });
@@ -149,6 +151,7 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
         const r = await this._hass.connection.sendMessagePromise({ type: "alfie/screens" });
         this._screens = r.screens || [];
         this._rotations = r.rotations || [];
+        this._stories = r.stories || [];
         this._failed = false;
       } catch {
         this._failed = true;
@@ -257,15 +260,26 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
         const sel = this._add({ kind: "select", io: { get: () => s.screen, set: (v) => set(steps.map((x, j) => (j === n ? { ...x, screen: v } : x))) } });
         const sec = this._add({ kind: "num", io: { get: () => s.seconds, set: (v) => set(steps.map((x, j) => (j === n ? { ...x, seconds: v } : x))) }, min: 3, max: 3600 });
         const del = this._add({ kind: "button", run: () => { set(steps.filter((_, j) => j !== n)); this._render(); } });
-        const pick = ids.length
+        const pick = s.alfie ? `<span class="alfie">Alfie (plays his story)</span>` : ids.length
           ? `<select data-i="${sel}" aria-label="Screen">${[...ids, ...(ids.some(([id]) => id === s.screen) ? [] : [[s.screen, `${s.screen} (missing)`]])]
             .map(([id, t]) => `<option value="${esc(id)}" ${id === s.screen ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`
           : `<input type="text" data-i="${sel}" value="${esc(s.screen)}" placeholder="screen id" aria-label="Screen">`;
         return `<div class="row">${pick}<input type="number" data-i="${sec}" min="3" max="3600" value="${s.seconds}" aria-label="Seconds"><button class="x" data-b="${del}" title="Remove">x</button></div>`;
       }).join("");
       const add = this._add({ kind: "button", run: () => { set([...steps, { screen: ids[0]?.[0] || "", seconds: 20 }]); this._render(); } });
+      const addAlfie = this._add({ kind: "button", run: () => { set([...steps, { alfie: true, seconds: 15 }]); this._render(); } });
       return `<div class="sub"><div class="l">Custom list: screen and seconds</div><div class="steps">${rows}</div>
-        <div><button data-b="${add}">Add a screen</button></div></div>`;
+        <div><button data-b="${add}">Add a screen</button> <button data-b="${addAlfie}">Add Alfie</button></div></div>`;
+    }
+
+    // What Alfie plays on this card when he appears in its rotation.
+    _appearField() {
+      const cur = this._get("appear_story") ?? "auto";
+      const opts = [["auto", "The most relevant (bad news if something is wrong)"], ["none", "Nothing, he just shows"],
+        ...this._stories.map((s) => [s.id, s.name || s.id])];
+      if (!opts.some(([v]) => v === cur)) opts.push([cur, `${cur} (missing)`]);
+      return this._select("When Alfie appears", this._top("appear_story"), opts, {
+        hint: "Screens follow screens; Alfie comes on for an Alfie step in the rotation (or between screens, if the rotation asks) and plays this, on this card only." });
     }
 
     _display() {
@@ -276,9 +290,7 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
       ];
       if (this._get("mode") === "rotation") {
         out.push(this._rotationField(),
-          this._bool("Bad news when he appears", t("bad_news"),
-            "While something is wrong, each time Alfie comes round he shows its screens, then shakes his head."),
-          this._range("Bad-news screen seconds", t("bad_seconds"), 3, 60, 1));
+          this._appearField());
       }
       out.push(this._select("Presenting a screen", t("present"), [["handover", "Handover: Alfie leaves"], ["corner", "Corner: Alfie shrinks aside"]], { rerender: true }));
       if (this._get("present") === "corner") {

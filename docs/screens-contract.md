@@ -45,12 +45,14 @@ The Python files are under `custom_components/alfie/`, and the frontend ones und
 ```json
 "screens":   [{"id": "plants", "type": "plot", "title": "Plants", "options": {...}}],
 "rotations": [{"id": "living_room", "name": "Living room", "transition": "draw",
-               "face_seconds": 20, "steps": [{"screen": "plants", "seconds": 20}]}]
+               "face_seconds": 0, "steps": [{"screen": "plants", "seconds": 20},
+                                            {"alfie": true, "seconds": 15}]}]
 ```
 
 - Ids follow the signal id rule: lower-case letters, digits and `_`, and unique.
-- A step names an existing screen, and `seconds` runs from 3 to 3600.
-- `face_seconds` is how long Alfie himself shows between screens: from 0 to 3600, default 20.
+- A step names an existing screen, or is an Alfie step (`alfie: true`, no screen). `seconds`
+  runs from 3 to 3600.
+- `face_seconds` is Alfie between every pair of screens: from 0 to 3600, default 0 (off).
 - `transition` is an intro style name or `random`.
 - A signal's `screen` must name an existing screen or be empty. That check comes in once screens
   exist; until then the field stays free text.
@@ -136,9 +138,13 @@ calls when it leaves and arrives in "hand over".
   - `corner: bottom_right | bottom_left | top_right | top_left`;
   - `corner_size` (0.15 to 0.5, default 0.3);
   - `transition` (overrides the rotation's);
+  - `appear_story`: `auto` (mood-led, default), `none`, or a story id;
   - colours `text_color` and `accent_color`.
-- **Rotation runs in the card:** a timer, which pauses while hidden. A step shows its screen for
-  `seconds`, then Alfie for the rotation's `face_seconds`, then the next step.
+- **Rotation runs in the card:** a timer, which pauses while hidden. A screen step shows its
+  screen for `seconds`, then the next screen follows with Alfie kept away (or in his corner).
+  An Alfie step (or a `face_seconds` gap) brings him on: the card asks `alfie/story/expand` for
+  the most relevant story's timed actions and plays them itself, and the step lasts at least as
+  long. The logic is pure, in `frontend/alfie-stage.js` (`advance`, `runStory`).
 - A scene `screen` interrupts the rotation and the rotation resumes after `until`.
 - **Hand over:** the face leaves by the transition, the screen enters, and at the end the reverse.
 - **Corner:** the face shrinks into the corner (an animated scale and translate) and keeps

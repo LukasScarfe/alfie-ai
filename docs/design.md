@@ -229,8 +229,10 @@ are not triggers.
   - **Something bad is fixed → Celebrate the fix** (45): happy, nod, laugh;
   - **Mood gets better → Mood change** (40): morph, the `@why` screens, nod;
   - **Waking up → Wake up** (30).
-- **Rotation bad news (card option, on by default):** while something is wrong, each time Alfie
-  appears in a rotation he shows its screens first.
+  - **Hello**, played by no trigger: his mood's face and a nod, for appearing while all's well.
+- **When Alfie appears in a rotation** (an Alfie step), he plays the most relevant story on that
+  card: Bad news while something is wrong, Hello otherwise (behaviour `appear_story_bad` /
+  `appear_story_ok`, a card's `appear_story` overrides). See "Screens → Rotation".
 - **Per-signal repeats** (off by default): replay a story (default Bad news) on walk-in or every N
   hours while the signal is bad, at priority 20, queued. Or add the signal's screen to the
   rotation while it is bad (`in_rotation`).
@@ -299,8 +301,21 @@ letters: accents drop to the base letter, and letters it can't decompose (Ł) ar
 - **Rotation (decided):** the user builds their own screens first, then picks which ones rotate,
   in what order and for how long each. Alfie ships no fixed default rotation; with no screens
   built, a rotation card is simply the face.
-  - Named rotations are built in the panel (steps, transition, and `face_seconds` of Alfie
-    between screens), and a card picks one or lists its own steps.
+  - Named rotations are built in the panel (steps and transition), and a card picks one or
+    lists its own steps.
+  - **Screens follow screens.** Between two screens Alfie stays as he is: gone (hand over) or
+    in his corner. The old screen leaves and the next arrives by the rotation's transition.
+  - **Alfie comes on** only for an **Alfie step** (`{alfie: true, seconds}`, anywhere in the
+    list), or between every pair of screens when the rotation's `face_seconds` is over 0 (off by
+    default; older rotations keep theirs). He then plays **the most relevant story** on that card
+    only, and the step lasts at least as long as the story:
+    - the card option `appear_story` is `auto` by default, which is mood-led: behaviour's
+      `appear_story_bad` (Bad news) while something is wrong, otherwise `appear_story_ok`
+      (Hello: his mood's face and a nod);
+    - it can also be `none` or a story id;
+    - the card fetches the timed actions over `alfie/story/expand` and plays them itself.
+  - Otherwise he appears when a trigger plays a story, on every display. In corner mode he comes
+    out to the centre for it, then goes back to the corner and the rotation carries on.
   - The timer runs in the card and pauses while it is hidden or off screen.
   - `alfie.show_screen` interrupts every card, then the rotation resumes.
 
