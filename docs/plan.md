@@ -3,7 +3,7 @@
 Milestones in order. `[ ]` todo, `[~]` in progress (claimed), `[x]` done. Each milestone is broken
 into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) and recorded here.
 
-- [ ] **0. Ground truth.** Read xy-bench (face, moods, animations, screens, intros) and the current
+- [~] **0. Ground truth.** Read xy-bench (face, moods, animations, screens, intros) and the current
       HA mood/automation YAML. Settle the scene-state format (open question 1) and the dev loop: a
       dev HA container on raccoon in the ha-sun-beams style, the test command, and how to screenshot
       the card. Update design.md and CLAUDE.md "Finishing a change".
