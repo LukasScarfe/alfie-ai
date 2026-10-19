@@ -52,6 +52,11 @@ def test_defaults_rebuild_lukas_house_exactly():
             combine(evaluate_all(defaults.SIGNALS, states))
 
 
+def test_key_order_matches_the_defaults():
+    # The panel compares configs as JSON text; a reset section must not look edited.
+    assert json.dumps(valid(default_config())) == json.dumps(default_config())
+
+
 def test_missing_sections_take_defaults():
     assert valid({}) == default_config()
     cfg = valid({"mood": {"combine": "count"}, "behaviour": {"idle_interval": 60}})

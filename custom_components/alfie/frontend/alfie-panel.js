@@ -41,7 +41,10 @@ const PREVIEW_ANIMS = ["glance_left", "nod", "look_around", "laugh", "startle", 
 
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const clone = (v) => JSON.parse(JSON.stringify(v));
-const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+// Key order must not matter: a section reset from the defaults equals the saved one.
+const canon = (v) => Array.isArray(v) ? v.map(canon)
+  : v && typeof v === "object" ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])])) : v;
+const same = (a, b) => JSON.stringify(canon(a)) === JSON.stringify(canon(b));
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 40) || "signal";
 
 function getPath(obj, path) {
@@ -368,6 +371,10 @@ class AlfiePanel extends HTMLElement {
     }
     root.querySelector(".body").addEventListener("input", (e) => this._onInput(e));
     root.querySelector(".body").addEventListener("change", (e) => this._onInput(e));
+    // Enter in the entity box adds it, like pressing Add.
+    root.querySelector(".body").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") e.target.closest(".row")?.querySelector('[data-action="add-entity"]')?.click();
+    });
     this._mountFaces();
     this._showStatus();
     this._showPreview();
@@ -694,7 +701,7 @@ const CSS = `
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
   .ent { display: inline-flex; align-items: center; gap: 2px; background: var(--secondary-background-color); border-radius: 6px; padding: 2px 2px 2px 8px; }
   code { font-family: var(--code-font-family, monospace); font-size: 12px; }
-  table.matches { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  table.matches { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0 4px; }
   .matches td { padding: 3px 6px; border-top: 1px solid var(--divider-color); }
   .matches tr.pass td:first-child { color: var(--primary-color); }
   .modes { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }

@@ -336,7 +336,7 @@ class AlfieCard extends HTMLElement {
     if (this._msg) this._msg.textContent = this._error || "";
   }
 
-  _resize() {
+  _resize(redraw = true) {
     const cv = this._canvas;
     if (!cv) return;
     const dpr = window.devicePixelRatio || 1;
@@ -346,7 +346,7 @@ class AlfieCard extends HTMLElement {
       cv.width = w;
       cv.height = h;
     }
-    if (this._still) this._draw(this._stillFrame);
+    if (redraw && this._still) this._draw(this._stillFrame);
   }
 
   // Colours may be CSS variables; the canvas needs them resolved.
@@ -440,7 +440,11 @@ class AlfieCard extends HTMLElement {
 
     const cv = this._canvas;
     if (!cv || !shapes) return;
-    if (!cv.width || cv.width === 1) this._resize();
+    // A canvas with no size yet (hidden, not laid out) draws nothing; the
+    // ResizeObserver redraws a still once it has one. Resizing from here
+    // must not draw, or a sizeless canvas recurses forever.
+    if (!cv.width || cv.width === 1) this._resize(false);
+    if (cv.width <= 1 || cv.height <= 1) return;
     if (!this._colors) this._resolveColors();
     const c = this._config, col = this._colors;
     const ctx = cv.getContext("2d");

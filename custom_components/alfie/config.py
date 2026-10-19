@@ -257,7 +257,8 @@ def _mood(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
                               ("count_thresholds", _LEVEL_ORDER, -100, 100),
                               ("energy", LEVELS, 0.05, 1.5)):
         src = {**base[key], **(m[key] if isinstance(m.get(key), Mapping) else {})}
-        out[key] = {k: ck.number(f"mood {key} {k}", src[k], lo, hi, base[key][k]) for k in keys}
+        out[key] = {k: ck.number(f"mood {key} {k}", src[k], lo, hi, base[key][k])
+                    for k in base[key] if k in keys}
     out["count_thresholds"] = {k: int(round(v)) for k, v in out["count_thresholds"].items()}
     _ordered("mood thresholds", out["thresholds"], ck)
     _ordered("mood count_thresholds", out["count_thresholds"], ck)
@@ -267,8 +268,9 @@ def _mood(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
     ex = {**base["expressions"],
           **(m["expressions"] if isinstance(m.get("expressions"), Mapping) else {})}
     out["expressions"] = {k: ck.choice(f"mood expression for {k}", ex[k], expressions, "neutral")
-                          for k in LEVELS}
-    return out
+                          for k in base["expressions"]}
+    # In the defaults' key order, so a reset section compares equal as JSON.
+    return {k: out[k] for k in base}
 
 
 def _behaviour(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
