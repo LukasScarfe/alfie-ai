@@ -220,6 +220,7 @@ class AlfieCard extends HTMLElement {
     this._exprPreview = null;
     this._energyPreview = null;
     this._lastAnimId = null;
+    this._heldAnim = null;     // a trigger story animation waiting for Alfie to be back
     this._visible = true;
     this._running = false;
     this._still = false;
@@ -385,7 +386,9 @@ class AlfieCard extends HTMLElement {
       this._lastAnimId = a.id;
       const age = (scene.now ?? Date.now() / 1000) - a.at;
       if (age < ANIMATION_FRESH && face.compiled[a.name] && !(first && age > 1)) {
-        this._face.play(face.compiled[a.name]);
+        // A trigger story's next beat waits until Alfie is back from its screen.
+        if (this._returning(true)) this._heldAnim = a.name;
+        else this._face.play(face.compiled[a.name]);
       }
     }
   }
@@ -544,6 +547,7 @@ class AlfieCard extends HTMLElement {
         if (this._local) this._stepLocal(t);
         this._place = G.placeToward(this._place, this._scene?.story?.place ?? this._local?.place ?? null, dt);
         this._draw(this._frame(t), this._presentation(t, dt));
+        if (this._heldAnim && !this._returning()) this._playHeld();
       }
     }
     requestAnimationFrame((m) => this._loop(m));
@@ -816,12 +820,6 @@ class AlfieCard extends HTMLElement {
   async _appear(rot) {
     const pick = this._config.appear_story ?? "auto";
     this._endLocal(true);
-    // When he will be back on stage. From his corner the screen leaves first, then he
-    // springs out; in hand over he comes in by the transition as the screen goes.
-    const cur = this._cur;
-    const durS = cur ? I.SECONDS[cur.style] ?? 0.6 : 0;
-    this._backAt = this._now() + (!cur ? 0 : cur.present === "corner" && cur.style !== "morph"
-      ? durS + CORNER_SECONDS : durS);
     if (pick === "none" || !this._hass) return;
     rot.hold = 1e9;
     let r = null;
@@ -833,11 +831,10 @@ class AlfieCard extends HTMLElement {
     }
     if (this._rot !== rot) return;           // the rotation was rebuilt meanwhile
     const actions = r?.actions || [];
-    // The story starts once the screen has left and he is back on stage.
-    const delay = Math.max(0, this._backAt - this._now()) || 0;
-    rot.hold = actions.length ? delay + G.storyLength(actions) : 0;
+    // Its clock waits while the screen leaves and he comes back (see _stepLocal).
+    rot.hold = G.storyLength(actions);
     if (!actions.length || this._scene?.story) return;
-    this._local = { actions, t0: this._now() + delay, last: -1, expression: null, blend: 0, place: null, screen: null };
+    this._local = { actions, t0: this._now(), tick: null, last: -1, expression: null, blend: 0, place: null, screen: null };
     this._stepLocal(this._local.t0);
   }
 
@@ -845,7 +842,26 @@ class AlfieCard extends HTMLElement {
   // expression is worn; when it is over Alfie goes back to the scene's.
   _stepLocal(t) {
     const L = this._local, face = this._faceDoc;
+    // As at a screen switch, nothing goes on while a screen leaves and Alfie
+    // comes back: the story's clock (and the rotation's hold on it) waits.
+    if (this._returning()) {
+      if (L.tick != null) {
+        L.t0 += t - L.tick;
+        if (this._rot?.phase === "alfie") this._rot.hold += t - L.tick;
+      }
+      L.tick = t;
+      return;
+    }
+    L.tick = t;
     const el = t - L.t0;
+    // A story screen that ends now leaves first; the story stands there until he is back.
+    const end = L.screen ? G.screenEnd(L.actions, L.last, el) : null;
+    if (end !== null) {
+      L.t0 = t - end;
+      L.last = end - 1e-6;
+      L.screen = null;
+      return;
+    }
     const r = G.runStory(L.actions, L.last, el);
     L.last = el;
     for (const name of r.fire) this.playLocal(name);
@@ -859,6 +875,21 @@ class AlfieCard extends HTMLElement {
     if (r.done) this._endLocal(true);
   }
 
+  // A screen is leaving and Alfie is on his way back (not one screen handing over to the next).
+  // `soon`: also when the scene has just dropped the screen on show, before a frame starts it leaving.
+  _returning(soon = false) {
+    const c = this._cur;
+    if (!c) return false;
+    if (c.tOut != null) return !c.swap;
+    return soon && this._override === c.id && this._scene?.screen?.id !== c.id;
+  }
+
+  _playHeld() {
+    const name = this._heldAnim, face = this._faceDoc;
+    this._heldAnim = null;
+    if (face?.compiled[name]) this._face.play(face.compiled[name]);
+  }
+
   _endLocal(restore) {
     if (!this._local) return;
     this._local = null;
@@ -867,12 +898,11 @@ class AlfieCard extends HTMLElement {
     }
   }
 
-  // `keep`: a random pick already made, kept so the way out matches the way in.
-  _transitionStyle(keep = null) {
+  _transitionStyle() {
     const c = this._config;
     const sc = this._scene?.screen;
     let style = (this._override && this._override === sc?.id && sc.transition) || c.transition || this._rot?.transition || "fade";
-    if (style === "random") style = keep || I.RANDOM_STYLES[Math.floor(Math.random() * I.RANDOM_STYLES.length)];
+    if (style === "random") style = I.RANDOM_STYLES[Math.floor(Math.random() * I.RANDOM_STYLES.length)];
     return I.STYLES.includes(style) ? style : "fade";
   }
 
@@ -916,8 +946,7 @@ class AlfieCard extends HTMLElement {
     if (leaving && age >= (back ? durS + durBack : Math.max(durS, durM))) {
       this._cur = null;
       if (!(cur.swap && want.id)) return null;
-      // Screen to screen keeps a random style: Alfie comes back the way he left.
-      cur = this._cur = { id: want.id, tIn: t, tOut: null, style: this._transitionStyle(cur.style), present: presentOf(want.id), held: true };
+      cur = this._cur = { id: want.id, tIn: t, tOut: null, style: this._transitionStyle(), present: presentOf(want.id), held: true };
       corner = cur.present === "corner";
       leaving = false;
       durS = I.SECONDS[cur.style] ?? 0.6;

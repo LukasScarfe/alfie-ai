@@ -89,6 +89,18 @@ export function runStory(actions, from, to) {
   return out;
 }
 
+// When the story screen on show at `at` ends, if it ends in (at, to]: the card
+// stops the story there, so what follows waits for the screen to leave.
+export function screenEnd(actions, at, to) {
+  let t = 0;
+  for (const a of actions || []) {
+    const end = t + (Number(a.seconds) || 0);
+    if (a.kind === "screen" && t <= at && at < end) return to >= end ? end : null;
+    t = end;
+  }
+  return null;
+}
+
 // One frame of springing from `cur` ({x, y, s}) toward a story's `target`
 // ({x, y, scale, seconds}, or null for home). Settles in about `seconds`.
 export function placeToward(cur, target, dt) {
