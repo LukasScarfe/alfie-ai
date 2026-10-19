@@ -72,6 +72,20 @@
           "description": "One of the 20 animations."
         }
       }
+    },
+    "show_screen": {
+      "name": "Show screen",
+      "description": "Make every Alfie card present one of your screens for a while, then go back to what it was doing.",
+      "fields": {
+        "screen": {
+          "name": "Screen",
+          "description": "The id of a screen built in Alfie's panel."
+        },
+        "seconds": {
+          "name": "Seconds",
+          "description": "How long to show it (1 to 3600, default 20)."
+        }
+      }
     }
   }
 }

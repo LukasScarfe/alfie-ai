@@ -24,3 +24,18 @@ play_animation:
           options: [wink_left, wink_right, look_around, glance_left, glance_right, nod, shake,
                     eye_roll, startle, double_take, laugh, sigh, squint, flinch, scan,
                     processing, glitch, dizzy, nod_off, wake_up]
+show_screen:
+  fields:
+    screen:
+      required: true
+      example: plants
+      selector:
+        text:
+    seconds:
+      default: 20
+      example: 20
+      selector:
+        number:
+          min: 1
+          max: 3600
+          unit_of_measurement: s

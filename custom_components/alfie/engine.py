@@ -9,6 +9,7 @@ entities); the cards do all per-frame animation themselves.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -25,6 +26,8 @@ from homeassistant.helpers.event import async_call_later
 from .config import NOTICE, build, reset, validate
 from .const import CONF_NAME, DEFAULT_NAME, EVENT_ANIMATION, FACE_FILE, SCENE_VERSION
 from .mood import Mood, MoodSettings, combine
+from .providers import provider_for
+from .screen_types import load_types
 from .signals import Signal, evaluate, evaluate_all, is_pattern, matching, watches
 from .store import AlfieStore
 
@@ -43,6 +46,10 @@ def _load_face() -> dict[str, Any]:
         return json.load(f)
 
 
+def _load_types() -> dict[str, dict[str, Any]]:
+    return load_types(os.path.join(os.path.dirname(__file__), "frontend", "screens"))
+
+
 class AlfieEngine:
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.hass = hass
@@ -52,6 +59,8 @@ class AlfieEngine:
         # All of these come from the stored config, set by _apply.
         self.face: dict[str, Any] = {}
         self.config: dict[str, Any] = {}
+        self.types: dict[str, dict[str, Any]] = {}
+        self.screens_rev = ""
         self.signals: tuple[Signal, ...] = ()
         self.settings = MoodSettings()
         self.behaviour: dict[str, Any] = {}
@@ -74,6 +83,9 @@ class AlfieEngine:
         self._unsubs: list[CALLBACK_TYPE] = []
         self._idle_unsub: CALLBACK_TYPE | None = None
         self._override_unsub: CALLBACK_TYPE | None = None
+        self.screen: dict[str, Any] | None = None   # being shown now; not entity state
+        self._screen_seq = 0
+        self._screen_unsub: CALLBACK_TYPE | None = None
         self._relevant_cache: dict[str, bool] = {}
         self._signal_entities: set[str] = set()   # resolved, patterns included
         self.state_key: tuple = ()                # what the entities show; see _push
@@ -84,7 +96,8 @@ class AlfieEngine:
         self.face = await self.hass.async_add_executor_job(_load_face)
         self.expressions = set(self.face["expressions"])
         self.animations = set(self.face["animations"])
-        self._apply(await self.store.async_load(self.face, self.entry.options))
+        self.types = await self.hass.async_add_executor_job(_load_types)
+        self._apply(await self.store.async_load(self.face, self.entry.options, self.types))
         self._unsubs.append(self.hass.bus.async_listen(
             EVENT_STATE_CHANGED, self._on_state, event_filter=self._relevant))
         self._recompute(react=False)
@@ -95,10 +108,10 @@ class AlfieEngine:
         for unsub in self._unsubs:
             unsub()
         self._unsubs.clear()
-        for u in (self._idle_unsub, self._override_unsub):
+        for u in (self._idle_unsub, self._override_unsub, self._screen_unsub):
             if u:
                 u()
-        self._idle_unsub = self._override_unsub = None
+        self._idle_unsub = self._override_unsub = self._screen_unsub = None
         # Tell the cards this engine is gone, so they resubscribe to the next.
         for listener in list(self._listeners):
             listener({"v": SCENE_VERSION, "ended": True})
@@ -118,6 +131,10 @@ class AlfieEngine:
     def _apply(self, cfg: dict[str, Any]) -> None:
         built = build(cfg)
         self.config = cfg
+        self.screens_rev = hashlib.sha1(json.dumps(
+            [cfg["screens"], cfg["rotations"]], sort_keys=True).encode()).hexdigest()[:10]
+        if self.screen and self.screen["id"] not in {s["id"] for s in cfg["screens"]}:
+            self._clear_screen(None)   # the screen being shown was deleted
         self.signals = built.signals
         self.settings = built.mood
         self.behaviour = built.behaviour
@@ -137,7 +154,7 @@ class AlfieEngine:
     def apply_config(self, raw: Any) -> dict[str, Any]:
         """Validate, run and save a config from the panel, live: no reload.
         Raises config.ConfigError. A save never plays a reaction."""
-        cfg = validate(raw, self.face)
+        cfg = validate(raw, self.face, self.types)
         self._apply(cfg)
         self.store.save(cfg)
         self._recompute(react=False)
@@ -156,7 +173,7 @@ class AlfieEngine:
         """What a draft config would make of the house right now, unsaved:
         each signal's entities and whether it is active, and the mood. Only
         on an admin's request from the panel, so the full scan is fine."""
-        cfg = validate(raw, self.face)
+        cfg = validate(raw, self.face, self.types)
         built = build(cfg)
         ids = self.hass.states.async_entity_ids()
         results, out = [], []
@@ -347,6 +364,49 @@ class AlfieEngine:
         self._recompute(react=True)
         self._push()
 
+    # ------------------------------------------------------------ screens
+
+    @callback
+    def show_screen(self, screen_id: str, seconds: float) -> None:
+        """Every card presents `screen_id` for `seconds`, then goes back to
+        what it was doing. Not entity state, so it never writes the recorder."""
+        if screen_id not in {s["id"] for s in self.config.get("screens", [])}:
+            raise ValueError(f"unknown screen {screen_id!r}")
+        if self._screen_unsub:
+            self._screen_unsub()
+        self._screen_seq += 1
+        seq = self._screen_seq
+        self.screen = {"id": screen_id, "until": time.time() + seconds, "seq": seq}
+        self._screen_unsub = async_call_later(
+            self.hass, seconds, lambda _now: self._clear_screen(seq))
+        self._push()
+
+    @callback
+    def _clear_screen(self, seq: int | None) -> None:
+        """End the presentation (only if it is still `seq`'s; None always)."""
+        if self.screen is None or (seq is not None and self.screen["seq"] != seq):
+            return
+        if self._screen_unsub:
+            self._screen_unsub()
+        self._screen_unsub = None
+        self.screen = None
+        if seq is not None:
+            self._push()
+
+    async def screen_data(self, screen_id: str) -> dict[str, Any]:
+        """The cached provider answer for a screen, fetching if it is stale.
+        Raises ValueError for an unknown screen."""
+        screen = next((s for s in self.config["screens"] if s["id"] == screen_id), None)
+        if screen is None:
+            raise ValueError(f"unknown screen {screen_id!r}")
+        needs = self.types[screen["type"]].get("needs") if screen["type"] in self.types else None
+        if needs is None:
+            return {"data": None, "at": time.time(), "error": None}
+        provider = provider_for(needs)
+        if provider is None:
+            return {"data": None, "at": time.time(), "error": f"no provider for {needs} yet"}
+        return await provider.get(self.hass, screen)
+
     # ------------------------------------------------------------ telling
 
     def scene(self) -> dict[str, Any]:
@@ -378,7 +438,8 @@ class AlfieEngine:
             "signals": signals,
             "reason": "Asleep." if self.asleep else (m.reason if m else ""),
             "story": None,
-            "screen": None,
+            "screen": self.screen,
+            "screens_rev": self.screens_rev,
             "now": time.time(),
         }
 
