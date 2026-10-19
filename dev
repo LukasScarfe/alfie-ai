@@ -11,7 +11,7 @@ mkdir -p "$OUT"
 
 chrome() {
   docker run --rm --network host --user "$(id -u):$(id -g)" \
-    -e NODE_PATH=/usr/src/app/node_modules \
+    -e NODE_PATH=/usr/src/app/node_modules -e SHOT_VERBOSE \
     -v "$ROOT:/repo" -w /repo "$CHROME" node /repo/devenv/shot.js "$@"
 }
 
@@ -31,16 +31,21 @@ case "${1:-}" in
              -e PYTHONDONTWRITEBYTECODE=1 python:3.13-alpine \
              sh -c "pip install -q --root-user-action=ignore pytest >/dev/null && python -m pytest -q -p no:cacheprovider tests"
            if [ -f tests/face.test.mjs ]; then
-             docker run --rm --entrypoint node -v "$ROOT:/repo:ro" -w /repo "$CHROME" tests/face.test.mjs
+             docker run --rm --entrypoint node -v "$ROOT:/repo:ro" -w /repo "$CHROME" --experimental-detect-module tests/face.test.mjs
            fi ;;
   shot)    # ./dev shot [dashboard-path] [out.png] [extra shot.js args...]
            path=${2:-lovelace/0}; out=${3:-$OUT/shot.png}; shift $(( $# < 3 ? $# : 3 ))
            python3 devenv/devtool.py token > "$OUT/.auth.json"
            chrome "http://localhost:8125/$path" "$out" --auth "$OUT/.auth.json" --wait 3000 "$@"
            rm -f "$OUT/.auth.json"; echo "$out" ;;
+  dashboard) # (re)create the alfie-dev dashboard in dev HA
+           python3 devenv/devtool.py token > "$OUT/.auth.json"
+           SHOT_VERBOSE=1 chrome "http://localhost:8125/lovelace/0" "$OUT/.dash.png" --auth "$OUT/.auth.json" \
+             --wait 8000 --eval "$(cat devenv/dashboard.js)" 2>&1 | grep -i "alfie" || true
+           rm -f "$OUT/.auth.json" "$OUT/.dash.png" ;;
   face)    # ./dev face [query] [out.png]: the card alone in devenv/harness.html, no HA
            q=${2:-sheet=moods}; out=${3:-$OUT/face.png}
-           chrome "file:///repo/devenv/harness.html?$q" "$out" --size "${SIZE:-1200x900}" --wait 500
+           chrome "file:///repo/devenv/harness.html?$q" "$out" --size "${SIZE:-1200x900}" --wait 800 --selector '#g'
            echo "$out" ;;
   sheet)   # ./dev sheet DIR out.png [cols]: contact sheet of every PNG in DIR (under the repo)
            dir=$2; out=$3; imgs=$(cd "$dir" && ls *.png | paste -sd,)
@@ -50,7 +55,7 @@ case "${1:-}" in
            echo "usage: ./dev up|down|restart|wait|logs [n]|errors [n]"
            echo "       ./dev onboard|add|seed|token"
            echo "       ./dev state ENTITY STATE [attrs-json] | call DOMAIN.SERVICE [json] | get ENTITY"
-           echo "       ./dev test"
+           echo "       ./dev test | dashboard"
            echo "       ./dev shot [dashboard-path] [out.png] | face [query] [out.png] | sheet DIR out.png [cols]"
            exit 1 ;;
 esac

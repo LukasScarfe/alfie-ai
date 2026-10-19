@@ -39,6 +39,24 @@ good defaults, not fixed behaviour.
 - The name is **"Alfie" by default and renamable**. The name flows into the panel, the persona and
   the voice context.
 
+## Resource budget (decided)
+
+Alfie must run comfortably on a Raspberry Pi HA install. The engine:
+
+- is event driven: one filtered `state_changed` listener, plus one timer for idle fidgets. It
+  never polls.
+- resolves wildcard signal patterns once at start, and again only when a new entity appears. A
+  state change costs a dict lookup, and a recompute evaluates only the watched entities.
+- writes entity state only when the mood level, expression, sleep, mode or active signals
+  change. Animations go to the cards over WS and never touch the recorder. Bulky attributes
+  (`signals`, `energy`, `score`, last animation) are unrecorded.
+- sends a scene of a few hundred bytes per change. All animation runs in the browser.
+- caches every network fetch for screens (M3), and does any heavy work, such as history or
+  geometry, in an executor at low rate.
+
+The card caps its frame rate (option `fps`, default 30), pauses while the tab is hidden or the
+card is off screen, and sizes its canvas to the device pixel ratio once per resize.
+
 ## The character
 
 - **Face only, never a body.** It keeps the Superintendent look: a circle face ring and two circle

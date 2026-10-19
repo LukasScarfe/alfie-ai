@@ -16,13 +16,13 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
 - [~] **1. Living face (first win, on the tablet).** Integration skeleton, the card auto-registers,
       the face renders with all 12 expressions and 20 animations, mood comes from a hard-coded set
       of good/bad signals, motion gaze works. Shown on the real tablet.
-  - [ ] Integration skeleton: manifest, config flow (name), frontend auto-registration.
-  - [ ] Engine core, pure Python: signals.py, mood.py (3 combine modes), defaults.py.
-  - [ ] Engine runtime: state listeners, motion gaze, idle fidgets, `alfie/subscribe`,
+  - [x] Integration skeleton: manifest, config flow (name), frontend auto-registration.
+  - [x] Engine core, pure Python: signals.py, mood.py (3 combine modes), defaults.py.
+  - [x] Engine runtime: state listeners, motion gaze, idle fidgets, `alfie/subscribe`,
         `sensor.alfie_mood`, `select.alfie_mode`, `alfie.set_expression` / `alfie.play_animation`.
-  - [ ] `alfie-face.json` and the canvas card: 12 expressions, 20 animations, blink, energy.
-  - [ ] Tests (signals, mood, face data, a JS/Python pose cross-check) and `./dev face` sheet.
-  - [ ] Dev HA screenshot: mood and gaze change with poked signals and motion.
+  - [x] `alfie-face.json` and the canvas card: 12 expressions, 20 animations, blink, energy.
+  - [x] Tests (signals, mood, face data, a JS/Python pose cross-check) and `./dev face` sheet.
+  - [x] Dev HA screenshot: mood and gaze change with poked signals and motion.
   - [ ] Shown on the real tablet against dev HA (Lukas).
 - [ ] **2. Signals and personality.** Panel page for signals (entity / operator / value, severity,
       linked screen), the combine-mode options, mood levels, personality presets.

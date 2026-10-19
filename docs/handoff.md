@@ -1,17 +1,44 @@
 # Alfie: handoff
 
-**Milestone 0 done, milestone 1 claimed** (2026-10-18).
+**Milestone 1 is nearly done.** One step remains: Lukas trying the card on the real tablet.
+(2026-10-18)
 
-- design.md now has the scene-state format and the exact defaults ported from production HA.
-- The dev loop works: `./dev up`, onboard, seed, test, shot and sheet. The dev HA at :8125 is
-  onboarded and has no Alfie config entry yet.
-- `custom_components/alfie/` is still empty.
+## Working, in dev HA (`./dev up`, then `http://192.168.1.241:8125`, dashboard **Alfie dev**)
 
-Next: the M1 steps in plan.md, starting with the integration skeleton.
+- **Integration.** The `alfie` integration loads cleanly and `custom:alfie-card` registers itself.
+- **Card.** All 12 expressions and 20 animations, ported from xy-bench (`tests/face.test.mjs`
+  checks 831 numbers against xy-bench's own output). Blinks, breathing and energy run per frame.
+  It has styles neon, flat, crt and theme, and these options: colours, `line_width`, `glow`,
+  `eye_fill`, `padding`, `aspect`, `fps` (default 30), `liveliness`, `breathing`, `blinking`
+  and `card`. It pauses while hidden or off screen.
+- **Engine.** Lukas's ladder is hard coded in `defaults.py`. Choose the combine mode
+  (worst/weighted/count), the idle interval, the motion debounce and celebrate-the-fix in the
+  integration's options.
+  - Behaviour: motion glances, idle fidgets, a startle on critical, a nod when a fix lands, and
+    sleep via `switch.global_sleep_switches` (only critical wakes him).
+  - Entities: `sensor.alfie_mood` (state is the level, attributes give the why) and
+    `select.alfie_mode` (auto/normal/night/away/guests; only night does anything yet).
+  - Services: `alfie.set_expression` (with a `duration`) and `alfie.play_animation`.
+  - Event: `alfie_animation`.
+- **Resource budget** (Lukas's request, now a hard rule in CLAUDE.md and design.md): it's
+  event driven, and animations never write entity state or recorder rows.
 
-Gotchas:
-- The dev directory is `devenv/`, not `dev/`, because `./dev` is the wrapper script.
-- Fake entities made with `./dev seed` or `./dev state` vanish on an HA restart. Re-seed after
-  `./dev restart`.
-- A first `./dev shot` after HA starts can catch the "Loading…" splash. Pass `--wait 8000`.
-- The headless Chrome is 124 (2024), and the HA 2026.10 frontend renders fine in it.
+## Next
+
+1. Lukas opens dev HA `http://192.168.1.241:8125` on the Galaxy Tab in the Companion app (add it
+   as a server, or use the browser), logs in as `dev`/`devpass1234` and opens **Alfie dev**. This
+   checks the old "Configuration error only in the Companion app" problem. If it's fine, tick M1.
+   Installing on production `tablet-dash` needs his OK.
+2. Then milestone 2: the panel, signals in the `Store` seeded from `defaults.py`, and
+   personality presets.
+
+## Gotchas
+
+- The dev directory is `devenv/`, not `dev/`, because `./dev` is the wrapper.
+- Fake entities from `./dev seed`/`state` vanish on restart. Re-seed after `./dev restart`.
+- `./dev dashboard` rewrites the Alfie dev dashboard.
+- node in the Chrome image is v20 and needs `--experimental-detect-module`; `./dev test`
+  passes it.
+- `alfie-face.js` is loaded by the card with the same `?v=`, through a top-level `await import`.
+- The sensor's attributes don't show the last animation, on purpose: animations don't write
+  state. Listen for the `alfie_animation` event instead.

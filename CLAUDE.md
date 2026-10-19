@@ -27,6 +27,12 @@ Only one agent works on this repo at a time.
 - **Lots of options.** Lukas wants a large, option-rich app. Where a reasonable choice exists, make
   it a user setting with a good default, not hard-coded behaviour.
 - **Never block HA's event loop.** All engine code is async; anything heavy goes to an executor.
+- **Light enough for a Raspberry Pi.** Alfie must never bog down a small HA server. No polling
+  loops, and no per-change scans of every state: listen with filtered events and resolve what you
+  watch once. Entities write state (each write is a recorder row) only when something real
+  changes, never for an animation, and bulky attributes stay `_unrecorded_attributes`. Cache any
+  network fetch (Overpass, history). The card renders in the browser and also stays frugal: a
+  frame-rate cap, and no drawing while hidden or off screen. See design.md "Resource budget".
 - **Develop against a throwaway dev HA on raccoon**, not production HA (`192.168.1.217`). Reading
   production state is fine. Changing production (installing, editing automations, dashboards,
   voice pipelines) needs Lukas's OK first.

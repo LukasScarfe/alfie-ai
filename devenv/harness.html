@@ -1,0 +1,58 @@
+<!doctype html>
+<!-- The Alfie card alone, no HA, for ./dev face. Query:
+       sheet=moods                  all 12 expressions
+       sheet=anim&name=nod&n=8      n frames through one animation
+       sheet=energy&expr=neutral    one expression across energy levels
+       expr=happy[&anim=X&u=0.3]    one face
+     plus cfg=<url-encoded JSON card config> and cols=N. -->
+<meta charset="utf-8">
+<style>
+  body { margin: 0; background: #1c1c1c; color: #ccc; font: 14px sans-serif;
+         --primary-text-color: #e1e1e1; --primary-color: #03a9f4; }
+  #g { display: grid; gap: 10px; padding: 10px; }
+  figure { margin: 0; text-align: center; }
+  alfie-card { display: block; background: #000; }
+</style>
+<div id="g"></div>
+<script type="module">
+  // The card waits for HA's own element before defining itself.
+  customElements.define("home-assistant", class extends HTMLElement {});
+  await import("../custom_components/alfie/frontend/alfie-card.js?v=dev");
+  await customElements.whenDefined("alfie-card");
+
+  const q = new URLSearchParams(location.search);
+  const cfg = { card: false, ...(q.get("cfg") ? JSON.parse(q.get("cfg")) : {}) };
+  const face = await (await fetch("../custom_components/alfie/frontend/alfie-face.json")).json();
+  let frames = [];
+  const sheet = q.get("sheet");
+  if (sheet === "moods") {
+    frames = Object.keys(face.expressions).map((e) => ({ label: e, expression: e }));
+  } else if (sheet === "anim") {
+    const name = q.get("name"), n = Number(q.get("n") || 8);
+    const a = face.animations[name];
+    const len = a.length ?? a.keys.reduce((s, k) => s + k[0], 0) + 0.45;
+    for (let i = 0; i < n; i++) {
+      const u = (len * i) / (n - 1 || 1);
+      frames.push({ label: `${name} ${u.toFixed(2)}s`, expression: q.get("expr") || "neutral", animation: name, u });
+    }
+  } else if (sheet === "energy") {
+    for (const energy of [1, 0.8, 0.55, 0.35, 0.2]) {
+      frames.push({ label: `energy ${energy}`, expression: q.get("expr") || "neutral", energy });
+    }
+  } else {
+    frames = [{ label: q.get("expr") || "neutral", expression: q.get("expr") || "neutral",
+                animation: q.get("anim"), u: Number(q.get("u") || 0) }];
+  }
+  const g = document.getElementById("g");
+  g.style.gridTemplateColumns = `repeat(${q.get("cols") || Math.min(frames.length, 6)}, 1fr)`;
+  for (const f of frames) {
+    const fig = document.createElement("figure");
+    const el = document.createElement("alfie-card");
+    el.setConfig(cfg);
+    fig.appendChild(el);
+    fig.insertAdjacentHTML("beforeend", `<figcaption>${f.label}</figcaption>`);
+    g.appendChild(fig);
+    await el.renderStill(f);
+  }
+  document.body.dataset.ready = "1";
+</script>
