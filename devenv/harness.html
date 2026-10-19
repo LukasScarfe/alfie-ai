@@ -5,6 +5,9 @@
        sheet=energy&expr=neutral    one expression across energy levels
        sheet=shapes                 head/eye shape combinations across expressions
        sheet=personality            each preset across expressions and an animation frame
+       sheet=screen&type=label&opts=<json>&data=<json>[&present=corner&u=1]   one screen
+       sheet=present                label screen, both presenting styles, u = 0, .25, .5, 1, and the four corners
+       sheet=font                   every glyph of the vector font, large
        expr=happy[&anim=X&u=0.3]    one face
      plus cfg=<url-encoded JSON card config> and cols=N. -->
 <meta charset="utf-8">
@@ -61,12 +64,35 @@
         frames.push({ label: `${name}: ${anim || e}`, expression: e, animation: anim, u, cfg: { personality: name } });
       }
     }
+  } else if (sheet === "screen" || sheet === "present" || sheet === "font") {
+    const J = (k, d) => (q.get(k) ? JSON.parse(q.get(k)) : d);
+    const base = { type: q.get("type") || "label", options: J("opts", {}), data: J("data", null), t: Number(q.get("t") || 0) };
+    if (sheet === "font") {
+      base.options = { text: "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 :.-\u00b0%'!", size: 0.3 };
+      frames = [{ ...base, label: "font", present: "handover", u: 1 }];
+      cfg.aspect = 1.6;
+      cfg.screen_line_width = 0.012;
+    } else if (sheet === "screen") {
+      frames = [{ ...base, label: base.type, present: q.get("present") || "handover", corner: q.get("corner") || "bottom_right", u: Number(q.get("u") || 1) }];
+      cfg.aspect = Number(q.get("aspect") || 1.6);
+    } else {
+      base.options = { text: "Hello Alfie, this is a screen" };
+      for (const present of ["handover", "corner"]) {
+        for (const u of [0, 0.25, 0.5, 1]) frames.push({ ...base, label: `${present} u=${u}`, present, u });
+      }
+      for (const corner of ["bottom_right", "bottom_left", "top_right", "top_left"]) {
+        frames.push({ ...base, label: corner, present: "corner", corner, u: 1 });
+      }
+      cfg.aspect = 1.6;
+    }
+    const info = await (await fetch(`../custom_components/alfie/frontend/screens/${base.type}.json`)).json();
+    for (const f of frames) f.typeInfo = info;
   } else {
     frames = [{ label: q.get("expr") || "neutral", expression: q.get("expr") || "neutral",
                 animation: q.get("anim"), u: Number(q.get("u") || 0) }];
   }
   const g = document.getElementById("g");
-  g.style.gridTemplateColumns = `repeat(${q.get("cols") || (sheet === "shapes" ? 4 : sheet === "personality" ? 5 : Math.min(frames.length, 6))}, 1fr)`;
+  g.style.gridTemplateColumns = `repeat(${q.get("cols") || (sheet === "present" ? 4 : sheet === "screen" || sheet === "font" ? 1 : sheet === "shapes" ? 4 : sheet === "personality" ? 5 : Math.min(frames.length, 6))}, 1fr)`;
   for (const f of frames) {
     const fig = document.createElement("figure");
     const el = document.createElement("alfie-card");
@@ -74,7 +100,7 @@
     fig.appendChild(el);
     fig.insertAdjacentHTML("beforeend", `<figcaption>${f.label}</figcaption>`);
     g.appendChild(fig);
-    await el.renderStill(f);
+    if (f.type) await el.renderScreenStill(f); else await el.renderStill(f);
   }
   document.body.dataset.ready = "1";
 </script>

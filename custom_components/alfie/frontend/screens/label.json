@@ -1,0 +1,5 @@
+{"type": "label", "title": "Label", "needs": null,
+ "options": [
+   {"key": "text", "kind": "text", "label": "Text", "required": true},
+   {"key": "size", "kind": "number", "label": "Text size", "default": 0.3, "min": 0.05, "max": 1}
+ ]}

@@ -30,9 +30,14 @@ case "${1:-}" in
            docker run --rm -v "$ROOT:/src:ro" -v alfie-pip-cache:/root/.cache/pip -w /src \
              -e PYTHONDONTWRITEBYTECODE=1 python:3.13-alpine \
              sh -c "pip install -q --root-user-action=ignore pytest >/dev/null && python -m pytest -q -p no:cacheprovider tests"
-           if [ -f tests/face.test.mjs ]; then
-             docker run --rm --entrypoint node -v "$ROOT:/repo:ro" -w /repo "$CHROME" --experimental-detect-module tests/face.test.mjs
-           fi ;;
+           # Every node test, in one container: tests/*.test.mjs and tests/screens/*.test.mjs.
+           docker run --rm --entrypoint sh -v "$ROOT:/repo:ro" -w /repo "$CHROME" -c '
+             fail=0
+             for f in tests/*.test.mjs tests/screens/*.test.mjs; do
+               [ -f "$f" ] || continue
+               node --experimental-detect-module "$f" || { echo "FAILED $f"; fail=1; }
+             done
+             exit $fail' ;;
   shot)    # ./dev shot [dashboard-path] [out.png] [extra shot.js args...]
            path=${2:-lovelace/0}; out=${3:-$OUT/shot.png}; shift $(( $# < 3 ? $# : 3 ))
            python3 devenv/devtool.py token > "$OUT/.auth.json"
