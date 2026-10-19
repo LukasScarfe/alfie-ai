@@ -867,11 +867,12 @@ class AlfieCard extends HTMLElement {
     }
   }
 
-  _transitionStyle() {
+  // `keep`: a random pick already made, kept so the way out matches the way in.
+  _transitionStyle(keep = null) {
     const c = this._config;
     const sc = this._scene?.screen;
     let style = (this._override && this._override === sc?.id && sc.transition) || c.transition || this._rot?.transition || "fade";
-    if (style === "random") style = I.RANDOM_STYLES[Math.floor(Math.random() * I.RANDOM_STYLES.length)];
+    if (style === "random") style = keep || I.RANDOM_STYLES[Math.floor(Math.random() * I.RANDOM_STYLES.length)];
     return I.STYLES.includes(style) ? style : "fade";
   }
 
@@ -915,7 +916,8 @@ class AlfieCard extends HTMLElement {
     if (leaving && age >= (back ? durS + durBack : Math.max(durS, durM))) {
       this._cur = null;
       if (!(cur.swap && want.id)) return null;
-      cur = this._cur = { id: want.id, tIn: t, tOut: null, style: this._transitionStyle(), present: presentOf(want.id), held: true };
+      // Screen to screen keeps a random style: Alfie comes back the way he left.
+      cur = this._cur = { id: want.id, tIn: t, tOut: null, style: this._transitionStyle(cur.style), present: presentOf(want.id), held: true };
       corner = cur.present === "corner";
       leaving = false;
       durS = I.SECONDS[cur.style] ?? 0.6;
