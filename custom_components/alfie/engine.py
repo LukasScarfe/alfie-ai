@@ -620,13 +620,15 @@ class AlfieEngine:
 
     def expand_story(self, story_id: str) -> list[Action]:
         """A story's timed actions for one card to play by itself (an Alfie
-        step in its rotation). Nothing plays here, no state or event: @why is
-        what is wrong, as there is no change to explain. ValueError if unknown."""
+        step in its rotation). Nothing plays here, no state or event. With no
+        change to explain, @why is what sets his mood now: what is wrong, or
+        while nothing is, what is right. ValueError if unknown."""
         story = self.stories.get(story_id)
         if story is None:
             raise ValueError(f"unknown story {story_id!r}")
-        wrong = [r.signal.id for r in (self.mood.bad if self.mood else ())]
-        return expand(steps_of(story), self._context(wrong), self._anim_seconds)
+        m = self.mood
+        why = [r.signal.id for r in ((m.bad or m.good) if m else ())]
+        return expand(steps_of(story), self._context(why), self._anim_seconds)
 
     @callback
     def _start_story(self, req: dict[str, Any]) -> None:

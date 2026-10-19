@@ -191,3 +191,23 @@ def test_old_config_without_bad_news_still_validates():
     old["stories"] = [s for s in old["stories"] if s["id"] != "bad_news"]
     old["triggers"] = [t for t in old["triggers"] if t["story"] != "bad_news"]
     assert valid(old)["behaviour"]["appear_story_bad"] == ""
+
+
+def test_hello_explains_his_mood_and_an_untouched_old_hello_gains_it():
+    hello = next(s for s in default_config()["stories"] if s["id"] == "hello")
+    acts = expand(steps_of(hello), Context(mood_expression="happy", why=("bright",)), lambda n: 1.0)
+    assert [a.value["id"] for a in acts if a.kind == "screen"] == ["bright"]
+    # Nothing to explain: no screen, just his face and a nod.
+    assert not [a for a in expand(steps_of(hello), Context(), lambda n: 1.0) if a.kind == "screen"]
+    old = default_config()
+    old["version"] = 4
+    old_steps = [{"kind": "expression", "name": "@mood", "hold": 1.5, "blend": 0},
+                 {"kind": "animation", "name": "nod", "wait": True}]
+    next(s for s in old["stories"] if s["id"] == "hello")["steps"] = copy.deepcopy(old_steps)
+    assert next(s for s in valid(old)["stories"] if s["id"] == "hello")["steps"] == hello["steps"]
+    # An edited hello is left be.
+    edited = [*old_steps, {"kind": "wait", "seconds": 2}]
+    next(s for s in old["stories"] if s["id"] == "hello")["steps"] = copy.deepcopy(edited)
+    old["version"] = 4
+    got = next(s for s in valid(old)["stories"] if s["id"] == "hello")["steps"]
+    assert [st["kind"] for st in got] == ["expression", "animation", "wait"]
