@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Set up Alfie",
-        "description": "Alfie is a lively face for your home. You can rename him.",
+        "description": "Alfie is a lively face for your home. You can rename him. Once he is added, open **Alfie** in the sidebar: Get started walks you through the rest.",
         "data": {
           "name": "Name"
         }
@@ -18,7 +18,7 @@
     "step": {
       "init": {
         "title": "Alfie",
-        "description": "Alfie's signals, mood, behaviour and personality are set in the **Alfie** panel in the sidebar (admins only). There is nothing to set here."
+        "description": "Everything about Alfie is set in the **Alfie** panel in the sidebar (admins only): what he watches, his mood, reactions, house modes, screens and appearance. There is nothing to set here."
       }
     }
   },
@@ -37,13 +37,12 @@
     },
     "select": {
       "mode": {
-        "name": "Mode",
+        "name": "House mode",
         "state": {
           "auto": "Auto",
           "normal": "Normal",
           "night": "Night",
-          "away": "Away",
-          "guests": "Guests"
+          "away": "Away"
         }
       }
     }
@@ -55,11 +54,11 @@
       "fields": {
         "expression": {
           "name": "Expression",
-          "description": "One of the 12 expressions, or auto to follow his mood."
+          "description": "One of his expressions, or auto to follow his mood."
         },
         "duration": {
           "name": "Duration",
-          "description": "Seconds to hold it; empty or 0 holds it until changed."
+          "description": "Seconds to hold it. Empty or 0 holds it until changed."
         }
       }
     },
@@ -69,7 +68,7 @@
       "fields": {
         "animation": {
           "name": "Animation",
-          "description": "One of the 20 animations."
+          "description": "One of his animations."
         }
       }
     },
@@ -79,11 +78,11 @@
       "fields": {
         "screen": {
           "name": "Screen",
-          "description": "The id of a screen built in Alfie's panel."
+          "description": "The ID of a screen from the Alfie panel (Screens)."
         },
-        "seconds": {
-          "name": "Seconds",
-          "description": "How long to show it (1 to 3600, default 20)."
+        "duration": {
+          "name": "Duration",
+          "description": "Seconds to show it, 1 to 3600 (default 20)."
         }
       }
     },
@@ -93,21 +92,21 @@
       "fields": {
         "story": {
           "name": "Story",
-          "description": "The id of a story from the Alfie panel's Stories tab."
+          "description": "The ID of a story from the Alfie panel (Reactions → Stories)."
         },
         "priority": {
           "name": "Priority",
-          "description": "0 to 100. A higher priority interrupts a story that is playing; otherwise it waits its turn."
+          "description": "0 to 100. Higher wins: it interrupts a story that is playing, otherwise it waits its turn."
         },
         "busy": {
-          "name": "When busy",
-          "description": "auto (by priority), queue, interrupt or skip."
+          "name": "If a story is already playing",
+          "description": "auto (by priority), queue (wait its turn), interrupt, or skip."
         }
       }
     },
     "stop_story": {
       "name": "Stop story",
-      "description": "End the story Alfie is playing and forget any waiting ones."
+      "description": "End the story Alfie is playing and drop any waiting ones."
     }
   }
 }

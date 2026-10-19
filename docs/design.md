@@ -150,38 +150,59 @@ A personality is six sliders plus a named preset. Alfie has one; a card may over
 
 ## Panel (decided)
 
-- An **admin-only sidebar panel** (`alfie-panel.js`, vanilla JS). Non-admins never see it, and the
-  `alfie/config/get|set|reset|preview` WS commands require admin. `alfie/subscribe` stays open to
-  everyone. The integration's options flow only points to the panel.
-- **Tabs:**
-  - **Signals**: add, edit, remove and enable signals (entities, operator, value, kind, severity,
-    weight, match any/all, screen).
-  - **Mood**: combine mode, weights, thresholds, severity-to-level ladder, expression and energy
-    per level.
-  - **Behaviour**: sleep entity and expression, the motion gaze map, notice and idle fidgets,
-    idle interval, motion debounce, celebrate, and the critical/recover/wake reactions.
-  - **Personality**: preset and the six sliders.
-  - **Screens** (M3): build screens from each type's schema, plus the named rotations.
-  - **Look** (M3, decided): Alfie's global default look: style, colours, line width, glow, eye
-    fill, padding, and the head and eye shapes (type plus parameter sliders). It's stored as a
-    `look` section and sent to every card. Precedence is the card's own option, then the global
-    look, then the style's default.
-  - **Playground** (M3, decided): a big live face with a button per expression and animation, a
-    mood-level picker, and energy and personality sliders. It plays on the panel only, with an
-    optional "play on every display" that uses the services.
-- **Card visual editor** (M3, decided): `custom:alfie-card` has a Lovelace visual editor for
-  every option, grouped (look, display mode and rotation, presenting, personality, advanced), so
-  no card needs YAML.
+- An **admin-only sidebar panel** (`alfie-panel.js` and its sections in `frontend/panel/`,
+  vanilla JS). Non-admins never see it, and the `alfie/config/*` and `alfie/suggest` WS commands
+  require admin. `alfie/subscribe` stays open to everyone. The integration's options flow only
+  points to the panel.
+- **Six sections, some with sub-tabs** (2026-10-19, replacing ten flat tabs). The section and
+  sub-tab are in the URL hash (`#mood/signals`). How the modules fit is in
+  [settings-contract.md](settings-contract.md).
+
+  | Section | Sub-tabs |
+  |---|---|
+  | **Overview** | Alfie now (face, mood, house mode, story playing, the active signals), **Get started**, and export / import under More options |
+  | **Mood** | **Signals**, and **Levels** (how signals combine, and each level's expression and energy) |
+  | **Reactions** | **Triggers**, **Stories**, and **Motion & idle** (motion sensors, the notice set, debounce, fidgets) |
+  | **House modes** | The ordered modes, the hand pick, and the sleeping expression |
+  | **Screens** | **Screens**, and **Rotations** (plus which story Alfie plays when he appears in one) |
+  | **Appearance** | **Look**, **Personality**, **Playground** |
+
+- **Every list item looks the same:**
+  - a header with its on switch, chips, name, a one-line summary, a live badge, and ▲ ▼ ▸;
+  - when open, labelled groups of the fields most people need;
+  - a **More options** fold (ID, weights, priority, cooldown, repeats, overrides…);
+  - Duplicate and Delete at the bottom.
+
+  A new item's ID follows its name until it is edited by hand. Renaming an ID follows it into
+  everything that refers to it.
+- **Get started** (on the Overview until hidden) walks a new install through five steps, each
+  ticking itself where it can:
+  1. what Alfie watches, with suggested signals;
+  2. motion sensors, suggested;
+  3. what makes it night, with suggested sleep switches;
+  4. the card YAML to put on a dashboard;
+  5. an optional first screen.
+
+  The suggestions come from `alfie/suggest` (`suggest.py`), one pass over the states when the
+  Overview opens, skipping whatever the config already covers. `overview {dismissed, done}` in
+  the config remembers it.
+- **Export / import:** export downloads the saved config as JSON. Import sends a file through
+  `alfie/config/preview` with `with_config` (which migrates an older version). It then replaces
+  the draft, for the user to Save or Revert.
+- **Card visual editor** (`alfie-card-editor.js`): every card option, grouped as **Display**,
+  **Look** (with Shapes folded inside), **Personality** and **More options**, so no card needs
+  YAML. Its labels are the panel's.
 - **Live preview:** edits are sent to `alfie/config/preview`, which validates and evaluates the
   draft without saving or touching the running engine. It shows the resulting mood, the active
   signals and each pattern's matches.
-- **Save / Revert / Reset per section.** Save validates the whole config and every problem is
-  listed at once. Reset puts one section back to the defaults.
+- **Save / Revert for the whole draft, and "Reset this section"** per sub-tab. Save validates
+  the whole config and lists every problem at once. Reset puts that sub-tab's part back to the
+  defaults (the starter config).
 - **Entities are typed into a plain text input with a `<datalist>` of entity ids**, not HA's
   internal pickers, which change between frontend versions.
-- **Storage:** first load seeds the Store from the defaults plus M1's options-flow values, once.
-  A stored config that no longer validates is logged and run on the defaults, but not overwritten
-  until the user saves.
+- **Storage:** the first load seeds the Store from the starter defaults, plus M1's options-flow
+  values, once. A stored config that no longer validates is logged and run on the defaults, but
+  not overwritten until the user saves.
 
 ## Words (decided, 2026-10-19)
 
@@ -217,7 +238,9 @@ field-by-field list is in [settings-contract.md](settings-contract.md) "Words".
 
   Old card YAML keys are still read.
 
-## Display modes (per card)
+## Display (per card)
+
+The card option `display` (it was `mode` before config v4; old YAML still works):
 
 1. **Companion**: Alfie is always on screen and just reacts.
 2. **Rotation**: passive screens cycle on timers. When something happens, Alfie takes over the
@@ -226,8 +249,8 @@ field-by-field list is in [settings-contract.md](settings-contract.md) "Words".
 ## Triggers and stories
 
 Built in M4: `triggers.py` and `stories.py` (pure models), the engine's story runner, and the
-panel's **Triggers** and **Stories** tabs. Motion gaze and idle fidgets stay in Behaviour; they
-are not triggers.
+panel's **Reactions → Triggers** and **Stories**. Motion glances and idle fidgets are on
+Reactions → Motion & idle; they are not triggers.
 
 - **Triggers are fully user-chosen** (config `triggers`, a list). Kinds:
   - `entity`: an entity or pattern changes at all, or starts passing a test (above, below, is,
@@ -246,9 +269,9 @@ are not triggers.
 - **Coalescing:** when one change fires several triggers, only the highest priority plays. The
   others are noted as `outranked`. At most 3 stories queue behind the one playing, highest
   priority first, and a queued story older than 60 s is dropped.
-- A **story** (config `stories`) is what every display does together when a trigger fires. The
-  panel offers both forms, and **Convert to steps** turns a template into steps:
-  - a **fill-in template**: react (an expression and/or an animation), show a screen for N s
+- A **story** (config `stories`) is what every display does together when a trigger fires. Its
+  `form` is one of two, and **Turn into steps** turns a simple story into steps:
+  - **simple** (config `simple`): react (an expression and/or an animation), show a screen for N s
     (presented and transitioned as chosen, or as the card is set), then a closing gesture;
   - **free steps**, in order: `expression` (hold and blend), `animation` (optionally waiting for
     it), `screen` (seconds, present, transition), `wait`, `move` (centre, a corner, or custom x/y,
@@ -278,8 +301,8 @@ are not triggers.
 
 ## House modes
 
-Built in M5: `modes.py` (pure), the engine's mode choice, the card's blank and rotation handling,
-and the panel's **Modes** tab.
+Built in M5: `modes.py` (pure), the engine's mode choice, the card's hiding and rotation
+handling, and the panel's **House modes** section.
 
 - **One mode at a time.** Modes are an ordered list (config `modes`). The mode is the first
   enabled one whose condition holds, otherwise Normal (no mode).
@@ -287,14 +310,14 @@ and the panel's **Modes** tab.
     signal's. A mode with no condition is only picked by hand.
   - `select.alfie_mode`: `auto` follows the conditions, `normal` is no mode, and a mode's id
     forces it. Its options follow the config.
-  - The scene carries `mode`, `mode_pick` and `mode_info {name, presence, rotation, why}`.
+  - The scene carries `mode`, `mode_pick` and `mode_info {name, alfie, rotation, why}`.
     `sensor.alfie_mood` shows the mode and its why.
 - **What a mode overrides:**
-  - **presence:**
-    - normal;
+  - **what Alfie is** (config `alfie`, before v4 `presence`):
+    - awake;
     - asleep: the sleep expression, woken only by something critical (or major, or nothing);
-    - idle: no fidgets and no glances, energy ×0.6, the face stays;
-    - blank: cards draw nothing and stop their frame loop; a story still brings him on.
+    - quiet: no fidgets and no glances, energy ×0.6, the face stays;
+    - hidden: cards draw nothing and stop their frame loop; a story still brings him on.
   - **bad news:**
     - hold back signals at or below minor or major: they don't touch his mood or play stories;
     - a mood floor ("at least") or a fixed mood.
@@ -304,11 +327,12 @@ and the panel's **Modes** tab.
   - **triggers:** chosen triggers are off in the mode.
 - **Mode triggers:** the trigger kind `mode` fires when chosen modes (or any) start, end, or
   either.
-- **Defaults** (Lukas's house):
-  - **Night**: `switch.global_sleep_switches` is on → asleep, woken by critical. This was the
-    sleep entity before M5; `migrate_v2` moves it into Night, and an empty one becomes Night by
-    hand.
-  - **Away**: `zone.home` below 1 (nobody home) → idle, with every trigger off except Something
+- **Defaults** (the starter config):
+  - **Night**: no condition, so it is picked by hand until Get started (or the user) gives it
+    one → asleep, woken by critical. In Lukas's house (`devenv/house.json`) it is
+    `switch.global_sleep_switches`, his sleep entity before M5, which `migrate_v2` moved into
+    Night.
+  - **Away**: `zone.home` below 1 (nobody home) → quiet, with every trigger off except Something
     turns critical.
   - **Welcome home** (a trigger, priority 60): leaving Away plays the Welcome home story
     (wake_up, happy, nod).
@@ -442,7 +466,7 @@ frame by frame**.
    "gaze": {"x": -0.16, "y": 0.0, "until": 1760000000.0},
    "animation": {"name": "glance_left", "id": 17, "at": 1760000000.0},
    "mode": "normal",
-   "signals": [{"id": "plant_monstera", "label": "Monstera is dry", "kind": "bad",
+   "signals": [{"id": "plant_monstera", "name": "Monstera is dry", "kind": "bad",
                 "severity": "major", "entity_id": "sensor.…", "screen": null}],
    "reason": "Monstera is dry",
    "personality": {"preset": "bubbly", "exaggeration": 1.0, "speed": 1.0, "bounce": 1.0,
@@ -471,12 +495,26 @@ frame by frame**.
   `(left lids hu su hl sl, right lids, size, look x, look y)`. Animation channels are shut,
   shut_l/r, open, droop, size, dx/dy, lx/ly/rx/ry and fx/fy, all 0 at rest.
 
-## Defaults ported from Lukas's house (the Store's seed)
+## Starter defaults, and Lukas's house
 
-These live in `defaults.py` and **seed the Store** on first load, so a fresh install behaves like
-Lukas's house. After that they are ordinary config, editable in the panel, and "Reset" returns a
-section to them. From production `configuration.yaml` (`sensor.superintendent_mood`) and the
-`Superintendent:` automations, as of 2026-10-18:
+**The starter** (`defaults.py`) **seeds the Store** on first load, and "Reset this section"
+returns to it (decided with Lukas, 2026-10-19: a public install must not get his entities). It is
+generic, so it means something in any house:
+- **Signals, patterns only:**
+  - a battery is low (`sensor.*_battery` below 15, major);
+  - a battery-low warning (`binary_sensor.*_battery_low`, major);
+  - water leaking (`binary_sensor.*leak*`, critical);
+  - a smoke or CO alarm (critical);
+  - an update is available (`update.*`, minor).
+- **No motion sensors**, and Night picked by hand. Get started fills in both.
+- **Stories, triggers and Away** as described above.
+
+**Lukas's house** is `devenv/house.json`, a complete v4 config with the dev screens and
+rotations. `./dev house` loads it into dev HA. On production it arrives through Overview → Import.
+The tests use it to check Alfie still reproduces the old face (`tests/house.py`), and
+`tests/house_v3.json` (the same house as a v3 store) checks the migration. It was ported from
+production `configuration.yaml` (`sensor.superintendent_mood`) and the `Superintendent:`
+automations, as of 2026-10-18:
 
 - **Ladder** (worst wins, top first):
   - **critical**: any NAS drive problem, i.e. one of

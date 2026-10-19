@@ -1,5 +1,5 @@
-// Pure helpers for the admin panel's Screens, Look and Playground tabs: the
-// option form generated from a screen type's schema, plus small list helpers.
+// Pure helpers for the admin panel's sections: the option form generated from
+// a screen type's schema, item summaries, id renames, plus small list helpers.
 // No DOM and no HA here, so node can test them (tests/screens/panel.test.mjs).
 
 export const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -63,7 +63,7 @@ export function renameScreenRefs(draft, from, to) {
   for (const r of draft.rotations || []) for (const s of r.steps || []) if (s.screen === from) s.screen = to;
   for (const s of draft.signals || []) if (s.screen === from) s.screen = to;
   for (const st of draft.stories || []) {
-    if (st.template?.screen === from) st.template.screen = to;
+    if (st.simple?.screen === from) st.simple.screen = to;
     for (const s of st.steps || []) if (s.kind === "screen" && s.screen === from) s.screen = to;
   }
 }
@@ -78,7 +78,7 @@ export function dropScreenRefs(draft, id) {
   }
   for (const s of draft.signals || []) if (s.screen === id) s.screen = null;
   for (const st of draft.stories || []) {
-    if (st.template?.screen === id) st.template.screen = "";
+    if (st.simple?.screen === id) st.simple.screen = "";
     st.steps = (st.steps || []).filter((s) => !(s.kind === "screen" && s.screen === id));
   }
   return n;
@@ -86,8 +86,8 @@ export function dropScreenRefs(draft, id) {
 
 // ---------------------------------------------------------------- stories
 
-// The steps a template stands for (stories.py compile_template, kept equal).
-export function compileTemplate(t, defaults) {
+// The steps a simple story stands for (stories.py compile_simple, kept equal).
+export function compileSimple(t, defaults) {
   const steps = [];
   if (t.expression) steps.push({ ...defaults.expression, name: t.expression, hold: 1 });
   if (t.animation) steps.push({ ...defaults.animation, name: t.animation });
@@ -118,16 +118,20 @@ export function changeTriggerKind(trigger, fresh) {
   return out;
 }
 
-// One line on what a trigger listens for, for its collapsed header.
-export function triggerSummary(t) {
-  const list = (a, none) => (a?.length ? a.join(", ") : none);
+const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+const words = (id) => String(id).replace(/_/g, " ");
+
+// One line on what a trigger listens for, for its collapsed header. `names`
+// maps ids (signals, modes) to their names when the caller has them.
+export function triggerSummary(t, names = {}) {
+  const list = (a, none) => (a?.length ? a.map((x) => names[x] || x).join(", ") : none);
   switch (t.kind) {
-    case "entity": return `${list(t.entities, "no entity")} ${t.op === "changes" ? "changes" : `${t.op.replace("_", " ")} ${t.value}`}`;
-    case "motion": return `motion: ${list(t.entities, "no sensor")}${t.only_if_bad ? " (only while something is wrong)" : ""}`;
-    case "mood": return `mood ${t.direction === "any" ? "changes" : `gets ${t.direction}`}${t.from?.length ? ` from ${t.from.join("/")}` : ""}${t.to?.length ? ` to ${t.to.join("/")}` : ""}`;
-    case "signal": return `${list(t.signals, "any signal")} ${t.edge === "goes_bad" ? "goes bad" : t.edge === "recovers" ? "recovers" : "goes bad or recovers"}`;
+    case "entity": return `${list(t.entities, "No entity")} ${t.op === "changes" ? "changes" : `${t.op === "is" ? "becomes" : t.op === "is_not" ? "stops being" : `goes ${t.op}`} ${t.value}`}`;
+    case "motion": return `Motion at ${list(t.entities, "no sensor")}${t.only_if_bad ? ", while something is wrong" : ""}`;
+    case "mood": return `The mood ${t.direction === "any" ? "changes" : `gets ${t.direction}`}${t.from?.length ? ` from ${t.from.map(cap).join(" or ")}` : ""}${t.to?.length ? ` to ${t.to.map(cap).join(" or ")}` : ""}`;
+    case "signal": return `${cap(list(t.signals, "any signal"))} ${t.edge === "goes_bad" ? "goes bad" : t.edge === "recovers" ? "recovers" : "goes bad or recovers"}`;
     case "wake": return t.edge === "wakes" ? "Alfie wakes up" : "Alfie falls asleep";
-    case "mode": return `${list(t.modes, "any mode")} ${t.edge === "enter" ? "starts" : t.edge === "leave" ? "ends" : "starts or ends"}`;
+    case "mode": return `${cap(list(t.modes, "any house mode"))} ${t.edge === "enter" ? "starts" : t.edge === "leave" ? "ends" : "starts or ends"}`;
     default: return t.kind;
   }
 }
@@ -135,10 +139,10 @@ export function triggerSummary(t) {
 // One line on when a house mode holds and what it does, for its collapsed header.
 export function modeSummary(m) {
   const c = m.condition;
-  const when = !c ? "picked by hand" : `${c.entities.length ? c.entities.join(c.match === "all" ? " and " : " or ") : "no entity"} ${c.op.replace("_", " ")} ${c.value}`;
-  const does = [m.presence !== "normal" ? m.presence : "", m.hold_back !== "none" ? `holds back ${m.hold_back}` : "",
+  const when = !c ? "Picked by hand" : `${c.entities.length ? c.entities.join(c.match === "all" ? " and " : " or ") : "No entity"} ${words(c.op)} ${c.value}`;
+  const does = [m.alfie !== "awake" ? m.alfie : "", m.hold_back !== "none" ? `holds back ${m.hold_back === "major" ? "minor and major" : "minor"} news` : "",
     m.mood_fixed ? `mood ${m.mood_fixed}` : m.mood_floor ? `mood at least ${m.mood_floor}` : "",
-    m.personality, m.rotation ? (m.rotation === "pause" ? "rotation paused" : `rotation ${m.rotation}`) : "",
+    m.personality ? `${m.personality} personality` : "", m.rotation ? (m.rotation === "pause" ? "rotation paused" : `rotation ${words(m.rotation)}`) : "",
     m.triggers_off.length ? `${m.triggers_off.length} trigger${m.triggers_off.length > 1 ? "s" : ""} off` : ""].filter(Boolean);
   return `${when} → ${does.join(", ") || "no changes"}`;
 }
@@ -175,40 +179,45 @@ export const inDomains = (id, domain) => !domain?.length || domain.some((d) => i
 export function optionField(opt, value, P, ctx) {
   const path = `${P}.${opt.key}`;
   const req = opt.required ? ` <b class="req" title="Required">*</b>` : "";
+  const human = (c) => cap(words(c));
   const label = `${esc(opt.label || opt.key)}${req}`;
   const note = OPTION_NOTES[`${ctx.type}.${opt.key}`];
-  const noteHtml = note ? `<div class="note">${esc(note)}</div>` : "";
+  const noteHtml = `${opt.hint ? `<small>${esc(opt.hint)}</small>` : ""}${note ? `<div class="note">${esc(note)}</div>` : ""}`;
   const dflt = opt.default;
   switch (opt.kind) {
     case "bool":
-      return `<div class="wide opt"><label class="check"><input type="checkbox" data-path="${path}" data-kind="bool"
-        ${(value ?? dflt) ? "checked" : ""}> <span>${label}</span></label>${noteHtml}</div>`;
-    case "number":
-      return `<label class="opt">${label}<input type="number" data-path="${path}" data-kind="optnum"
+      return `<div class="wide opt"><label class="check"><input type="checkbox" class="switch" data-path="${path}" data-kind="bool"
+        ${(value ?? dflt) ? "checked" : ""}> <span><b>${label}</b></span></label>${noteHtml}</div>`;
+    case "number": {
+      const input = `<input type="number" data-path="${path}" data-kind="optnum"
         value="${esc(value ?? "")}" placeholder="${esc(dflt ?? "")}"
-        ${opt.min !== undefined ? `min="${opt.min}"` : ""} ${opt.max !== undefined ? `max="${opt.max}"` : ""} step="any">
-        ${opt.min !== undefined || opt.max !== undefined ? `<small>${opt.min ?? ""} to ${opt.max ?? ""}${dflt !== undefined ? `, default ${esc(dflt)}` : ""}</small>` : ""}${noteHtml}</label>`;
+        ${opt.min !== undefined ? `min="${opt.min}"` : ""} ${opt.max !== undefined ? `max="${opt.max}"` : ""} step="any">`;
+      const range = opt.min !== undefined || opt.max !== undefined
+        ? `<small>${opt.min ?? ""} to ${opt.max ?? ""}${dflt !== undefined ? `. Default ${esc(dflt)}` : ""}.</small>` : "";
+      return `<label class="field opt"><span>${label}</span>${opt.unit ? `<span class="unit">${input}<span>${esc(opt.unit)}</span></span>` : input}
+        ${range}${noteHtml}</label>`;
+    }
     case "choice":
-      return `<label class="opt">${label}<select data-path="${path}" data-kind="opttext">${(opt.choices || []).map((c) =>
-        `<option value="${esc(c)}" ${(value ?? dflt) === c ? "selected" : ""}>${esc(c)}${c === dflt ? " (default)" : ""}</option>`).join("")}</select>${noteHtml}</label>`;
+      return `<label class="field opt"><span>${label}</span><select data-path="${path}" data-kind="opttext">${(opt.choices || []).map((c) =>
+        `<option value="${esc(c)}" ${(value ?? dflt) === c ? "selected" : ""}>${esc(human(c))}${c === dflt ? " (default)" : ""}</option>`).join("")}</select>${noteHtml}</label>`;
     case "color":
-      return `<label class="opt">${label}<span class="row"><input type="color" class="swatch" data-path="${path}" data-kind="opttext"
+      return `<label class="field opt"><span>${label}</span><span class="row"><input type="color" class="swatch" data-path="${path}" data-kind="opttext"
         value="${swatchValue(value ?? dflt ?? "")}"><input class="grow" data-path="${path}" data-kind="opttext"
-        value="${esc(value ?? "")}" placeholder="${esc(dflt || "from the style")}"></span>${noteHtml}</label>`;
+        value="${esc(value ?? "")}" placeholder="${esc(dflt || "Default (from Look)")}"></span>${noteHtml}</label>`;
     case "entity":
-      return `<label class="opt">${label}<input list="${ctx.list(opt.domain)}" data-path="${path}" data-kind="optent"
+      return `<label class="field opt"><span>${label}</span><input list="${ctx.list(opt.domain)}" data-path="${path}" data-kind="optent"
         value="${esc(value ?? "")}" placeholder="${esc(opt.domain?.length ? `${opt.domain[0]}.…` : "entity id")}">${noteHtml}</label>`;
     case "entities": {
       const vals = Array.isArray(value) ? value : [];
-      return `<div class="wide opt"><span class="lbl">${label}</span>
+      return `<div class="field wide opt"><span>${label}</span>
         <div class="chips">${vals.map((e, j) => `<span class="ent"><code>${esc(e)}</code>
           <button class="icon" data-action="rm-opt-entity" data-i="${ctx.i}" data-key="${esc(opt.key)}" data-j="${j}" title="Remove">✕</button></span>`).join("")
-          || `<span class="muted">none yet</span>`}</div>
+          || `<span class="muted">None yet</span>`}</div>
         <div class="row"><input list="${ctx.list(opt.domain)}" class="grow" placeholder="${esc(opt.domain?.length ? `${opt.domain.join(", ")}…` : "Pick an entity")}">
-          <button class="flat" data-action="add-opt-entity" data-i="${ctx.i}" data-key="${esc(opt.key)}">Add</button></div>${noteHtml}</div>`;
+          <button class="flat" data-add data-action="add-opt-entity" data-i="${ctx.i}" data-key="${esc(opt.key)}">Add</button></div>${noteHtml}</div>`;
     }
     default: // text
-      return `<label class="opt">${label}<input data-path="${path}" data-kind="opttext" value="${esc(value ?? "")}"
+      return `<label class="field opt"><span>${label}</span><input data-path="${path}" data-kind="opttext" value="${esc(value ?? "")}"
         placeholder="${esc(dflt ?? "")}">${noteHtml}</label>`;
   }
 }

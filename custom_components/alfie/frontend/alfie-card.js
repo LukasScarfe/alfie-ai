@@ -44,8 +44,8 @@ const STYLES = {
 
 const DEFAULTS = {
   style: "neon",
-  face_color: null,       // the ring; null takes the style's colour
-  eye_color: null,        // null takes face_color
+  ring_color: null,       // the ring; null takes the style's colour
+  eye_color: null,        // null takes ring_color
   background: "none",     // "none" keeps the card's own background, or any CSS colour
   line_width: 0.035,      // ring radii
   glow: null,             // 0..2, null takes the style's
@@ -59,20 +59,20 @@ const DEFAULTS = {
   card: true,             // false drops the ha-card frame
   shapes: null,           // {head, eye, left_eye, right_eye} over the face's own; see alfie-face.js
   personality: null,      // a preset name or {exaggeration, speed, bounce, blink_rate, energy_bias}; null follows Alfie's
-  mode: "companion",      // companion: just Alfie (screens only on a show_screen); rotation: run `rotation`
+  display: "companion",   // companion: just Alfie (screens only on a show_screen); rotation: run `rotation`
   rotation: null,         // a rotation id, or an inline [{screen, seconds}]
   present: "handover",    // handover: Alfie leaves while a screen shows; corner: he shrinks aside and stays alive
   corner: "bottom_right", // bottom_right | bottom_left | top_right | top_left
   corner_size: 0.3,       // Alfie's size in the corner, share of his full size (0.15 to 0.5)
   transition: null,       // an intro style; null takes the rotation's, then fade
-  follow_mode: true,      // false: this card ignores house modes (their blank presence and rotation)
+  follow_mode: true,      // false: this card ignores house modes (hiding Alfie, swapping the rotation)
   appear_story: "auto",   // rotation: the story Alfie plays here when he appears in it; auto: the most relevant (mood-led), none, or a story id
   text_color: null,       // screen text; null takes the face colour
   accent_color: null,     // screen accents; null takes the face colour
   screen_line_width: 0.02, // ring radii: screens draw finer than the face
 };
 
-const MODES = ["companion", "rotation"];
+const DISPLAYS = ["companion", "rotation"];
 const PRESENTS = ["handover", "corner"];
 const CORNERS = ["bottom_right", "bottom_left", "top_right", "top_left"];
 const CORNER_SECONDS = 0.8;   // how long the face takes to move to or from its corner
@@ -244,10 +244,11 @@ class AlfieCard extends HTMLElement {
 
   setConfig(config) {
     if (!config || typeof config !== "object") throw new Error("Invalid configuration");
+    config = L.renameOld(config);
     for (const k of ["line_width", "padding", "aspect", "fps", "liveliness"]) {
       if (config[k] !== undefined && !(Number(config[k]) >= 0)) throw new Error(`${k} must be a number`);
     }
-    for (const [k, list] of [["mode", MODES], ["present", PRESENTS], ["corner", CORNERS]]) {
+    for (const [k, list] of [["display", DISPLAYS], ["present", PRESENTS], ["corner", CORNERS]]) {
       if (config[k] !== undefined && !list.includes(config[k])) throw new Error(`${k} must be one of ${list.join(", ")}`);
     }
     if (config.corner_size !== undefined && !(Number(config.corner_size) > 0)) throw new Error("corner_size must be a number");
@@ -500,7 +501,7 @@ class AlfieCard extends HTMLElement {
       this._canvas.style.color = "";
       return out;
     };
-    const face = probe(c.face_color || st.color);
+    const face = probe(c.ring_color || st.color);
     this._colors = {
       face, eye: c.eye_color ? probe(c.eye_color) : face, glow: c.glow ?? st.glow,
       text: c.text_color ? probe(c.text_color) : face, accent: c.accent_color ? probe(c.accent_color) : face,
@@ -519,7 +520,7 @@ class AlfieCard extends HTMLElement {
       requestAnimationFrame((ms) => this._loop(ms));
     } else if (!go) {
       this._running = false;
-      // A blank house mode: nothing on the card, and no frames drawn at all.
+      // A house mode that hides Alfie: nothing on the card, and no frames drawn at all.
       if (blank && this._canvas) this._canvas.getContext("2d").clearRect(0, 0, this._canvas.width, this._canvas.height);
     }
   }
@@ -527,7 +528,7 @@ class AlfieCard extends HTMLElement {
   // The house mode wants this card blank (a story still brings Alfie on).
   _blank() {
     const s = this._scene;
-    return !this._still && this._config?.follow_mode !== false && s?.mode_info?.presence === "blank" && !s.story;
+    return !this._still && this._config?.follow_mode !== false && s?.mode_info?.alfie === "hidden" && !s.story;
   }
 
   // The house mode's rotation for this card: "" (the card's own), "pause", or a rotation id.
@@ -773,7 +774,7 @@ class AlfieCard extends HTMLElement {
   _rotationSteps() {
     const mr = this._modeRotation();
     const r = mr && mr !== "pause" ? mr : this._config.rotation;
-    if (this._config.mode !== "rotation" || !r) return null;
+    if (this._config.display !== "rotation" || !r) return null;
     let steps = r, face = null, transition = null;
     if (typeof r === "string") {
       const rot = this._screens?.rotations?.find((x) => x.id === r);
@@ -928,7 +929,7 @@ class AlfieCard extends HTMLElement {
   // Decide what is on show at `t` and build the draw description for it, or null
   // when it is Alfie alone (the common, free case).
   _presentation(t, dt) {
-    if (this._config.mode === "companion" && !this._scene?.screen && !this._cur) return null;
+    if (this._config.display === "companion" && !this._scene?.screen && !this._cur) return null;
     const want = this._wanted(dt);
     if (t - this._lastWant > 1 && this._hass) {
       this._lastWant = t;

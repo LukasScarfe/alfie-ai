@@ -1,17 +1,17 @@
 {"type": "weather", "title": "Weather", "needs": "forecast",
  "options": [
    {"key": "weather", "kind": "entity", "label": "Weather entity", "required": true, "domain": ["weather"]},
-   {"key": "sensor", "kind": "entity", "label": "Outside temperature sensor (overrides the weather entity)", "domain": ["sensor"]},
+   {"key": "sensor", "kind": "entity", "label": "Outside temperature sensor", "domain": ["sensor"], "hint": "Overrides the weather entity's temperature."},
    {"key": "title", "kind": "text", "label": "Title", "default": ""},
    {"key": "forecast", "kind": "choice", "label": "Forecast", "default": "hourly", "choices": ["hourly", "daily"]},
-   {"key": "hours", "kind": "number", "label": "Hours ahead (hourly)", "default": 24, "min": 6, "max": 48},
-   {"key": "days", "kind": "number", "label": "Days (daily)", "default": 5, "min": 2, "max": 10},
+   {"key": "hours", "kind": "number", "label": "Hours ahead", "default": 24, "min": 6, "max": 48, "hint": "For the hourly forecast.", "unit": "h"},
+   {"key": "days", "kind": "number", "label": "Days", "default": 5, "min": 2, "max": 10, "hint": "For the daily forecast."},
    {"key": "rain", "kind": "choice", "label": "Rain shown as", "default": "auto", "choices": ["auto", "probability", "amount", "off"]},
    {"key": "rain_group", "kind": "number", "label": "Hours per rain bar", "default": 3, "min": 1, "max": 6},
-   {"key": "smooth", "kind": "number", "label": "Curve smoothing (passes)", "default": 1, "min": 0, "max": 3},
+   {"key": "smooth", "kind": "number", "label": "Curve smoothing", "default": 1, "min": 0, "max": 3, "hint": "Passes."},
    {"key": "unit", "kind": "choice", "label": "Temperature unit", "default": "auto", "choices": ["auto", "celsius", "fahrenheit"]},
    {"key": "suffix", "kind": "text", "label": "Unit mark after numbers", "default": "°"},
-   {"key": "decimals", "kind": "number", "label": "Decimals (temperature now)", "default": 0, "min": 0, "max": 2},
+   {"key": "decimals", "kind": "number", "label": "Decimals", "default": 0, "min": 0, "max": 2, "hint": "For the temperature now."},
    {"key": "time_labels", "kind": "bool", "label": "Hour labels under the curve", "default": true},
    {"key": "animate", "kind": "bool", "label": "Animated icon", "default": true}
  ]}

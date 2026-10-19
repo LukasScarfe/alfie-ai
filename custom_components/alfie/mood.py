@@ -60,11 +60,11 @@ class Mood:
     def reason(self) -> str:
         """One line on why: the worst thing wrong, else the best thing right."""
         if self.bad:
-            worst = self.bad[0].signal.label
+            worst = self.bad[0].signal.name
             more = len(self.bad) - 1
             return worst + (f" (and {more} more)" if more else "")
         if self.good:
-            return self.good[0].signal.label
+            return self.good[0].signal.name
         return "All's well."
 
 

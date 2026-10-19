@@ -43,9 +43,10 @@ def test_keyframes_are_well_formed():
 
 def test_engine_defaults_only_name_real_animations():
     from alfie import defaults
+    import house
     names = set(face()["animations"])
     used = set(defaults.NOTICE) | set(defaults.IDLE_FIDGETS) | {defaults.ON_CRITICAL, defaults.ON_RECOVER, defaults.ON_WAKE}
-    used |= {v for v in defaults.GAZE_MAP.values() if v != "notice"}
+    used |= {v for v in house.MOTION_SENSORS.values() if v != "notice"}
     assert used <= names, used - names
     assert defaults.SLEEP_EXPRESSION in face()["expressions"]
 

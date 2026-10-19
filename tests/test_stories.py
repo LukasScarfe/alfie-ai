@@ -9,8 +9,8 @@ from alfie.config import ConfigError, default_config, migrate_v1, validate
 from alfie.stories import (
     Context,
     animation_length,
-    compile_template,
-    default_template,
+    compile_simple,
+    default_simple,
     expand,
     play_rate,
     steps_of,
@@ -33,7 +33,7 @@ def errors(cfg):
 
 
 def story(**kw):
-    return {"id": "s", "name": "S", "mode": "steps", "template": default_template(),
+    return {"id": "s", "name": "S", "form": "steps", "simple": default_simple(),
             "steps": [], **kw}
 
 
@@ -65,18 +65,18 @@ def test_steps_fill_defaults_and_drop_unknown_keys():
     assert move["to"] == "top_left" and set(move) == {"kind", "to", "x", "y", "seconds"}
 
 
-def test_template_compiles_in_order():
-    t = {**default_template(), "expression": "happy", "animation": "nod", "screen": "@wrong",
+def test_simple_compiles_in_order():
+    t = {**default_simple(), "expression": "happy", "animation": "nod", "screen": "@wrong",
          "seconds": 8, "closing": "shake"}
-    kinds = [(s["kind"], s.get("name") or s.get("screen")) for s in compile_template(t)]
+    kinds = [(s["kind"], s.get("name") or s.get("screen")) for s in compile_simple(t)]
     assert kinds == [("expression", "happy"), ("animation", "nod"), ("screen", "@wrong"),
                      ("animation", "shake")]
-    assert compile_template({**default_template(), "screen": ""}) == []
+    assert compile_simple({**default_simple(), "screen": ""}) == []
 
 
-def test_template_mode_plays_the_template():
-    s = valid({"stories": [story(mode="template",
-                                 template={"animation": "wake_up", "screen": ""})],
+def test_simple_form_plays_its_steps():
+    s = valid({"stories": [story(form="simple",
+                                 simple={"animation": "wake_up", "screen": ""})],
                "triggers": []})["stories"][0]
     assert [x["name"] for x in steps_of(s)] == ["wake_up"]
 
@@ -148,7 +148,7 @@ def test_v1_reactions_carry_over():
     assert "on_critical" not in cfg["behaviour"] and "celebrate" not in cfg["behaviour"]
     cfg = valid(v1(celebrate=False, on_wake="dizzy"))
     assert not by_id(cfg["triggers"], "fixed")["enabled"]
-    assert by_id(cfg["stories"], "wake_up")["template"]["animation"] == "dizzy"
+    assert by_id(cfg["stories"], "wake_up")["simple"]["animation"] == "dizzy"
 
 
 def test_migration_leaves_v2_alone():

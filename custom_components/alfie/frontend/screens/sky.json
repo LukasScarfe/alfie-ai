@@ -1,7 +1,7 @@
 {"type": "sky", "title": "Sky", "needs": null,
  "options": [
-   {"key": "latitude", "kind": "text", "label": "Latitude override (blank: Home Assistant's home)", "default": ""},
-   {"key": "longitude", "kind": "text", "label": "Longitude override (blank: Home Assistant's home)", "default": ""},
+   {"key": "latitude", "kind": "text", "label": "Latitude", "default": "", "hint": "Empty: Home Assistant's home."},
+   {"key": "longitude", "kind": "text", "label": "Longitude", "default": "", "hint": "Empty: Home Assistant's home."},
    {"key": "labels", "kind": "bool", "label": "Compass letters", "default": true},
    {"key": "times", "kind": "bool", "label": "Show rise and set times", "default": true},
    {"key": "moon_times", "kind": "bool", "label": "Also show moonrise and moonset", "default": false},

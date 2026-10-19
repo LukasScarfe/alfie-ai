@@ -1,10 +1,10 @@
 {"type": "value", "title": "Value", "needs": null,
  "options": [
    {"key": "entity", "kind": "entity", "label": "Entity", "required": true},
-   {"key": "label", "kind": "text", "label": "Label (blank: the entity's name)", "default": ""},
+   {"key": "label", "kind": "text", "label": "Label", "default": "", "hint": "Empty: the entity's name."},
    {"key": "icon", "kind": "choice", "label": "Icon", "default": "auto", "choices": ["auto", "none", "leaf", "drop", "house", "sun", "cloud"]},
-   {"key": "unit", "kind": "text", "label": "Unit (blank: the entity's)", "default": ""},
+   {"key": "unit", "kind": "text", "label": "Unit", "default": "", "hint": "Empty: the entity's."},
    {"key": "decimals", "kind": "number", "label": "Decimals", "default": 1, "min": 0, "max": 3},
-   {"key": "below", "kind": "text", "label": "Accent colour below (number, blank: off)", "default": ""},
-   {"key": "above", "kind": "text", "label": "Accent colour above (number, blank: off)", "default": ""}
+   {"key": "below", "kind": "text", "label": "Accent colour below", "default": "", "hint": "A number. Empty: off."},
+   {"key": "above", "kind": "text", "label": "Accent colour above", "default": "", "hint": "A number. Empty: off."}
  ]}

@@ -53,6 +53,21 @@ case "${1:-}" in
            SHOT_VERBOSE=1 chrome "http://localhost:8125/lovelace/0" "$OUT/.js.png" --auth "$OUT/.auth.json" \
              --wait "${3:-6000}" --eval "$(cat "$2")" 2>&1 | sed -n 's/^\[page log\] //p' || true
            rm -f "$OUT/.auth.json" "$OUT/.js.png" ;;
+  house)   # ./dev house: load Lukas's house (devenv/house.json) as dev HA's Alfie config
+           { printf 'const CFG = '; cat devenv/house.json; cat <<'JS'
+;
+(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  let h;
+  for (let k = 0; k < 80 && !(h = document.querySelector("home-assistant")?.hass)?.connection; k++) await sleep(150);
+  try {
+    const r = await h.callWS({ type: "alfie/config/set", config: CFG });
+    console.log(`house loaded: ${r.config.signals.length} signals, ${r.config.screens.length} screens`);
+  } catch (e) { console.log(`house failed: ${e?.message || JSON.stringify(e)}`); }
+})();
+JS
+           } > "$OUT/.house.js"
+           "$0" js "$OUT/.house.js" 4000; rm -f "$OUT/.house.js" ;;
   face)    # ./dev face [query] [out.png]: the card alone in devenv/harness.html, no HA
            q=${2:-sheet=moods}; out=${3:-$OUT/face.png}
            chrome "file:///repo/devenv/harness.html?$q" "$out" --size "${SIZE:-1200x900}" --wait 800 --selector '#g'
@@ -63,7 +78,7 @@ case "${1:-}" in
            echo "$out" ;;
   *)       sed -n '2,3p' "$0"
            echo "usage: ./dev up|down|restart|wait|logs [n]|errors [n]"
-           echo "       ./dev onboard|add|seed|token"
+           echo "       ./dev onboard|add|seed|house|token"
            echo "       ./dev state ENTITY STATE [attrs-json] | call DOMAIN.SERVICE [json] | get ENTITY"
            echo "       ./dev test | dashboard"
            echo "       ./dev shot [dashboard-path] [out.png] | face [query] [out.png] | sheet DIR out.png [cols]"

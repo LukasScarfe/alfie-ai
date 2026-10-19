@@ -45,7 +45,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     async def show_screen(call: ServiceCall) -> None:
         try:
-            _engine(hass).show_screen(call.data["screen"], call.data["seconds"])
+            # `seconds` is the field's old name, still accepted.
+            _engine(hass).show_screen(call.data["screen"],
+                                      call.data.get("duration", call.data.get("seconds", 20)))
         except ValueError as e:
             raise ServiceValidationError(str(e)) from e
 
@@ -69,7 +71,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     }))
     hass.services.async_register(DOMAIN, "show_screen", show_screen, schema=vol.Schema({
         vol.Required("screen"): cv.string,
-        vol.Optional("seconds", default=20): vol.All(vol.Coerce(float), vol.Range(min=1, max=3600)),
+        vol.Optional("duration"): vol.All(vol.Coerce(float), vol.Range(min=1, max=3600)),
+        vol.Optional("seconds"): vol.All(vol.Coerce(float), vol.Range(min=1, max=3600)),
     }))
     hass.services.async_register(DOMAIN, "play_story", play_story, schema=vol.Schema({
         vol.Required("story"): cv.string,

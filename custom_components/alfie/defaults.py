@@ -1,56 +1,40 @@
-"""Lukas's house as Alfie's reference defaults, ported from the production
-`sensor.superintendent_mood` ladder and the `Superintendent:` automations
-(see docs/design.md "Defaults ported from Lukas's house").
+"""Alfie's starter config: what a fresh install begins with.
 
-Hard-coded for milestone 1. Milestone 2 moves signals and the gaze map into
-the panel and HA's Store, with these as the seed.
+Generic on purpose, so it means something in any house: the signals are
+patterns over entity ids (a battery, a leak, a smoke alarm, an update), there
+are no motion sensors yet, and Night is picked by hand until the panel's Get
+started sets what tells Alfie it is night. Lukas's own house, which these
+defaults used to be (see docs/design.md "Starter defaults"), is
+devenv/house.json, loaded with `./dev house`.
 """
 
 from __future__ import annotations
 
 from .signals import Signal
 
-NAS_SENSORS = (
-    "binary_sensor.scarfe_218j_drive_1_exceeded_max_bad_sectors",
-    "binary_sensor.scarfe_218j_drive_2_exceeded_max_bad_sectors",
-    "binary_sensor.scarfe_218j_drive_1_below_min_remaining_life",
-    "binary_sensor.scarfe_218j_drive_2_below_min_remaining_life",
-    "binary_sensor.scarfe_218j_security_status",
-)
-
 SIGNALS: tuple[Signal, ...] = (
-    Signal(id="nas_drive", label="The NAS is reporting a drive problem",
-           entities=NAS_SENSORS, op="is", value="on", kind="bad", severity="critical"),
-    Signal(id="plant_monstera", label="The Monstera is dry",
-           entities=("sensor.fineoffset_wh51_0ee63f_moisture",), op="below", value=25,
-           kind="bad", severity="major", screen="plants"),
-    Signal(id="plant_ficus", label="The Ficus is dry",
-           entities=("sensor.fineoffset_wh51_0ee64d_moisture",), op="below", value=25,
-           kind="bad", severity="major", screen="plants"),
-    Signal(id="motion_battery", label="A motion sensor battery is low",
-           entities=("binary_sensor.bathroom_motion_sensor_battery_low",
-                     "binary_sensor.hallway_motion_sensor_battery_low",
-                     "binary_sensor.hallway_closet_motion_sensor_battery_low"),
-           op="is", value="on", kind="bad", severity="major"),
-    Signal(id="guests", label="Guests are over", entities=("input_boolean.guest_mode",),
-           op="is", value="on", kind="good"),
+    Signal(id="low_battery", name="A battery is low", entities=("sensor.*_battery",),
+           op="below", value=15, kind="bad", severity="major"),
+    Signal(id="battery_warning", name="A battery-low warning is on",
+           entities=("binary_sensor.*_battery_low",), op="is", value="on", kind="bad",
+           severity="major"),
+    Signal(id="water_leak", name="Water is leaking", entities=("binary_sensor.*leak*",),
+           op="is", value="on", kind="bad", severity="critical"),
+    Signal(id="smoke_alarm", name="A smoke or CO alarm is on",
+           entities=("binary_sensor.*smoke*", "binary_sensor.*carbon_monoxide*"),
+           op="is", value="on", kind="bad", severity="critical"),
+    Signal(id="update", name="An update is available", entities=("update.*",),
+           op="is", value="on", kind="bad", severity="minor"),
 )
 
-# While this is on, Alfie sleeps (closed eyes, no fidgets) unless something
-# critical is wrong. Milestone 5 turns it into the Night house mode.
-SLEEP_ENTITY = "switch.global_sleep_switches"
+# The sleep entity a version 2 config had when it never set one (Lukas's,
+# from before house modes); migrate_v2 turns it into the Night mode.
+V2_SLEEP_ENTITY = "switch.global_sleep_switches"
 SLEEP_EXPRESSION = "closed"
 
 # Motion sensor -> what Alfie does when it turns on. "notice" picks one of
-# NOTICE at random: someone is in the room he is in.
-GAZE_MAP = {
-    "binary_sensor.living_room_motion_sensor_occupancy": "notice",
-    "binary_sensor.hallway_motion_sensor_occupancy": "glance_left",
-    "binary_sensor.hallway_closet_motion_sensor_occupancy": "glance_left",
-    "binary_sensor.bathroom_motion_sensor_occupancy": "glance_left",
-    "binary_sensor.bedroom_light_motion_sensor_occupancy": "glance_left",
-    "binary_sensor.dining_room_presence_motion_sensor_presence": "glance_right",
-}
+# NOTICE at random: someone is in the room he is in. Get started fills it.
+MOTION_SENSORS: tuple[tuple[str, str], ...] = ()
 NOTICE = ("glance_left", "glance_right", "look_around", "double_take")
 MOTION_DEBOUNCE = 20.0          # seconds: a run of motion across rooms is one glance
 
@@ -86,25 +70,25 @@ def _anim(name: str) -> dict:
     return {"kind": "animation", "name": name, "wait": True}
 
 
-TEMPLATE = {"expression": "", "animation": "", "screen": "@why", "seconds": 15,
+SIMPLE = {"expression": "", "animation": "", "screen": "@why", "seconds": 15,
             "present": "card", "transition": "", "closing": ""}
 
 STORIES: tuple[dict, ...] = (
-    {"id": "alarm", "name": "Alarm", "mode": "steps", "template": dict(TEMPLATE),
+    {"id": "alarm", "name": "Alarm", "form": "steps", "simple": dict(SIMPLE),
      "steps": [_anim(ON_CRITICAL), _screen("@wrong"), _anim("shake")]},
-    {"id": "bad_news", "name": "Bad news", "mode": "steps", "template": dict(TEMPLATE),
+    {"id": "bad_news", "name": "Bad news", "form": "steps", "simple": dict(SIMPLE),
      "steps": [*_morph(), _screen("@wrong"), _anim("shake")]},
-    {"id": "mood_change", "name": "Mood change", "mode": "steps", "template": dict(TEMPLATE),
+    {"id": "mood_change", "name": "Mood change", "form": "steps", "simple": dict(SIMPLE),
      "steps": [*_morph(), _screen("@why"), _anim("nod")]},
-    {"id": "celebrate", "name": "Celebrate the fix", "mode": "steps",
-     "template": dict(TEMPLATE),
+    {"id": "celebrate", "name": "Celebrate the fix", "form": "steps",
+     "simple": dict(SIMPLE),
      "steps": [{"kind": "expression", "name": "happy", "hold": 0.5, "blend": 0},
                _anim(ON_RECOVER), _anim("laugh"), {"kind": "wait", "seconds": 1.5}]},
-    {"id": "wake_up", "name": "Wake up", "mode": "template",
-     "template": {**TEMPLATE, "animation": ON_WAKE, "screen": ""}, "steps": []},
-    {"id": "hello", "name": "Hello", "mode": "steps", "template": dict(TEMPLATE),
+    {"id": "wake_up", "name": "Wake up", "form": "simple",
+     "simple": {**SIMPLE, "animation": ON_WAKE, "screen": ""}, "steps": []},
+    {"id": "hello", "name": "Hello", "form": "steps", "simple": dict(SIMPLE),
      "steps": [{"kind": "expression", "name": "@mood", "hold": 1.5, "blend": 0}, _anim("nod")]},
-    {"id": "welcome_home", "name": "Welcome home", "mode": "steps", "template": dict(TEMPLATE),
+    {"id": "welcome_home", "name": "Welcome home", "form": "steps", "simple": dict(SIMPLE),
      "steps": [_anim(ON_WAKE), {"kind": "expression", "name": "happy", "hold": 1.5, "blend": 0},
                _anim("nod")]},
 )
@@ -129,25 +113,26 @@ TRIGGERS: tuple[dict, ...] = (
     _trigger("welcome", "Welcome home", "mode", "welcome_home", 60, modes=["away"], edge="leave"),
 )
 
-# House modes (modes.py), first match wins. Night is the old sleep entity; away
-# is zone.home's count of people home dropping below 1.
+# House modes (modes.py), first match wins. Night has no condition until Get
+# started (or the user) gives it one; away is zone.home's count of people home
+# dropping below 1, which every house has.
 AWAY_ENTITY = "zone.home"
 
 
 def _mode(mid: str, name: str, condition: dict | None, **over) -> dict:
     return {"id": mid, "name": name, "enabled": True, "condition": condition,
-            "presence": "normal", "wake": "critical", "hold_back": "none",
+            "alfie": "awake", "wake": "critical", "hold_back": "none",
             "mood_floor": "", "mood_fixed": "", "personality": "", "energy_bias": None,
             "fidget_rate": None, "rotation": "", "triggers_off": [], **over}
 
 
-def night_mode(entity: str = SLEEP_ENTITY) -> dict:
+def night_mode(entity: str = "") -> dict:
     cond = {"entities": [entity], "match": "any", "op": "is", "value": "on"} if entity else None
-    return _mode("night", "Night", cond, presence="asleep")
+    return _mode("night", "Night", cond, alfie="asleep")
 
 
 MODES: tuple[dict, ...] = (
     night_mode(),
     _mode("away", "Away", {"entities": [AWAY_ENTITY], "match": "any", "op": "below", "value": 1},
-          presence="idle", triggers_off=["mood_worse", "fixed", "mood_better", "wake"]),
+          alfie="quiet", triggers_off=["mood_worse", "fixed", "mood_better", "wake"]),
 )

@@ -28,7 +28,7 @@ _OFF = frozenset({"off", "false", "no", "not_home", "closed", "clear", "0"})
 @dataclass(frozen=True)
 class Signal:
     id: str
-    label: str
+    name: str
     entities: tuple[str, ...]
     op: str = "is"
     value: Any = "on"

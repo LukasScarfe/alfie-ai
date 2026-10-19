@@ -1,18 +1,21 @@
 """Alfie's whole user configuration as one plain dict, kept in HA's Store.
 
-PURE (no HA import), so the tests run under plain python. Nine sections:
+PURE (no HA import), so the tests run under plain python. Its sections:
 
   signals      the good and bad signals (see signals.py)
   mood         how they combine into a level, and each level's look
-  behaviour    sleep, the motion gaze map, fidgets and the reaction animations
+  behaviour    the sleeping expression, motion sensors, fidgets, appearance stories
   personality  a preset plus the motion sliders it fills in
   look         Alfie's global default look: style, colours, widths, shapes
   screens      the user's screens: a type plus its options (screen_types.py)
   rotations    ordered lists of screens with seconds each
   stories      what Alfie does when a trigger fires (stories.py)
   triggers     when he does it (triggers.py)
+  modes        house modes (modes.py)
+  overview     the panel's Get started state
 
-`default_config()` is Lukas's house (defaults.py). `validate()` turns any
+`default_config()` is the generic starter (defaults.py); Lukas's own house is
+devenv/house.json. `validate()` turns any
 stored or panel-sent dict into a complete, checked one, filling what is
 missing from the defaults. `build()` turns a valid one into what the engine
 runs on. Names of expressions, animations and personality presets come from
@@ -48,9 +51,11 @@ from .triggers import validate_triggers
 # 2: the behaviour reactions (on_critical, on_recover, on_wake, celebrate)
 # became triggers and stories; migrate_v1 carries them over.
 # 3: house modes; behaviour.sleep_entity became the Night mode (migrate_v2).
-CONFIG_VERSION = 3
+# 4: keys follow design.md "Words" (migrate_v3), and the overview section.
+CONFIG_VERSION = 4
 SECTIONS = ("signals", "mood", "behaviour", "personality", "look", "screens", "rotations",
-            "stories", "triggers", "modes")
+            "stories", "triggers", "modes", "overview")
+GUIDE_STEPS = ("signals", "motion", "sleep", "dashboard", "screens")   # Get started
 STYLES = ("neon", "flat", "crt", "theme")     # the card's render styles
 SHAPE_TYPES = ("circle", "polygon", "star", "superellipse", "path")
 SHAPE_SLOTS = ("head", "eye", "left_eye", "right_eye")
@@ -68,7 +73,7 @@ PERSONALITY = {
     "blink_rate": (1.0, 0.2, 3.0),
 }
 CUSTOM = "custom"
-NOTICE = "notice"     # gaze-map action: one of behaviour.notice at random
+NOTICE = "notice"     # motion sensor action: one of behaviour.notice at random
 
 _LEVEL_ORDER = ("bubbly", "content", "uneasy", "sad")   # threshold keys, best first
 _ID = re.compile(r"^[a-z0-9_]+$")
@@ -93,7 +98,7 @@ class Built:
 # ------------------------------------------------------------------ defaults
 
 def signal_dict(s: Signal) -> dict[str, Any]:
-    return {"id": s.id, "label": s.label, "entities": list(s.entities), "op": s.op,
+    return {"id": s.id, "name": s.name, "entities": list(s.entities), "op": s.op,
             "value": s.value, "kind": s.kind, "severity": s.severity, "weight": s.weight,
             "match": s.match, "screen": s.screen, "enabled": s.enabled,
             "repeat": default_repeat()}
@@ -114,7 +119,7 @@ def personality_values(name: str, face: Mapping[str, Any] | None = None) -> dict
 
 def default_look() -> dict[str, Any]:
     """The card's own defaults, so an untouched look changes nothing."""
-    return {"style": "neon", "face_color": "", "eye_color": "", "background": "",
+    return {"style": "neon", "ring_color": "", "eye_color": "", "background": "",
             "text_color": "", "accent_color": "", "line_width": 0.035,
             "screen_line_width": 0.02, "glow": None, "eye_fill": False, "padding": 0.08,
             "shapes": {"head": {"type": "circle"}, "eye": {"type": "circle"}}}
@@ -135,7 +140,7 @@ def default_config() -> dict[str, Any]:
         },
         "behaviour": {
             "sleep_expression": defaults.SLEEP_EXPRESSION,
-            "gaze_map": [{"entity": e, "action": a} for e, a in defaults.GAZE_MAP.items()],
+            "motion_sensors": [{"entity": e, "action": a} for e, a in defaults.MOTION_SENSORS],
             "notice": list(defaults.NOTICE),
             "idle_fidgets": list(defaults.IDLE_FIDGETS),
             "idle_interval": defaults.IDLE_INTERVAL,
@@ -150,6 +155,7 @@ def default_config() -> dict[str, Any]:
         "stories": copy.deepcopy(list(defaults.STORIES)),
         "triggers": copy.deepcopy(list(defaults.TRIGGERS)),
         "modes": copy.deepcopy(list(defaults.MODES)),
+        "overview": {"dismissed": False, "done": []},
     }
 
 
@@ -175,8 +181,8 @@ def _enable(cfg: dict[str, Any], trigger_id: str, on: bool) -> None:
 def _swap_animation(cfg: dict[str, Any], story_id: str, old: str, new: str) -> None:
     for st in cfg["stories"]:
         if st["id"] == story_id:
-            if st["template"].get("animation") == old:
-                st["template"]["animation"] = new
+            if st["simple"].get("animation") == old:
+                st["simple"]["animation"] = new
             for step in st["steps"]:
                 if step.get("kind") == "animation" and step.get("name") == old:
                     step["name"] = new
@@ -187,8 +193,10 @@ def migrate_v1(raw: Mapping[str, Any]) -> dict[str, Any]:
     """A version 1 config as version 2: its behaviour reactions become the
     default triggers and stories (an empty reaction disables its trigger, a
     different animation goes into its story). Anything already v2 passes."""
+    # No version at all is a partial config written for this one, not a v1 store
+    # (every store carries the version it was saved at).
     raw = copy.deepcopy(dict(raw))
-    if raw.get("version", 1) >= 2 or "triggers" in raw:
+    if raw.get("version", CONFIG_VERSION) >= 2 or "triggers" in raw:
         return raw
     base = default_config()
     raw["version"] = 2
@@ -215,12 +223,12 @@ def migrate_v2(raw: dict[str, Any]) -> dict[str, Any]:
     """A version 2 config as version 3: the sleep entity becomes the Night
     mode (none: Night is only picked by hand), Away joins it, and the
     Welcome home story and trigger are added. Anything already v3 passes."""
-    if raw.get("version", 1) >= 3 or "modes" in raw:
+    if raw.get("version", CONFIG_VERSION) >= 3 or "modes" in raw:
         return raw
-    raw["version"] = CONFIG_VERSION
+    raw["version"] = 3
     b = raw.get("behaviour")
     b = dict(b) if isinstance(b, Mapping) else {}
-    entity = str(b.pop("sleep_entity", defaults.SLEEP_ENTITY) or "").strip()
+    entity = str(b.pop("sleep_entity", defaults.V2_SLEEP_ENTITY) or "").strip()
     raw["behaviour"] = b
     away = copy.deepcopy(next(m for m in defaults.MODES if m["id"] == "away"))
     triggers = raw.get("triggers")
@@ -237,6 +245,42 @@ def migrate_v2(raw: dict[str, Any]) -> dict[str, Any]:
         raw["triggers"] = [*triggers, copy.deepcopy(
             next(t for t in defaults.TRIGGERS if t["id"] == "welcome"))]
     return raw
+
+
+_ALFIE_STATES = {"normal": "awake", "idle": "quiet", "blank": "hidden"}   # old presence values
+
+
+def _rename(d: Any, old: str, new: str) -> None:
+    if isinstance(d, dict) and old in d:
+        val = d.pop(old)
+        d.setdefault(new, val)
+
+
+def migrate_v3(raw: dict[str, Any]) -> dict[str, Any]:
+    """A version 3 config in version 4's words: signal label → name, story
+    mode/template → form/simple, house mode presence → alfie (with new value
+    names), behaviour gaze_map → motion_sensors, look face_color → ring_color.
+    Item by item and idempotent, since older migrations add new-style items."""
+    for s in raw.get("signals") or []:
+        _rename(s, "label", "name")
+    for st in raw.get("stories") or []:
+        if isinstance(st, dict) and "mode" in st:
+            mode = st.pop("mode")
+            st.setdefault("form", "simple" if mode == "template" else mode)
+        _rename(st, "template", "simple")
+    for m in raw.get("modes") or []:
+        if isinstance(m, dict) and "presence" in m:
+            p = m.pop("presence")
+            m.setdefault("alfie", _ALFIE_STATES.get(p, p))
+    _rename(raw.get("behaviour"), "gaze_map", "motion_sensors")
+    _rename(raw.get("look"), "face_color", "ring_color")
+    raw["version"] = CONFIG_VERSION
+    return raw
+
+
+def migrate(raw: Mapping[str, Any]) -> dict[str, Any]:
+    """Any stored or imported config, in the current version's keys."""
+    return migrate_v3(migrate_v2(_add_appear(migrate_v1(raw))))
 
 
 def _add_appear(raw: dict[str, Any]) -> dict[str, Any]:
@@ -348,7 +392,7 @@ def _signals(raw: Any, ck: _Check) -> list[dict[str, Any]]:
             ck.bad(where, "needs at least one entity or pattern")
         d = {
             "id": sid,
-            "label": str(s.get("label") or sid).strip(),
+            "name": str(s.get("name") or sid).strip(),
             "entities": ents,
             "op": ck.choice(f"{where} operator", s.get("op", "is"), OPERATORS, "is"),
             "value": _value(s.get("value", "on")),
@@ -417,18 +461,19 @@ def _mood(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
 def _behaviour(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
                animations: Any, ck: _Check) -> dict[str, Any]:
     b = _section(raw, "behaviour", base)
-    gaze = []
-    for i, g in enumerate(b["gaze_map"] if isinstance(b["gaze_map"], list) else []):
+    motion = []
+    for i, g in enumerate(b["motion_sensors"] if isinstance(b["motion_sensors"], list) else []):
         ent = str((g or {}).get("entity") or "").strip() if isinstance(g, Mapping) else ""
         if not ent:
-            ck.bad(f"motion {i + 1}", "needs an entity")
+            ck.bad(f"motion sensor {i + 1}", "needs an entity")
             continue
-        act = ck.choice(f"motion {ent}", g.get("action", NOTICE), (NOTICE, *animations), NOTICE)
-        gaze.append({"entity": ent, "action": act})
+        act = ck.choice(f"motion sensor {ent}", g.get("action", NOTICE), (NOTICE, *animations),
+                        NOTICE)
+        motion.append({"entity": ent, "action": act})
     return {
         "sleep_expression": ck.choice("sleep expression", b["sleep_expression"], expressions,
                                       "closed"),
-        "gaze_map": gaze,
+        "motion_sensors": motion,
         "notice": ck.names("notice animations", b["notice"], animations),
         "idle_fidgets": ck.names("idle fidgets", b["idle_fidgets"], animations),
         "idle_interval": ck.number("idle interval", b["idle_interval"], 10, 3600,
@@ -534,7 +579,7 @@ def _look(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str,
     bg = lk.get("background")
     return {
         "style": ck.choice("look style", lk.get("style"), STYLES, "neon"),
-        "face_color": _colour("look face colour", lk.get("face_color"), ck),
+        "ring_color": _colour("look ring colour", lk.get("ring_color"), ck),
         "eye_color": _colour("look eye colour", lk.get("eye_color"), ck),
         "background": "" if bg == "none" else _colour("look background", bg, ck),
         "text_color": _colour("look text colour", lk.get("text_color"), ck),
@@ -646,7 +691,7 @@ def validate(raw: Any, face: Mapping[str, Any],
     problem. Missing sections and keys take the defaults."""
     if not isinstance(raw, Mapping):
         raise ConfigError(["config must be a mapping"])
-    raw = migrate_v2(_add_appear(migrate_v1(raw)))
+    raw = migrate(raw)
     ck = _Check()
     base = default_config()
     expressions = tuple(face.get("expressions") or ())
@@ -664,13 +709,19 @@ def validate(raw: Any, face: Mapping[str, Any],
                                   {s["id"] for s in cfg["screens"]}, ck)
     cfg["stories"] = validate_stories(raw.get("stories", base["stories"]), ck, expressions,
                                       animations, {s["id"] for s in cfg["screens"]})
-    raw_modes = raw.get("modes", base["modes"])
+    raw_modes = raw.get("modes")
+    if raw_modes is None:
+        # The default modes, minus switching off triggers this config doesn't have.
+        tids = {t.get("id") for t in raw.get("triggers", base["triggers"]) if isinstance(t, Mapping)}
+        raw_modes = [{**m, "triggers_off": [t for t in m["triggers_off"] if t in tids]}
+                     for m in base["modes"]]
     cfg["triggers"] = validate_triggers(raw.get("triggers", base["triggers"]), ck,
                                         {s["id"] for s in cfg["stories"]},
                                         {s["id"] for s in cfg["signals"]},
                                         mode_ids(raw_modes))
     cfg["modes"] = validate_modes(raw_modes, ck, tuple(face.get("personalities") or ()),
                                   {r["id"] for r in cfg["rotations"]})
+    cfg["overview"] = _overview(raw.get("overview"), ck)
     trigger_ids = {t["id"] for t in cfg["triggers"]}
     for m in cfg["modes"]:
         for tid in m["triggers_off"]:
@@ -695,6 +746,13 @@ def validate(raw: Any, face: Mapping[str, Any],
     return cfg
 
 
+def _overview(raw: Any, ck: _Check) -> dict[str, Any]:
+    o = raw if isinstance(raw, Mapping) else {}
+    done = o.get("done", [])
+    return {"dismissed": bool(o.get("dismissed", False)),
+            "done": ck.names("overview done", done, GUIDE_STEPS) if done else []}
+
+
 def reset(cfg: Mapping[str, Any], section: str | None = None) -> dict[str, Any]:
     """`cfg` with one section (or, with None, everything) back to the defaults."""
     base = default_config()
@@ -710,7 +768,7 @@ def reset(cfg: Mapping[str, Any], section: str | None = None) -> dict[str, Any]:
 def build(cfg: Mapping[str, Any]) -> Built:
     """What the engine runs on, from a validated config."""
     signals = tuple(
-        Signal(id=s["id"], label=s["label"], entities=tuple(s["entities"]), op=s["op"],
+        Signal(id=s["id"], name=s["name"], entities=tuple(s["entities"]), op=s["op"],
                value=s["value"], kind=s["kind"], severity=s["severity"], weight=s["weight"],
                screen=s["screen"], match=s["match"], enabled=s["enabled"])
         for s in cfg["signals"])

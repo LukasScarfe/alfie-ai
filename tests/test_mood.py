@@ -1,9 +1,9 @@
-from alfie import defaults
+import house
 from alfie.mood import MoodSettings, combine
 from alfie.signals import evaluate_all
 
 GOOD_HOUSE = {
-    **{e: "off" for e in defaults.NAS_SENSORS},
+    **{e: "off" for e in house.NAS_SENSORS},
     "sensor.fineoffset_wh51_0ee63f_moisture": "48",
     "sensor.fineoffset_wh51_0ee64d_moisture": "52",
     "binary_sensor.bathroom_motion_sensor_battery_low": "off",
@@ -15,7 +15,7 @@ GOOD_HOUSE = {
 
 def mood(changes=None, **kw):
     states = {**GOOD_HOUSE, **(changes or {})}
-    return combine(evaluate_all(defaults.SIGNALS, states), MoodSettings(**kw))
+    return combine(evaluate_all(house.SIGNALS, states), MoodSettings(**kw))
 
 
 def test_lukas_ladder_reproduces_the_old_face():
