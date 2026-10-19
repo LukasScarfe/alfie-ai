@@ -131,7 +131,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         `./dev scope` (dry run against dev HA).
   - [x] C. xy-bench `PUT /api/strokes` and the `alfie` screen (xy-scope session; live, not yet
         committed in xy-bench).
-  - [ ] D. A production HA user and token for the scope (Lukas's OK), then deploy on Numbat.
+  - [x] D. Deployed on Numbat (`~/alfie-ai/scope`, Lukas chose the existing HA token).
   - [ ] E. On the CRT: Lukas looks; tune fps, weights and aspect.
 - [ ] **6. Voice.** React to all `assist_satellite` states, the what's-wrong LLM tool and intent,
       optional persona, mood-aware replies, TTS announcement step.

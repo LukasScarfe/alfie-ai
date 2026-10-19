@@ -8,8 +8,8 @@
   F is waiting on his review.
 - **5¾ (Icons):** built and checked in dev HA, with the PNGs sent to Lukas (A to E). F is
   waiting on his review.
-- **5⅞ (Oscilloscope):** A to C are done. D is next: a production HA user and token for the
-  scope (needs Lukas's OK), then deploy the sidecar on Numbat.
+- **5⅞ (Oscilloscope):** A to D are done; the sidecar runs on Numbat. E (Lukas on the CRT) is
+  open.
 
 Version 0.8.2.
 
@@ -26,11 +26,13 @@ deploy` (HACS refresh, install, restart, wait); `./dev prod get` / `./dev prod w
   third of a core and ~210 MB.
 - **xy-bench side:** built and live on Numbat by the xy-scope session (`PUT /api/strokes`,
   screen `alfie`). It's not committed in xy-bench; Lukas commits it.
-- **Next:**
-  - the prod token, then on Numbat `git clone` to `~/alfie-ai` and
-    `scope/.env` (XYBENCH_TOKEN from `~/xy-bench/.env`, never printed);
-  - `docker compose up -d --build` in `scope/`;
-  - `PUT /api/screen {"screen": "alfie"}`, then check `/api/status` and an `/api/frame` PNG.
+- **Live on Numbat:** `~/alfie-ai/scope`, `docker compose up -d --build`. Its `.env` holds the
+  production HA_TOKEN (Lukas chose to reuse it) and xy-bench's token; never print it. It runs
+  at 29.8 fps with 0 dropped, about 14% of a core and 218 MB. xy-bench `/api/status` shows
+  `alfie.age` 0. To update: `git pull` there, then `docker compose up -d --build`.
+- **Not done:** switching the scope to `alfie` (`PUT /api/screen {"screen": "alfie"}`) is
+  Lukas's call, because it's the household's display. The same goes for adding `alfie` to HA's
+  xy_scope screen choices.
 - `const.VERSION` had been left at 0.8.0 by 0.8.1 (a failing test); both are 0.8.2 now.
 
 **Before that (0.8.1): his rotation turn explains his mood.** Hello gained a `@why` screen step
