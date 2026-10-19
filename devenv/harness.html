@@ -3,6 +3,7 @@
        sheet=moods                  all 12 expressions
        sheet=anim&name=nod&n=8      n frames through one animation
        sheet=energy&expr=neutral    one expression across energy levels
+       sheet=shapes                 head/eye shape combinations across expressions
        expr=happy[&anim=X&u=0.3]    one face
      plus cfg=<url-encoded JSON card config> and cols=N. -->
 <meta charset="utf-8">
@@ -39,16 +40,29 @@
     for (const energy of [1, 0.8, 0.55, 0.35, 0.2]) {
       frames.push({ label: `energy ${energy}`, expression: q.get("expr") || "neutral", energy });
     }
+  } else if (sheet === "shapes") {
+    const combos = {
+      "square head": { head: { type: "polygon", sides: 4, roundness: 0.12 } },
+      "star eyes": { eye: { type: "star", points: 5, inner: 0.5 } },
+      squircle: { head: { type: "superellipse", n: 4 }, eye: { type: "superellipse", n: 3.5 } },
+      "hex + triangles": { head: { type: "polygon", sides: 6 }, eye: { type: "polygon", sides: 3, roundness: 0.25 } },
+      diamonds: { eye: { type: "polygon", sides: 4, rotation: 45, stretch: [0.8, 1] } },
+    };
+    for (const [label, shapes] of Object.entries(combos)) {
+      for (const e of (q.get("exprs") || "neutral,angry,happy,sleepy").split(",")) {
+        frames.push({ label: `${label}: ${e}`, expression: e, cfg: { shapes } });
+      }
+    }
   } else {
     frames = [{ label: q.get("expr") || "neutral", expression: q.get("expr") || "neutral",
                 animation: q.get("anim"), u: Number(q.get("u") || 0) }];
   }
   const g = document.getElementById("g");
-  g.style.gridTemplateColumns = `repeat(${q.get("cols") || Math.min(frames.length, 6)}, 1fr)`;
+  g.style.gridTemplateColumns = `repeat(${q.get("cols") || (sheet === "shapes" ? 4 : Math.min(frames.length, 6))}, 1fr)`;
   for (const f of frames) {
     const fig = document.createElement("figure");
     const el = document.createElement("alfie-card");
-    el.setConfig(cfg);
+    el.setConfig({ ...cfg, ...(f.cfg || {}) });
     fig.appendChild(el);
     fig.insertAdjacentHTML("beforeend", `<figcaption>${f.label}</figcaption>`);
     g.appendChild(fig);

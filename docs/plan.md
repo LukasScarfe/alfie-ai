@@ -36,7 +36,9 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
 - [ ] **6. Voice.** React to all `assist_satellite` states, the what's-wrong LLM tool and intent,
       optional persona, mood-aware replies, TTS announcement step.
 - [ ] **7. Editors and polish.** Shape, expression and animation editors; card render styles and
-      themes; the why panel; standard tap actions.
+      themes; the why panel; standard tap actions. The shape editor covers the head and the eyes,
+      with every shape type in design.md ("Shapes are swappable data"), plus a freehand `path`
+      and true rounded corners.
 - [ ] **8. Release.** HACS packaging and README, install on production HA (with Lukas), put it on
       `tablet-dash`. Retire the old Superintendent HA automations only with Lukas's OK.
 

@@ -46,6 +46,7 @@ const DEFAULTS = {
   breathing: true,
   blinking: true,
   card: true,             // false drops the ha-card frame
+  shapes: null,           // {head, eye, left_eye, right_eye} over the face's own; see alfie-face.js
 };
 
 const QUEUE = 2;          // animations waiting behind the one playing
@@ -80,10 +81,13 @@ class FaceState {
     this.energyAt = t;
   }
 
-  setExpression(name, pose, t) {
-    if (this.expression === name) return;
-    this.start = this.expression === null ? pose : this.poseAt(t);
+  setExpression(name, pose, t, parts) {
+    if (this.expression === name && this.targetParts === parts) return;
+    const first = this.expression === null;
+    this.start = first ? pose : this.poseAt(t);
+    this.startParts = first ? parts : this.partsAt(t);
     this.target = pose;
+    this.targetParts = parts;
     this.expression = name;
     this.since = t;
     // Low energy: a slower blend that settles without bouncing.
@@ -91,11 +95,23 @@ class FaceState {
     this.damping = clamp(F.GEOMETRY.damping + 0.35 * (1 - this.energy), 0.2, 0.92);
   }
 
+  _f(t) {
+    return F.spring((t - this.since) / this.blendLength, this.damping);
+  }
+
   poseAt(t) {
-    const f = F.spring((t - this.since) / this.blendLength, this.damping);
+    const f = this._f(t);
     if (f <= 0) return this.start;
-    if (f >= 1) return this.target;
+    if (t - this.since >= this.blendLength) return this.target;
     return F.uncrossed(F.lerp(this.start, this.target, f));
+  }
+
+  // Eye shapes morph on the same spring as the lids; the head follows the target.
+  partsAt(t) {
+    const a = this.startParts, b = this.targetParts;
+    if (a === b || t - this.since >= this.blendLength) return b;
+    const f = this._f(t);
+    return { head: b.head, left: F.blendOutlines(a.left, b.left, f), right: F.blendOutlines(a.right, b.right, f) };
   }
 
   play(anim) {
@@ -153,7 +169,16 @@ class AlfieCard extends HTMLElement {
     if (config.style && !STYLES[config.style]) {
       throw new Error(`style must be one of ${Object.keys(STYLES).join(", ")}`);
     }
+    if (config.shapes !== undefined && (typeof config.shapes !== "object" || config.shapes === null)) {
+      throw new Error("shapes must be a mapping of head / eye / left_eye / right_eye to shape specs");
+    }
     this._config = { ...DEFAULTS, ...config };
+    this._partsCache = null;
+    if (this._face.expression !== null && faceData) {
+      const name = this._face.expression;
+      this._face.expression = null;   // re-apply with the new shapes, no blend
+      faceData.then((face) => this._applyExpression(face, name, this._now()));
+    }
     this._build();
   }
 
@@ -232,8 +257,24 @@ class AlfieCard extends HTMLElement {
   }
 
   _applyExpression(face, name, t) {
-    const e = face.expressions[name] || face.expressions.neutral;
-    this._face.setExpression(name in face.expressions ? name : "neutral", F.poseOf(e), t);
+    if (!(name in face.expressions)) name = "neutral";
+    const e = face.expressions[name];
+    this._face.setExpression(name, F.poseOf(e), t, this._parts(face, e));
+  }
+
+  // The unit outlines for an expression: the face's shapes, this card's
+  // `shapes` over them, the expression's own eye shapes over those. Memoised,
+  // so the same outlines are the same objects (and a re-sent scene is free).
+  _parts(face, expr) {
+    const spec = { ...face.shapes, ...(this._config.shapes || {}), ...(expr.shapes || {}) };
+    const key = JSON.stringify(spec);
+    this._partsCache ??= new Map();
+    let p = this._partsCache.get(key);
+    if (!p) {
+      p = F.partOutlines(spec, F.GEOMETRY);
+      this._partsCache.set(key, p);
+    }
+    return p;
   }
 
   // ------------------------------------------------------------ drawing
@@ -329,6 +370,7 @@ class AlfieCard extends HTMLElement {
     const f = this._face, c = this._config;
     const e = f.energy;
     const pose = opts.pose || f.poseAt(t);
+    const parts = opts.parts || f.partsAt(t);
     const ch = opts.channels || f.channels(t);
     // Low energy weighs on him: lids heavier, eyes lower.
     const sag = clamp(0.5 - e, 0, 0.5) * 2;
@@ -346,7 +388,7 @@ class AlfieCard extends HTMLElement {
       const slow = 1.5 - 0.5 * clamp(e, 0, 1);
       p = F.blinked(p, F.blink(t, F.GEOMETRY.blink_slot * slow, F.GEOMETRY.blink * slow));
     }
-    return F.faceShapes(p, shape.eyes, shape.face);
+    return F.faceShapes(p, shape.eyes, shape.face, F.GEOMETRY, parts);
   }
 
   _draw(shapes) {
@@ -367,9 +409,16 @@ class AlfieCard extends HTMLElement {
     ctx.lineCap = "round";
     ctx.shadowBlur = col.glow * lw * 3;
 
+    // The head's outline sits just inside the drawing area, so its stroke fits.
+    const hs = (R - lw / 2) / R;
+    const [hx, hy] = shapes.ring;
     ctx.strokeStyle = ctx.shadowColor = col.face;
     ctx.beginPath();
-    ctx.arc(X(shapes.ring[0]), Y(shapes.ring[1]), R - lw / 2, 0, 2 * Math.PI);
+    shapes.head.forEach(([x, y], i) => {
+      const px = X(hx + (x - hx) * hs), py = Y(hy + (y - hy) * hs);
+      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    });
+    ctx.closePath();
     ctx.stroke();
 
     ctx.strokeStyle = ctx.fillStyle = ctx.shadowColor = col.eye;
@@ -395,7 +444,8 @@ class AlfieCard extends HTMLElement {
     const channels = anim ? anim.script(u) : {};
     if (anim) for (const k of MOTION) if (channels[k]) channels[k] *= this._face.amp;
     const pose = F.blinked(this._face.target, blink);
-    this._stillFrame = this._frame(0, { pose, channels, noBreath: true, noBlink: true });
+    const parts = this._face.targetParts;
+    this._stillFrame = this._frame(0, { pose, parts, channels, noBreath: true, noBlink: true });
     this._resize();
     this._draw(this._stillFrame);
   }

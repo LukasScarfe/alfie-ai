@@ -59,8 +59,31 @@ card is off screen, and sizes its canvas to the device pixel ratio once per resi
 
 ## The character
 
-- **Face only, never a body.** It keeps the Superintendent look: a circle face ring and two circle
-  eyes, each a **separate malleable shape** (size, eccentricity, position, rotation, lids/closure).
+- **Face only, never a body.** By default it keeps the Superintendent look: a circle face ring and
+  two circle eyes. The head and each eye are **separate malleable shapes** (size, eccentricity,
+  position, rotation, lids/closure).
+- **Shapes are swappable data (decided).** The head and the eyes can be any shape, not only
+  circles. A shape is a spec, which `outline()` in `alfie-face.js` turns into an outline:
+  - `circle`
+  - `polygon {sides, roundness}`
+  - `star {points, inner, roundness}`
+  - `superellipse {n}`, a squircle
+  - `path {points}`, anything custom
+  - and on any of them `rotation` (degrees) and `stretch [sx, sy]`.
+
+  How shapes behave:
+  - Built-in shapes are sampled as a radius per angle, at the same 120 angles, and normalised to
+    the box [-1, 1]². So lids, gaze and every animation work unchanged on any shape, and any two
+    shapes **morph** by a plain lerp.
+  - The right eye mirrors the left, unless `right_eye` is given.
+  - Shapes live in the `shapes` block of `alfie-face.json` (`head`, `eye`, `left_eye`,
+    `right_eye`). They are part of the one Alfie: global, edited in the M7 panel and saved in
+    the `Store`.
+  - A card can override them with its `shapes:` option.
+  - An expression may carry its own eye `shapes` (heart eyes for a "love" expression, say), and
+    the spring blend morphs into them.
+  - Known limit: `roundness` currently chamfers corners rather than truly filleting them. M7
+    polish.
 - Editors, all in scope:
   1. **Shape sliders** with a live preview.
   2. **Expression editor**: pose the shapes into named expressions. Presets are the 12 current

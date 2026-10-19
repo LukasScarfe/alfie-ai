@@ -7,7 +7,7 @@
 // Lids are straight lines y = h + s*u in eye radii, u pointing to the nose.
 
 export const GEOMETRY = {
-  eye_x: 0.42, eye_r: 0.25, eye_sides: 64, ring_res: 96, blend: 0.8,
+  eye_x: 0.42, eye_r: 0.25, eye_sides: 120, ring_res: 120, blend: 0.8,
   damping: 0.45, spring: 11.7, blink: 0.16, blink_slot: 5.0, droop_line: 0.1,
 };
 
@@ -205,6 +205,127 @@ export function compileAnimation(def) {
 }
 
 // --------------------------------------------------------------- shapes
+// A part's shape (the head, each eye) is data: a spec turned into a closed,
+// counter-clockwise outline by `outline`. Every built-in type is sampled as a
+// radius per angle at the same n angles, so any two shapes with the same n
+// morph by a plain lerp, and a circle is exactly the disc xy-bench cut its
+// eyes from. Outlines are normalised to fit the box [-1, 1]^2, which keeps
+// lids (in eye radii) meaning the same on every shape.
+//
+//   {type: "circle"}
+//   {type: "polygon", sides: 4, roundness: 0..1}
+//   {type: "star", points: 5, inner: 0.5, roundness: 0..1}
+//   {type: "superellipse", n: 4}            a squircle; n 2 is a circle
+//   {type: "path", points: [[x, y], ...]}   anything, drawn round the origin
+// and on any of them: rotation (degrees), stretch [sx, sy] after fitting.
+
+export const SHAPE_TYPES = ["circle", "polygon", "star", "superellipse", "path"];
+const DEG = Math.PI / 180;
+
+// Where the ray from the origin at angle `t` leaves a polygon of `verts`:
+// its distance. The farthest crossing wins, so a shape that is not quite
+// star-shaped round the origin still gets its outer edge.
+function rayRadius(verts, t) {
+  const dx = Math.cos(t), dy = Math.sin(t);
+  let best = 0;
+  for (let i = 0; i < verts.length; i++) {
+    const [ax, ay] = verts[i], [bx, by] = verts[(i + 1) % verts.length];
+    const ex = bx - ax, ey = by - ay;
+    const den = dx * ey - dy * ex;
+    if (Math.abs(den) < 1e-12) continue;
+    const r = (ax * ey - ay * ex) / den;          // along the ray
+    const s = (ax * dy - ay * dx) / den;          // along the edge
+    if (r > 0 && s >= -1e-9 && s <= 1 + 1e-9 && r > best) best = r;
+  }
+  return best;
+}
+
+function regular(count, radiusAt, start) {
+  const out = [];
+  for (let k = 0; k < count; k++) {
+    const a = start + (2 * Math.PI * k) / count;
+    out.push([radiusAt(k) * Math.cos(a), radiusAt(k) * Math.sin(a)]);
+  }
+  return out;
+}
+
+// The shape's radius as a function of angle, before rotation and fitting.
+function radial(spec) {
+  switch (spec.type || "circle") {
+    case "circle":
+      return () => 1;
+    case "superellipse": {
+      const n = Math.max(0.2, Number(spec.n ?? 4));
+      return (t) => Math.pow(Math.abs(Math.cos(t)) ** n + Math.abs(Math.sin(t)) ** n, -1 / n);
+    }
+    case "polygon": {
+      const s = Math.max(3, Math.round(spec.sides ?? 4));
+      // A point at the top; an even count turns half a side so an edge is on top.
+      const verts = regular(s, () => 1, Math.PI / 2 + (s % 2 ? 0 : Math.PI / s));
+      return rounded((t) => rayRadius(verts, t), Math.cos(Math.PI / s), spec.roundness);
+    }
+    case "star": {
+      const p = Math.max(2, Math.round(spec.points ?? 5));
+      const inner = Math.max(0.05, Math.min(1, Number(spec.inner ?? 0.5)));
+      const verts = regular(2 * p, (k) => (k % 2 ? inner : 1), Math.PI / 2);
+      return rounded((t) => rayRadius(verts, t), inner, spec.roundness);
+    }
+    case "path": {
+      const verts = (spec.points || []).map(([x, y]) => [Number(x), Number(y)]);
+      if (verts.length < 3) return () => 1;
+      return (t) => rayRadius(verts, t) || 1e-3;
+    }
+    default:
+      throw new Error(`unknown shape type ${spec.type}`);
+  }
+}
+
+// Corners rounded by capping the radius: 0 sharp, 1 all the way down to `low`
+// (the apothem, or a star's inner radius), which is a circle.
+function rounded(fn, low, roundness) {
+  const k = Math.max(0, Math.min(1, Number(roundness) || 0));
+  if (!k) return fn;
+  const cap = 1 + (low - 1) * k;
+  return (t) => Math.min(fn(t), cap);
+}
+
+// A shape spec as `n` outline points, counter-clockwise from angle 0.
+export function outline(spec, n = GEOMETRY.eye_sides) {
+  spec = spec || { type: "circle" };
+  const r = radial(spec);
+  const rot = (Number(spec.rotation) || 0) * DEG;
+  let pts = [];
+  for (let k = 0; k < n; k++) {
+    const t = (2 * Math.PI * k) / n;
+    const d = r(t - rot);
+    pts.push([d * Math.cos(t), d * Math.sin(t)]);
+  }
+  if ((spec.type || "circle") !== "circle") {
+    const m = Math.max(...pts.map(([x, y]) => Math.max(Math.abs(x), Math.abs(y))));
+    if (m > 0) pts = pts.map(([x, y]) => [x / m, y / m]);
+  }
+  const [sx, sy] = spec.stretch || [1, 1];
+  if (sx !== 1 || sy !== 1) pts = pts.map(([x, y]) => [x * sx, y * sy]);
+  return pts;
+}
+
+// Two outlines of the same length, `f` of the way from a to b.
+// `f` may overshoot past 1 (a spring), which overshoots the shape too.
+export function blendOutlines(a, b, f) {
+  if (f === 0 || a === b) return a;
+  if (f === 1) return b;
+  if (a.length !== b.length) return f < 0.5 ? a : b;
+  return a.map(([x, y], i) => [x + (b[i][0] - x) * f, y + (b[i][1] - y) * f]);
+}
+
+// Which shape each part takes: `shapes` is {head, eye, left_eye, right_eye}.
+export function partSpecs(shapes = {}) {
+  return {
+    head: shapes.head || { type: "circle" },
+    left: shapes.left_eye || shapes.eye || { type: "circle" },
+    right: shapes.right_eye || shapes.eye || { type: "circle" },
+  };
+}
 
 // `poly` cut by the lid line y = h + s*u (u = nose*x): one
 // Sutherland-Hodgman pass. Points on the line are kept, so two lids on the
@@ -228,14 +349,11 @@ function clip(poly, h, s, nose, keepBelow) {
 }
 
 // The eye as a counter-clockwise lap in eye radii from its leftmost point,
-// and the index of its rightmost.
-export function eyeOutline(lids, nose, sides = GEOMETRY.eye_sides) {
+// and the index of its rightmost: `base` (an outline, a circle by default)
+// cut by the lids.
+export function eyeOutline(lids, nose, base = null, sides = GEOMETRY.eye_sides) {
   const [hu, su, hl, sl] = lids;
-  let poly = [];
-  for (let k = 0; k < sides; k++) {
-    const a = (2 * Math.PI * k) / sides;
-    poly.push([Math.cos(a), Math.sin(a)]);
-  }
+  let poly = base || outline({ type: "circle" }, sides);
   poly = clip(clip(poly, hu, su, nose, true), hl, sl, nose, false);
   if (poly.length < 2) poly = [[-0.5, 0], [0.5, 0]];
   let k = 0;
@@ -252,9 +370,29 @@ export function eyeOutline(lids, nose, sides = GEOMETRY.eye_sides) {
   return { lap, right };
 }
 
-// The face as shapes to draw, in ring radii: the ring's centre and the two
-// eye polygons, each eye moved by `eyes` and everything by `face`.
-export function faceShapes(pose, eyes = [[0, 0], [0, 0]], face = [0, 0], g = GEOMETRY) {
+// The right eye's shape is the left one seen in a mirror, so a lopsided
+// shape (a teardrop, a tilted star) stays symmetric across the face.
+export function mirrored(pts) {
+  return pts.map(([x, y]) => [-x, y]).reverse();
+}
+
+// Unit outlines for each part from `shapes` ({head, eye, left_eye,
+// right_eye}): what faceShapes cuts and places.
+export function partOutlines(shapes = {}, g = GEOMETRY) {
+  const sp = partSpecs(shapes);
+  const left = outline(sp.left, g.eye_sides);
+  return {
+    head: outline(sp.head, g.ring_res),
+    left,
+    right: shapes.right_eye ? outline(sp.right, g.eye_sides) : mirrored(left),
+  };
+}
+
+// The face as shapes to draw, in ring radii: the head outline and the two
+// eye polygons, each eye moved by `eyes` and everything by `face`. `parts`
+// are unit outlines (partOutlines); circles when left out.
+export function faceShapes(pose, eyes = [[0, 0], [0, 0]], face = [0, 0], g = GEOMETRY, parts = null) {
+  parts = parts || partOutlines({}, g);
   const r = g.eye_r * pose[8];
   const [lx, ly] = [pose[9], pose[10]];
   const [fx, fy] = face;
@@ -264,7 +402,8 @@ export function faceShapes(pose, eyes = [[0, 0], [0, 0]], face = [0, 0], g = GEO
   };
   return {
     ring: [fx, fy],
-    left: place(eyeOutline(pose.slice(0, 4), 1, g.eye_sides).lap, -g.eye_x, eyes[0]),
-    right: place(eyeOutline(pose.slice(4, 8), -1, g.eye_sides).lap, g.eye_x, eyes[1]),
+    head: parts.head.map(([x, y]) => [fx + x, fy + y]),
+    left: place(eyeOutline(pose.slice(0, 4), 1, parts.left).lap, -g.eye_x, eyes[0]),
+    right: place(eyeOutline(pose.slice(4, 8), -1, parts.right).lap, g.eye_x, eyes[1]),
   };
 }

@@ -20,6 +20,9 @@
     `select.alfie_mode` (auto/normal/night/away/guests; only night does anything yet).
   - Services: `alfie.set_expression` (with a `duration`) and `alfie.play_animation`.
   - Event: `alfie_animation`.
+- **Swappable shapes.** The head and eyes can be a circle, polygon, star, superellipse or custom
+  path (design.md "Shapes are swappable data"). The default face is still circles. See
+  `./dev face sheet=shapes`, and the CRT card on the Alfie dev dashboard (square head, star eyes).
 - **Resource budget** (Lukas's request, now a hard rule in CLAUDE.md and design.md): it's
   event driven, and animations never write entity state or recorder rows.
 
