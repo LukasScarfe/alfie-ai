@@ -86,7 +86,18 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         appearing he plays the most relevant story on that card (`alfie/story/expand`,
         behaviour `appear_story_bad` / `_ok`, the new Hello story, card `appear_story`).
   - [ ] F. Shown on the real tablet against dev HA (Lukas).
-- [ ] **5. House modes.** Night, away, guests and user-defined modes with overrides.
+- [~] **5. House modes.** Night, away, guests and user-defined modes with overrides. Decided with
+      Lukas: one mode at a time (list order wins), away idles and greets on arrival, no guests
+      default for now; a mode overrides presence, mood/bad news, personality, rotation, triggers.
+  - [ ] A. Model (pure): `modes.py`, trigger kind `mode`, config v3 (sleep_entity → Night),
+        defaults Night and Away, Welcome home story and trigger; tests.
+  - [ ] B. Engine: mode resolution and overrides, mode triggers, scene `mode_info`, dynamic
+        `select.alfie_mode` options; tests.
+  - [ ] C. Card: blank presence (nothing drawn, loop paused), mode rotation or pause,
+        `follow_mode` option and editor; checks.
+  - [ ] D. Panel: Modes tab, mode trigger kind, Behaviour sleep pointer; click-through.
+  - [ ] E. Dev HA: Night, Away and Welcome home live, PNGs to Lukas; design.md; version 0.5.0.
+  - [ ] F. Shown on the real tablet against dev HA (Lukas).
 - [ ] **6. Voice.** React to all `assist_satellite` states, the what's-wrong LLM tool and intent,
       optional persona, mood-aware replies, TTS announcement step.
 - [ ] **7. Editors and polish.** Shape (freehand path), expression and animation editors,
