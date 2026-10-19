@@ -42,6 +42,7 @@ for (const [t, v] of gold.blink) close([F.blink(t)], [v], `blink ${t}`);
 close(F.uncrossed([0.2, 0.3, 0.5, -0.1, -0.2, 0.0, 0.1, 0.4, 1.0, 0, 0]), gold.uncrossed[0], "uncrossed");
 
 // ------------------------------------------------------------------ shapes
+const DEGREE = Math.PI / 180;
 function check(ok, what) {
   checks++;
   if (!ok) { failures++; console.error(`FAIL ${what}`); }
@@ -81,10 +82,71 @@ for (const name of Object.keys(face.expressions)) {
   const lap = F.eyeOutline(pose.slice(0, 4), 1, b).lap;
   check(lap.length >= 2, `star eye cut by ${name} lids leaves a stroke`);
 }
+
+// True fillets: a rounded square's corners lie on an arc tangent to both edges.
+{
+  const k = 0.3, r = k;                           // side 2, so tangent length k and radius k
+  const rs = F.outline({ type: "polygon", sides: 4, roundness: k }, 120);
+  check(rs.length === 120, "filleted square: 120 points");
+  const near = rs.filter(([x, y]) => Math.abs(x) > 1 - r + 1e-6 && Math.abs(y) > 1 - r + 1e-6);
+  check(near.length >= 40, `filleted square: corners are well sampled (${near.length} points)`);
+  check(near.every(([x, y]) => Math.abs(Math.hypot(Math.abs(x) - (1 - r), Math.abs(y) - (1 - r)) - r) < 2e-3),
+    "filleted square: corner points lie on the fillet arc");
+  check(rs.every(([x, y]) => Math.abs(x) <= 1 + 1e-9 && Math.abs(y) <= 1 + 1e-9), "filleted square: inside the box");
+  check(Math.abs(rs[0][0] - 1) < 1e-9 && Math.abs(rs[0][1]) < 1e-9, "filleted square: point 0 at angle 0");
+  for (const spec of [{ type: "polygon", sides: 4, roundness: 0.12 }, { type: "star", points: 5, inner: 0.5, roundness: 0.2 },
+    { type: "polygon", sides: 3, roundness: 0.5 }, { type: "path", points: [[0, 1], [1, -1], [-1, -1]], roundness: 0.3 }]) {
+    const pts = F.outline(spec, 120);
+    const worst = Math.max(...pts.map((v, i) => {
+      const p = pts[(i + 119) % 120], q = pts[(i + 1) % 120];
+      return Math.abs(Math.atan2((v[0] - p[0]) * (q[1] - v[1]) - (v[1] - p[1]) * (q[0] - v[0]),
+        (v[0] - p[0]) * (q[0] - v[0]) + (v[1] - p[1]) * (q[1] - v[1]))) / DEGREE;
+    }));
+    check(worst < 20, `${JSON.stringify(spec)}: no kink (worst turn ${worst.toFixed(1)} deg)`);
+    check(!F.cornerFlags(pts).some(Boolean), `${JSON.stringify(spec)}: nothing flagged as a sharp corner`);
+  }
+  const full = F.outline({ type: "polygon", sides: 6, roundness: 1 }, 120);
+  const rr = full.map(([x, y]) => Math.hypot(x, y));
+  check(Math.max(...rr) - Math.min(...rr) < 5e-3, "roundness 1 on a hexagon is a circle");
+  const circ = F.outline({ type: "circle" }, 120);
+  check(circ.every(([x, y], i) => Math.abs(x - Math.cos((2 * Math.PI * i) / 120)) < 1e-12 &&
+    Math.abs(y - Math.sin((2 * Math.PI * i) / 120)) < 1e-12), "circle outline is unchanged");
+  const sharp = F.outline({ type: "polygon", sides: 4 }, 120);
+  check(F.cornerFlags(sharp).filter(Boolean).length === 4, "sharp square: 4 corners kept sharp");
+  check(!F.cornerFlags(circ).some(Boolean), "circle: no sharp corners");
+  for (const name of Object.keys(face.expressions)) {
+    const pose = F.poseOf(face.expressions[name]);
+    for (const base of [F.outline({ type: "star", points: 5, inner: 0.5, roundness: 0.3 }, 120), rs]) {
+      const lap = F.eyeOutline(pose.slice(0, 4), 1, base).lap;
+      check(lap.length >= 2 && lap.every(([x, y]) => Math.abs(x) <= 1 + 1e-9 && Math.abs(y) <= 1 + 1e-9), `rounded eye cut by ${name} lids`);
+    }
+  }
+  const lidEye = F.eyeOutline(F.poseOf(face.expressions.happy).slice(0, 4), 1).lap;
+  check(F.cornerFlags(lidEye).filter(Boolean).length >= 2, "happy eye: lid corners stay sharp");
+  const ra = F.outline({ type: "polygon", sides: 4, roundness: 0.3 }, 120), rb = F.outline({ type: "star", roundness: 0.2 }, 120);
+  close(F.blendOutlines(ra, rb, 0), ra, "rounded morph at 0");
+  close(F.blendOutlines(ra, rb, 1), rb, "rounded morph at 1");
+}
 const parts = F.partOutlines({ eye: { type: "path", points: [[0, 1], [1, -1], [-0.2, -1]] } });
 close(parts.right, F.mirrored(parts.left), "right eye mirrors the left");
 const custom = F.partOutlines({ eye: { type: "star" }, right_eye: { type: "circle" } });
 close(custom.right, F.outline({ type: "circle" }), "an explicit right_eye is not mirrored");
 
-console.log(`face maths: ${checks - failures}/${checks} checks pass (xy-bench golden + shapes)`);
+// ------------------------------------------------------------- personality
+const bubbly = F.personalityOf("bubbly", face.personalities);
+close(Object.values(bubbly), Object.values(F.PERSONALITY), "bubbly is the identity", 0);
+check(F.bounced(0.45, 1) === 0.45, "bounce 1 leaves damping alone");
+check(F.bounced(0.45, 2) < 0.45 && F.bounced(0.45, 0.3) > 0.45, "bounce moves damping the right way");
+const neutral = F.poseOf(face.expressions.neutral), angry = F.poseOf(face.expressions.angry);
+check(F.exaggerated(angry, neutral, 1) === angry, "exaggeration 1 is the pose itself");
+close(F.exaggerated(angry, neutral, 0), F.uncrossed(neutral), "exaggeration 0 is neutral");
+check(Math.abs(F.exaggerated(angry, neutral, 0.5)[1] - angry[1] / 2) < 1e-9, "exaggeration halves the slant");
+check(F.personalityOf({ speed: 2 }, {}, bubbly).speed === 2 && F.personalityOf(null).bounce === 1,
+  "sliders override, nothing is the base");
+check(F.personalityOf("nonsense", face.personalities).speed === 1, "an unknown preset is the default");
+for (const [name, p] of Object.entries(face.personalities)) {
+  check(Object.keys(p).sort().join() === Object.keys(F.PERSONALITY).sort().join(), `${name} has every slider`);
+}
+
+console.log(`face maths: ${checks - failures}/${checks} checks pass (xy-bench golden + shapes + personality)`);
 process.exit(failures ? 1 : 0);

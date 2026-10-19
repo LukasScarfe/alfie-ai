@@ -26,27 +26,31 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] Shown and approved by Lukas ("the card looks good").
 - [~] **2. Signals and personality.** Panel page for signals (entity / operator / value, severity,
       linked screen), the combine-mode options, mood levels, personality presets.
-  - [ ] Config model, pure Python (`config.py`): defaults seed, validate, build; `Signal.enabled`.
-  - [ ] Store (`alfie.config`) seeded from defaults, options-flow values migrated; live
+  - [x] Config model, pure Python (`config.py`): defaults seed, validate, build; `Signal.enabled`.
+  - [x] Store (`alfie.config`) seeded from defaults, options-flow values migrated; live
         `engine.apply_config` with no reload.
-  - [ ] Admin WS API: `alfie/config/get|set|reset|preview`.
-  - [ ] Personality presets (bubbly, stoic, grumpy, sleepy, nervous, custom) in the engine, the
+  - [x] Admin WS API: `alfie/config/get|set|reset|preview`.
+  - [x] Personality presets (bubbly, stoic, grumpy, sleepy, nervous, custom) in the engine, the
         scene and the card; per-card `personality` override.
   - [ ] Admin sidebar panel: Signals, Mood, Behaviour, Personality tabs with live preview.
   - [ ] Tests, design.md, dev HA screenshots of the panel and a personality sheet.
+  - [x] True rounded corners (pulled forward from M7): fillets, arc-length sampling, smooth
+        stroke with crisp lid corners.
+  - [x] M3 groundwork: presenting and rotation decided (design.md "Screens"); xy-bench port
+        inventory in `docs/m3-screens.md`.
 - [ ] **3. Screens.** Port the templates to JS (plot, bars/value, weather, home clock, sky, stars,
       map, text) with entity pickers, add the rotation display mode and transitions.
 - [ ] **4. Triggers and stories.** Trigger config (any entity, per-motion-sensor actions, mood
       changes, signal crossings), the fill-in story template and the advanced sequence builder, the
-      default mood-change, bad-news and celebrate stories. Presenting choreography agreed with
-      Lukas first.
+      default mood-change, bad-news and celebrate stories. Presenting is agreed (design.md
+      "Screens": hand over or corner).
 - [ ] **5. House modes.** Night, away, guests and user-defined modes with overrides.
 - [ ] **6. Voice.** React to all `assist_satellite` states, the what's-wrong LLM tool and intent,
       optional persona, mood-aware replies, TTS announcement step.
 - [ ] **7. Editors and polish.** Shape, expression and animation editors; card render styles and
       themes; the why panel; standard tap actions. The shape editor covers the head and the eyes,
       with every shape type in design.md ("Shapes are swappable data"), plus a freehand `path`
-      and true rounded corners.
+      (true rounded corners are already done).
 - [ ] **8. Release.** HACS packaging and README, install on production HA (with Lukas), put it on
       `tablet-dash`. Retire the old Superintendent HA automations only with Lukas's OK.
 

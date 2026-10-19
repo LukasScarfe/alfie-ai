@@ -3,18 +3,15 @@
 from __future__ import annotations
 
 DOMAIN = "alfie"
-VERSION = "0.1.0"           # keep equal to manifest.json (a test checks)
+VERSION = "0.2.0"           # keep equal to manifest.json (a test checks)
 
 CONF_NAME = "name"
 DEFAULT_NAME = "Alfie"
 
-CONF_COMBINE = "combine"
-CONF_IDLE_INTERVAL = "idle_interval"
-CONF_MOTION_DEBOUNCE = "motion_debounce"
-CONF_CELEBRATE = "celebrate_fix"
-
 URL_BASE = "/alfie_static"
 CARD_URL = f"{URL_BASE}/alfie-card.js"
+PANEL_URL = f"{URL_BASE}/alfie-panel.js"
+PANEL_PATH = "alfie"        # sidebar URL: /alfie
 FACE_FILE = "alfie-face.json"
 
 # House modes for select.alfie_mode. "auto" follows the sleep entity; milestone

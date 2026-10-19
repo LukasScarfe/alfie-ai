@@ -1,5 +1,6 @@
-"""Config flow: one Alfie per HA, named by the user. Options hold the engine
-settings milestone 1 exposes; milestone 2's panel takes over the rest."""
+"""Config flow: one Alfie per HA, named by the user. Everything else is set in
+the Alfie sidebar panel and kept in the Store (store.py); the options flow only
+points there."""
 
 from __future__ import annotations
 
@@ -9,19 +10,8 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
-from homeassistant.helpers import selector
 
-from . import defaults
-from .const import (
-    CONF_CELEBRATE,
-    CONF_COMBINE,
-    CONF_IDLE_INTERVAL,
-    CONF_MOTION_DEBOUNCE,
-    CONF_NAME,
-    DEFAULT_NAME,
-    DOMAIN,
-)
-from .mood import COMBINE_MODES
+from .const import CONF_NAME, DEFAULT_NAME, DOMAIN
 
 
 class AlfieConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -45,22 +35,6 @@ class AlfieConfigFlow(ConfigFlow, domain=DOMAIN):
 class AlfieOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
-        o = self.config_entry.options
-        return self.async_show_form(step_id="init", data_schema=vol.Schema({
-            vol.Required(CONF_COMBINE, default=o.get(CONF_COMBINE, "worst")):
-                selector.SelectSelector(selector.SelectSelectorConfig(
-                    options=list(COMBINE_MODES), translation_key="combine",
-                    mode=selector.SelectSelectorMode.LIST)),
-            vol.Required(CONF_IDLE_INTERVAL,
-                         default=o.get(CONF_IDLE_INTERVAL, defaults.IDLE_INTERVAL)):
-                selector.NumberSelector(selector.NumberSelectorConfig(
-                    min=10, max=3600, step=5, unit_of_measurement="s",
-                    mode=selector.NumberSelectorMode.BOX)),
-            vol.Required(CONF_MOTION_DEBOUNCE,
-                         default=o.get(CONF_MOTION_DEBOUNCE, defaults.MOTION_DEBOUNCE)):
-                selector.NumberSelector(selector.NumberSelectorConfig(
-                    min=0, max=600, step=1, unit_of_measurement="s",
-                    mode=selector.NumberSelectorMode.BOX)),
-            vol.Required(CONF_CELEBRATE, default=o.get(CONF_CELEBRATE, True)): bool,
-        }))
+            # Keep milestone 1's options as they were: the Store migrated them once.
+            return self.async_create_entry(data=dict(self.config_entry.options))
+        return self.async_show_form(step_id="init", data_schema=vol.Schema({}))

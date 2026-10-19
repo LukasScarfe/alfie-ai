@@ -13,7 +13,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN
 from .engine import AlfieEngine
-from .frontend import async_register_frontend
+from .frontend import async_register_frontend, async_remove_panel
 from .websocket_api import async_register as async_register_ws
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SELECT]
@@ -58,7 +58,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["engine"] = engine
     entry.async_on_unload(engine.async_stop)
 
-    await async_register_frontend(hass)
+    await async_register_frontend(hass, engine.name)
     async_register_ws(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload))
@@ -73,4 +73,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         hass.data[DOMAIN].pop("engine", None)
+        async_remove_panel(hass)
     return unloaded

@@ -22,25 +22,17 @@ from homeassistant.const import EVENT_STATE_CHANGED
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.helpers.event import async_call_later
 
-from . import defaults
-from .const import (
-    CONF_CELEBRATE,
-    CONF_COMBINE,
-    CONF_IDLE_INTERVAL,
-    CONF_MOTION_DEBOUNCE,
-    CONF_NAME,
-    DEFAULT_NAME,
-    EVENT_ANIMATION,
-    FACE_FILE,
-    SCENE_VERSION,
-)
+from .config import NOTICE, build, reset, validate
+from .const import CONF_NAME, DEFAULT_NAME, EVENT_ANIMATION, FACE_FILE, SCENE_VERSION
 from .mood import Mood, MoodSettings, combine
-from .signals import evaluate_all, is_pattern, watches
+from .signals import Signal, evaluate, evaluate_all, is_pattern, matching, watches
+from .store import AlfieStore
 
 _LOGGER = logging.getLogger(__name__)
 
 SLEEP_ENERGY = 0.15
 IDLE_QUIET_AFTER = 10.0      # seconds after any animation before a fidget may play
+PREVIEW_ENTITIES = 25        # per signal, in a panel preview
 
 Listener = Callable[[dict[str, Any]], None]
 
@@ -56,14 +48,16 @@ class AlfieEngine:
         self.hass = hass
         self.entry = entry
         self.name: str = entry.data.get(CONF_NAME) or DEFAULT_NAME
-        opts = entry.options
-        self.settings = MoodSettings(combine=opts.get(CONF_COMBINE, "worst"))
-        self.idle_interval = float(opts.get(CONF_IDLE_INTERVAL, defaults.IDLE_INTERVAL))
-        self.motion_debounce = float(opts.get(CONF_MOTION_DEBOUNCE, defaults.MOTION_DEBOUNCE))
-        self.celebrate = bool(opts.get(CONF_CELEBRATE, True))
-        self.signals = defaults.SIGNALS
-        self.gaze_map = dict(defaults.GAZE_MAP)
-        self.sleep_entity = defaults.SLEEP_ENTITY
+        self.store = AlfieStore(hass)
+        # All of these come from the stored config, set by _apply.
+        self.face: dict[str, Any] = {}
+        self.config: dict[str, Any] = {}
+        self.signals: tuple[Signal, ...] = ()
+        self.settings = MoodSettings()
+        self.behaviour: dict[str, Any] = {}
+        self.personality: dict[str, float] = {}
+        self.gaze_map: dict[str, str] = {}
+        self.sleep_entity: str | None = None
 
         self.expressions: set[str] = set()
         self.animations: set[str] = set()
@@ -87,16 +81,10 @@ class AlfieEngine:
     # ------------------------------------------------------------ lifecycle
 
     async def async_start(self) -> None:
-        face = await self.hass.async_add_executor_job(_load_face)
-        self.expressions = set(face["expressions"])
-        self.animations = set(face["animations"])
-        # Patterns are resolved against all states once, here; afterwards only
-        # a brand-new entity (old_state None) can add a match. Nothing ever
-        # scans every state per change.
-        self._signal_entities = {st.entity_id for st in self.hass.states.async_all()
-                                 if self._is_signal_entity(st.entity_id)}
-        self._signal_entities |= {p for sig in self.signals for p in sig.entities
-                                  if not is_pattern(p)}
+        self.face = await self.hass.async_add_executor_job(_load_face)
+        self.expressions = set(self.face["expressions"])
+        self.animations = set(self.face["animations"])
+        self._apply(await self.store.async_load(self.face, self.entry.options))
         self._unsubs.append(self.hass.bus.async_listen(
             EVENT_STATE_CHANGED, self._on_state, event_filter=self._relevant))
         self._recompute(react=False)
@@ -110,6 +98,7 @@ class AlfieEngine:
         for u in (self._idle_unsub, self._override_unsub):
             if u:
                 u()
+        self._idle_unsub = self._override_unsub = None
         # Tell the cards this engine is gone, so they resubscribe to the next.
         for listener in list(self._listeners):
             listener({"v": SCENE_VERSION, "ended": True})
@@ -123,6 +112,72 @@ class AlfieEngine:
         def remove() -> None:
             self._listeners.discard(listener)
         return remove
+
+    # --------------------------------------------------------------- config
+
+    def _apply(self, cfg: dict[str, Any]) -> None:
+        built = build(cfg)
+        self.config = cfg
+        self.signals = built.signals
+        self.settings = built.mood
+        self.behaviour = built.behaviour
+        self.personality = built.personality
+        self.gaze_map = {g["entity"]: g["action"] for g in self.behaviour["gaze_map"]}
+        self.sleep_entity = self.behaviour["sleep_entity"] or None
+        self._relevant_cache.clear()
+        # Patterns are resolved against all states once, here (at start and on
+        # a save); afterwards only a brand-new entity can add a match. Nothing
+        # ever scans every state per change.
+        self._signal_entities = {st.entity_id for st in self.hass.states.async_all()
+                                 if self._is_signal_entity(st.entity_id)}
+        self._signal_entities |= {p for sig in self.signals for p in sig.entities
+                                  if not is_pattern(p)}
+
+    @callback
+    def apply_config(self, raw: Any) -> dict[str, Any]:
+        """Validate, run and save a config from the panel, live: no reload.
+        Raises config.ConfigError. A save never plays a reaction."""
+        cfg = validate(raw, self.face)
+        self._apply(cfg)
+        self.store.save(cfg)
+        self._recompute(react=False)
+        if self._idle_unsub:
+            self._idle_unsub()
+        self._schedule_idle()
+        self._push()
+        return cfg
+
+    @callback
+    def reset_config(self, section: str | None = None) -> dict[str, Any]:
+        return self.apply_config(reset(self.config, section))
+
+    @callback
+    def preview(self, raw: Any) -> dict[str, Any]:
+        """What a draft config would make of the house right now, unsaved:
+        each signal's entities and whether it is active, and the mood. Only
+        on an admin's request from the panel, so the full scan is fine."""
+        cfg = validate(raw, self.face)
+        built = build(cfg)
+        ids = self.hass.states.async_entity_ids()
+        results, out = [], []
+        for sig in built.signals:
+            names = matching(sig.entities, ids)
+            states = {e: st.state for e in names if (st := self.hass.states.get(e))}
+            res = evaluate(sig, states)
+            results.append(res)
+            ents = []
+            for e in names[:PREVIEW_ENTITIES]:
+                st = self.hass.states.get(e)
+                ents.append({"entity_id": e, "state": st.state if st else None,
+                             "name": st.name if st else None,
+                             "unit": st.attributes.get("unit_of_measurement") if st else None,
+                             "passing": e in res.entities})
+            out.append({"id": sig.id, "active": res.active, "count": len(names),
+                        "entities": ents})
+        mood = combine(results, built.mood)
+        return {"signals": out, "mood": {
+            "level": mood.level, "score": mood.score, "expression": mood.expression,
+            "energy": self._biased(mood.energy, built.personality), "reason": mood.reason}}
 
     # -------------------------------------------------------------- reading
 
@@ -160,7 +215,7 @@ class AlfieEngine:
     def _sleep_wanted(self) -> bool:
         if self.mode == "night":
             return True
-        if self.mode != "auto":
+        if self.mode != "auto" or not self.sleep_entity:
             return False
         st = self.hass.states.get(self.sleep_entity)
         return st is not None and st.state == "on"
@@ -179,14 +234,15 @@ class AlfieEngine:
         if not changed:
             return
         _LOGGER.debug("mood %s (%s) asleep=%s: %s", mood.level, mood.score, asleep, mood.reason)
+        b = self.behaviour
         if react and old is not None:
             if critical and old.level != "miserable":
-                self.play(defaults.ON_CRITICAL, "Something critical is wrong.", "mood", push=False)
+                self._react(b["on_critical"], "Something critical is wrong.", "mood")
             elif woke:
-                self.play("wake_up", "Waking up.", "mode", push=False)
-            elif self.celebrate and not asleep and \
+                self._react(b["on_wake"], "Waking up.", "mode")
+            elif b["celebrate"] and not asleep and \
                     {r.signal.id for r in old.bad} - {r.signal.id for r in mood.bad}:
-                self.play(defaults.ON_RECOVER, "Something got fixed.", "recover", push=False)
+                self._react(b["on_recover"], "Something got fixed.", "recover")
         self._push()
 
     @callback
@@ -194,26 +250,35 @@ class AlfieEngine:
         if self.asleep:
             return
         now = time.monotonic()
-        if now - self._last_motion < self.motion_debounce:
+        if now - self._last_motion < self.behaviour["motion_debounce"]:
             return
-        self._last_motion = now
         action = self.gaze_map[entity_id]
-        name = random.choice(defaults.NOTICE) if action == "notice" else action
+        if action == NOTICE:
+            if not self.behaviour["notice"]:
+                return
+            name = random.choice(self.behaviour["notice"])
+        else:
+            name = action
+        self._last_motion = now
         st = self.hass.states.get(entity_id)
         where = st.name if st is not None else entity_id
         self.play(name, f"Movement: {where}.", "motion")
 
     def _schedule_idle(self) -> None:
-        energy = self.energy
+        self._idle_unsub = None
+        rate = self.personality.get("fidget_rate", 1.0)
+        if rate <= 0 or not self.behaviour.get("idle_fidgets"):
+            return            # a save that turns fidgets back on reschedules
         # Lively Alfie fidgets more often; a miserable one barely moves.
-        delay = self.idle_interval * (0.8 / max(energy, 0.1)) * random.uniform(0.7, 1.3)
+        delay = (self.behaviour["idle_interval"] * (0.8 / max(self.energy, 0.1)) / rate
+                 * random.uniform(0.7, 1.3))
         self._idle_unsub = async_call_later(self.hass, max(delay, 5.0), self._idle)
 
     @callback
     def _idle(self, _now: Any) -> None:
         self._idle_unsub = None
         if not self.asleep and time.monotonic() - self._last_anim > IDLE_QUIET_AFTER:
-            self.play(random.choice(defaults.IDLE_FIDGETS), "Idle fidget.", "idle")
+            self.play(random.choice(self.behaviour["idle_fidgets"]), "Idle fidget.", "idle")
         self._schedule_idle()
 
     # -------------------------------------------------------------- doing
@@ -223,14 +288,24 @@ class AlfieEngine:
         if self.override:
             return self.override
         if self.asleep:
-            return defaults.SLEEP_EXPRESSION
+            return self.behaviour.get("sleep_expression", "closed")
         return self.mood.expression if self.mood else "neutral"
+
+    @staticmethod
+    def _biased(energy: float, personality: dict[str, float]) -> float:
+        return round(min(1.5, max(0.05, energy + personality.get("energy_bias", 0.0))), 3)
 
     @property
     def energy(self) -> float:
         if self.asleep:
             return SLEEP_ENERGY
-        return self.mood.energy if self.mood else 0.8
+        return self._biased(self.mood.energy if self.mood else 0.8, self.personality)
+
+    @callback
+    def _react(self, name: str, reason: str, source: str) -> None:
+        """A configured reaction; an empty name means the user chose none."""
+        if name in self.animations:
+            self.play(name, reason, source, push=False)
 
     @callback
     def play(self, name: str, reason: str = "", source: str = "service",
@@ -298,6 +373,8 @@ class AlfieEngine:
             "gaze": None,
             "animation": self.animation,
             "mode": self.mode,
+            "personality": {"preset": self.config.get("personality", {}).get("preset"),
+                            **self.personality},
             "signals": signals,
             "reason": "Asleep." if self.asleep else (m.reason if m else ""),
             "story": None,

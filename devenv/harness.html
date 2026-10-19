@@ -4,6 +4,7 @@
        sheet=anim&name=nod&n=8      n frames through one animation
        sheet=energy&expr=neutral    one expression across energy levels
        sheet=shapes                 head/eye shape combinations across expressions
+       sheet=personality            each preset across expressions and an animation frame
        expr=happy[&anim=X&u=0.3]    one face
      plus cfg=<url-encoded JSON card config> and cols=N. -->
 <meta charset="utf-8">
@@ -53,12 +54,19 @@
         frames.push({ label: `${label}: ${e}`, expression: e, cfg: { shapes } });
       }
     }
+  } else if (sheet === "personality") {
+    const cells = [["happy"], ["angry"], ["sad"], ["surprised"], ["neutral", "glance_left", 0.45]];
+    for (const name of Object.keys(face.personalities)) {
+      for (const [e, anim, u] of cells) {
+        frames.push({ label: `${name}: ${anim || e}`, expression: e, animation: anim, u, cfg: { personality: name } });
+      }
+    }
   } else {
     frames = [{ label: q.get("expr") || "neutral", expression: q.get("expr") || "neutral",
                 animation: q.get("anim"), u: Number(q.get("u") || 0) }];
   }
   const g = document.getElementById("g");
-  g.style.gridTemplateColumns = `repeat(${q.get("cols") || (sheet === "shapes" ? 4 : Math.min(frames.length, 6))}, 1fr)`;
+  g.style.gridTemplateColumns = `repeat(${q.get("cols") || (sheet === "shapes" ? 4 : sheet === "personality" ? 5 : Math.min(frames.length, 6))}, 1fr)`;
   for (const f of frames) {
     const fig = document.createElement("figure");
     const el = document.createElement("alfie-card");
