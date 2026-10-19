@@ -65,8 +65,7 @@ const DEFAULTS = {
   corner: "bottom_right", // bottom_right | bottom_left | top_right | top_left
   corner_size: 0.3,       // Alfie's size in the corner, share of his full size (0.15 to 0.5)
   transition: null,       // an intro style; null takes the rotation's, then fade
-  bad_news: true,         // rotation: while something is wrong, Alfie shows its screens each time he appears
-  bad_seconds: 10,        // rotation: how long each of those screens shows
+  appear_story: "auto",   // rotation: the story Alfie plays here when he appears in it; auto: the most relevant (mood-led), none, or a story id
   text_color: null,       // screen text; null takes the face colour
   accent_color: null,     // screen accents; null takes the face colour
   screen_line_width: 0.02, // ring radii: screens draw finer than the face
@@ -227,6 +226,7 @@ class AlfieCard extends HTMLElement {
     this._t0 = performance.now();
     this._error = null;
     this._place = { ...G.HOME };   // where a story has put Alfie, sprung toward each frame
+    this._local = null;            // a story this card plays by itself (an Alfie step in its rotation)
     this._badKey = "";
     this._resetScreens();
   }
@@ -250,7 +250,7 @@ class AlfieCard extends HTMLElement {
     }
     if (config.corner_size !== undefined && !(Number(config.corner_size) > 0)) throw new Error("corner_size must be a number");
     if (config.rotation != null && typeof config.rotation !== "string" && !Array.isArray(config.rotation)) {
-      throw new Error("rotation must be a rotation id or a list of {screen, seconds}");
+      throw new Error("rotation must be a rotation id or a list of {screen, seconds} / {alfie: true, seconds}");
     }
     if (config.style && !STYLES[config.style]) {
       throw new Error(`style must be one of ${Object.keys(STYLES).join(", ")}`);
@@ -263,6 +263,8 @@ class AlfieCard extends HTMLElement {
       throw new Error("personality must be a preset name or a mapping of sliders");
     }
     this._user = { ...config };   // the card's own keys: they beat Alfie's global look
+    // Before appearance stories, bad_news: false kept Alfie's bad news off.
+    if (config.appear_story === undefined && config.bad_news === false) this._user.appear_story = "none";
     this._config = L.effectiveConfig(DEFAULTS, this._lookNow(), this._user);
     this._rot = null;   // rebuilt from the new rotation option
     this._partsCache = null;
@@ -353,7 +355,10 @@ class AlfieCard extends HTMLElement {
     // own personality swaps that bias for its own.
     const energy = (scene.mood?.energy ?? 0.8) - global.energy_bias + p.energy_bias;
     this._face.setEnergy(Math.max(0.05, this._energyPreview ?? energy) * this._config.liveliness, t);
-    this._applyExpression(face, this._exprPreview ?? scene.expression, t, scene.story?.blend || 0);
+    if (scene.story) this._endLocal(false);   // a trigger's story beats this card's own
+    this._faceDoc = face;
+    this._applyExpression(face, this._exprPreview ?? this._local?.expression ?? scene.expression, t,
+      scene.story?.blend || this._local?.blend || 0);
     const a = scene.animation;
     if (a && a.id !== this._lastAnimId) {
       const first = this._lastAnimId === null;
@@ -502,7 +507,8 @@ class AlfieCard extends HTMLElement {
       if (this._face.expression !== null) {
         const t = this._now();
         this._face.tick(t, dt);
-        this._place = G.placeToward(this._place, this._scene?.story?.place ?? null, dt);
+        if (this._local) this._stepLocal(t);
+        this._place = G.placeToward(this._place, this._scene?.story?.place ?? this._local?.place ?? null, dt);
         this._draw(this._frame(t), this._presentation(t, dt));
       }
     }
@@ -726,7 +732,7 @@ class AlfieCard extends HTMLElement {
       if (!rot) return null;
       steps = rot.steps; face = rot.face_seconds ?? null; transition = rot.transition ?? null;
     }
-    steps = (steps || []).filter((st) => this._screenIndex.has(st.screen) && Number(st.seconds) > 0);
+    steps = (steps || []).filter((st) => (st.alfie || this._screenIndex.has(st.screen)) && Number(st.seconds) > 0);
     // A bad signal set to "add to the rotation" joins it while it is bad.
     for (const sig of this._badSignals()) {
       if (sig.in_rotation && !steps.some((st) => st.screen === sig.screen)) steps = [...steps, { screen: sig.screen, seconds: 15 }];
@@ -750,7 +756,7 @@ class AlfieCard extends HTMLElement {
       this._override = "story";
       return { id: null, next: null };    // a story has Alfie himself on show; the rotation waits
     }
-    this._override = null;
+    this._override = this._local?.screen ? "local" : null;
     if (this._rot === null || this._rot.stale) {
       const spec = this._rotationSteps();
       this._rot = spec ? (this._rot?.steps ? G.carry(this._rot, spec) : G.start(spec, this._rotClock)) : { steps: null };
@@ -758,13 +764,64 @@ class AlfieCard extends HTMLElement {
     const rot = this._rot;
     if (!rot.steps) return { id: null, next: null };
     this._rotClock += dt;
-    const c = this._config;
-    const want = G.advance(rot, this._rotClock, {
-      badNews: c.bad_news !== false, badSeconds: clamp(Number(c.bad_seconds) || 10, 3, 600),
-      badNow: () => [...new Set(this._badSignals().map((s) => s.screen))],
-    });
-    if (want.shake) this.playLocal("shake");
+    const want = G.advance(rot, this._rotClock);
+    if (want.appear) this._appear(rot);
+    // Alfie's own story may show a screen while he has the stage.
+    if (!want.id && this._local?.screen && this._screenIndex.has(this._local.screen.id)) {
+      return { id: this._local.screen.id, next: want.next };
+    }
     return want;
+  }
+
+  // ----------------------------------------------------------- Alfie's own story
+
+  // Alfie comes on in this card's rotation: fetch the most relevant story
+  // (or the card's choice) and play it here only. The rotation holds his
+  // phase until it is known, then for as long as it runs.
+  async _appear(rot) {
+    const pick = this._config.appear_story ?? "auto";
+    this._endLocal(true);
+    if (pick === "none" || !this._hass) return;
+    rot.hold = 1e9;
+    let r = null;
+    try {
+      r = await this._hass.connection.sendMessagePromise(
+        { type: "alfie/story/expand", ...(pick === "auto" ? {} : { story: pick }) });
+    } catch (e) {
+      console.warn(`Alfie: can't play the story ${pick}: ${e?.message || e}`);
+    }
+    if (this._rot !== rot) return;           // the rotation was rebuilt meanwhile
+    const actions = r?.actions || [];
+    rot.hold = G.storyLength(actions);
+    if (!actions.length || this._scene?.story) return;
+    this._local = { actions, t0: this._now(), last: -1, expression: null, blend: 0, place: null, screen: null };
+    this._stepLocal(this._local.t0);
+  }
+
+  // One frame of this card's own story: new animations fire, and a new
+  // expression is worn; when it is over Alfie goes back to the scene's.
+  _stepLocal(t) {
+    const L = this._local, face = this._faceDoc;
+    const el = t - L.t0;
+    const r = G.runStory(L.actions, L.last, el);
+    L.last = el;
+    for (const name of r.fire) this.playLocal(name);
+    L.place = r.place;
+    L.screen = r.screen;
+    if (r.expression !== L.expression && face && !this._exprPreview) {
+      this._applyExpression(face, r.expression in face.expressions ? r.expression : this._scene?.expression, t, r.blend);
+    }
+    L.expression = r.expression;
+    L.blend = r.blend;
+    if (r.done) this._endLocal(true);
+  }
+
+  _endLocal(restore) {
+    if (!this._local) return;
+    this._local = null;
+    if (restore && this._faceDoc && this._scene && !this._exprPreview) {
+      this._applyExpression(this._faceDoc, this._scene.expression, this._now(), 0.6);
+    }
   }
 
   _transitionStyle() {
@@ -788,38 +845,58 @@ class AlfieCard extends HTMLElement {
     let cur = this._cur;
     const c = this._config, sc = this._scene?.screen;
     // A story step may say how its screen is presented; otherwise the card does.
-    const presentOf = (id) => (this._override === id && sc?.id === id && sc.present) || c.present;
+    const presentOf = (id) => {
+      if (this._override === "local" && this._local?.screen?.id === id) {
+        const lp = this._local.screen.present;
+        return lp && lp !== "card" ? lp : c.present;
+      }
+      return (this._override === id && sc?.id === id && sc.present) || c.present;
+    };
     if (cur && cur.tOut == null && want.id !== cur.id) {
-      if (want.id) cur = this._cur = { id: want.id, tIn: t - 99, tOut: null, style: cur.style, present: presentOf(want.id) };   // screen to screen: cut
-      else cur.tOut = t;
+      // Screen to screen: the old one leaves and the next arrives, with Alfie
+      // kept as he is (gone, or in his corner) throughout.
+      cur.tOut = t;
+      cur.swap = !!want.id && presentOf(want.id) === cur.present;
     }
+    if (cur?.swap && cur.tOut != null && !want.id) cur.swap = false;   // Alfie wants the stage after all
     if (!cur && want.id) cur = this._cur = { id: want.id, tIn: t, tOut: null, style: this._transitionStyle(), present: presentOf(want.id) };
     if (!cur) return null;
-    const corner = cur.present === "corner";
-    const durS = I.SECONDS[cur.style] ?? 0.6, durM = corner ? CORNER_SECONDS : 0;
-    const leaving = cur.tOut != null;
-    const age = t - (leaving ? cur.tOut : cur.tIn);
-    if (leaving && age >= Math.max(durS, durM)) { this._cur = null; return null; }
+    let corner = cur.present === "corner";
+    let leaving = cur.tOut != null;
+    let durS = I.SECONDS[cur.style] ?? 0.6, durM = corner && !(leaving ? cur.swap : cur.held) ? CORNER_SECONDS : 0;
+    let age = t - (leaving ? cur.tOut : cur.tIn);
+    if (leaving && age >= Math.max(durS, durM)) {
+      this._cur = null;
+      if (!(cur.swap && want.id)) return null;
+      cur = this._cur = { id: want.id, tIn: t, tOut: null, style: this._transitionStyle(), present: presentOf(want.id), held: true };
+      corner = cur.present === "corner";
+      leaving = false;
+      durS = I.SECONDS[cur.style] ?? 0.6;
+      durM = 0;
+      age = 0;
+    }
+    // Alfie stays away while one screen hands over to the next.
+    const away = leaving ? !!cur.swap : !!cur.held;
     const uS = durS ? clamp(age / durS, 0, 1) : 1, uM = durM ? clamp(age / durM, 0, 1) : 1;
     const p = I.presence(cur.style, uS, leaving);
-    const k = corner ? (leaving ? 1 - F.spring(uM) : F.spring(uM)) : 0;
-    return this._describe(cur.id, cur.style, p, leaving, k, t, cur.present);
+    const k = corner ? (away ? 1 : leaving ? 1 - F.spring(uM) : F.spring(uM)) : 0;
+    return this._describe(cur.id, cur.style, p, leaving, k, t, cur.present, away);
   }
 
-  _describe(id, style, p, leaving, k, t, present = this._config.present) {
+  _describe(id, style, p, leaving, k, t, present = this._config.present, away = false) {
     const c = this._config, corner = present === "corner";
     const screen = this._screenIndex.get(id);
     // In "hand over" the face goes by the same transition the screen comes by
     // (drawn, zoomed, wiped away...); fade and cut just change its alpha, and
-    // morph turns the face itself into the screen.
-    const faceAlpha = corner ? 1 : I.faceAlpha(style, p);
-    const shaped = !corner && !["cut", "fade", "morph"].includes(style) && p > 0 && p < 1;
+    // morph turns the face itself into the screen. Between two screens he stays away.
+    const faceAlpha = corner ? 1 : away ? 0 : I.faceAlpha(style, p);
+    const shaped = !corner && !away && !["cut", "fade", "morph"].includes(style) && p > 0 && p < 1;
     return {
       present, corner: c.corner, size: c.corner_size, k, faceAlpha,
       alpha: I.apply(style, p, leaving, [], null).alpha,
       face: shaped ? (shapes, box) => I.apply(style, 1 - clamp(p, 0, 1), !leaving, I.faceStrokes(shapes), box) : null,
       strokes: (hw, hh, shapes) => this._screenStrokes(screen, hw, hh, t, style, p, leaving,
-        style === "morph" && shapes && !corner ? I.faceStrokes(shapes) : null),
+        style === "morph" && shapes && !corner && !away ? I.faceStrokes(shapes) : null),
     };
   }
 

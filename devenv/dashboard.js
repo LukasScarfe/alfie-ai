@@ -19,6 +19,11 @@
       { type: "grid", cards: [{ type: "custom:alfie-card", style: "crt",
         shapes: { head: { type: "polygon", sides: 4, roundness: 0.12 }, eye: { type: "star", points: 5, inner: 0.5 } } }] },
     ] },
+    // A short rotation (3 s steps, one Alfie step) for timing traces: devenv/out/m4g-trace.js.
+    { title: "Rotation", path: "rotation", type: "sections", max_columns: 2, sections: [
+      { type: "grid", cards: [{ type: "custom:alfie-card", style: "neon", mode: "rotation", rotation: "g_test", present: "handover", aspect: 1.6 }] },
+      { type: "grid", cards: [{ type: "custom:alfie-card", style: "neon", mode: "rotation", rotation: "g_test", present: "corner", aspect: 1.6 }] },
+    ] },
     // One card per screen, each held on its own one-step rotation (see ./dev js devenv/out/allscreens.js).
     { title: "Screens", path: "screens", type: "sections", max_columns: 4, sections:
       ["plants", "weather", "weather_days", "clock", "monstera", "soil", "sky", "stars", "map", "birthdays"].map((id) => (

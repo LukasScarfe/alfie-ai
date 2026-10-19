@@ -516,18 +516,39 @@ class AlfieEngine:
         rate = play_rate(self.energy, self.personality.get("speed", 1.0))
         return animation_length(self.face, name) / max(rate, 0.05) + ANIMATION_SLACK
 
+    def _context(self, why: Any, old_expression: str | None = None) -> Context:
+        """The moment a story plays in: the mood's face and what is wrong."""
+        m = self.mood
+        mood_expr = m.expression if m else "neutral"
+        return Context(mood_expression=mood_expr,
+                       old_mood_expression=old_expression or mood_expr,
+                       why=self._screens_of(why),
+                       wrong=self._screens_of(r.signal.id for r in (m.bad if m else ())))
+
+    def appear_story(self) -> str:
+        """The most relevant story for Alfie appearing in a rotation, mood-led:
+        the bad one while something is wrong, otherwise the ok one ("" none)."""
+        b = self.config["behaviour"]
+        bad = bool(self.mood and self.mood.bad)
+        return b.get("appear_story_bad" if bad else "appear_story_ok", "")
+
+    def expand_story(self, story_id: str) -> list[Action]:
+        """A story's timed actions for one card to play by itself (an Alfie
+        step in its rotation). Nothing plays here, no state or event: @why is
+        what is wrong, as there is no change to explain. ValueError if unknown."""
+        story = self.stories.get(story_id)
+        if story is None:
+            raise ValueError(f"unknown story {story_id!r}")
+        wrong = [r.signal.id for r in (self.mood.bad if self.mood else ())]
+        return expand(steps_of(story), self._context(wrong), self._anim_seconds)
+
     @callback
     def _start_story(self, req: dict[str, Any]) -> None:
         story = req["draft"] or self.stories.get(req["story"])
         if story is None:
             return
-        m = self.mood
-        mood_expr = m.expression if m else "neutral"
-        ctx = Context(mood_expression=mood_expr,
-                      old_mood_expression=req["old_expression"] or mood_expr,
-                      why=self._screens_of(req["why"]),
-                      wrong=self._screens_of(r.signal.id for r in (m.bad if m else ())))
-        actions = expand(steps_of(story), ctx, self._anim_seconds)
+        actions = expand(steps_of(story), self._context(req["why"], req["old_expression"]),
+                         self._anim_seconds)
         self._story_seq += 1
         self.story = {"id": story["id"], "name": story["name"], "seq": self._story_seq,
                       "trigger": req["trigger"], "reason": req["reason"] or story["name"],

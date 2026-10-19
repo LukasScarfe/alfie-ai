@@ -495,7 +495,7 @@ class AlfiePanel extends HTMLElement {
         return;
       case "add-rotation": {
         const id = F.uniqueId(rots, "rotation");
-        rots.push({ id, name: "", transition: "random", face_seconds: 20, steps: screens.length ? [F.newStep(screens)] : [] });
+        rots.push({ id, name: "", transition: "random", face_seconds: 0, steps: screens.length ? [F.newStep(screens)] : [] });
         this._edited(true);
         return;
       }
@@ -507,6 +507,10 @@ class AlfiePanel extends HTMLElement {
       case "add-step":
         if (!screens.length) return;
         rots[i].steps.push(F.newStep(screens));
+        this._edited(true);
+        return;
+      case "add-alfie-step":
+        rots[i].steps.push({ alfie: true, seconds: 15 });
         this._edited(true);
         return;
       case "rm-step":
@@ -1121,6 +1125,8 @@ class AlfiePanel extends HTMLElement {
   _behaviour() {
     const b = this._draft.behaviour, c = this._choices;
     const anims = c.animations;
+    const appear = [["", "nothing, he just shows"], ...this._draft.stories.map((st) => [st.id, st.name || st.id])];
+    for (const v of [b.appear_story_bad, b.appear_story_ok]) if (v && !appear.some(([x]) => x === v)) appear.push([v, `${v} (missing)`]);
     const set = (list) => `<div class="anims">${anims.map((a) =>
       `<button class="chip pick ${b[list].includes(a) ? "on" : ""}" data-action="anim-set" data-list="${list}" data-name="${a}">${a}</button>`).join("")}</div>`;
     const gaze = b.gaze_map.map((g, i) => `<div class="row">
@@ -1145,6 +1151,13 @@ class AlfiePanel extends HTMLElement {
       <p class="intro">What Alfie does when something turns critical, gets fixed or wakes him is set on the
         <button class="link" data-action="tab" data-tab="triggers">Triggers</button> tab, and the
         <button class="link" data-action="tab" data-tab="stories">Stories</button> they play.</p>
+      <h3>When he appears in a rotation</h3>
+      <p class="intro">In a rotation, screens follow screens and Alfie stays away (or in his corner). He comes on for an
+        Alfie step, or between screens when the rotation asks, and plays the most relevant story on that card.</p>
+      <div class="grid">
+        <label>While something is wrong${this._select("behaviour.appear_story_bad", b.appear_story_bad, appear)}</label>
+        <label>While all's well${this._select("behaviour.appear_story_ok", b.appear_story_ok, appear)}</label>
+      </div>
       ${this._footer("behaviour")}`;
   }
 
@@ -1239,7 +1252,7 @@ class AlfiePanel extends HTMLElement {
       `<option value="${esc(s.id)}" ${s.id === v ? "selected" : ""}>${esc(s.title || s.id)}</option>`).join("")}
       ${screens.some((s) => s.id === v) ? "" : `<option value="${esc(v)}" selected>${esc(v || "(none)")} (missing)</option>`}</select>`;
     const steps = r.steps.map((st, j) => `<div class="row">
-        <span class="muted">${j + 1}.</span> ${sel(j, st.screen)}
+        <span class="muted">${j + 1}.</span> ${st.alfie ? `<span class="alfie-step"><b>Alfie</b> <span class="muted">plays the most relevant story</span></span>` : sel(j, st.screen)}
         <input type="number" class="secs" data-path="${P}.steps.${j}.seconds" data-kind="number" min="3" max="3600" step="1" value="${esc(st.seconds)}"> s
         <span class="tools">
           <button class="icon" data-action="up-step" data-i="${i}" data-j="${j}" ${j ? "" : "disabled"} title="Move up">▲</button>
@@ -1251,12 +1264,14 @@ class AlfiePanel extends HTMLElement {
         <label>ID<input data-path="${P}.id" value="${esc(r.id)}" pattern="[a-z0-9_]+"></label>
         <label>Transition${this._select(`${P}.transition`, r.transition, [...TRANSITIONS, "random"])}
           <small>How Alfie and a screen swap places. Random picks a different one each time.</small></label>
-        <label>Alfie shows for (seconds)${this._num(`${P}.face_seconds`, r.face_seconds, { min: 0, max: 3600, step: 1 })}
-          <small>Between screens. 0 goes straight on.</small></label>
+        <label>Alfie between screens (seconds)${this._num(`${P}.face_seconds`, r.face_seconds, { min: 0, max: 3600, step: 1 })}
+          <small>0 (usual): screens follow screens and Alfie stays away. Add an Alfie step to have him come on.</small></label>
       </div>
       <span class="lbl">Steps</span>
       ${steps || `<p class="muted">No steps yet.</p>`}
-      <div class="row"><button class="flat" data-action="add-step" data-i="${i}" ${screens.length ? "" : "disabled"}>+ Add a step</button>
+      ${r.steps.length && r.steps.every((st) => st.alfie) ? `<p class="muted">Only Alfie steps: add a screen for the rotation to show.</p>` : ""}
+      <div class="row"><button class="flat" data-action="add-step" data-i="${i}" ${screens.length ? "" : "disabled"}>+ Add a screen</button>
+        <button class="flat" data-action="add-alfie-step" data-i="${i}">+ Add Alfie</button>
         <span class="grow"></span><button class="flat danger" data-action="del-rotation" data-i="${i}">Delete rotation</button></div>
     </div>`;
   }
@@ -1635,4 +1650,4 @@ const CSS = `
     .split { grid-template-columns: 1fr; } .live { position: static; } .status .muted { display: none; } }
 `;
 
-customElements.define("alfie-panel", AlfiePanel);
+if (!customElements.get("alfie-panel")) customElements.define("alfie-panel", AlfiePanel);
