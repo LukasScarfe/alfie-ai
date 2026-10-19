@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Alfie's dev loop. Everything runs in containers or host python3 stdlib, so
+# nothing is installed on raccoon. Run ./dev with no arguments for the list.
+set -euo pipefail
+cd "$(dirname "$0")"
+ROOT=$PWD
+COMPOSE=(docker compose -f devenv/docker-compose.yml)
+CHROME=zenika/alpine-chrome:124-with-puppeteer
+OUT=devenv/out
+mkdir -p "$OUT"
+
+chrome() {
+  docker run --rm --network host --user "$(id -u):$(id -g)" \
+    -e NODE_PATH=/usr/src/app/node_modules \
+    -v "$ROOT:/repo" -w /repo "$CHROME" node /repo/devenv/shot.js "$@"
+}
+
+case "${1:-}" in
+  up)      "${COMPOSE[@]}" up -d && echo "dev HA: http://192.168.1.241:8125 (dev / devpass1234)" ;;
+  down)    "${COMPOSE[@]}" down ;;
+  restart) "${COMPOSE[@]}" restart ;;
+  logs)    docker logs alfie-dev-ha 2>&1 | tail -n "${2:-60}" ;;
+  errors)  docker logs alfie-dev-ha 2>&1 | grep -iE "error|exception|traceback|alfie" | tail -n "${2:-40}" ;;
+  wait)    # until HA answers HTTP again (after up/restart)
+           for _ in $(seq 90); do curl -sf -o /dev/null http://localhost:8125/manifest.json && exit 0; sleep 2; done
+           echo "dev HA did not come up" >&2; exit 1 ;;
+  onboard|add|seed|state|call|get|token)
+           python3 devenv/devtool.py "$@" ;;
+  test)    # Python unit tests, then the card maths check under node.
+           docker run --rm -v "$ROOT:/src:ro" -v alfie-pip-cache:/root/.cache/pip -w /src \
+             -e PYTHONDONTWRITEBYTECODE=1 python:3.13-alpine \
+             sh -c "pip install -q --root-user-action=ignore pytest >/dev/null && python -m pytest -q -p no:cacheprovider tests"
+           if [ -f tests/face.test.mjs ]; then
+             docker run --rm --entrypoint node -v "$ROOT:/repo:ro" -w /repo "$CHROME" tests/face.test.mjs
+           fi ;;
+  shot)    # ./dev shot [dashboard-path] [out.png] [extra shot.js args...]
+           path=${2:-lovelace/0}; out=${3:-$OUT/shot.png}; shift $(( $# < 3 ? $# : 3 ))
+           python3 devenv/devtool.py token > "$OUT/.auth.json"
+           chrome "http://localhost:8125/$path" "$out" --auth "$OUT/.auth.json" --wait 3000 "$@"
+           rm -f "$OUT/.auth.json"; echo "$out" ;;
+  face)    # ./dev face [query] [out.png]: the card alone in devenv/harness.html, no HA
+           q=${2:-sheet=moods}; out=${3:-$OUT/face.png}
+           chrome "file:///repo/devenv/harness.html?$q" "$out" --size "${SIZE:-1200x900}" --wait 500
+           echo "$out" ;;
+  sheet)   # ./dev sheet DIR out.png [cols]: contact sheet of every PNG in DIR (under the repo)
+           dir=$2; out=$3; imgs=$(cd "$dir" && ls *.png | paste -sd,)
+           chrome "file:///repo/devenv/sheet.html?dir=/repo/$dir&imgs=$imgs&cols=${4:-4}" "$out" --size 1200x900 --wait 500 --selector '#g'
+           echo "$out" ;;
+  *)       sed -n '2,3p' "$0"
+           echo "usage: ./dev up|down|restart|wait|logs [n]|errors [n]"
+           echo "       ./dev onboard|add|seed|token"
+           echo "       ./dev state ENTITY STATE [attrs-json] | call DOMAIN.SERVICE [json] | get ENTITY"
+           echo "       ./dev test"
+           echo "       ./dev shot [dashboard-path] [out.png] | face [query] [out.png] | sheet DIR out.png [cols]"
+           exit 1 ;;
+esac

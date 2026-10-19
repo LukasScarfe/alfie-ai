@@ -1,0 +1,7 @@
+# Throwaway dev instance for Alfie. Not production.
+default_config:
+
+logger:
+  default: warning
+  logs:
+    custom_components.alfie: debug

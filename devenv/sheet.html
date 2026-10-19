@@ -1,0 +1,20 @@
+<!doctype html>
+<!-- A contact sheet of PNGs for ./dev sheet: ?dir=out/x&imgs=a,b,c&cols=4 -->
+<meta charset="utf-8">
+<style>
+  body { margin: 0; background: #111; color: #ccc; font: 14px sans-serif; }
+  #g { display: grid; gap: 8px; padding: 8px; }
+  figure { margin: 0; text-align: center; }
+  img { width: 100%; display: block; background: #000; }
+</style>
+<div id="g"></div>
+<script>
+  const q = new URLSearchParams(location.search);
+  const g = document.getElementById("g");
+  g.style.gridTemplateColumns = `repeat(${q.get("cols") || 4}, 1fr)`;
+  for (const name of q.get("imgs").split(",")) {
+    const f = document.createElement("figure");
+    f.innerHTML = `<img src="${q.get("dir")}/${name}"><figcaption>${name.replace(/\.png$/, "")}</figcaption>`;
+    g.appendChild(f);
+  }
+</script>

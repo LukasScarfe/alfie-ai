@@ -39,7 +39,32 @@ Only one agent works on this repo at a time.
 - Show visual results: render the card or face to a PNG and send it rather than describing it.
 - Keep design.md current. When a decision is made, edit it in place.
 
+## Dev loop
+
+A throwaway HA 2026.10 runs on raccoon as container `alfie-dev-ha`, at
+`http://192.168.1.241:8125` (user `dev` / `devpass1234`). `custom_components/alfie` is
+bind-mounted read only. Everything goes through `./dev`; run it with no arguments for the list.
+
+```bash
+./dev up && ./dev wait     # start; first time also: ./dev onboard && ./dev add
+./dev seed                 # fake Lukas's house entities (they vanish on restart)
+./dev state sensor.fineoffset_wh51_0ee63f_moisture 12   # poke a signal
+./dev restart && ./dev wait && ./dev seed               # after Python edits
+./dev errors               # alfie/error lines from the HA log
+./dev test                 # pytest + the node face check, in containers
+./dev face [query] [out]   # the card alone (devenv/harness.html) to PNG, no HA needed
+./dev shot [path] [out]    # a dev HA page to PNG, logged in, via headless Chrome
+```
+
+Card JS edits only need a page reload (the static path is uncached). Python edits need
+`./dev restart`. PNGs land in `devenv/out/` (gitignored). The xy-bench reference renders of the
+12 moods are in `docs/reference/`.
+
 ## Finishing a change
 
-Not set up yet; milestone 1 defines the test command and the dev-HA loop. Then: tests green,
-commit, push. Releases are HACS versions (bump `manifest.json` and the card's `?v=`).
+1. `./dev test` is green, and `./dev errors` is clean after a restart.
+2. For anything visual, render it with `./dev face` or `./dev shot` and send Lukas the PNG.
+3. Tick plan.md, rewrite handoff.md, then commit (as Lukas, no attribution) and push.
+
+Releases are HACS versions: bump `manifest.json` `version`. The card URL's `?v=` comes from it
+automatically.
