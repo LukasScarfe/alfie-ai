@@ -485,7 +485,8 @@ letters: accents drop to the base letter, and letters it can't decompose (Ł) ar
   - **Alfie comes on** only for an **Alfie step** (`{alfie: true, seconds}`, anywhere in the
     list), or between every pair of screens when the rotation's `face_seconds` is over 0 (off by
     default; older rotations keep theirs). He then plays **the most relevant story** on that card
-    only, and the step lasts at least as long as the story:
+    only. His turn lasts exactly its seconds, like a screen's, so the rotation keeps one beat
+    (a story longer than the turn is cut short when the next screen comes):
     - the card option `appear_story` is `auto` by default, which is mood-led: behaviour's
       `appear_story_bad` (Bad news) while something is wrong, otherwise `appear_story_ok`
       (Hello: his mood's face, the `@why` screens, a nod). Here `@why` is what sets his mood

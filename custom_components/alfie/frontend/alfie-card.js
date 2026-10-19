@@ -925,6 +925,8 @@ class AlfieCard extends HTMLElement {
     if (this._modeRotation() !== "pause") this._rotClock += dt;   // a house mode may pause it
     const want = G.advance(rot, this._rotClock, (this._fitFn ??= (id) => this._fit(id)));
     if (want.appear) this._appear(rot);
+    // His turn is over: his story stops with it, so the next screen keeps the beat.
+    else if (want.id && this._local?.turn) this._endLocal(true);
     // Alfie's own story may show a screen while he has the stage.
     if (!want.id && this._localScreen()) return { id: this._localScreen(), next: want.next };
     return want;
@@ -1032,13 +1034,12 @@ class AlfieCard extends HTMLElement {
   // ----------------------------------------------------------- Alfie's own story
 
   // Alfie comes on in this card's rotation: fetch the most relevant story
-  // (or the card's choice) and play it here only. The rotation holds his
-  // phase until it is known, then for as long as it runs.
+  // (or the card's choice) and play it here only, for as long as his turn lasts.
   async _appear(rot) {
     const pick = this._config.appear_story ?? "auto";
+    const turn = (this._turn = (this._turn || 0) + 1);
     this._endLocal(true);
     if (pick === "none" || !this._hass) return;
-    rot.hold = 1e9;
     let r = null;
     try {
       r = await this._hass.connection.sendMessagePromise(
@@ -1046,12 +1047,12 @@ class AlfieCard extends HTMLElement {
     } catch (e) {
       console.warn(`Alfie: can't play the story ${pick}: ${e?.message || e}`);
     }
-    if (this._rot !== rot) return;           // the rotation was rebuilt meanwhile
+    // The rotation was rebuilt, or his turn ended, meanwhile.
+    if (this._rot !== rot || this._turn !== turn || rot.phase === "screen") return;
     const actions = r?.actions || [];
-    // Its clock waits while the screen leaves and he comes back (see _stepLocal).
-    rot.hold = G.storyLength(actions);
     if (!actions.length || this._scene?.story) return;
-    this._local = { actions, t0: this._now(), tick: null, last: -1, expression: null, blend: 0, place: null, screen: null };
+    // Its clock waits while the screen leaves and he comes back (see _stepLocal).
+    this._local = { actions, turn, t0: this._now(), tick: null, last: -1, expression: null, blend: 0, place: null, screen: null };
     this._stepLocal(this._local.t0);
   }
 
@@ -1060,12 +1061,9 @@ class AlfieCard extends HTMLElement {
   _stepLocal(t) {
     const L = this._local, face = this._faceDoc;
     // As at a screen switch, nothing goes on while a screen leaves and Alfie
-    // comes back: the story's clock (and the rotation's hold on it) waits.
+    // comes back: the story's clock waits.
     if (this._returning()) {
-      if (L.tick != null) {
-        L.t0 += t - L.tick;
-        if (this._rot?.phase === "alfie") this._rot.hold += t - L.tick;
-      }
+      if (L.tick != null) L.t0 += t - L.tick;
       L.tick = t;
       return;
     }

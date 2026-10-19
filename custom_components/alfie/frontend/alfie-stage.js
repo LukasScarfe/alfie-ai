@@ -16,7 +16,7 @@ const isAlfie = (st) => !!st?.alfie;
 
 export function start(spec, clock) {
   const alfie = isAlfie(spec.steps[0]);
-  return { ...spec, idx: 0, phase: alfie ? "alfie" : "screen", t0: clock, hold: 0, appear: alfie, len: null };
+  return { ...spec, idx: 0, phase: alfie ? "alfie" : "screen", t0: clock, appear: alfie, len: null };
 }
 
 // A fresh spec (the steps changed under a running rotation) that keeps its place.
@@ -24,7 +24,7 @@ export function carry(old, spec) {
   if (!old?.steps || !spec) return start(spec, old?.t0 ?? 0);
   const idx = old.idx % spec.steps.length;
   const phase = old.phase === "gap" ? "gap" : isAlfie(spec.steps[idx]) ? "alfie" : "screen";
-  return { ...spec, idx, phase, t0: old.t0, hold: old.hold, appear: old.appear && phase !== "screen", len: old.len ?? null };
+  return { ...spec, idx, phase, t0: old.t0, appear: old.appear && phase !== "screen", len: old.len ?? null };
 }
 
 // The phase after `rot`'s current one: the next step, or a gap of Alfie
@@ -37,16 +37,15 @@ function next(rot) {
     rot.idx = j;
     rot.phase = isAlfie(rot.steps[j]) ? "alfie" : "screen";
   }
-  rot.hold = 0;
   rot.len = null;
   rot.appear = rot.phase !== "screen";
 }
 
-// Alfie's phases last their seconds, or as long as his story when that is
-// longer (`hold`, which the card sets once it knows the story).
+// Alfie's phases last their seconds, as a screen's turn does: the rotation
+// keeps one beat whoever is on show (his story is cut short at the end).
 function duration(rot) {
-  const own = rot.phase === "gap" ? Number(rot.face) : Number(rot.steps[rot.idx].seconds);
-  return rot.phase === "screen" ? rot.len ?? own : Math.max(own, rot.hold || 0);
+  if (rot.phase === "screen") return rot.len ?? Number(rot.steps[rot.idx].seconds);
+  return rot.phase === "gap" ? Number(rot.face) : Number(rot.steps[rot.idx].seconds);
 }
 
 // How often an all-skipping rotation looks again, in rotation seconds.
@@ -55,7 +54,7 @@ export const SKIP_RECHECK = 1;
 // Move `rot` on to `clock` (rotation seconds). Returns what is wanted now:
 // {id, next, appear}, where id is a screen or null for Alfie, next is the
 // screen to prefetch, and appear is true once, when Alfie comes on (the card
-// then plays his story and sets rot.hold to its length).
+// then plays his story).
 // `fit(screen)` -> {skip, seconds} | null is asked once as a screen's turn
 // starts: skip passes it over at no time cost (no gap of Alfie either), and
 // seconds lengthens the turn past the step's own. When every screen skips,

@@ -11,9 +11,17 @@
 - **5⅞ (Oscilloscope):** A to D and F (the settings page) are done; the sidecar runs on
   Numbat. E (Lukas on the CRT) is open.
 
-Version 0.8.8.
+Version 0.8.9.
 
-**Latest (0.8.8): no dot between screens on the scope.** Lukas saw a frame or two of blank
+**Latest (0.8.9): Alfie keeps the rotation's beat.** Lukas saw Alfie come in and out of a
+rotation at odd times. A screen's turn lasted its seconds, but an Alfie step (or `face_seconds`
+gap) also waited, with no end, while his story was fetched, then lasted as long as the story when
+that was longer, plus the time the screen took to leave and him to come back. Now his turn lasts
+exactly its seconds (`alfie-stage.js` `duration`, no `hold`), and the card ends his story when the
+turn ends (`_local.turn`; a fetch that lands after his turn is dropped). design.md "Rotation"
+says so.
+
+**Before that (0.8.8): no dot between screens on the scope.** Lukas saw a frame or two of blank
 screen with a dot in the middle between one screen's exit and the next one's entry. A recording
 showed one or two frames with no strokes at each hand-over, which park the beam in the middle.
 The card now sends no empty frame while a screen is coming or going. xy-bench goes on tracing
