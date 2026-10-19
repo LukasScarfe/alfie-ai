@@ -43,6 +43,11 @@ case "${1:-}" in
            SHOT_VERBOSE=1 chrome "http://localhost:8125/lovelace/0" "$OUT/.dash.png" --auth "$OUT/.auth.json" \
              --wait 8000 --eval "$(cat devenv/dashboard.js)" 2>&1 | grep -i "alfie" || true
            rm -f "$OUT/.auth.json" "$OUT/.dash.png" ;;
+  js)      # ./dev js FILE.js: run a script in a logged-in dev HA page, print its console
+           python3 devenv/devtool.py token > "$OUT/.auth.json"
+           SHOT_VERBOSE=1 chrome "http://localhost:8125/lovelace/0" "$OUT/.js.png" --auth "$OUT/.auth.json" \
+             --wait "${3:-6000}" --eval "$(cat "$2")" 2>&1 | sed -n 's/^\[page log\] //p' || true
+           rm -f "$OUT/.auth.json" "$OUT/.js.png" ;;
   face)    # ./dev face [query] [out.png]: the card alone in devenv/harness.html, no HA
            q=${2:-sheet=moods}; out=${3:-$OUT/face.png}
            chrome "file:///repo/devenv/harness.html?$q" "$out" --size "${SIZE:-1200x900}" --wait 800 --selector '#g'

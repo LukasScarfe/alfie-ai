@@ -76,6 +76,35 @@ export function uncrossed(pose) {
   return out;
 }
 
+// ------------------------------------------------------------ personality
+// How a personality shapes motion (config.py PERSONALITY holds the ranges).
+// Every slider at its default is the identity: "bubbly" is the M1 feel.
+
+export const PERSONALITY = {
+  exaggeration: 1, speed: 1, bounce: 1, fidget_rate: 1, energy_bias: 0, blink_rate: 1,
+};
+
+// A personality from a preset name, an object of sliders (over `base`), or
+// nothing (then `base`). Unknown names and keys fall back quietly.
+export function personalityOf(spec, presets = {}, base = PERSONALITY) {
+  const from = typeof spec === "string" ? presets[spec] || {} : spec || {};
+  const out = { ...PERSONALITY, ...base };
+  for (const k of Object.keys(PERSONALITY)) {
+    if (Number.isFinite(Number(from[k])) && from[k] !== null && from[k] !== "") out[k] = Number(from[k]);
+  }
+  return out;
+}
+
+// A spring's damping with more (bounce > 1) or less overshoot.
+export function bounced(z, bounce = 1) {
+  return bounce === 1 ? z : Math.max(0.15, Math.min(0.97, 1 - (1 - z) * bounce));
+}
+
+// An expression pushed further from (k > 1) or pulled toward (k < 1) neutral.
+export function exaggerated(pose, neutral, k = 1) {
+  return k === 1 ? pose : uncrossed(lerp(neutral, pose, k));
+}
+
 // One eye's lids drawn `b` of the way to the line where they meet when shut.
 export function shut(lids, b) {
   if (b <= 0) return lids.slice();
@@ -206,17 +235,18 @@ export function compileAnimation(def) {
 
 // --------------------------------------------------------------- shapes
 // A part's shape (the head, each eye) is data: a spec turned into a closed,
-// counter-clockwise outline by `outline`. Every built-in type is sampled as a
-// radius per angle at the same n angles, so any two shapes with the same n
-// morph by a plain lerp, and a circle is exactly the disc xy-bench cut its
-// eyes from. Outlines are normalised to fit the box [-1, 1]^2, which keeps
+// counter-clockwise outline by `outline`. Every outline has the same n points
+// starting at angle 0, so any two shapes with the same n morph by a plain
+// lerp, and a circle is exactly the disc xy-bench cut its eyes from. Sharp
+// shapes are sampled as a radius per angle; rounded corners are true fillets
+// (see `filleted`) sampled along the outline, densest at the corners. Outlines are normalised to fit the box [-1, 1]^2, which keeps
 // lids (in eye radii) meaning the same on every shape.
 //
 //   {type: "circle"}
-//   {type: "polygon", sides: 4, roundness: 0..1}
+//   {type: "polygon", sides: 4, roundness: 0..1}   roundness: fillet size, 1 = half an edge
 //   {type: "star", points: 5, inner: 0.5, roundness: 0..1}
 //   {type: "superellipse", n: 4}            a squircle; n 2 is a circle
-//   {type: "path", points: [[x, y], ...]}   anything, drawn round the origin
+//   {type: "path", points: [[x, y], ...], roundness: 0..1}   anything, drawn round the origin
 // and on any of them: rotation (degrees), stretch [sx, sy] after fitting.
 
 export const SHAPE_TYPES = ["circle", "polygon", "star", "superellipse", "path"];
@@ -262,13 +292,13 @@ function radial(spec) {
       const s = Math.max(3, Math.round(spec.sides ?? 4));
       // A point at the top; an even count turns half a side so an edge is on top.
       const verts = regular(s, () => 1, Math.PI / 2 + (s % 2 ? 0 : Math.PI / s));
-      return rounded((t) => rayRadius(verts, t), Math.cos(Math.PI / s), spec.roundness);
+      return (t) => rayRadius(verts, t);
     }
     case "star": {
       const p = Math.max(2, Math.round(spec.points ?? 5));
       const inner = Math.max(0.05, Math.min(1, Number(spec.inner ?? 0.5)));
       const verts = regular(2 * p, (k) => (k % 2 ? inner : 1), Math.PI / 2);
-      return rounded((t) => rayRadius(verts, t), inner, spec.roundness);
+      return (t) => rayRadius(verts, t);
     }
     case "path": {
       const verts = (spec.points || []).map(([x, y]) => [Number(x), Number(y)]);
@@ -280,25 +310,120 @@ function radial(spec) {
   }
 }
 
-// Corners rounded by capping the radius: 0 sharp, 1 all the way down to `low`
-// (the apothem, or a star's inner radius), which is a circle.
-function rounded(fn, low, roundness) {
-  const k = Math.max(0, Math.min(1, Number(roundness) || 0));
-  if (!k) return fn;
-  const cap = 1 + (low - 1) * k;
-  return (t) => Math.min(fn(t), cap);
+// The corner polygon of a polygon, star or path spec, or null for the types
+// that have none (circle, superellipse).
+function cornerVerts(spec) {
+  switch (spec.type) {
+    case "polygon": {
+      const s = Math.max(3, Math.round(spec.sides ?? 4));
+      return regular(s, () => 1, Math.PI / 2 + (s % 2 ? 0 : Math.PI / s));
+    }
+    case "star": {
+      const p = Math.max(2, Math.round(spec.points ?? 5));
+      const inner = Math.max(0.05, Math.min(1, Number(spec.inner ?? 0.5)));
+      return regular(2 * p, (k) => (k % 2 ? inner : 1), Math.PI / 2);
+    }
+    case "path": {
+      const v = (spec.points || []).map(([x, y]) => [Number(x), Number(y)]);
+      let area = 0;
+      v.forEach(([x, y], i) => { const [u, w] = v[(i + 1) % v.length]; area += x * w - u * y; });
+      return v.length < 3 ? null : area < 0 ? v.reverse() : v;
+    }
+    default:
+      return null;
+  }
+}
+
+// `verts` with every corner replaced by a true circular fillet, tangent to
+// both edges (like CSS border-radius), as a dense polyline. `k` 0..1 sets
+// each fillet's tangent length as that share of half the shorter edge at the
+// corner: 1 meets the neighbouring fillets at the edge midpoints (a circle
+// for a regular polygon). Inner (reflex) corners of a star fillet the same way.
+function filleted(verts, k) {
+  const m = verts.length, out = [];
+  const STEP = 2 * DEG;                           // arc facet, finer than any eye can show
+  for (let i = 0; i < m; i++) {
+    const p = verts[(i + m - 1) % m], v = verts[i], q = verts[(i + 1) % m];
+    const l1 = Math.hypot(v[0] - p[0], v[1] - p[1]), l2 = Math.hypot(q[0] - v[0], q[1] - v[1]);
+    const ux = (v[0] - p[0]) / l1, uy = (v[1] - p[1]) / l1;
+    const wx = (q[0] - v[0]) / l2, wy = (q[1] - v[1]) / l2;
+    const cross = ux * wy - uy * wx, turn = Math.atan2(cross, ux * wx + uy * wy);
+    if (!(l1 > 1e-12 && l2 > 1e-12) || Math.abs(turn) < 1e-6) { out.push(v); continue; }
+    const d = (k * Math.min(l1, l2)) / 2, r = d / Math.tan(Math.abs(turn) / 2);
+    const side = Math.sign(cross);                // +1: left turn, centre on the left
+    const ax = v[0] - ux * d, ay = v[1] - uy * d;
+    const cx = ax - side * uy * r, cy = ay + side * ux * r;
+    const a0 = Math.atan2(ay - cy, ax - cx);
+    const steps = Math.max(2, Math.ceil(Math.abs(turn) / STEP));
+    for (let j = 0; j <= steps; j++) {
+      const a = a0 + (turn * j) / steps;
+      out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+    }
+  }
+  return out;
+}
+
+// `n` points along a closed polyline `dense`, starting where it crosses the
+// ray at angle 0, equally spaced in "length + CORNER_WEIGHT * turning". Plain
+// arc length would give a small fillet two or three points; this keeps a
+// corner at least ~12 points however tight it is, and stays O(n + m).
+const CORNER_WEIGHT = 0.4;
+function sampleOutline(dense, n) {
+  const m = dense.length;
+  const turnAt = (i) => {
+    const p = dense[(i + m - 1) % m], v = dense[i], q = dense[(i + 1) % m];
+    const a1 = Math.atan2(v[1] - p[1], v[0] - p[0]), a2 = Math.atan2(q[1] - v[1], q[0] - v[0]);
+    let d = a2 - a1;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    return Math.abs(d);
+  };
+  const turns = dense.map((_, i) => turnAt(i));
+  const cost = [0];                               // cost[i]: cumulative to dense[i]
+  for (let i = 0; i < m; i++) {
+    const v = dense[i], q = dense[(i + 1) % m];
+    cost.push(cost[i] + Math.hypot(q[0] - v[0], q[1] - v[1]) + CORNER_WEIGHT * (turns[i] + turns[(i + 1) % m]) / 2);
+  }
+  const total = cost[m];
+  // Where the +x ray leaves the polyline (farthest crossing), as a cost.
+  let s0 = 0, best = -1;
+  for (let i = 0; i < m; i++) {
+    const [ax, ay] = dense[i], [bx, by] = dense[(i + 1) % m];
+    if ((ay > 0 && by > 0) || (ay < 0 && by < 0) || ay === by) continue;
+    const f = ay / (ay - by), x = ax + (bx - ax) * f;
+    if (f >= 0 && f <= 1 && x > best) { best = x; s0 = cost[i] + (cost[i + 1] - cost[i]) * f; }
+  }
+  const pts = [];
+  let i = 0;
+  for (let k = 0; k < n; k++) {
+    let s = s0 + (total * k) / n;
+    if (s >= total) s -= total;
+    if (k === 0 || s < cost[i]) i = 0;            // wrapped round: rewind once
+    while (i < m - 1 && cost[i + 1] <= s) i++;
+    const [ax, ay] = dense[i], [bx, by] = dense[(i + 1) % m];
+    const span = cost[i + 1] - cost[i], f = span > 0 ? (s - cost[i]) / span : 0;
+    pts.push([ax + (bx - ax) * f, ay + (by - ay) * f]);
+  }
+  return pts;
 }
 
 // A shape spec as `n` outline points, counter-clockwise from angle 0.
 export function outline(spec, n = GEOMETRY.eye_sides) {
   spec = spec || { type: "circle" };
-  const r = radial(spec);
   const rot = (Number(spec.rotation) || 0) * DEG;
+  const k = Math.max(0, Math.min(1, Number(spec.roundness) || 0));
+  const verts = k ? cornerVerts(spec) : null;
   let pts = [];
-  for (let k = 0; k < n; k++) {
-    const t = (2 * Math.PI * k) / n;
-    const d = r(t - rot);
-    pts.push([d * Math.cos(t), d * Math.sin(t)]);
+  if (verts) {
+    const c = Math.cos(rot), s = Math.sin(rot);
+    pts = sampleOutline(filleted(verts, k).map(([x, y]) => [x * c - y * s, x * s + y * c]), n);
+  } else {
+    const r = radial(spec);
+    for (let j = 0; j < n; j++) {
+      const t = (2 * Math.PI * j) / n;
+      const d = r(t - rot);
+      pts.push([d * Math.cos(t), d * Math.sin(t)]);
+    }
   }
   if ((spec.type || "circle") !== "circle") {
     const m = Math.max(...pts.map(([x, y]) => Math.max(Math.abs(x), Math.abs(y))));
@@ -307,6 +432,21 @@ export function outline(spec, n = GEOMETRY.eye_sides) {
   const [sx, sy] = spec.stretch || [1, 1];
   if (sx !== 1 || sy !== 1) pts = pts.map(([x, y]) => [x * sx, y * sy]);
   return pts;
+}
+
+// Which points of a closed outline are deliberate corners: the turn there is
+// over `limit` degrees. Fillets and circles turn a few degrees a point (a
+// 120-point circle 3, a fillet under ~12), while a lid cut or a sharp polygon
+// or star tip turns far more, so 25 degrees cleanly separates the two.
+// A zero-length edge counts as a corner (nothing to smooth towards).
+export function cornerFlags(pts, limit = 25) {
+  const m = pts.length, lim = Math.cos(limit * DEG);
+  return pts.map((v, i) => {
+    const p = pts[(i + m - 1) % m], q = pts[(i + 1) % m];
+    const ux = v[0] - p[0], uy = v[1] - p[1], wx = q[0] - v[0], wy = q[1] - v[1];
+    const l = Math.hypot(ux, uy) * Math.hypot(wx, wy);
+    return !(l > 1e-12) || (ux * wx + uy * wy) / l < lim;
+  });
 }
 
 // Two outlines of the same length, `f` of the way from a to b.

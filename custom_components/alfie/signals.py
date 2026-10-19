@@ -37,6 +37,7 @@ class Signal:
     weight: float | None = None   # overrides the severity's weight when set
     screen: str | None = None
     match: str = "any"            # "any" or "all" of the matched entities
+    enabled: bool = True          # a disabled signal is kept but never active
 
     def __post_init__(self) -> None:
         if self.op not in OPERATORS:
@@ -45,6 +46,8 @@ class Signal:
             raise ValueError(f"signal {self.id}: unknown kind {self.kind!r}")
         if self.severity not in SEVERITIES:
             raise ValueError(f"signal {self.id}: unknown severity {self.severity!r}")
+        if self.match not in ("any", "all"):
+            raise ValueError(f"signal {self.id}: match must be 'any' or 'all'")
 
 
 @dataclass(frozen=True)
@@ -110,6 +113,8 @@ def matching(patterns: Iterable[str], entity_ids: Iterable[str]) -> list[str]:
 def evaluate(signal: Signal, states: Mapping[str, Any]) -> SignalResult:
     """`signal` against `states` (entity id -> state string). Entities named
     but missing from `states` count as no reading."""
+    if not signal.enabled:
+        return SignalResult(signal, False)
     names = matching(signal.entities, states.keys())
     passing = tuple(e for e in names if compare(states.get(e), signal.op, signal.value))
     if signal.match == "all":

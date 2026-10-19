@@ -17,22 +17,8 @@
   "options": {
     "step": {
       "init": {
-        "title": "Alfie engine",
-        "data": {
-          "combine": "How signals combine into a mood",
-          "idle_interval": "Seconds between idle fidgets (when content)",
-          "motion_debounce": "Seconds a motion glance holds off the next",
-          "celebrate_fix": "Celebrate when something bad is fixed"
-        }
-      }
-    }
-  },
-  "selector": {
-    "combine": {
-      "options": {
-        "worst": "Worst one wins (priority ladder)",
-        "weighted": "Weighted severities",
-        "count": "Simple count (each good cancels a bad)"
+        "title": "Alfie",
+        "description": "Alfie's signals, mood, behaviour and personality are set in the **Alfie** panel in the sidebar (admins only). There is nothing to set here."
       }
     }
   },

@@ -47,6 +47,7 @@ const DEFAULTS = {
   blinking: true,
   card: true,             // false drops the ha-card frame
   shapes: null,           // {head, eye, left_eye, right_eye} over the face's own; see alfie-face.js
+  personality: null,      // a preset name or {exaggeration, speed, bounce, blink_rate, energy_bias}; null follows Alfie's
 };
 
 const QUEUE = 2;          // animations waiting behind the one playing
@@ -70,29 +71,34 @@ class FaceState {
     this.energyAt = 0;
     this.queue = [];
     this.playing = null; // {anim, began}
+    this.personality = { ...F.PERSONALITY };
   }
 
-  // How the current energy shapes motion: speed, size and settle.
-  get rate() { return 0.65 + 0.55 * this.energy; }
-  get amp() { return 0.6 + 0.55 * this.energy; }
+  // How the current energy and personality shape motion: speed, size and settle.
+  get rate() { return (0.65 + 0.55 * this.energy) * this.personality.speed; }
+  get amp() { return (0.6 + 0.55 * this.energy) * this.personality.exaggeration; }
 
   setEnergy(e, t) {
     this.energyTarget = clamp(e, 0, 1.5);
     this.energyAt = t;
   }
 
-  setExpression(name, pose, t, parts) {
-    if (this.expression === name && this.targetParts === parts) return;
+  // `key` names the pose exactly (the expression and how exaggerated), so a
+  // personality change re-blends even when the expression stays.
+  setExpression(name, pose, t, parts, key = name) {
+    if (this.expression === name && this.key === key && this.targetParts === parts) return;
     const first = this.expression === null;
     this.start = first ? pose : this.poseAt(t);
     this.startParts = first ? parts : this.partsAt(t);
     this.target = pose;
     this.targetParts = parts;
     this.expression = name;
+    this.key = key;
     this.since = t;
     // Low energy: a slower blend that settles without bouncing.
     this.blendLength = F.GEOMETRY.blend / this.rate;
-    this.damping = clamp(F.GEOMETRY.damping + 0.35 * (1 - this.energy), 0.2, 0.92);
+    this.damping = F.bounced(clamp(F.GEOMETRY.damping + 0.35 * (1 - this.energy), 0.2, 0.92),
+      this.personality.bounce);
   }
 
   _f(t) {
@@ -172,12 +178,19 @@ class AlfieCard extends HTMLElement {
     if (config.shapes !== undefined && (typeof config.shapes !== "object" || config.shapes === null)) {
       throw new Error("shapes must be a mapping of head / eye / left_eye / right_eye to shape specs");
     }
+    const pc = config.personality;
+    if (pc !== undefined && pc !== null && typeof pc !== "string" && typeof pc !== "object") {
+      throw new Error("personality must be a preset name or a mapping of sliders");
+    }
     this._config = { ...DEFAULTS, ...config };
     this._partsCache = null;
     if (this._face.expression !== null && faceData) {
       const name = this._face.expression;
       this._face.expression = null;   // re-apply with the new shapes, no blend
-      faceData.then((face) => this._applyExpression(face, name, this._now()));
+      faceData.then((face) => {
+        this._personality(face, this._global);
+        this._applyExpression(face, name, this._now());
+      });
     }
     this._build();
   }
@@ -243,7 +256,12 @@ class AlfieCard extends HTMLElement {
     this._error = null;
     this._showError();
     const t = this._now();
-    this._face.setEnergy((scene.mood?.energy ?? 0.8) * this._config.liveliness, t);
+    const global = this._global = F.personalityOf(scene.personality, face.personalities);
+    const p = this._personality(face, global);
+    // The engine's energy already has Alfie's own bias in it; a card with its
+    // own personality swaps that bias for its own.
+    const energy = (scene.mood?.energy ?? 0.8) - global.energy_bias + p.energy_bias;
+    this._face.setEnergy(Math.max(0.05, energy) * this._config.liveliness, t);
     this._applyExpression(face, scene.expression, t);
     const a = scene.animation;
     if (a && a.id !== this._lastAnimId) {
@@ -256,10 +274,20 @@ class AlfieCard extends HTMLElement {
     }
   }
 
+  // The card's `personality` option over Alfie's own (`base`, from the scene).
+  _personality(face, base = this._global || F.PERSONALITY) {
+    const p = this._config.personality == null ? base
+      : F.personalityOf(this._config.personality, face.personalities, base);
+    this._face.personality = p;
+    return p;
+  }
+
   _applyExpression(face, name, t) {
     if (!(name in face.expressions)) name = "neutral";
     const e = face.expressions[name];
-    this._face.setExpression(name, F.poseOf(e), t, this._parts(face, e));
+    const k = this._face.personality.exaggeration;
+    const pose = F.exaggerated(F.poseOf(e), F.poseOf(face.expressions.neutral), k);
+    this._face.setExpression(name, pose, t, this._parts(face, e), `${name}|${k}`);
   }
 
   // The unit outlines for an expression: the face's shapes, this card's
@@ -386,12 +414,30 @@ class AlfieCard extends HTMLElement {
     let p = shape.pose;
     if (c.blinking && !opts.noBlink) {
       const slow = 1.5 - 0.5 * clamp(e, 0, 1);
-      p = F.blinked(p, F.blink(t, F.GEOMETRY.blink_slot * slow, F.GEOMETRY.blink * slow));
+      const slot = (F.GEOMETRY.blink_slot * slow) / clamp(f.personality.blink_rate, 0.2, 3);
+      p = F.blinked(p, F.blink(t, Math.max(slot, 1.6), F.GEOMETRY.blink * slow));
     }
     return F.faceShapes(p, shape.eyes, shape.face, F.GEOMETRY, parts);
   }
 
   _draw(shapes) {
+    // A closed outline as a smooth curve (quadratics through the edge
+    // midpoints) except at deliberate corners, which stay sharp.
+    const trace = (ctx, pts) => {
+      const m = pts.length, flags = F.cornerFlags(pts), mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      const s = flags.indexOf(true);
+      ctx.beginPath();
+      if (s >= 0) ctx.moveTo(...pts[s]);
+      else ctx.moveTo(...mid(pts[m - 1], pts[0]));
+      for (let j = s >= 0 ? 1 : 0; j < m; j++) {
+        const i = s >= 0 ? (s + j) % m : j, v = pts[i];
+        if (flags[i]) { ctx.lineTo(...v); continue; }
+        ctx.lineTo(...mid(pts[(i + m - 1) % m], v));
+        ctx.quadraticCurveTo(...v, ...mid(v, pts[(i + 1) % m]));
+      }
+      ctx.closePath();
+    };
+
     const cv = this._canvas;
     if (!cv || !shapes) return;
     if (!cv.width || cv.width === 1) this._resize();
@@ -414,21 +460,31 @@ class AlfieCard extends HTMLElement {
     const [hx, hy] = shapes.ring;
     ctx.strokeStyle = ctx.shadowColor = col.face;
     ctx.beginPath();
-    shapes.head.forEach(([x, y], i) => {
-      const px = X(hx + (x - hx) * hs), py = Y(hy + (y - hy) * hs);
-      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
-    });
-    ctx.closePath();
+    trace(ctx, shapes.head.map(([x, y]) => [X(hx + (x - hx) * hs), Y(hy + (y - hy) * hs)]));
     ctx.stroke();
 
     ctx.strokeStyle = ctx.fillStyle = ctx.shadowColor = col.eye;
     for (const eye of [shapes.left, shapes.right]) {
       ctx.beginPath();
-      eye.forEach(([x, y], i) => (i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y))));
-      ctx.closePath();
+      trace(ctx, eye.map(([x, y]) => [X(x), Y(y)]));
       if (c.eye_fill) ctx.fill();
       ctx.stroke();
     }
+  }
+
+  // For the panel's live preview: play an animation on this card only (the
+  // service would play it on every display), and try a personality without
+  // rebuilding the card.
+  async playLocal(name) {
+    const face = await loadFace();
+    if (face.compiled[name]) this._face.play(face.compiled[name]);
+  }
+
+  async setPersonality(personality) {
+    this._config = { ...this._config, personality };
+    const face = await loadFace();
+    if (this._scene) this._onScene(this._scene);
+    else this._personality(face);
   }
 
   // For tests and the dev harness: draw one still frame, no clock, no HA.
@@ -438,7 +494,8 @@ class AlfieCard extends HTMLElement {
     this._still = true;
     this._running = false;
     this._face = new FaceState();
-    this._face.energy = this._face.energyTarget = energy;
+    const p = this._personality(face);
+    this._face.energy = this._face.energyTarget = Math.max(0.05, energy + p.energy_bias);
     this._applyExpression(face, expression, 0);
     const anim = animation ? face.compiled[animation] : null;
     const channels = anim ? anim.script(u) : {};
