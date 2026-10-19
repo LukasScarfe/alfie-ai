@@ -14,6 +14,7 @@ from homeassistant.helpers.typing import ConfigType
 from .const import DOMAIN
 from .engine import AlfieEngine
 from .frontend import async_register_frontend, async_remove_panel
+from .triggers import BUSY
 from .websocket_api import async_register as async_register_ws
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SELECT]
@@ -48,6 +49,17 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         except ValueError as e:
             raise ServiceValidationError(str(e)) from e
 
+    async def play_story(call: ServiceCall) -> None:
+        try:
+            _engine(hass).request_story(call.data["story"], priority=call.data["priority"],
+                                        busy=call.data["busy"], trigger="service",
+                                        reason="Asked by a service call.")
+        except ValueError as e:
+            raise ServiceValidationError(str(e)) from e
+
+    async def stop_story(call: ServiceCall) -> None:
+        _engine(hass).stop_story()
+
     hass.services.async_register(DOMAIN, "set_expression", set_expression, schema=vol.Schema({
         vol.Required("expression"): cv.string,
         vol.Optional("duration"): vol.Coerce(float),
@@ -59,6 +71,12 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         vol.Required("screen"): cv.string,
         vol.Optional("seconds", default=20): vol.All(vol.Coerce(float), vol.Range(min=1, max=3600)),
     }))
+    hass.services.async_register(DOMAIN, "play_story", play_story, schema=vol.Schema({
+        vol.Required("story"): cv.string,
+        vol.Optional("priority", default=60): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+        vol.Optional("busy", default="auto"): vol.In(BUSY),
+    }))
+    hass.services.async_register(DOMAIN, "stop_story", stop_story, schema=vol.Schema({}))
     return True
 
 

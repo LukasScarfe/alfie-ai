@@ -8,6 +8,10 @@ sends the full scene state now and on every change.
 `alfie/config/*` are the admin panel's: read, save, reset and preview the
 stored configuration (config.py). Saves apply live, with no reload.
 
+`alfie/story/play` plays a story (a saved one or the panel's unsaved draft)
+on every display, and `alfie/triggers/status` says when each trigger last
+fired and what came of it. Both are admin only.
+
 `alfie/screens` and `alfie/screen_data` feed the cards the user's screens and
 their server-side data. Like subscribe they are open to every logged-in user.
 """
@@ -29,9 +33,11 @@ from .config import (
     ConfigError,
     default_config,
 )
+from .config import _Check
 from .const import DOMAIN
 from .mood import COMBINE_MODES, LEVELS
 from .signals import OPERATORS, SEVERITIES
+from . import stories, triggers
 
 
 @callback
@@ -40,7 +46,7 @@ def async_register(hass: HomeAssistant) -> None:
     if data.get("_ws_registered"):
         return
     for cmd in (ws_subscribe, ws_config_get, ws_config_set, ws_config_reset, ws_config_preview,
-                ws_screens, ws_screen_data):
+                ws_screens, ws_screen_data, ws_story_play, ws_triggers_status):
         websocket_api.async_register_command(hass, cmd)
     data["_ws_registered"] = True
 
@@ -93,6 +99,18 @@ def ws_config_get(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
             "styles": list(STYLES),
             "sections": list(SECTIONS),
             "screen_types": engine.types,
+            "step_kinds": list(stories.STEP_KINDS),
+            "steps": {k: stories.default_step(k) for k in stories.STEP_KINDS},
+            "template": stories.default_template(),
+            "presents": list(stories.PRESENTS),
+            "places": [*stories.PLACES, "custom"],
+            "trigger_kinds": list(triggers.KINDS),
+            "triggers": {k: triggers.default_trigger(k) for k in triggers.KINDS},
+            "busy": list(triggers.BUSY),
+            "entity_ops": list(triggers.ENTITY_OPS),
+            "directions": list(triggers.DIRECTIONS),
+            "signal_edges": list(triggers.SIGNAL_EDGES),
+            "wake_edges": list(triggers.WAKE_EDGES),
         },
     })
 
@@ -169,3 +187,50 @@ async def ws_screen_data(hass: HomeAssistant, connection: websocket_api.ActiveCo
         connection.send_error(msg["id"], "not_found", str(e))
         return
     connection.send_result(msg["id"], result)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "alfie/story/play",
+                                  vol.Optional("story"): str,
+                                  vol.Optional("draft"): dict})
+@callback
+def ws_story_play(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+                  msg: dict[str, Any]) -> None:
+    """Play a saved story by id, or a draft from the panel, on every display.
+    It interrupts whatever is playing: someone is watching for it."""
+    if (engine := _engine(hass, connection, msg["id"])) is None:
+        return
+    draft = None
+    if "draft" in msg:
+        ck = _Check()
+        got = stories.validate_stories([msg["draft"]], ck, list(engine.expressions),
+                                       list(engine.animations),
+                                       {s["id"] for s in engine.config["screens"]})
+        if ck.errors or not got:
+            connection.send_error(msg["id"], "invalid_story", "; ".join(ck.errors))
+            return
+        draft = got[0]
+    sid = draft["id"] if draft else msg.get("story", "")
+    try:
+        outcome = engine.request_story(sid, priority=100, busy="interrupt", trigger="panel",
+                                       reason="Played from the panel.", story=draft)
+    except ValueError as e:
+        connection.send_error(msg["id"], "not_found", str(e))
+        return
+    connection.send_result(msg["id"], {"outcome": outcome})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "alfie/triggers/status"})
+@callback
+def ws_triggers_status(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+                       msg: dict[str, Any]) -> None:
+    if (engine := _engine(hass, connection, msg["id"])) is None:
+        return
+    st = engine.story
+    connection.send_result(msg["id"], {
+        "triggers": engine.trigger_status,
+        "playing": {"id": st["id"], "trigger": st["trigger"], "step": st["step"],
+                    "total": len(st["actions"])} if st else None,
+        "queue": [{"story": q["story"], "trigger": q["trigger"]} for q in engine._queue],
+    })

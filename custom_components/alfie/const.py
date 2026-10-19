@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 DOMAIN = "alfie"
-VERSION = "0.3.0"           # keep equal to manifest.json (a test checks)
+VERSION = "0.4.0"           # keep equal to manifest.json (a test checks)
 
 CONF_NAME = "name"
 DEFAULT_NAME = "Alfie"
@@ -19,6 +19,7 @@ FACE_FILE = "alfie-face.json"
 MODES = ["auto", "normal", "night", "away", "guests"]
 
 EVENT_ANIMATION = "alfie_animation"   # fired whenever Alfie plays an animation
+EVENT_STORY = "alfie_story"           # a story starts, ends or is interrupted
 SCENE_VERSION = 1
 
 # A card ignores an animation older than this (a reconnect must not replay it).
