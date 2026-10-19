@@ -211,6 +211,8 @@ export function vectorStroke(pts, closed, weight, w, h) {
     if (!last || last[0] !== q[0] || last[1] !== q[1]) p.push(q);
   }
   if (!p.length) return null;
+  // A dot is sent as the shortest of lines: xy-bench drops one-point strokes.
+  if (p.length === 1) p.push([r(p[0][0] + 0.001), p[0][1]]);
   return { p, c: !!closed && p.length > 2, w: r(clamp(weight, 0, 1)) };
 }
 
@@ -221,11 +223,15 @@ export function vectorStroke(pts, closed, weight, w, h) {
 // each open stroke turned the way the beam arrives and each loop re-started at
 // the vertex nearest it. xy-bench traces them in this order (`ordered`).
 //
-// The tour is solved only when the frame's strokes change in kind (count and
-// closed-ness) or the kept order has grown TOUR_SLACK longer than a fresh one
-// would be, so moving parts don't make the order, and the jumps, flicker.
-// `prev` is the last call's `plan`; returns {strokes, plan}.
+// A frame's tour is kept and only solved afresh when the kept one has grown
+// TOUR_SLACK longer than it was (checked at most every TOUR_RECHECK frames),
+// so moving parts don't make the order, and the jumps, flicker. Plans are
+// kept per kind of frame (its count of open and closed strokes, in order) in
+// `memo`, a Map the caller holds, so a screen whose strokes come and go
+// (smoke, a ticking hand) doesn't re-solve each time. Returns the strokes.
 const TOUR_SLACK = 1.15;
+const TOUR_RECHECK = 15;
+const TOUR_KINDS = 16;    // plans kept per memo
 const TOUR_STARTS = 24;   // greedy starts tried per solve
 const LOOP_PORTS = 24;    // a loop's vertices considered while solving
 
@@ -325,19 +331,25 @@ function twoOpt(order, ends) {
   }
 }
 
-export function tourStrokes(strokes, prev = null) {
+export function tourStrokes(strokes, memo = null) {
   const n = strokes.length;
-  const sig = strokes.map((s) => (s.c ? "c" : "o")).join("");
-  if (n < 2) return { strokes, plan: { sig, order: n ? [[0, false]] : [] } };
-  if (prev?.sig === sig) {
-    const kept = placeTour(strokes, prev.order);
-    // Re-check a kept order now and then, not every frame: solving costs.
-    if ((prev.age ?? 0) < 15) return { strokes: kept.out, plan: { ...prev, age: (prev.age ?? 0) + 1 } };
-    const order = solveTour(strokes);
-    const fresh = placeTour(strokes, order);
-    if (kept.cost <= fresh.cost * TOUR_SLACK + 0.02) return { strokes: kept.out, plan: { ...prev, age: 0 } };
-    return { strokes: fresh.out, plan: { sig, order, age: 0 } };
+  if (n < 2) return strokes;
+  const sig = strokes.map((st) => (st.c ? "c" : "o")).join("");
+  const plan = memo?.get(sig);
+  if (plan) {
+    const kept = placeTour(strokes, plan.order);
+    plan.age++;
+    if (kept.cost <= plan.cost * TOUR_SLACK + 0.02 || plan.age < TOUR_RECHECK) return kept.out;
+    plan.age = 0;
+    const order = solveTour(strokes), fresh = placeTour(strokes, order);
+    if (fresh.cost * TOUR_SLACK < kept.cost) { plan.order = order; plan.cost = fresh.cost; return fresh.out; }
+    plan.cost = kept.cost;   // the layout moved, but no better tour is to be had
+    return kept.out;
   }
-  const order = solveTour(strokes);
-  return { strokes: placeTour(strokes, order).out, plan: { sig, order, age: 0 } };
+  const order = solveTour(strokes), fresh = placeTour(strokes, order);
+  if (memo) {
+    if (memo.size >= TOUR_KINDS) memo.delete(memo.keys().next().value);
+    memo.set(sig, { order, cost: fresh.cost, age: 0 });
+  }
+  return fresh.out;
 }

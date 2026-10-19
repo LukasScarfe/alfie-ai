@@ -18,7 +18,7 @@ const HA_URL = env("HA_URL", "").replace(/\/+$/, "");
 const HA_TOKEN = env("HA_TOKEN", "");
 const XYBENCH_URL = env("XYBENCH_URL", "").replace(/\/+$/, "");
 const XYBENCH_TOKEN = env("XYBENCH_TOKEN", "");
-const FPS = Number(env("FPS", "60"));
+const FPS = Number(env("FPS", "50"));   // xy-bench plays Alfie at 50
 const ASPECT = Number(env("ASPECT", "1"));
 const ORDERED = env("ORDERED", "true") !== "false";
 const CARD = JSON.parse(env("ALFIE_CARD", "{}"));
@@ -86,6 +86,9 @@ function send() {
 // ---------------------------------------------------------------- the page
 
 let browser = null, page = null, frames = 0, strokes = 0, newest = null;
+// Frame pacing over each status window: the longest gap between two frames and
+// how many came over 1.5 frames late (a stall the eye sees as a judder).
+let lastAt = 0, worstGap = 0, late = 0;
 
 async function open() {
   if (page) await page.close().catch(() => {});
@@ -96,6 +99,13 @@ async function open() {
   page.on("response", (r) => { if (r.status() >= 400) console.error(`[page] HTTP ${r.status()} ${r.url()}`); });
   page.on("error", (e) => { console.error(`[page crashed] ${e.message}`); reopen(); });
   await page.exposeFunction("scopeFrame", (f) => {
+    const now = performance.now();
+    if (lastAt) {
+      const gap = now - lastAt;
+      worstGap = Math.max(worstGap, gap);
+      if (gap > 1500 / FPS) late++;
+    }
+    lastAt = now;
     frames++; strokes = f.strokes.length; newest = f;
     offer(f);
   });
@@ -141,7 +151,9 @@ async function reopen() {
     const n = frames - was; was = frames;
     if (DUMP && newest) fs.writeFile(DUMP, JSON.stringify(newest), () => {});
     console.log(`alfie-scope: ${(n / STATS).toFixed(1)} fps from the card, ${strokes} strokes, ` +
-      `${sent} sent, ${dropped} dropped, ${failed} failed${failed ? ` (${lastError})` : ""}`);
+      `${sent} sent, ${dropped} dropped, ${failed} failed${failed ? ` (${lastError})` : ""}, ` +
+      `${late} late, longest gap ${Math.round(worstGap)} ms`);
+    late = 0; worstGap = 0;
     const alive = await Promise.race([page.evaluate(() => 1).catch(() => 0),
       new Promise((r) => setTimeout(() => r(0), 10000))]);
     if (!alive) { console.error("alfie-scope: page not answering, reopening"); reopen(); }

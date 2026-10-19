@@ -3,7 +3,7 @@
 //
 //   presence(style, u, leaving)    u in [0,1] -> how present the arriving thing is,
 //                                  0 gone .. 1 there (back-eased styles overshoot)
-//   apply(style, p, leaving, strokes, box, from?) -> {strokes, alpha}
+//   apply(style, p, leaving, strokes, box, from?, opts?) -> {strokes, alpha}
 //   SECONDS[style]                 how long u takes to run 0..1
 //
 // An exit is the intro with presence reversed (`presence(.., leaving=true)` eases
@@ -325,6 +325,39 @@ function condense(p, strokes, box) {
   return out;
 }
 
+// The scope's condense, as xy-bench draws its own: the picture as one path
+// (its strokes in order, joined end to start), resampled evenly, and every
+// pair of samples a grain of dust drifting in to its place. The beam runs from
+// grain to grain, so until they settle it draws lines between random points.
+// An X-Y scope can't show dots without the lines between them anyway.
+function condenseLines(p, strokes) {
+  const path = [];
+  for (const s of strokes) {
+    if (!s.pts.length) continue;
+    for (const q of s.pts) path.push(q);
+    if (s.closed && s.pts.length > 1) path.push(s.pts[0]);
+  }
+  if (path.length < 2) return strokes;
+  const n = 2 * Math.max(100, Math.min(450, Math.round(pathLength(path, false) / 0.02)));
+  const xs = new Float64Array(n), ys = new Float64Array(n);
+  resampleInto(path, n, xs, ys, 0);
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (let i = 0; i < n; i++) {
+    x0 = Math.min(x0, xs[i]); x1 = Math.max(x1, xs[i]); y0 = Math.min(y0, ys[i]); y1 = Math.max(y1, ys[i]);
+  }
+  const rx = Math.max(0.1, x1 - x0) / 2 * 1.2, ry = Math.max(0.1, y1 - y0) / 2 * 1.2;
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const pts = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const g = ((i >> 1) % 4096) * 3;
+    const q = clamp01((p - DUST[g + 2]) / (1 - LATE)), e = 1 - (1 - q) ** 3, a = (1 - e) * 2.5;
+    const c = Math.cos(a), si = Math.sin(a), nx = DUST[g], ny = DUST[g + 1];
+    const dx = cx + (nx * c - ny * si) * rx, dy = cy + (nx * si + ny * c) * ry;
+    pts[i] = [dx + (xs[i] - dx) * e, dy + (ys[i] - dy) * e];
+  }
+  return [piece(strokes[0], pts)];
+}
+
 // -------------------------------------------------------------------- morph
 
 // Where in `b` to start and which way round to walk it so that each point of
@@ -403,7 +436,9 @@ function morph(p, strokes, from) {
 
 // ---------------------------------------------------------------------- apply
 
-export function apply(style, p, leaving, strokes, box, from = null) {
+// `opts.lines`: condense as xy-bench's lines between random points (the
+// oscilloscope feed), not dots.
+export function apply(style, p, leaving, strokes, box, from = null, opts = null) {
   p = num(p);
   strokes = strokes || EMPTY;
   if (style === "cut") return { strokes, alpha: p >= 0.5 ? 1 : 0 };
@@ -416,7 +451,8 @@ export function apply(style, p, leaving, strokes, box, from = null) {
     case "materialise":
       return { strokes: p >= 1 ? strokes : materialise(p, strokes), alpha: clamp01(p * ramp) };
     case "condense":
-      return { strokes: p >= 1 ? strokes : condense(p, strokes, box), alpha: clamp01(p * ramp) };
+      return { strokes: p >= 1 ? strokes : opts?.lines ? condenseLines(p, strokes) : condense(p, strokes, box),
+        alpha: clamp01(p * ramp) };
     case "morph":
       return { strokes: morph(clamp01(p), strokes, from), alpha: from?.length ? 1 : clamp01(p * 8) };
     default: return { strokes, alpha: clamp01(p) };   // fade, and anything unknown

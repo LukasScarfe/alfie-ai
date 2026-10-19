@@ -12,6 +12,32 @@
   const S = window.SCOPE;   // set by bridge.js before the page loads
   const { createConnection, createLongLivedTokenAuth, subscribeEntities, subscribeConfig } = window.HAWS;
 
+  // Frames come from a timer at S.fps, not Chromium's 60 Hz frame clock (which
+  // only divides down to 60, 30, 20...): xy-bench plays Alfie at 50, and a
+  // feed at 60 into 50 skips every sixth frame, a judder in anything moving.
+  // One tick runs every callback queued for it, as a real frame does.
+  {
+    const gap = 1000 / S.fps;
+    let queue = [], next = 0, timer = null, id = 0;
+    const fire = () => {
+      timer = null;
+      const now = performance.now(), q = queue;
+      next = Math.max(next + gap, now);   // after a stall, start afresh rather than catch up
+      queue = [];
+      for (const [, cb] of q) cb(now);
+    };
+    window.requestAnimationFrame = (cb) => {
+      queue.push([++id, cb]);
+      if (!timer) {
+        const now = performance.now();
+        if (next < now - gap) next = now;
+        timer = setTimeout(fire, Math.max(0, next - now));
+      }
+      return id;
+    };
+    window.cancelAnimationFrame = (h) => { queue = queue.filter(([i]) => i !== h); };
+  }
+
   // The card waits for HA's own element before defining itself.
   customElements.define("home-assistant", class extends HTMLElement {});
   // No HA frontend, so no <ha-icon>: icon names resolve from bundled mdi paths.
@@ -25,7 +51,8 @@
   await import(`/alfie_static/alfie-card.js?v=${Date.now()}`);
   await customElements.whenDefined("alfie-card");
   const el = document.createElement("alfie-card");
-  el.setConfig({ ...S.card, card: false, vector_out: true, paint: false, aspect: S.aspect, fps: S.fps });
+  // The card's own cap is lifted: the timer above sets the pace.
+  el.setConfig({ ...S.card, card: false, vector_out: true, paint: false, aspect: S.aspect, fps: 120 });
   el.addEventListener("alfie-vector", (e) => window.scopeFrame(e.detail));
 
   // hass is handed over at most every HASS_GAP ms: the card only reads states
