@@ -21,6 +21,8 @@ const TABS = [
   ["signals", "Signals"],
   ["mood", "Mood"],
   ["behaviour", "Behaviour"],
+  ["triggers", "Triggers"],
+  ["stories", "Stories"],
   ["personality", "Personality"],
   ["screens", "Screens"],
   ["look", "Look"],
@@ -56,6 +58,16 @@ const SLIDER_TEXT = {
   blink_rate: ["Blinking", "How often he blinks"],
 };
 const PREVIEW_ANIMS = ["glance_left", "nod", "look_around", "laugh", "startle", "sigh"];
+const KIND_TEXT = {
+  entity: "An entity changes", motion: "Motion", mood: "Mood changes", signal: "A signal goes bad or recovers", wake: "Waking or sleeping",
+};
+const BUSY_TEXT = [["auto", "by priority: higher interrupts, otherwise wait"], ["queue", "wait its turn"],
+  ["interrupt", "interrupt whatever is playing"], ["skip", "don't play"]];
+const STEP_TEXT = {
+  expression: "Expression", animation: "Animation", screen: "Screen", wait: "Wait", move: "Move", resize: "Resize", speak: "Speak",
+};
+const OUTCOME_TEXT = { played: "played", queued: "queued", skipped: "skipped (busy)", cooldown: "cooling down", outranked: "outranked" };
+const PLACE_TEXT = { centre: "centre", top_left: "top left", top_right: "top right", bottom_left: "bottom left", bottom_right: "bottom right", custom: "custom (x, y)" };
 
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const clone = (v) => JSON.parse(JSON.stringify(v));
@@ -146,7 +158,12 @@ class AlfiePanel extends HTMLElement {
       this._loadError = e?.message || String(e);
     }
     this._unsubScene ??= this._hass.connection.subscribeMessage(
-      (s) => { this._scene = s; this._showStatus(); }, { type: "alfie/subscribe" });
+      (s) => {
+        const was = this._scene?.story?.seq;
+        this._scene = s;
+        this._showStatus();
+        if (this._tab === "triggers" && s.story?.seq !== was) this._loadTriggerStatus();
+      }, { type: "alfie/subscribe" });
     this._render();
     this._schedulePreview(0);
   }
@@ -255,6 +272,19 @@ class AlfiePanel extends HTMLElement {
       v = el.value.trim() !== "" && Number.isFinite(Number(el.value)) ? Number(el.value) : el.value;
     } else v = el.value;
     if (/^signals\.\d+\.id$/.test(path) && this._open.delete(getPath(this._draft, path))) this._open.add(v);
+    const tk = /^triggers\.(\d+)\.kind$/.exec(path);
+    if (tk) {
+      const i = Number(tk[1]);
+      this._draft.triggers[i] = Fm.changeTriggerKind(this._draft.triggers[i], clone(this._choices.triggers[v]));
+      this._edited(true);
+      return;
+    }
+    if (/^triggers\.\d+\.id$/.test(path) && this._open.delete(`t:${getPath(this._draft, path)}`)) this._open.add(`t:${v}`);
+    if (/^stories\.\d+\.id$/.test(path)) {
+      const old = getPath(this._draft, path);
+      Fm.renameStoryRefs(this._draft, old, v);
+      if (this._open.delete(`st:${old}`)) this._open.add(`st:${v}`);
+    }
     if (/^screens\.\d+\.id$/.test(path)) {
       const old = getPath(this._draft, path);
       Fm.renameScreenRefs(this._draft, old, v);
@@ -295,6 +325,10 @@ class AlfiePanel extends HTMLElement {
       const head = el.closest(".signal")?.querySelector(".label");
       if (head) head.textContent = v || "(no label)";
     }
+    if (/^(triggers|stories)\.\d+\.name$/.test(path)) {
+      const head = el.closest(".card")?.querySelector(".label");
+      if (head) head.textContent = v || "(no name)";
+    }
     const rerender = ev.type === "change" && el.dataset.rerender !== undefined;
     this._edited(rerender);
   }
@@ -305,7 +339,12 @@ class AlfiePanel extends HTMLElement {
     const a = el.dataset.action, d = this._draft;
     const i = Number(el.dataset.i), sigs = d?.signals;
     switch (a) {
-      case "tab": this._endPreviews(); this._tab = el.dataset.tab; this._render(); return;
+      case "tab":
+        this._endPreviews();
+        this._tab = el.dataset.tab;
+        this._render();
+        if (this._tab === "triggers") this._loadTriggerStatus();
+        return;
       case "save": this._save(); return;
       case "revert": this._revert(); return;
       case "reset": this._resetSection(el.dataset.section); return;
@@ -319,7 +358,8 @@ class AlfiePanel extends HTMLElement {
         let id = "new_signal", n = 2;
         while (sigs.some((s) => s.id === id)) id = `new_signal_${n++}`;
         sigs.push({ id, label: "", entities: [], op: "below", value: 15, kind: "bad", severity: "major",
-                    weight: null, match: "any", screen: null, enabled: true });
+                    weight: null, match: "any", screen: null, enabled: true, repeat: clone(this._defaults.signals[0]?.repeat
+                      ?? { on_motion: false, every_hours: 0, in_rotation: false, story: "bad_news" }) });
         this._open.add(id);
         this._edited(true);
         return;
@@ -482,7 +522,151 @@ class AlfiePanel extends HTMLElement {
         this._applyLook();
         return;
       case "pg": this._pgClick(el); return;
+      default: this._onClickStory(a, el, i);
     }
+  }
+
+  // Triggers and Stories tab actions.
+  _onClickStory(a, el, i) {
+    const d = this._draft, trs = d.triggers, sts = d.stories, j = Number(el.dataset.j);
+    const flip = (key) => { this._open.has(key) ? this._open.delete(key) : this._open.add(key); this._render(); };
+    switch (a) {
+      case "toggle-trigger": flip(`t:${trs[i].id}`); return;
+      case "add-trigger": {
+        const kind = this.shadowRoot.querySelector("#newkind")?.value || "entity";
+        const t = { ...clone(this._choices.triggers[kind]), id: Fm.uniqueId(trs, `${kind}_trigger`), story: sts[0]?.id || "" };
+        trs.push(t);
+        this._open.add(`t:${t.id}`);
+        this._edited(true);
+        return;
+      }
+      case "dup-trigger": {
+        const t = clone(trs[i]);
+        t.id = Fm.uniqueId(trs, `${t.id}_copy`);
+        t.name = t.name ? `${t.name} (copy)` : "";
+        trs.splice(i + 1, 0, t);
+        this._open.add(`t:${t.id}`);
+        this._edited(true);
+        return;
+      }
+      case "del-trigger":
+        if (!confirm(`Delete trigger "${trs[i].name || trs[i].id}"?`)) return;
+        trs.splice(i, 1);
+        this._edited(true);
+        return;
+      case "up-trigger": case "down-trigger":
+        if (Fm.moveItem(trs, i, a === "up-trigger" ? i - 1 : i + 1)) this._edited(true);
+        return;
+      case "trig-pick": {
+        const list = trs[i][el.dataset.key], name = el.dataset.name;
+        const k = list.indexOf(name);
+        k >= 0 ? list.splice(k, 1) : list.push(name);
+        this._edited(true);
+        return;
+      }
+      case "add-trig-entity": {
+        const v = el.parentElement.querySelector("input").value.trim();
+        if (!v) return;
+        if (!trs[i].entities.includes(v)) trs[i].entities.push(v);
+        if (!trs[i].name) trs[i].name = this._hass.states[v]?.attributes?.friendly_name || v;
+        this._edited(true);
+        return;
+      }
+      case "rm-trig-entity":
+        trs[i].entities.splice(j, 1);
+        this._edited(true);
+        return;
+      case "toggle-story": flip(`st:${sts[i].id}`); return;
+      case "add-story": {
+        const st = { id: Fm.uniqueId(sts, "story"), name: "", mode: "template", template: clone(this._choices.template), steps: [] };
+        sts.push(st);
+        this._open.add(`st:${st.id}`);
+        this._edited(true);
+        return;
+      }
+      case "dup-story": {
+        const st = clone(sts[i]);
+        st.id = Fm.uniqueId(sts, `${st.id}_copy`);
+        st.name = st.name ? `${st.name} (copy)` : "";
+        sts.splice(i + 1, 0, st);
+        this._open.add(`st:${st.id}`);
+        this._edited(true);
+        return;
+      }
+      case "del-story": {
+        const n = Fm.storyUses(d, sts[i].id);
+        if (!confirm(`Delete story "${sts[i].name || sts[i].id}"?${n ? ` ${n} trigger${n > 1 ? "s" : ""} play it: point them at another story before saving.` : ""}`)) return;
+        sts.splice(i, 1);
+        this._edited(true);
+        return;
+      }
+      case "up-story": case "down-story":
+        if (Fm.moveItem(sts, i, a === "up-story" ? i - 1 : i + 1)) this._edited(true);
+        return;
+      case "story-mode":
+        sts[i].mode = el.dataset.mode;
+        this._edited(true);
+        return;
+      case "to-steps":
+        sts[i].steps = Fm.compileTemplate(sts[i].template, this._choices.steps);
+        sts[i].mode = "steps";
+        this._edited(true);
+        return;
+      case "add-story-step": {
+        const kind = el.parentElement.querySelector("select")?.value || "wait";
+        sts[i].steps.push(clone(this._choices.steps[kind]));
+        this._edited(true);
+        return;
+      }
+      case "rm-story-step":
+        sts[i].steps.splice(j, 1);
+        this._edited(true);
+        return;
+      case "up-story-step": case "down-story-step":
+        if (Fm.moveItem(sts[i].steps, j, a === "up-story-step" ? j - 1 : j + 1)) this._edited(true);
+        return;
+      case "play-story": this._playStory(i, el); return;
+    }
+  }
+
+  async _playStory(i, el) {
+    try {
+      await this._hass.callWS({ type: "alfie/story/play", draft: clone(this._draft.stories[i]) });
+      el.textContent = "Playing…";
+      setTimeout(() => { el.textContent = "Play on every display"; }, 2000);
+    } catch (e) {
+      alert(`Can't play it yet: ${e?.message || e}`);
+    }
+  }
+
+  async _loadTriggerStatus() {
+    try {
+      this._tstatus = await this._hass.callWS({ type: "alfie/triggers/status" });
+    } catch (e) {
+      this._tstatus = null;
+    }
+    this._showTriggerStatus();
+  }
+
+  _showTriggerStatus() {
+    const st = this._tstatus;
+    const root = this.shadowRoot;
+    root.querySelectorAll("[data-fired]").forEach((el) => {
+      const r = st?.triggers?.[el.dataset.fired];
+      el.className = `badge ${r?.outcome === "played" ? "good" : ""}`;
+      el.textContent = r ? `${OUTCOME_TEXT[r.outcome] || r.outcome} ${this._ago(r.at)}` : "not fired yet";
+    });
+    const now = root.querySelector(".playing");
+    if (now) {
+      const p = st?.playing;
+      now.innerHTML = p ? `Playing <b>${esc(p.id)}</b> (step ${p.step} of ${p.total}, from ${esc(p.trigger)})${st.queue.length
+        ? `, then ${st.queue.map((q) => esc(q.story)).join(", ")}` : ""}` : "Nothing playing.";
+    }
+  }
+
+  _ago(at) {
+    const s = Math.max(0, Date.now() / 1000 - at);
+    return s < 60 ? `${Math.round(s)} s ago` : s < 3600 ? `${Math.round(s / 60)} min ago` : `${Math.round(s / 3600)} h ago`;
   }
 
   _renameSignal(i, base) {
@@ -521,11 +705,12 @@ class AlfiePanel extends HTMLElement {
     root.querySelector(".body").addEventListener("change", (e) => this._onInput(e));
     // Enter in the entity box adds it, like pressing Add.
     root.querySelector(".body").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") e.target.closest(".row")?.querySelector('[data-action="add-entity"], [data-action="add-opt-entity"]')?.click();
+      if (e.key === "Enter") e.target.closest(".row")?.querySelector('[data-action="add-entity"], [data-action="add-opt-entity"], [data-action="add-trig-entity"]')?.click();
     });
     this._mountFaces();
     this._showStatus();
     this._showPreview();
+    if (this._tab === "triggers") this._showTriggerStatus();
   }
 
   _entityOptions() {
@@ -668,15 +853,234 @@ class AlfiePanel extends HTMLElement {
         ${s.kind === "bad" ? `<label>Severity${this._select(`${P}.severity`, s.severity, this._choices.severities, "data-rerender")}</label>` : ""}
         <label>Weight${this._num(`${P}.weight`, s.weight, { min: 0, max: 100, empty: "null" })}
           <small>Empty uses the ${s.kind === "bad" ? "severity's" : "good"} weight (weighted mode).</small></label>
-        <label>Screen that explains it<input data-path="${P}.screen" value="${esc(s.screen || "")}" placeholder="none">
-          <small>Screens arrive in a later version; this is kept for them.</small></label>
+        <label>Screen that explains it${this._screenSelect(`${P}.screen`, s.screen || "", [["", "none"]])}
+          <small>Stories show it for "why" and "what's wrong".</small></label>
       </div>
+      ${s.kind === "bad" ? this._repeat(s, P) : ""}
       <div data-matches="${esc(s.id)}"></div>
       <div class="row end">
         <button class="flat" data-action="dup" data-i="${i}">Duplicate</button>
         <button class="flat danger" data-action="del" data-i="${i}">Delete</button>
       </div>
     </div>`;
+  }
+
+  // A select of the draft's screens, with `extra` options first; a missing id stays visible.
+  _screenSelect(path, value, extra = [], attrs = "") {
+    const screens = this._draft.screens;
+    const opts = [...extra, ...screens.map((sc) => [sc.id, sc.title || sc.id])];
+    if (value && !opts.some(([v]) => v === value)) opts.push([value, `${value} (missing)`]);
+    return this._select(path, value, opts, attrs);
+  }
+
+  _repeat(s, P) {
+    const r = s.repeat || {};
+    const stories = this._draft.stories.map((st) => [st.id, st.name || st.id]);
+    return `<details class="repeat"><summary>Repeat while it's bad${r.on_motion || r.every_hours || r.in_rotation ? " (on)" : ""}</summary><div class="grid">
+        <label class="check"><input type="checkbox" data-path="${P}.repeat.on_motion" data-kind="bool" ${r.on_motion ? "checked" : ""}>
+          Tell it again when someone walks in <small>A motion sensor from Behaviour, at most every 15 minutes.</small></label>
+        <label>Tell it again every (hours)${this._num(`${P}.repeat.every_hours`, r.every_hours, { min: 0, max: 168, step: 0.5 })}
+          <small>0 never.</small></label>
+        <label>Story to tell it with${this._select(`${P}.repeat.story`, r.story, stories)}</label>
+        <label class="check"><input type="checkbox" data-path="${P}.repeat.in_rotation" data-kind="bool" ${r.in_rotation ? "checked" : ""}>
+          Add its screen to the rotation <small>On rotation cards, while it's bad.</small></label>
+      </div></details>`;
+  }
+
+  // ------------------------------------------------------------ triggers
+
+  _triggers() {
+    const trs = this._draft.triggers;
+    const kinds = this._choices.trigger_kinds.map((k) => `<option value="${k}">${esc(KIND_TEXT[k] || k)}</option>`).join("");
+    return `<p class="intro">A trigger makes Alfie play a story. When one change fires several, only the highest priority
+      plays. A story that fires while another plays waits its turn or interrupts it, as its "when busy" says.
+      Automations can play any story too, with <code>alfie.play_story</code>.</p>
+      <div class="playing muted"></div>
+      ${trs.map((t, i) => this._trigger(t, i)).join("") || `<p class="muted">No triggers: Alfie only reacts to motion and fidgets.</p>`}
+      <div class="row"><select id="newkind">${kinds}</select>
+        <button class="add grow" data-action="add-trigger">+ Add a trigger</button></div>
+      ${this._footer("triggers")}`;
+  }
+
+  _trigger(t, i) {
+    const open = this._open.has(`t:${t.id}`), n = this._draft.triggers.length, c = this._choices;
+    const P = `triggers.${i}`;
+    const story = this._draft.stories.find((s) => s.id === t.story);
+    const head = `<div class="row head">
+        <input type="checkbox" title="Enabled" data-path="${P}.enabled" data-kind="bool" ${t.enabled ? "checked" : ""}>
+        <span class="chip">${esc(t.kind)}</span>
+        <span class="label" data-action="toggle-trigger" data-i="${i}">${esc(t.name || "(no name)")}</span>
+        <span class="muted small">${esc(Fm.triggerSummary(t))} → ${esc(story?.name || t.story || "no story")} · ${t.priority}</span>
+        <span class="badge" data-fired="${esc(t.id)}">…</span>
+        <span class="tools">
+          <button class="icon" data-action="up-trigger" data-i="${i}" ${i ? "" : "disabled"} title="Move up">▲</button>
+          <button class="icon" data-action="down-trigger" data-i="${i}" ${i < n - 1 ? "" : "disabled"} title="Move down">▼</button>
+          <button class="icon" data-action="toggle-trigger" data-i="${i}" title="Edit">${open ? "▾" : "▸"}</button>
+        </span></div>`;
+    if (!open) return `<div class="card trigger">${head}</div>`;
+    const levels = c.levels;
+    const picks = (key, all, text = (x) => x) => `<div class="anims">${all.map((x) =>
+      `<button class="chip pick ${t[key].includes(x) ? "on" : ""}" data-action="trig-pick" data-i="${i}" data-key="${key}" data-name="${esc(x)}">${esc(text(x))}</button>`).join("")}</div>`;
+    let own = "";
+    if (t.kind === "entity" || t.kind === "motion") {
+      own += `<div class="wide"><span class="lbl">${t.kind === "motion" ? "Motion sensors" : "Entities"}</span>
+          <div class="chips">${t.entities.map((e, j) => `<span class="ent"><code>${esc(e)}</code>
+            <button class="icon" data-action="rm-trig-entity" data-i="${i}" data-j="${j}" title="Remove">✕</button></span>`).join("")
+            || `<span class="muted">none yet</span>`}</div>
+          <div class="row"><input list="entities" placeholder="Pick an entity or type a pattern" class="grow">
+            <button class="flat" data-action="add-trig-entity" data-i="${i}">Add</button></div></div>`;
+    }
+    if (t.kind === "entity") {
+      const ops = [["changes", "changes at all"], ["above", "goes above"], ["below", "goes below"], ["is", "becomes"], ["is_not", "stops being"]];
+      own += `<label>When it${this._select(`${P}.op`, t.op, ops, "data-rerender")}</label>
+        ${t.op === "changes" ? "" : `<label>Value<input data-path="${P}.value" data-kind="value" value="${esc(t.value)}"></label>`}`;
+    } else if (t.kind === "motion") {
+      own += `<label class="check"><input type="checkbox" data-path="${P}.only_if_bad" data-kind="bool" ${t.only_if_bad ? "checked" : ""}>
+        Only while something is wrong <small>A walk-in reminder.</small></label>`;
+    } else if (t.kind === "mood") {
+      own += `<label>When the mood${this._select(`${P}.direction`, t.direction, [["any", "changes"], ["worse", "gets worse"], ["better", "gets better"]])}</label>
+        <div class="wide"><span class="lbl">From (none: any)</span>${picks("from", levels, (l) => LEVEL_TEXT[l])}</div>
+        <div class="wide"><span class="lbl">To (none: any)</span>${picks("to", levels, (l) => LEVEL_TEXT[l])}</div>`;
+    } else if (t.kind === "signal") {
+      own += `<label>When${this._select(`${P}.edge`, t.edge, [["goes_bad", "it goes bad"], ["recovers", "it recovers"], ["either", "either"]])}</label>
+        <div class="wide"><span class="lbl">Signals (none: any)</span>${picks("signals", this._draft.signals.map((s) => s.id),
+          (id) => this._draft.signals.find((s) => s.id === id)?.label || id)}</div>`;
+    } else if (t.kind === "wake") {
+      own += `<label>When Alfie${this._select(`${P}.edge`, t.edge, [["wakes", "wakes up"], ["sleeps", "falls asleep"]])}</label>`;
+    }
+    const stories = this._draft.stories.map((s) => [s.id, s.name || s.id]);
+    if (t.story && !stories.some(([v]) => v === t.story)) stories.push([t.story, `${t.story} (missing)`]);
+    return `<div class="card trigger open">${head}
+      <div class="grid">
+        <label>Name<input data-path="${P}.name" value="${esc(t.name)}" placeholder="Mood gets worse"></label>
+        <label>ID<input data-path="${P}.id" value="${esc(t.id)}" pattern="[a-z0-9_]+" data-rerender></label>
+        <label>Kind${this._select(`${P}.kind`, t.kind, c.trigger_kinds.map((k) => [k, KIND_TEXT[k] || k]), "data-rerender")}</label>
+        ${own}
+        <label>Plays${this._select(`${P}.story`, t.story, stories, "data-rerender")}</label>
+        <label>Priority${this._num(`${P}.priority`, t.priority, { min: 0, max: 100, step: 1 })}<small>0 to 100. Higher wins.</small></label>
+        <label>When busy${this._select(`${P}.busy`, t.busy, BUSY_TEXT)}</label>
+        <label>Cooldown (seconds)${this._num(`${P}.cooldown`, t.cooldown, { min: 0, max: 86400, step: 1 })}<small>Fires at most this often. 0 any time.</small></label>
+        <label class="check"><input type="checkbox" data-path="${P}.while_asleep" data-kind="bool" ${t.while_asleep ? "checked" : ""}>
+          Even while he sleeps</label>
+        <div class="wide"><span class="lbl">Only while the mood is (none: any)</span>${picks("moods", levels, (l) => LEVEL_TEXT[l])}</div>
+      </div>
+      <div class="row end">
+        <button class="flat" data-action="dup-trigger" data-i="${i}">Duplicate</button>
+        <button class="flat danger" data-action="del-trigger" data-i="${i}">Delete</button>
+      </div></div>`;
+  }
+
+  // ------------------------------------------------------------ stories
+
+  _stories() {
+    const sts = this._draft.stories;
+    return `<p class="intro">A story is what Alfie does when a trigger fires: every display plays it together. Fill in the
+      simple template, or switch to steps for a free sequence. <b>@mood</b> is his mood's face now and <b>@old_mood</b> the
+      one before the change; <b>@why</b> shows the screens of the signals that changed, <b>@wrong</b> those of everything
+      that is wrong, one after another.</p>
+      ${sts.map((st, i) => this._story(st, i)).join("") || `<p class="muted">No stories yet.</p>`}
+      <button class="add" data-action="add-story">+ Add a story</button>
+      ${this._footer("stories")}`;
+  }
+
+  _story(st, i) {
+    const open = this._open.has(`st:${st.id}`), n = this._draft.stories.length;
+    const P = `stories.${i}`, uses = Fm.storyUses(this._draft, st.id);
+    const count = st.mode === "template" ? Fm.compileTemplate(st.template, this._choices.steps).length : st.steps.length;
+    const head = `<div class="row head">
+        <span class="chip">${st.mode === "template" ? "template" : "steps"}</span>
+        <span class="label" data-action="toggle-story" data-i="${i}">${esc(st.name || "(no name)")}</span>
+        <span class="muted small">${count} step${count === 1 ? "" : "s"} · ${uses ? `played by ${uses} trigger${uses > 1 ? "s" : ""}` : "no trigger"}</span>
+        <span class="tools">
+          <button class="icon" data-action="up-story" data-i="${i}" ${i ? "" : "disabled"} title="Move up">▲</button>
+          <button class="icon" data-action="down-story" data-i="${i}" ${i < n - 1 ? "" : "disabled"} title="Move down">▼</button>
+          <button class="icon" data-action="toggle-story" data-i="${i}" title="Edit">${open ? "▾" : "▸"}</button>
+        </span></div>`;
+    if (!open) return `<div class="card story">${head}</div>`;
+    const body = st.mode === "template" ? this._template(st, i) : this._steps(st, i);
+    return `<div class="card story open">${head}
+      <div class="grid">
+        <label>Name<input data-path="${P}.name" value="${esc(st.name)}" placeholder="Bad news"></label>
+        <label>ID<input data-path="${P}.id" value="${esc(st.id)}" pattern="[a-z0-9_]+" data-rerender></label>
+      </div>
+      <div class="row modes2">
+        <button class="chip pick ${st.mode === "template" ? "on" : ""}" data-action="story-mode" data-i="${i}" data-mode="template">Template</button>
+        <button class="chip pick ${st.mode === "steps" ? "on" : ""}" data-action="story-mode" data-i="${i}" data-mode="steps">Steps</button>
+        ${st.mode === "template" ? `<button class="flat" data-action="to-steps" data-i="${i}">Convert to steps</button>` : ""}
+      </div>
+      ${body}
+      <div class="row end">
+        <button class="primary" data-action="play-story" data-i="${i}">Play on every display</button>
+        <span class="grow"></span>
+        <button class="flat" data-action="dup-story" data-i="${i}">Duplicate</button>
+        <button class="flat danger" data-action="del-story" data-i="${i}">Delete</button>
+      </div></div>`;
+  }
+
+  _exprOptions(none) {
+    return [...(none ? [["", none]] : []), ["@mood", "@mood (his mood's face)"], ["@old_mood", "@old_mood (before the change)"],
+      ...this._choices.expressions.map((e) => [e, e])];
+  }
+
+  _screenOptions(none) {
+    return [...(none ? [["", none]] : []), ["@why", "@why (what changed)"], ["@wrong", "@wrong (everything wrong)"]];
+  }
+
+  _presentOptions() {
+    return [["card", "as the card is set"], ["handover", "hand over: Alfie leaves"], ["corner", "corner: Alfie stays aside"]];
+  }
+
+  _template(st, i) {
+    const t = st.template, P = `stories.${i}.template`, anims = this._choices.animations;
+    return `<p class="muted">React, then show a screen, then close. Leave a part empty to skip it.</p><div class="grid">
+        <label>React with an expression${this._select(`${P}.expression`, t.expression, this._exprOptions("none"))}</label>
+        <label>…and an animation${this._select(`${P}.animation`, t.animation, [["", "none"], ...anims.map((a) => [a, a])])}</label>
+        <label>Then show${this._screenSelect(`${P}.screen`, t.screen, this._screenOptions("no screen"))}</label>
+        <label>For (seconds)${this._num(`${P}.seconds`, t.seconds, { min: 3, max: 3600, step: 1 })}</label>
+        <label>Presented${this._select(`${P}.present`, t.present, this._presentOptions())}</label>
+        <label>Transition${this._select(`${P}.transition`, t.transition, [["", "as the card is set"], ...TRANSITIONS.map((x) => [x, x]), ["random", "random"]])}</label>
+        <label>Close with${this._select(`${P}.closing`, t.closing, [["", "nothing"], ...anims.map((a) => [a, a])])}</label>
+      </div>`;
+  }
+
+  _steps(st, i) {
+    const rows = st.steps.map((s, j) => `<div class="row step">
+        <span class="muted">${j + 1}.</span><span class="chip">${esc(STEP_TEXT[s.kind] || s.kind)}</span>
+        ${this._stepFields(s, `stories.${i}.steps.${j}`)}
+        <span class="tools">
+          <button class="icon" data-action="up-story-step" data-i="${i}" data-j="${j}" ${j ? "" : "disabled"} title="Move up">▲</button>
+          <button class="icon" data-action="down-story-step" data-i="${i}" data-j="${j}" ${j < st.steps.length - 1 ? "" : "disabled"} title="Move down">▼</button>
+          <button class="icon" data-action="rm-story-step" data-i="${i}" data-j="${j}" title="Remove">✕</button></span></div>`).join("");
+    const kinds = this._choices.step_kinds.map((k) => `<option value="${k}">${esc(STEP_TEXT[k] || k)}</option>`).join("");
+    return `${rows || `<p class="muted">No steps yet.</p>`}
+      <div class="row"><select>${kinds}</select><button class="flat" data-action="add-story-step" data-i="${i}">+ Add a step</button></div>`;
+  }
+
+  _stepFields(s, P) {
+    const anims = this._choices.animations;
+    const secs = (key, lo, hi, label = "s") => `<input type="number" class="secs" data-path="${P}.${key}" data-kind="number"
+      min="${lo}" max="${hi}" step="any" value="${esc(s[key])}"> ${label}`;
+    switch (s.kind) {
+      case "expression":
+        return `${this._select(`${P}.name`, s.name, this._exprOptions())} hold ${secs("hold", 0, 3600)}
+          blend ${secs("blend", 0, 10, "s <small class=\"muted\">(0 usual)</small>")}`;
+      case "animation":
+        return `${this._select(`${P}.name`, s.name, anims)}
+          <label class="check inline"><input type="checkbox" data-path="${P}.wait" data-kind="bool" ${s.wait ? "checked" : ""}> wait for it</label>`;
+      case "screen":
+        return `${this._screenSelect(`${P}.screen`, s.screen, this._screenOptions())} for ${secs("seconds", 3, 3600)}
+          ${this._select(`${P}.present`, s.present, this._presentOptions())}
+          ${this._select(`${P}.transition`, s.transition, [["", "card's transition"], ...TRANSITIONS.map((x) => [x, x]), ["random", "random"]])}`;
+      case "wait": return secs("seconds", 0, 3600);
+      case "move":
+        return `to ${this._select(`${P}.to`, s.to, this._choices.places.map((p) => [p, PLACE_TEXT[p] || p]), "data-rerender")}
+          ${s.to === "custom" ? `x ${secs("x", -1, 1, "")} y ${secs("y", -1, 1, "")}` : ""} over ${secs("seconds", 0, 10)}`;
+      case "resize": return `to ${secs("scale", 0.3, 1.5, "× size")} over ${secs("seconds", 0, 10)}`;
+      case "speak":
+        return `<input class="grow" data-path="${P}.text" value="${esc(s.text)}" placeholder="Something to say">
+          <small class="muted">Speaking arrives with Voice; until then this step is skipped.</small>`;
+      default: return "";
+    }
   }
 
   _mood() {
@@ -717,7 +1121,6 @@ class AlfiePanel extends HTMLElement {
   _behaviour() {
     const b = this._draft.behaviour, c = this._choices;
     const anims = c.animations;
-    const none = [["", "nothing"], ...anims.map((a) => [a, a])];
     const set = (list) => `<div class="anims">${anims.map((a) =>
       `<button class="chip pick ${b[list].includes(a) ? "on" : ""}" data-action="anim-set" data-list="${list}" data-name="${a}">${a}</button>`).join("")}</div>`;
     const gaze = b.gaze_map.map((g, i) => `<div class="row">
@@ -738,13 +1141,11 @@ class AlfiePanel extends HTMLElement {
       <div class="grid"><label>Seconds between fidgets (when content)${this._num("behaviour.idle_interval", b.idle_interval, { min: 10, max: 3600, step: 5 })}
         <small>Lively moods fidget more often, sad ones less; Personality scales it too.</small></label></div>
       <h4>Fidgets</h4>${set("idle_fidgets")}
-      <h3>Reactions</h3><div class="grid">
-        <label>When something turns critical${this._select("behaviour.on_critical", b.on_critical, none)}</label>
-        <label>When he wakes up${this._select("behaviour.on_wake", b.on_wake, none)}</label>
-        <label>When something bad is fixed${this._select("behaviour.on_recover", b.on_recover, none)}</label>
-        <label class="check"><input type="checkbox" data-path="behaviour.celebrate" data-kind="bool" ${b.celebrate ? "checked" : ""}>
-          Celebrate fixes</label>
-      </div>${this._footer("behaviour")}`;
+      <h3>Reactions</h3>
+      <p class="intro">What Alfie does when something turns critical, gets fixed or wakes him is set on the
+        <button class="link" data-action="tab" data-tab="triggers">Triggers</button> tab, and the
+        <button class="link" data-action="tab" data-tab="stories">Stories</button> they play.</p>
+      ${this._footer("behaviour")}`;
   }
 
   _personality() {
@@ -1171,6 +1572,15 @@ const CSS = `
   .chip.sev.critical { background: var(--error-color, #db4437); color: #fff; border-color: transparent; }
   .chip.sev.major { color: var(--warning-color, #ffa600); border-color: var(--warning-color, #ffa600); }
   .chip.pick.on { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: transparent; }
+  .small { font-size: 12px; }
+  button.link { background: none; border: 0; padding: 0; color: var(--primary-color); cursor: pointer; font: inherit; text-decoration: underline; }
+  .row.step { flex-wrap: wrap; gap: 6px; }
+  .row.step .secs { width: 70px; }
+  label.check.inline { display: inline-flex; align-items: center; gap: 4px; }
+  details.repeat { margin: 8px 0; }
+  details.repeat summary { cursor: pointer; color: var(--secondary-text-color); }
+  .playing { margin: 0 0 8px; }
+  .row.modes2 { gap: 8px; margin: 8px 0; }
   .badge { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: var(--secondary-background-color); color: var(--secondary-text-color); }
   .badge.bad { background: var(--error-color, #db4437); color: #fff; }
   .badge.good { background: var(--success-color, #43a047); color: #fff; }

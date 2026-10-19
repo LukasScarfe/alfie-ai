@@ -3,6 +3,25 @@
 **Milestones 1 to 3 are done (M3 approved on the tablet 2026-10-19); M4 (Triggers and stories) is
 claimed and being planned.** Version 0.3.0.
 
+## M4 status (2026-10-19)
+
+- **A (model), B (engine) and C (card) are done.** `stories.py` and `triggers.py` are the pure models.
+  Config is v2: the old behaviour reactions became the default triggers and stories via
+  `migrate_v1`. The engine runs stories (priority, queue, coalescing) and offers `play_story`,
+  `stop_story`, the `alfie_story` events, the WS commands `alfie/story/play` and
+  `alfie/triggers/status`, and the per-signal repeats. The card follows `scene.story`
+  (rotation waits, move/resize place spring, per-step present and transition), with rotation
+  `bad_news`; the logic lives in `frontend/alfie-stage.js`, tested by `tests/stage.test.mjs`.
+  All the default stories were verified live in dev HA.
+- **D (panel) is `[~]`:** the Triggers and Stories tabs, the Behaviour reactions note and the
+  Signals repeat row are written, and `./dev test` is green. Not yet checked:
+  `devenv/out/m4-panel-triggers.png` and `m4-panel-stories.png` were shot but not reviewed.
+  Next: look at them, click through add, edit, kind change, convert-to-steps and play in dev HA,
+  and fix what's broken. Then tick D and do E (design.md "Triggers and stories" in place,
+  screenshots to Lukas). Version is already 0.4.0.
+- Gotcha: timers passed to `async_call_later` must be `@callback` (or `callback(lambda ...)`),
+  or they run in an executor thread and HA raises.
+
 ## Working, in dev HA (`./dev up`, then `http://192.168.1.241:8125`)
 
 - **Config in the Store.** `config.py` (pure) is the whole user config: signals, mood, behaviour
