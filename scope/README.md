@@ -13,7 +13,8 @@ scope. xy-bench shows them as its `alfie` screen.
    - `XYBENCH_TOKEN` (xy-bench's push token);
    - `ASPECT`, to match xy-bench's aspect setting;
    - optionally `ALFIE_CARD`, any card options as JSON. For example
-     `{"display": "rotation", "rotation": "scope"}` runs a rotation made for the scope.
+     `{"display": "rotation", "rotation": "default"}` runs the rotation whose **id** is
+     `default` (an id, not the name the panel shows; `./dev prod ws alfie/screens` lists them).
 3. Start it with `docker compose up -d --build`. It joins xy-bench's compose network
    (`xy-bench_default`) and opens no ports.
 4. Pick the `alfie` screen in xy-bench, from its web page or `PUT /api/screen {"screen": "alfie"}`.
