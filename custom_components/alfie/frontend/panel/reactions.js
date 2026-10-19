@@ -58,7 +58,7 @@ export function mount(p, sub) {
 
 function triggers(p) {
   const trs = p.draft.triggers;
-  const kinds = U.select("", "entity", p.choices.trigger_kinds.map((k) => [k, KIND_TEXT[k] || k]), { attrs: 'id="newkind" aria-label="Fires when"' });
+  const kinds = U.select("", "entity", p.choices.trigger_kinds.filter((k) => k !== "mode" /* house modes hidden for now */).map((k) => [k, KIND_TEXT[k] || k]), { attrs: 'id="newkind" aria-label="Fires when"' });
   return `${U.intro("A trigger makes Alfie play a story when something happens: the mood changes, a signal goes bad, an entity changes.",
       `When one change fires several triggers, only the highest priority plays. A story that fires while another plays
       waits its turn or interrupts it, as its "If a story is already playing" says. Automations can play any story too,

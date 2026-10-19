@@ -20,7 +20,8 @@
 const V = new URL(import.meta.url).search;
 await import(`./alfie-card.js${V}`).catch(() => null); // usually loaded already; the card defines itself
 const U = await import(`./panel/ui.js${V}`);
-const SECTIONS = await Promise.all(["overview", "mood", "reactions", "modes", "screens", "appearance"]
+// House modes ("modes") are switched off for now: the engine still runs them, the panel hides them.
+const SECTIONS = await Promise.all(["overview", "mood", "reactions", /* "modes", */ "screens", "appearance"]
   .map((n) => import(`./panel/${n}.js${V}`)));
 const BY_ID = Object.fromEntries(SECTIONS.map((s) => [s.id, s]));
 
