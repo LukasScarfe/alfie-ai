@@ -30,6 +30,9 @@ deploy` (HACS refresh, install, restart, wait); `./dev prod get` / `./dev prod w
   production HA_TOKEN (Lukas chose to reuse it) and xy-bench's token; never print it. It runs
   at 29.8 fps with 0 dropped, about 14% of a core and 218 MB. xy-bench `/api/status` shows
   `alfie.age` 0. To update: `git pull` there, then `docker compose up -d --build`.
+- **On the scope now:** Lukas disabled the HA automations that switched xy-bench's screens. The
+  scope shows `alfie`, and the sidecar runs `ALFIE_CARD={"display": "rotation", "rotation":
+  "default"}` (the id; `Default` is only the name and silently gave the face alone).
 - **Not done:** switching the scope to `alfie` (`PUT /api/screen {"screen": "alfie"}`) is
   Lukas's call, because it's the household's display. The same goes for adding `alfie` to HA's
   xy_scope screen choices.
