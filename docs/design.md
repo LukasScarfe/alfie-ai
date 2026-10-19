@@ -195,6 +195,14 @@ A personality is six sliders plus a named preset. Alfie has one; a card may over
 - **Live preview:** edits are sent to `alfie/config/preview`, which validates and evaluates the
   draft without saving or touching the running engine. It shows the resulting mood, the active
   signals and each pattern's matches.
+- **The dock: Alfie beside every page** (2026-10-19). One live face sits in a sticky column to
+  the right of every section (above the content on a phone), so settings changes show as they
+  are made, before saving. It draws the draft's look and personality at once, and the draft's
+  mood (expression and energy) once the preview has it, when that differs from what Alfie shows
+  now; while he sleeps, is quiet or plays a story it follows the house. Appearance plays on it:
+  Look adds its four stills and expression picks under it, Personality its animations, and the
+  Playground's picks hold it until "Follow mood" or Reset (or leaving the page). "Hide" tucks it
+  away on every page, remembered per browser; "Show Alfie" in the header brings it back.
 - **Save / Revert for the whole draft, and "Reset this section"** per sub-tab. Save validates
   the whole config and lists every problem at once. Reset puts that sub-tab's part back to the
   defaults (the starter config).

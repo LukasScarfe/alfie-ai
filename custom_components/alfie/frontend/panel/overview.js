@@ -1,4 +1,4 @@
-// The panel's Overview: Alfie now (his face, mood, house mode, what is active),
+// The panel's Overview: Alfie now (the dock has his face; here his mood, house mode, what is active),
 // the Get started guide for a new install, and export / import of the config.
 
 const V = new URL(import.meta.url).search;
@@ -15,8 +15,7 @@ const DONE_TEXT = { signals: "Done", dashboard: "Mark done" };
 
 export function render(p) {
   const o = p.draft.overview;
-  return `<div class="split ov">
-      <div>
+  return `<div class="ov">
         <div class="card nowcard">
           <h4>Now</h4>
           <div class="nowmood"></div>
@@ -33,9 +32,6 @@ export function render(p) {
           </div>
           <p class="wide muted">Export saves every setting as one JSON file. Importing one replaces your unsaved
             draft with it; check it over, then Save (or Revert).</p>`)}
-      </div>
-      <div class="live card face"><alfie-card id="ov-face"></alfie-card>
-        <small>Alfie as every card shows him now.</small></div>
     </div>
     <style>
       .nowmood { font-size: 18px; margin: 4px 0; } .nowmood b { font-weight: 500; }
@@ -179,8 +175,6 @@ export function scene(p, s) {
 }
 
 export function mount(p) {
-  const face = p.root.querySelector("#ov-face");
-  if (face?.setConfig) { face.setConfig({ card: false }); face.hass = p.hass; }
   scene(p, p.scene);
   p.loadTriggerStatus();
   if (!p.suggest && !p._suggesting && !p.draft.overview.dismissed) {

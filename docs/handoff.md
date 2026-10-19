@@ -7,7 +7,15 @@
 - **5½ (Settings tidy-up):** built and checked in dev HA, with the PNGs sent to Lukas (A to E).
   F is waiting on his review.
 
-Version 0.6.0.
+Version 0.6.1.
+
+**Latest (0.6.1): the dock.** Lukas asked for the settings' Alfie preview on every page. The
+panel shell now draws one live face in a sticky right-hand column on every section (design.md
+"The dock"; settings-contract.md `p.face`, `p.syncFace`, `p.faceHold`, a section's `dock()`).
+The shell's header, tabs and dock are built once (`_frame`), and only the body redraws, so the
+face keeps running. Overview and Appearance lost their own big faces; Look's stills and picks and
+Personality's animations sit under the dock face. Checked in dev HA (wide and phone width, a
+draft look and mood showing on Reactions). Waiting on Lukas's look.
 
 ## 5½ status: settings tidy-up (2026-10-19)
 

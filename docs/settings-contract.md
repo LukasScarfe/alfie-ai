@@ -131,6 +131,7 @@ export function afterInput(p, path, value, el) {}                     // optiona
 export function mount(p, sub) {}                                      // optional: after render (faces, statuses)
 export function scene(p, s) {}                                        // optional: on each scene update while shown
 export function leave(p) {}                                           // optional: before switching away (end previews)
+export function dock(p, sub) { return ""; }                           // optional: extras under the dock face (chips, stills)
 ```
 
 `p` is the panel. It is the only shared state, so modules keep their own state on `p` under a
@@ -147,6 +148,10 @@ key named after the module (for example `p.reactions = {...}`) or in a module-le
 - `p.fmt(n)` for number display, and `p.root` (the shadow root).
 - `p.loadTriggerStatus()` (it fills `p.tstatus` and re-renders the badges), and
   `p.modeEntity()`.
+- `p.face`, the dock's live `<alfie-card>`, which stays put across renders. The shell keeps it on
+  the draft with `p.syncFace(force)` (look, personality, and the draft's mood when it differs).
+  A section that holds an expression or energy on it sets `p.faceHold = true`; the shell clears
+  it, and re-applies the draft, on every section change.
 
 The shell keeps the generic input handling (`data-path` + `data-kind`: bool, number with
 `data-empty="null"`, optnum, optent, opttext, value, text). It calls the section's `beforeInput`

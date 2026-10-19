@@ -9,7 +9,8 @@
 //
 // This file is the shell: the header with Save and Revert, the six sections
 // and their sub-tabs (kept in the URL hash), the generic input handling and
-// the preview. Each section is a module in panel/ (docs/settings-contract.md)
+// the preview, and the dock: one live Alfie beside every page, drawn with the
+// draft's look, personality and mood. Each section is a module in panel/ (docs/settings-contract.md)
 // that renders its body and handles its own clicks; panel/ui.js has the HTML
 // builders they share. Inputs carry data-path="mood.weights.major" (and
 // data-kind for how to read them); one handler writes them into the draft.
@@ -50,6 +51,8 @@ class AlfiePanel extends HTMLElement {
     this.saveError = null;
     this.tstatus = null;
     this._watch = new Map();    // entity id -> state the last preview saw
+    this.faceHold = false;      // a section holds the dock face's expression (Playground)
+    try { this.dockHidden = localStorage.getItem("alfie-panel-dock") === "hidden"; } catch (e) { this.dockHidden = false; }
     this._route();
     this.root.addEventListener("click", (e) => this._onClick(e));
     // A "More options" fold remembers it is open across re-renders.
@@ -70,7 +73,13 @@ class AlfiePanel extends HTMLElement {
     this._onUnload = (e) => {
       if (this.dirty) { e.preventDefault(); e.returnValue = ""; }
     };
-    this._onHash = () => { this._route(); this.render(); };
+    this._onHash = () => {
+      this._section()?.leave?.(this);
+      this._route();
+      this.faceHold = false;
+      this.render();
+      this.syncFace(true);
+    };
   }
 
   // ------------------------------------------------------------ HA hooks
@@ -79,6 +88,7 @@ class AlfiePanel extends HTMLElement {
     const first = !this.hass;
     this._hass = hass;
     if (this._menu) this._menu.hass = hass;
+    if (this.face && this.face.hass !== hass) this.face.hass = hass;
     if (first) this._load();
     else this._statesChanged();
   }
@@ -124,6 +134,7 @@ class AlfiePanel extends HTMLElement {
         this._showStatus();
         if (s.story?.seq !== was && this.root.querySelector("[data-fired], .playing")) this.loadTriggerStatus();
         this._section()?.scene?.(this, s);
+        this.syncFace();
       }, { type: "alfie/subscribe" });
     this.render();
     this._schedulePreview(0);
@@ -166,8 +177,10 @@ class AlfiePanel extends HTMLElement {
     if (location.hash !== hash) history.replaceState(null, "", hash);
     this.sec = sec.id;
     this.sub = s;
+    this.faceHold = false;
     this.render();
-    this.root.querySelector(".body")?.scrollIntoView?.({ block: "start" });
+    this.syncFace(true);
+    this.root.querySelector(".page")?.scrollIntoView?.({ block: "start" });
   }
 
   // ------------------------------------------------------------ talking
@@ -237,6 +250,7 @@ class AlfiePanel extends HTMLElement {
     this.saveError = null;
     if (rerender) this.render();
     else this._showStatus();
+    this.syncFace();
     this._schedulePreview();
   }
 
@@ -315,6 +329,8 @@ class AlfiePanel extends HTMLElement {
       case "save": this._save(); return;
       case "revert": this._revert(); return;
       case "reset": this._reset(); return;
+      case "dock-hide": this._setDock(true); return;
+      case "dock-show": this._setDock(false); return;
       default: if (this.draft) this._section().click?.(this, a, el);
     }
   }
@@ -337,37 +353,122 @@ class AlfiePanel extends HTMLElement {
         body = `<div class="error">This section failed to draw: ${U.esc(e?.message || e)}</div>`;
       }
     }
-    root.innerHTML = `<style>${CSS}</style>
-      <div class="top">
-        <span class="menu"></span>
-        <div class="title">${U.esc(this.name || "Alfie")}</div>
-        <div class="status"></div>
-        <button class="flat" data-action="revert">Revert</button>
-        <button class="primary" data-action="save">Save</button>
-      </div>
-      <nav class="tabs">${SECTIONS.map((s) =>
-        `<button class="tab ${s.id === this.sec ? "on" : ""}" data-action="section" data-section="${s.id}">${U.esc(s.title)}</button>`).join("")}</nav>
-      <div class="body">${body}</div>
-      <datalist id="entities">${this._entityOptions()}</datalist>`;
-    if (customElements.get("ha-menu-button")) {
-      this._menu = document.createElement("ha-menu-button");
-      this._menu.hass = this.hass;
-      this._menu.narrow = this._narrow;
-      root.querySelector(".menu").appendChild(this._menu);
-    }
-    const b = root.querySelector(".body");
-    b.addEventListener("input", (e) => this._onInput(e));
-    b.addEventListener("change", (e) => this._onInput(e));
-    // Enter in an entity box adds it, like pressing Add.
-    b.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && e.target.matches("input:not([type])")) e.target.closest(".row")?.querySelector("[data-add]")?.click();
-    });
+    if (!root.querySelector(".page")) this._frame();
+    root.querySelector(".title").textContent = this.name || "Alfie";
+    root.querySelector(".tabs").innerHTML = SECTIONS.map((s) =>
+      `<button class="tab ${s.id === this.sec ? "on" : ""}" data-action="section" data-section="${s.id}">${U.esc(s.title)}</button>`).join("");
+    root.querySelector(".page > .body").innerHTML = body;
+    const dl = root.querySelector("#entities");
+    if (!dl.firstChild) dl.innerHTML = this._entityOptions();
+    this._showDock();
     this._showStatus();
     if (this.draft) {
       this._showPreview();
       this._showTriggerStatus();
       try { sec.mount?.(this, this.sub); } catch (e) { console.error(e); }
     }
+  }
+
+  // The parts that stay put across renders: the header, the tabs and the dock,
+  // so the dock's Alfie keeps running while sections redraw beside him.
+  _frame() {
+    const root = this.root;
+    root.innerHTML = `<style>${CSS}</style>
+      <div class="top">
+        <span class="menu"></span>
+        <div class="title"></div>
+        <div class="status"></div>
+        <button class="flat" data-action="dock-show" hidden>Show Alfie</button>
+        <button class="flat" data-action="revert">Revert</button>
+        <button class="primary" data-action="save">Save</button>
+      </div>
+      <nav class="tabs"></nav>
+      <div class="page">
+        <div class="body"></div>
+        <aside class="dock"><div class="card">
+          <alfie-card id="face"></alfie-card>
+          <div class="dock-extra"></div>
+          <div class="dock-foot"><small class="dock-note"></small>
+            <button class="link" data-action="dock-hide" title="Hide Alfie on every page">Hide</button></div>
+        </div></aside>
+      </div>
+      <datalist id="entities"></datalist>`;
+    if (customElements.get("ha-menu-button")) {
+      this._menu = document.createElement("ha-menu-button");
+      this._menu.hass = this.hass;
+      this._menu.narrow = this._narrow;
+      root.querySelector(".menu").appendChild(this._menu);
+    }
+    const b = root.querySelector(".page > .body");
+    b.addEventListener("input", (e) => this._onInput(e));
+    b.addEventListener("change", (e) => this._onInput(e));
+    // Enter in an entity box adds it, like pressing Add.
+    b.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && e.target.matches("input:not([type])")) e.target.closest(".row")?.querySelector("[data-add]")?.click();
+    });
+    this.face = root.querySelector("#face");
+    if (this.face?.setConfig) {
+      this.face.setConfig({ card: false });
+      this.face.hass = this.hass;
+    }
+    this._faceKeys = {};
+  }
+
+  // The dock: hidden or shown, the section's extras under the face (Look's
+  // minis, Personality's animations), and what the face is showing.
+  _showDock() {
+    const root = this.root, sec = this._section();
+    root.querySelector(".page").classList.toggle("nodock", this.dockHidden);
+    root.querySelector('[data-action="dock-show"]').hidden = !this.dockHidden;
+    let extra = "";
+    if (this.draft) {
+      try { extra = sec.dock?.(this, this.sub) || ""; } catch (e) { console.error(e); }
+    }
+    root.querySelector(".dock-extra").innerHTML = extra;
+    this._dockNote();
+  }
+
+  _dockNote() {
+    const el = this.root.querySelector(".dock-note");
+    if (el) el.textContent = this.faceHold ? "Alfie on this page only, as you picked."
+      : this.dirty ? "Alfie with your unsaved changes, on this page only."
+      : "Alfie as every card shows him now.";
+  }
+
+  _setDock(hidden) {
+    this.dockHidden = hidden;
+    try { localStorage.setItem("alfie-panel-dock", hidden ? "hidden" : "shown"); } catch (e) { /* private mode */ }
+    this._showDock();
+  }
+
+  // Put the draft on the dock face: its look and personality as soon as they
+  // change, and its mood once the preview says what the draft makes of the
+  // house. The mood is held only when it differs from what Alfie shows now,
+  // and not while he sleeps, is quiet or plays a story, so the face otherwise
+  // follows the house. `force` re-applies everything (after a section let go).
+  syncFace(force = false) {
+    const f = this.face, d = this.draft;
+    if (!f?.previewLook || !d) return;
+    const k = this._faceKeys;
+    const put = (name, value, apply) => {
+      const key = JSON.stringify(value ?? null);
+      if (!force && k[name] === key) return;
+      k[name] = key;
+      apply(value);
+    };
+    put("look", d.look, (v) => f.previewLook(clone(v)));
+    put("pers", Object.fromEntries(Object.keys(this.choices?.sliders || {}).map((s) => [s, d.personality[s]])),
+      (v) => f.setPersonality(v));
+    this._dockNote();
+    if (this.faceHold) { k.mood = null; return; }
+    const pm = this.preview?.mood, sm = this.scene?.mood, s = this.scene;
+    const differs = pm && sm && (pm.expression !== sm.expression || Math.abs(pm.energy - sm.energy) > 0.001);
+    const free = s && !s.asleep && !s.story && s.expression === sm?.expression && (s.mode_info?.alfie || "awake") === "awake";
+    const hold = this.dirty && differs && free ? { expression: pm.expression, energy: pm.energy } : null;
+    put("mood", hold, (v) => {
+      f.previewExpression(v?.expression ?? null);
+      f.previewEnergy(v?.energy ?? null);
+    });
   }
 
   _entityOptions() {
@@ -422,6 +523,7 @@ class AlfiePanel extends HTMLElement {
     }
     this._section()?.previewed?.(this);
     this._showStatus();
+    this.syncFace();
   }
 
   reading(e) {
@@ -531,7 +633,14 @@ const CSS = `
          font: inherit; font-weight: 500; white-space: nowrap; border-radius: 0; }
   .tab:hover { color: var(--primary-text-color); }
   .tab.on { color: var(--accent); border-bottom-color: var(--accent); }
-  .body { max-width: 1040px; margin: 0 auto; padding: 20px 16px 48px; }
+  .page { max-width: 1320px; margin: 0 auto; padding: 20px 16px 48px; display: grid;
+          grid-template-columns: minmax(0, 1fr) 260px; gap: 24px; align-items: start; }
+  .page.nodock { grid-template-columns: minmax(0, 1fr); max-width: 1040px; }
+  .page.nodock .dock { display: none; }
+  .dock { position: sticky; top: 120px; }
+  .dock > .card { margin: 0; }
+  .dock-foot { display: flex; align-items: baseline; gap: 8px; }
+  .dock-foot small { flex: 1; }
   .subs { margin: 0 0 16px; }
 
   h3 { margin: 28px 0 10px; font-size: 16px; font-weight: 500; }
@@ -631,7 +740,7 @@ const CSS = `
   /* faces and previews */
   .split { display: grid; grid-template-columns: 1fr 300px; gap: 24px; align-items: start; }
   .live { position: sticky; top: 120px; }
-  .live alfie-card, .face alfie-card, .pvbox alfie-card, .minis alfie-card { display: block; background: #000; border-radius: 10px; overflow: hidden; }
+  .dock alfie-card, .live alfie-card, .face alfie-card, .pvbox alfie-card, .minis alfie-card { display: block; background: #000; border-radius: 10px; overflow: hidden; }
   .sliders { display: flex; flex-direction: column; gap: 14px; }
   .slider { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; }
   .slider > span { grid-column: 1 / -1; }
@@ -641,6 +750,8 @@ const CSS = `
   .opt .row { margin: 0; }
   @media (max-width: 760px) {
     .split { grid-template-columns: 1fr; } .live { position: static; }
+    .page { grid-template-columns: minmax(0, 1fr); }
+    .dock { position: static; order: -1; } .dock > .card { max-width: 200px; margin: 0 auto; }
     .status .now { display: none; } .title { font-size: 18px; }
     .item .summary { flex-basis: 100%; order: 9; white-space: normal; }
   }
