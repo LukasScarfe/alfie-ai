@@ -94,7 +94,13 @@ const DEFAULTS = {
   accent_color: null,     // screen accents; null takes the face colour
   screen_line_width: 0.02, // ring radii: screens draw finer than the face
   icons: true,            // false: this card ignores icons (alfie.show_icon, a story's icon steps)
+  vector_out: false,      // true: each frame's strokes go out as an "alfie-vector" event (the oscilloscope feed)
+  paint: true,            // false: draw nothing on the canvas (a headless vector feed skips the cost)
 };
+
+// A 2D context that does nothing, for `paint: false`: the drawing code runs as
+// ever, so the vector feed sees exactly what a painted card would show.
+const NO_PAINT = new Proxy({}, { get: () => () => {}, set: () => true });
 
 const DISPLAYS = ["companion", "rotation"];
 const PRESENTS = ["handover", "corner"];
@@ -622,9 +628,10 @@ class AlfieCard extends HTMLElement {
     if (cv.width <= 1 || cv.height <= 1) return;
     if (!this._colors) this._resolveColors();
     const c = this._config, col = this._colors;
-    const ctx = cv.getContext("2d");
+    const ctx = c.paint === false ? NO_PAINT : cv.getContext("2d");
     const w = cv.width, h = cv.height;
     ctx.clearRect(0, 0, w, h);
+    this._vec = c.vector_out ? { w, h, strokes: [] } : null;
     const R = (Math.min(w, h) / 2) * (1 - clamp(Number(c.padding), 0, 0.45));
     const L = scr ? this._layout(scr, w, h, R) : null;
     // A story's move/resize places him, except while a corner screen holds him there.
@@ -665,15 +672,19 @@ class AlfieCard extends HTMLElement {
       const [hx, hy] = shapes.ring;
       if (!scr?.noHead) {
         ctx.strokeStyle = ctx.shadowColor = col.face;
+        const head = shapes.head.map(([x, y]) => [X(hx + (x - hx) * hs), Y(hy + (y - hy) * hs)]);
         ctx.beginPath();
-        trace(ctx, shapes.head.map(([x, y]) => [X(hx + (x - hx) * hs), Y(hy + (y - hy) * hs)]));
+        trace(ctx, head);
         ctx.stroke();
+        this._tap(head, true, faceAlpha);
       }
 
       ctx.strokeStyle = ctx.fillStyle = ctx.shadowColor = col.eye;
       for (const eye of [shapes.left, shapes.right]) {
+        const pts = eye.map(([x, y]) => [X(x), Y(y)]);
         ctx.beginPath();
-        trace(ctx, eye.map(([x, y]) => [X(x), Y(y)]));
+        trace(ctx, pts);
+        this._tap(pts, true, faceAlpha);
         if (c.eye_fill) ctx.fill();
         ctx.stroke();
       }
@@ -682,6 +693,18 @@ class AlfieCard extends HTMLElement {
     if (!scr?.noHead) screen();
     ctx.shadowBlur = 0;
     this._drawBadges(ctx, w, h, R, { cx, cy, r: Rf });
+    if (this._vec) {
+      this.dispatchEvent(new CustomEvent("alfie-vector", {
+        detail: { strokes: this._vec.strokes, aspect: w / h, t: this._now() } }));
+    }
+  }
+
+  // Record a painted stroke (canvas pixels) for the vector feed.
+  _tap(pts, closed, weight) {
+    const v = this._vec;
+    if (!v) return;
+    const st = G.vectorStroke(pts, closed, weight, v.w, v.h);
+    if (st) v.strokes.push(st);
   }
 
   // Where Alfie sits and what is left for the screen, in canvas pixels. `k` is
@@ -744,6 +767,7 @@ class AlfieCard extends HTMLElement {
       ctx.strokeStyle = ctx.fillStyle = ctx.shadowColor = colr;
       ctx.lineWidth = sw;
       ctx.shadowBlur = col.glow * sw * 3;
+      this._tap(pts.map(([x, y]) => [X(x), Y(y)]), st.closed, alpha * (dim ? 0.5 : 1));
       if (pts.length === 1) {
         ctx.beginPath();
         ctx.arc(X(pts[0][0]), Y(pts[0][1]), sw * 0.9, 0, 2 * Math.PI);

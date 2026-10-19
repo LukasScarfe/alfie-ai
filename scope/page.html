@@ -1,0 +1,44 @@
+<!doctype html>
+<!-- Alfie's card, headless, for the oscilloscope (scope/bridge.js serves this
+     at HA's own origin, so the card and the WebSocket are same-origin). The
+     card paints nothing; each frame's strokes go to window.scopeFrame. -->
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: #000; }
+  alfie-card { display: block; width: 100vw; }
+</style>
+<script src="/__alfie_scope__/haws.js"></script>
+<script type="module">
+  const S = window.SCOPE;   // set by bridge.js before the page loads
+  const { createConnection, createLongLivedTokenAuth, subscribeEntities, subscribeConfig } = window.HAWS;
+
+  // The card waits for HA's own element before defining itself.
+  customElements.define("home-assistant", class extends HTMLElement {});
+  // No HA frontend, so no <ha-icon>: icon names resolve from bundled mdi paths.
+  globalThis.ALFIE_ICONS = await (await fetch("/__alfie_scope__/mdi.json")).json();
+
+  const conn = await createConnection({ auth: createLongLivedTokenAuth(location.origin, S.token) });
+  // A reconnect is usually HA restarting, maybe with a new Alfie: start afresh.
+  conn.addEventListener("ready", () => location.reload());
+
+  const hass = { connection: conn, states: {}, config: null, callWS: (msg) => conn.sendMessagePromise(msg) };
+  await import(`/alfie_static/alfie-card.js?v=${Date.now()}`);
+  await customElements.whenDefined("alfie-card");
+  const el = document.createElement("alfie-card");
+  el.setConfig({ ...S.card, card: false, vector_out: true, paint: false, aspect: S.aspect, fps: S.fps });
+  el.addEventListener("alfie-vector", (e) => window.scopeFrame(e.detail));
+
+  // hass is handed over at most every HASS_GAP ms: the card only reads states
+  // for screen data, and a busy house changes state many times a second.
+  const HASS_GAP = 500;
+  let pending = null;
+  const push = () => {
+    pending ??= setTimeout(() => { pending = null; el.hass = { ...hass }; }, HASS_GAP);
+  };
+  subscribeConfig(conn, (config) => { hass.config = config; push(); });
+  subscribeEntities(conn, (states) => { hass.states = states; push(); });
+  for (let i = 0; i < 100 && !hass.config; i++) await new Promise((r) => setTimeout(r, 100));
+  el.hass = { ...hass };
+  document.body.appendChild(el);
+  console.log(`alfie-scope: card up, aspect ${S.aspect}, ${S.fps} fps`);
+</script>

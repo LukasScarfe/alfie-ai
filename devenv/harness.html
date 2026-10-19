@@ -13,7 +13,10 @@
        sheet=icons[&icon=mdi:heart]  an icon in each style: transform (whole, ring) and beside at u = 0 .. 1, badges
                                     at their places (icons from devenv/icons.json)
        expr=happy[&anim=X&u=0.3]    one face
-     plus cfg=<url-encoded JSON card config> and cols=N. -->
+     plus cfg=<url-encoded JSON card config> and cols=N.
+     vecjson=<path> plots a vector frame saved by alfie-scope (scope/bridge.js DUMP), alone.
+     vec=1 adds, under each card, what its vector feed (vector_out) sends the oscilloscope:
+       the strokes as thin lines, brightness by weight, every point a dot. -->
 <meta charset="utf-8">
 <style>
   body { margin: 0; background: #1c1c1c; color: #ccc; font: 14px sans-serif;
@@ -125,13 +128,27 @@
     frames = [{ label: q.get("expr") || "neutral", expression: q.get("expr") || "neutral",
                 animation: q.get("anim"), u: Number(q.get("u") || 0) }];
   }
+  if (q.get("vecjson")) {
+    const cv = document.createElement("canvas");
+    cv.style.cssText = "display: block; width: 600px; background: #000;";
+    document.getElementById("g").appendChild(cv);
+    plotVector(cv, await (await fetch(q.get("vecjson"))).json());
+    frames = [];
+  }
   const g = document.getElementById("g");
   g.style.gridTemplateColumns = `repeat(${q.get("cols") || (sheet === "present" ? 4 : sheet === "screen" || sheet === "font" ? 1 : sheet === "shapes" ? 4 : sheet === "personality" ? 5 : sheet === "intros" ? (q.get("kind") ? 5 : 10) : sheet === "icons" ? 5 : Math.min(frames.length, 6))}, 1fr)`;
   for (const f of frames) {
     const fig = document.createElement("figure");
     const el = document.createElement("alfie-card");
-    el.setConfig({ ...cfg, ...(f.cfg || {}) });
+    const vec = q.get("vec") === "1";
+    el.setConfig({ ...cfg, ...(f.cfg || {}), ...(vec ? { vector_out: true } : {}) });
     fig.appendChild(el);
+    if (vec) {
+      const cv = document.createElement("canvas");
+      cv.style.cssText = "display: block; width: 100%; background: #000; margin-top: 4px;";
+      fig.appendChild(cv);
+      el.addEventListener("alfie-vector", (e) => plotVector(cv, e.detail));
+    }
     fig.insertAdjacentHTML("beforeend", `<figcaption>${f.label}</figcaption>`);
     g.appendChild(fig);
     if (f.intro) {
@@ -155,4 +172,23 @@
     else if (f.type) await el.renderScreenStill(f); else await el.renderStill(f);
   }
   document.body.dataset.ready = "1";
+
+  // A vector frame as the scope gets it: [-1, 1] across the canvas, y up.
+  function plotVector(cv, { strokes, aspect }) {
+    const W = 600, H = Math.round(W / aspect);
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext("2d"), X = (x) => (x + 1) * W / 2, Y = (y) => (1 - y) * H / 2;
+    ctx.clearRect(0, 0, W, H);
+    for (const st of strokes) {
+      ctx.strokeStyle = ctx.fillStyle = `rgba(125, 255, 138, ${0.25 + 0.75 * st.w})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      st.p.forEach(([x, y], i) => (i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y))));
+      if (st.c) ctx.closePath();
+      ctx.stroke();
+      for (const [x, y] of st.p) ctx.fillRect(X(x) - 1, Y(y) - 1, 2, 2);
+    }
+    ctx.fillStyle = "#888";
+    ctx.fillText(`${strokes.length} strokes, ${strokes.reduce((n, s) => n + s.p.length, 0)} points`, 6, 14);
+  }
 </script>

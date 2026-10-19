@@ -1,0 +1,25 @@
+# alfie-scope beside xy-bench on the scope box: docker compose up -d --build
+# (from this directory, with .env made from .env.example).
+name: alfie-scope
+
+services:
+  alfie-scope:
+    build: .
+    image: alfie-scope:latest
+    init: true                      # reap Chromium's children
+    restart: unless-stopped
+    env_file: .env
+    # xy-bench's own network: it is reached as http://xy-bench:8080 and keeps
+    # its port bound to localhost. Nothing here listens.
+    networks: [xy-bench]
+    read_only: true
+    tmpfs:
+      - /tmp                        # Chromium's profile and shared memory
+    mem_limit: 768m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+networks:
+  xy-bench:
+    external: true
+    name: xy-bench_default
