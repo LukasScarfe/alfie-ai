@@ -143,3 +143,34 @@ calls when it leaves and arrives in "hand over".
 - **Hand over:** the face leaves by the transition, the screen enters, and at the end the reverse.
 - **Corner:** the face shrinks into the corner (an animated scale and translate) and keeps
   living there. The screen box is the card minus a margin around that corner.
+
+## Look and playground (M3 step E)
+
+**Config section `look`** (in `config.py`, after `personality`; the defaults reproduce today's
+card defaults exactly):
+
+```json
+"look": {"style": "neon", "face_color": "", "eye_color": "", "background": "",
+         "text_color": "", "accent_color": "", "line_width": 0.035, "screen_line_width": 0.02,
+         "glow": null, "eye_fill": false, "padding": 0.08,
+         "shapes": {"head": {"type": "circle"}, "eye": {"type": "circle"}}}
+```
+
+- `style` is one of the card's styles (neon, flat, crt, theme).
+- In the colour fields, `""` means "from the style". A value is a CSS colour, `#hex` or
+  `var(--x)`.
+- `glow`: null means "from the style", else 0 to 2.
+- `shapes` holds the shape specs from design.md "Shapes are swappable data", checked for type
+  and numeric ranges.
+- The scene gains `"look": {...}` (the whole section; it's small).
+
+**Card precedence:** a key set in the card's own config wins, then the scene's `look` (empty or
+null values skipped), then the card's `DEFAULTS` and style.
+
+**Card preview methods** for the panel (local only, never sent anywhere):
+- `previewLook(look | null)`: use this look instead of the scene's;
+- `previewExpression(name | null)`: hold an expression;
+- `previewEnergy(value | null)`: hold an energy;
+- `playLocal(name)`: already exists.
+
+null ends a preview.
