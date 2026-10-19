@@ -323,8 +323,7 @@ letters: accents drop to the base letter, and letters it can't decompose (Ł) ar
 - **Transitions (decided):** 13 styles from xy's intros, used both ways (a screen arriving, and
   Alfie leaving in "hand over"): cut, fade, draw, stagger, zoom, power_on, slide, flip, wipe,
   tune, materialise, condense and morph. Morph turns the face itself into the screen, and
-  `random` picks any but cut. The pick holds from Alfie leaving until he comes back, so
-  screens handing over to each other keep it and he returns the way he left.
+  `random` picks any but cut.
 - **Presenting (decided):** two styles, a user option per card (and per story step later):
   - **Hand over:** Alfie leaves with a transition, the screen takes the whole card, then he
     comes back when it ends.
@@ -348,7 +347,9 @@ letters: accents drop to the base letter, and letters it can't decompose (Ł) ar
     - the card fetches the timed actions over `alfie/story/expand` and plays them itself.
   - **Coming back:** in corner mode the screen leaves first and only then does Alfie spring out
     of his corner. In hand over he comes in by the transition while the screen goes (morph
-    turns one into the other). A story he plays himself starts once he is back.
+    turns one into the other). Stories keep the same timing: while a screen (the rotation's or a
+    story step's) leaves and he comes back, the story waits. His own story's clock pauses; a
+    trigger story's animation that arrives meanwhile plays once he is back.
   - Otherwise he appears when a trigger plays a story, on every display. In corner mode he comes
     out to the centre for it, then goes back to the corner and the rotation carries on.
   - The timer runs in the card and pauses while it is hidden or off screen.

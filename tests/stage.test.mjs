@@ -76,6 +76,19 @@ const spec = { steps: [{ screen: "a", seconds: 10 }, { screen: "b", seconds: 5 }
   eq([s7.fire, s7.done, s7.expression], [["shake"], true, "sad"], "shake at the end, done");
 }
 
+// screenEnd: a story screen that ends within a frame, so the card can stop there.
+{
+  const acts = [
+    { kind: "expression", value: { name: "sad", blend: 0 }, seconds: 1 },
+    { kind: "screen", value: { id: "plants", seconds: 2 }, seconds: 2 },
+    { kind: "animation", value: "shake", seconds: 1 },
+  ];
+  eq(G.screenEnd(acts, 2.9, 3.05), 3, "the screen ends in this frame");
+  eq(G.screenEnd(acts, 2.0, 2.5), null, "still on show");
+  eq(G.screenEnd(acts, 0.5, 3.5), null, "no screen on show yet");
+  eq(G.runStory(acts, 3 - 1e-6, 3.2).fire, ["shake"], "what follows fires once resumed");
+}
+
 // A jump far ahead (the tab was hidden) still lands somewhere sane.
 {
   const rot = G.start(spec, 0);
