@@ -742,8 +742,17 @@ class AlfieCard extends HTMLElement {
     return this._screens?.types?.[screen.type] ?? this._screens?.types?.find?.((t) => t.type === screen.type) ?? null;
   }
 
+  // Load a screen's module ahead of showing it, so it never comes in half ready.
+  _loadModule(screen) {
+    if (screen.__mod || screen.__loading || this._bad.has(screen.id)) return;
+    screen.__loading = true;
+    Promise.all([S.fontReady() ? 0 : S.loadFont(), S.loadScreen(screen.type)]).then(([, m]) => { screen.__mod = m; })
+      .catch((e) => this._fail(screen, e)).finally(() => { screen.__loading = false; });
+  }
+
   async _ensureData(id) {
     const screen = this._screenIndex.get(id);
+    if (screen) this._loadModule(screen);
     if (!screen || !this._typeOf(screen)?.needs || !this._hass) return;
     const d = this._data.get(id) ?? { data: null, error: null, at: 0, inflight: false };
     this._data.set(id, d);
@@ -911,6 +920,7 @@ class AlfieCard extends HTMLElement {
 
   // A new screen on show, and how it comes in.
   _enter(id, t, present, keep = null, extra = {}) {
+    this._ensureData(id);
     const [style, random] = this._transitionStyle(keep);
     return (this._cur = { id, tIn: t, tOut: null, style, random, present, ...extra });
   }
@@ -1001,13 +1011,12 @@ class AlfieCard extends HTMLElement {
     const box = { w: hw, h: hh };
     let strokes = null;
     const d = this._data.get(screen.id);
+    this._loadModule(screen);
     const mod = screen.__mod;
-    if (!mod && !this._bad.has(screen.id) && !screen.__loading) {
-      screen.__loading = true;
-      Promise.all([S.fontReady() ? 0 : S.loadFont(), S.loadScreen(screen.type)]).then(([, m]) => { screen.__mod = m; })
-        .catch((e) => this._fail(screen, e)).finally(() => { screen.__loading = false; });
-    }
-    if (mod && !this._bad.has(screen.id) && S.fontReady()) {
+    // Nothing until the module and the first data are in: never a stand-in title for a moment.
+    const pending = !this._bad.has(screen.id) && (!mod || !S.fontReady() || (this._typeOf(screen)?.needs && this._hass && d?.data == null && !d?.error && !d?.at));
+    if (pending) return [];
+    if (mod && !this._bad.has(screen.id)) {
       try {
         if (!this._memo.has(screen.id)) this._memo.set(screen.id, {});
         strokes = mod.draw({
