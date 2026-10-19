@@ -37,7 +37,7 @@ from .config import _Check
 from .const import DOMAIN
 from .mood import COMBINE_MODES, LEVELS
 from .signals import OPERATORS, SEVERITIES
-from . import stories, triggers
+from . import modes, stories, triggers
 
 
 @callback
@@ -111,6 +111,12 @@ def ws_config_get(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
             "directions": list(triggers.DIRECTIONS),
             "signal_edges": list(triggers.SIGNAL_EDGES),
             "wake_edges": list(triggers.WAKE_EDGES),
+            "mode_edges": list(triggers.MODE_EDGES),
+            "mode": modes.default_mode(),
+            "condition": modes.default_condition(),
+            "presences": list(modes.PRESENCES),
+            "wakes": list(modes.WAKES),
+            "hold_backs": list(modes.HOLD_BACKS),
         },
     })
 

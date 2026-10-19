@@ -244,12 +244,43 @@ are not triggers.
 
 ## House modes
 
-- **Night/asleep:** he sleeps, and only critical signals wake him. The user picks the entity; for
-  Lukas it's `switch.global_sleep_switches`.
-- **Away:** he idles or blanks, then wakes up and greets on arrival.
-- **Guests:** extra bubbly, or a "company manners" setting that holds back non-critical bad news.
-- **User-defined modes:** each is a condition plus overrides for mood, liveliness, rotation and
-  active triggers.
+Built in M5: `modes.py` (pure), the engine's mode choice, the card's blank and rotation handling,
+and the panel's **Modes** tab.
+
+- **One mode at a time.** Modes are an ordered list (config `modes`). The mode is the first
+  enabled one whose condition holds, otherwise Normal (no mode).
+  - A condition is an entity or pattern, an operator and a value, with match any or all, like a
+    signal's. A mode with no condition is only picked by hand.
+  - `select.alfie_mode`: `auto` follows the conditions, `normal` is no mode, and a mode's id
+    forces it. Its options follow the config.
+  - The scene carries `mode`, `mode_pick` and `mode_info {name, presence, rotation, why}`.
+    `sensor.alfie_mood` shows the mode and its why.
+- **What a mode overrides:**
+  - **presence:**
+    - normal;
+    - asleep: the sleep expression, woken only by something critical (or major, or nothing);
+    - idle: no fidgets and no glances, energy ×0.6, the face stays;
+    - blank: cards draw nothing and stop their frame loop; a story still brings him on.
+  - **bad news:**
+    - hold back signals at or below minor or major: they don't touch his mood or play stories;
+    - a mood floor ("at least") or a fixed mood.
+  - **personality:** a preset, an energy bias and a fidget rate.
+  - **rotation:** rotation cards show another rotation, or pause. The card's own resumes where
+    it was afterwards. A card can opt out with `follow_mode: false`.
+  - **triggers:** chosen triggers are off in the mode.
+- **Mode triggers:** the trigger kind `mode` fires when chosen modes (or any) start, end, or
+  either.
+- **Defaults** (Lukas's house):
+  - **Night**: `switch.global_sleep_switches` is on → asleep, woken by critical. This was the
+    sleep entity before M5; `migrate_v2` moves it into Night, and an empty one becomes Night by
+    hand.
+  - **Away**: `zone.home` below 1 (nobody home) → idle, with every trigger off except Something
+    turns critical.
+  - **Welcome home** (a trigger, priority 60): leaving Away plays the Welcome home story
+    (wake_up, happy, nod).
+- **Guests:** no default for now (Lukas, 2026-10-19). `input_boolean.guest_mode` stays a good
+  signal, and a guests mode can be built from the overrides above (more bubbly, hold back
+  non-critical bad news).
 
 ## Screens
 
@@ -419,8 +450,8 @@ section to them. From production `configuration.yaml` (`sensor.superintendent_mo
     `sensor.fineoffset_wh51_0ee64d_moisture` below 25 %, or one of
     `binary_sensor.{bathroom,hallway,hallway_closet}_motion_sensor_battery_low` is on. The old
     face showed `skeptical`.
-  - **rest**: `switch.global_sleep_switches` on means `closed`. This becomes the Night house mode
-    in M5; for now it is the `sleep_entity` and `sleep_expression` behaviour settings.
+  - **rest**: `switch.global_sleep_switches` on means `closed`: the Night house mode, with the
+    `sleep_expression` behaviour setting.
   - **good**: `input_boolean.guest_mode` on means `happy`.
   - Otherwise `neutral`. The old face never used "happy because people are home" and never bored.
 - **Mood levels to expressions** (default): bubbly → happy, content → neutral, uneasy →

@@ -1,10 +1,51 @@
 # Alfie: handoff
 
-**Milestones 1 to 3 are done (M3 approved on the tablet 2026-10-19). M4 (Triggers and stories)
-is built and verified in dev HA, including G (Lukas's rotation review); only F, the tablet check
-with Lukas, is left.** Version 0.4.0.
+**Milestones 1 to 3 are done. M4 (Triggers and stories) was approved by Lukas from the
+screenshots ("everything looks great"); its tablet check F is still open. M5 (House modes) is
+built and verified in dev HA (A to E); only F, the tablet check with Lukas, is left.** Version
+0.5.0.
 
-## M4 status (2026-10-19)
+## M5 status (2026-10-19)
+
+- **What was built:**
+  - **Model:** `modes.py` (pure: validate, choose, held_back, mood_level, wakes,
+    personality). Config v3: `migrate_v2` turns behaviour `sleep_entity` into the Night mode,
+    and adds Away (on `zone.home`) plus the Welcome home story and trigger. `triggers.py` has
+    the kind `mode`.
+  - **Engine:** `_recompute` chooses the mode (conditions are signals, so the filtered listener
+    and resolution are reused) and applies hold back, mood floor/fixed, presence (asleep, idle
+    quiet, blank) and the personality overrides. It fires mode triggers. `_fire` skips the
+    mode's `triggers_off`.
+  - **Select:** `select.alfie_mode` options are `auto`, `normal` and the mode ids.
+  - **Scene:** `mode`, `mode_pick` and `mode_info`.
+  - **Card:** blank presence clears the canvas and stops the loop (unless a story plays). A
+    mode rotation swaps in, and the card's own resumes where it was; `pause` holds the clock.
+    `follow_mode: false` opts out.
+  - **Panel:** the Modes tab (ordered list, condition, presence, hold back, mood,
+    personality, rotation, triggers off, a live "Now" line, and a hand pick that drives the
+    select), the mode trigger kind, and a Behaviour pointer for sleep.
+- **Verified live:**
+  - `./dev state zone.home 0` → Away; `1` → Welcome home plays.
+  - The sleep switch → Night asleep; a critical signal wakes him and Alarm plays; it clears to
+    asleep again; switch off → Wake up.
+  - Hand picks through the select.
+  - Card blank, mode rotation and pause (`devenv/out/m5-card.js`, which adds test modes; reset
+    modes after).
+  - The panel click-through is `devenv/out/m5-click.js`. It ends with modes and triggers reset
+    to the defaults and saved.
+- PNGs sent to Lukas: `devenv/out/m5-panel-modes.png`, `m5-sheet.png` (normal, away, night).
+  Away looks like Normal in a still frame: idle is behaviour (quiet, slower), not a look.
+- **Next: F** for M4 and M5 on the tablet with Lukas. Then claim M6 (Voice) and plan it in plan
+  mode with Lukas's OK.
+- Gotchas:
+  - `./dev seed` now sets `zone.home` to 2 (dev's real zone.home counts no one, which is Away).
+    Seeding straight after a restart logs a harmless "Entity id already exists: zone.home"
+    from the zone integration.
+  - `self.active` is the mode dict; `mode_id` is its id or "normal". `self.mode` is the
+    select's pick.
+  - `_schedule_idle` cancels any pending timer first: a mode change reschedules it.
+
+## M4 notes (2026-10-19)
 
 - **A to E and G are done.**
   - `stories.py` and `triggers.py` are the pure models. Config is v2: the old behaviour
@@ -40,8 +81,6 @@ with Lukas, is left.** Version 0.4.0.
   (`window.PART='A'|'B'|'C'`, plus `window.FAST=1`):
   `SHOT_VERBOSE=1 ./dev shot alfie out.png --size 1200x1500 --wait 6000 --eval "window.PART='B'; window.FAST=1; $(cat devenv/out/m4-click.js)"`.
   Part C saves a test story; `./dev js devenv/out/m4-reset.js` puts triggers and stories back.
-- **Next: F.** Lukas checks M4 on the real tablet against dev HA, rotations included. Then claim
-  M5 (house modes), planned in plan mode with Lukas's OK first.
 - Gotchas:
   - Timers passed to `async_call_later` must be `@callback` (or `callback(lambda ...)`), or they
     run in an executor thread and HA raises.

@@ -21,6 +21,7 @@ const TABS = [
   ["signals", "Signals"],
   ["mood", "Mood"],
   ["behaviour", "Behaviour"],
+  ["modes", "Modes"],
   ["triggers", "Triggers"],
   ["stories", "Stories"],
   ["personality", "Personality"],
@@ -60,7 +61,10 @@ const SLIDER_TEXT = {
 const PREVIEW_ANIMS = ["glance_left", "nod", "look_around", "laugh", "startle", "sigh"];
 const KIND_TEXT = {
   entity: "An entity changes", motion: "Motion", mood: "Mood changes", signal: "A signal goes bad or recovers", wake: "Waking or sleeping",
+  mode: "A house mode starts or ends",
 };
+const PRESENCE_TEXT = [["normal", "normal"], ["asleep", "asleep: only bad enough news wakes him"],
+  ["idle", "idle: quiet, no fidgets or glances"], ["blank", "blank: cards draw nothing"]];
 const BUSY_TEXT = [["auto", "by priority: higher interrupts"], ["queue", "wait its turn"],
   ["interrupt", "interrupt whatever is playing"], ["skip", "don't play"]];
 const STEP_TEXT = {
@@ -163,6 +167,7 @@ class AlfiePanel extends HTMLElement {
         this._scene = s;
         this._showStatus();
         if (this._tab === "triggers" && s.story?.seq !== was) this._loadTriggerStatus();
+        if (this._tab === "modes") this._showModeNow();
       }, { type: "alfie/subscribe" });
     this._render();
     this._schedulePreview(0);
@@ -255,6 +260,10 @@ class AlfiePanel extends HTMLElement {
     if (!this._draft) return;
     const tool = ev.target.closest("[data-shape], [data-pg]");
     if (tool) return this._onTool(tool, ev);
+    if (ev.target.id === "modepick" && ev.type === "change") {
+      this._hass.callService("select", "select_option", { entity_id: this._modeEntity(), option: ev.target.value });
+      return;
+    }
     const el = ev.target.closest("[data-path]");
     if (!el) return;
     const path = el.dataset.path, kind = el.dataset.kind || "text";
@@ -279,7 +288,17 @@ class AlfiePanel extends HTMLElement {
       this._edited(true);
       return;
     }
-    if (/^triggers\.\d+\.id$/.test(path) && this._open.delete(`t:${getPath(this._draft, path)}`)) this._open.add(`t:${v}`);
+    if (/^triggers\.\d+\.id$/.test(path)) {
+      const old = getPath(this._draft, path);
+      Fm.renameModeRefs(this._draft, "trigger", old, v);
+      if (this._open.delete(`t:${old}`)) this._open.add(`t:${v}`);
+    }
+    if (/^modes\.\d+\.id$/.test(path)) {
+      const old = getPath(this._draft, path);
+      Fm.renameModeRefs(this._draft, "mode", old, v);
+      if (this._open.delete(`m:${old}`)) this._open.add(`m:${v}`);
+    }
+    if (/^rotations\.\d+\.id$/.test(path)) Fm.renameModeRefs(this._draft, "rotation", getPath(this._draft, path), v);
     if (/^stories\.\d+\.id$/.test(path)) {
       const old = getPath(this._draft, path);
       Fm.renameStoryRefs(this._draft, old, v);
@@ -325,7 +344,7 @@ class AlfiePanel extends HTMLElement {
       const head = el.closest(".signal")?.querySelector(".label");
       if (head) head.textContent = v || "(no label)";
     }
-    if (/^(triggers|stories)\.\d+\.name$/.test(path)) {
+    if (/^(triggers|stories|modes)\.\d+\.name$/.test(path)) {
       const head = el.closest(".card")?.querySelector(".label");
       if (head) head.textContent = v || "(no name)";
     }
@@ -555,6 +574,7 @@ class AlfiePanel extends HTMLElement {
       }
       case "del-trigger":
         if (!confirm(`Delete trigger "${trs[i].name || trs[i].id}"?`)) return;
+        for (const m of d.modes || []) m.triggers_off = m.triggers_off.filter((x) => x !== trs[i].id);
         trs.splice(i, 1);
         this._edited(true);
         return;
@@ -630,7 +650,86 @@ class AlfiePanel extends HTMLElement {
         if (Fm.moveItem(sts[i].steps, j, a === "up-story-step" ? j - 1 : j + 1)) this._edited(true);
         return;
       case "play-story": this._playStory(i, el); return;
+      default: this._onClickMode(a, el, i);
     }
+  }
+
+  // Modes tab actions.
+  _onClickMode(a, el, i) {
+    const ms = this._draft.modes, j = Number(el.dataset.j);
+    switch (a) {
+      case "toggle-mode": {
+        const key = `m:${ms[i].id}`;
+        this._open.has(key) ? this._open.delete(key) : this._open.add(key);
+        this._render();
+        return;
+      }
+      case "add-mode": {
+        const m = { ...clone(this._choices.mode), id: Fm.uniqueId(ms, "mode"), condition: clone(this._choices.condition) };
+        ms.push(m);
+        this._open.add(`m:${m.id}`);
+        this._edited(true);
+        return;
+      }
+      case "dup-mode": {
+        const m = clone(ms[i]);
+        m.id = Fm.uniqueId(ms, `${m.id}_copy`);
+        m.name = m.name ? `${m.name} (copy)` : "";
+        ms.splice(i + 1, 0, m);
+        this._open.add(`m:${m.id}`);
+        this._edited(true);
+        return;
+      }
+      case "del-mode":
+        if (!confirm(`Delete mode "${ms[i].name || ms[i].id}"?`)) return;
+        ms.splice(i, 1);
+        this._edited(true);
+        return;
+      case "up-mode": case "down-mode":
+        if (Fm.moveItem(ms, i, a === "up-mode" ? i - 1 : i + 1)) this._edited(true);
+        return;
+      case "mode-cond": {
+        // Turning the condition back on brings back the one it had.
+        const memo = (this._condMemo ??= new Map());
+        if (ms[i].condition) memo.set(ms[i].id, ms[i].condition);
+        ms[i].condition = ms[i].condition ? null : memo.get(ms[i].id) || clone(this._choices.condition);
+        this._edited(true);
+        return;
+      }
+      case "add-mode-entity": {
+        const v = el.parentElement.querySelector("input").value.trim();
+        if (!v) return;
+        const c = ms[i].condition;
+        if (!c.entities.includes(v)) c.entities.push(v);
+        this._edited(true);
+        return;
+      }
+      case "rm-mode-entity":
+        ms[i].condition.entities.splice(j, 1);
+        this._edited(true);
+        return;
+      case "mode-trig-off": {
+        const list = ms[i].triggers_off, id = el.dataset.name, k = list.indexOf(id);
+        k >= 0 ? list.splice(k, 1) : list.push(id);
+        this._edited(true);
+        return;
+      }
+    }
+  }
+
+  _modeEntity() {
+    return Object.keys(this._hass.states).find((e) => e.startsWith("select.") && e.endsWith("_mode")
+      && this._hass.states[e].attributes?.options?.includes("auto")) || "select.alfie_mode";
+  }
+
+  _showModeNow() {
+    const el = this.shadowRoot.querySelector(".modenow");
+    if (!el) return;
+    const s = this._scene, info = s?.mode_info;
+    el.innerHTML = info ? `Now: <b>${esc(info.name)}</b>${info.why?.length ? ` (${esc(info.why.join(", "))})` : ""}${s.mode_pick && s.mode_pick !== "auto" ? ", picked by hand" : ""}` : "";
+    const pick = this.shadowRoot.querySelector("#modepick");
+    if (pick && s?.mode_pick && pick !== this.shadowRoot.activeElement) pick.value = s.mode_pick;
+    this.shadowRoot.querySelectorAll("[data-mode-now]").forEach((b) => { b.hidden = b.dataset.modeNow !== s?.mode; });
   }
 
   async _playStory(i, el) {
@@ -709,12 +808,13 @@ class AlfiePanel extends HTMLElement {
     root.querySelector(".body").addEventListener("change", (e) => this._onInput(e));
     // Enter in the entity box adds it, like pressing Add.
     root.querySelector(".body").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") e.target.closest(".row")?.querySelector('[data-action="add-entity"], [data-action="add-opt-entity"], [data-action="add-trig-entity"]')?.click();
+      if (e.key === "Enter") e.target.closest(".row")?.querySelector('[data-action="add-entity"], [data-action="add-opt-entity"], [data-action="add-trig-entity"], [data-action="add-mode-entity"]')?.click();
     });
     this._mountFaces();
     this._showStatus();
     this._showPreview();
     if (this._tab === "triggers") this._showTriggerStatus();
+    if (this._tab === "modes") this._showModeNow();
   }
 
   _entityOptions() {
@@ -891,6 +991,76 @@ class AlfiePanel extends HTMLElement {
       </div></details>`;
   }
 
+  // ------------------------------------------------------------ modes
+
+  _modes() {
+    const ms = this._draft.modes;
+    const pick = [["auto", "Auto: follow the conditions"], ["normal", "Normal: no mode"],
+      ...(this._saved.modes || []).map((m) => [m.id, m.name || m.id])];
+    return `<p class="intro">A house mode is what kind of time it is: night, away, or one of your own. Alfie is in one
+      mode at a time: the first in this list whose condition holds. A mode with no condition is only ever picked by hand.</p>
+      <div class="row"><span class="modenow muted grow"></span>
+        <label class="inline">Mode${this._select("", this._scene?.mode_pick || "auto", pick, 'id="modepick"').replace('data-path=""', "")}</label></div>
+      ${ms.map((m, i) => this._mode(m, i)).join("") || `<p class="muted">No modes: Alfie is always himself.</p>`}
+      <button class="add" data-action="add-mode">+ Add a mode</button>
+      ${this._footer("modes")}`;
+  }
+
+  _mode(m, i) {
+    const open = this._open.has(`m:${m.id}`), n = this._draft.modes.length, c = this._choices, P = `modes.${i}`;
+    const head = `<div class="row head">
+        <input type="checkbox" title="Enabled" data-path="${P}.enabled" data-kind="bool" ${m.enabled ? "checked" : ""}>
+        <span class="label" data-action="toggle-mode" data-i="${i}">${esc(m.name || "(no name)")}</span>
+        <span class="badge good" data-mode-now="${esc(m.id)}" hidden>now</span>
+        <span class="muted small grow">${esc(Fm.modeSummary(m))}</span>
+        <span class="tools">
+          <button class="icon" data-action="up-mode" data-i="${i}" ${i ? "" : "disabled"} title="Move up">▲</button>
+          <button class="icon" data-action="down-mode" data-i="${i}" ${i < n - 1 ? "" : "disabled"} title="Move down">▼</button>
+          <button class="icon" data-action="toggle-mode" data-i="${i}" title="Edit">${open ? "▾" : "▸"}</button>
+        </span></div>`;
+    if (!open) return `<div class="card mode">${head}</div>`;
+    const cond = m.condition;
+    const levels = [["", "as the signals say"], ...c.levels.map((l) => [l, LEVEL_TEXT[l] || l])];
+    const presets = Object.keys(c.personalities).filter((k) => k !== "custom");
+    const rots = [["", "the card's own"], ["pause", "pause it"], ...this._draft.rotations.map((r) => [r.id, r.name || r.id])];
+    if (m.rotation && !rots.some(([v]) => v === m.rotation)) rots.push([m.rotation, `${m.rotation} (missing)`]);
+    const trs = this._draft.triggers;
+    const condHtml = cond ? `<div class="wide"><span class="lbl">While</span>
+          <div class="chips">${cond.entities.map((e, j) => `<span class="ent"><code>${esc(e)}</code>
+            <button class="icon" data-action="rm-mode-entity" data-i="${i}" data-j="${j}" title="Remove">✕</button></span>`).join("")
+            || `<span class="muted">no entity yet</span>`}</div>
+          <div class="row"><input list="entities" placeholder="Pick an entity or type a pattern" class="grow">
+            <button class="flat" data-action="add-mode-entity" data-i="${i}">Add</button></div></div>
+        ${cond.entities.length > 1 ? `<label>Match${this._select(`${P}.condition.match`, cond.match, [["any", "any of them"], ["all", "all of them"]])}</label>` : ""}
+        <label>Is${this._select(`${P}.condition.op`, cond.op, c.operators.map((o) => [o, o.replace("_", " ")]))}</label>
+        <label>Value<input data-path="${P}.condition.value" data-kind="value" value="${esc(cond.value)}"></label>` : "";
+    return `<div class="card mode open">${head}
+      <div class="grid">
+        <label>Name<input data-path="${P}.name" value="${esc(m.name)}" placeholder="Night"></label>
+        <label>ID<input data-path="${P}.id" value="${esc(m.id)}" pattern="[a-z0-9_]+" data-rerender></label>
+        <label class="check"><input type="checkbox" data-action="mode-cond" data-i="${i}" ${cond ? "checked" : ""}>
+          Has a condition <small>Off: only when picked by hand.</small></label>
+        ${condHtml}
+        <h4 class="wide">Then Alfie is</h4>
+        <label>Presence${this._select(`${P}.presence`, m.presence, PRESENCE_TEXT, "data-rerender")}</label>
+        ${m.presence === "asleep" ? `<label>Woken by${this._select(`${P}.wake`, m.wake, [["critical", "something critical"], ["major", "something major or worse"], ["never", "nothing"]])}</label>` : ""}
+        <label>Hold back bad news${this._select(`${P}.hold_back`, m.hold_back, [["none", "none"], ["minor", "minor"], ["major", "minor and major"]])}
+          <small>Held back signals don't touch his mood or play stories in this mode.</small></label>
+        <label>Mood at least${this._select(`${P}.mood_floor`, m.mood_floor, levels)}</label>
+        <label>Mood fixed at${this._select(`${P}.mood_fixed`, m.mood_fixed, levels)}</label>
+        <label>Personality${this._select(`${P}.personality`, m.personality, [["", "his own"], ...presets.map((p) => [p, p])])}</label>
+        <label>Energy bias${this._num(`${P}.energy_bias`, m.energy_bias, { min: -0.5, max: 0.5, step: 0.05, empty: "null" })}</label>
+        <label>Fidget rate${this._num(`${P}.fidget_rate`, m.fidget_rate, { min: 0, max: 4, step: 0.1, empty: "null" })}</label>
+        <label>Rotation cards show${this._select(`${P}.rotation`, m.rotation, rots)}</label>
+        <div class="wide"><span class="lbl">Triggers off in this mode</span><div class="anims">${trs.map((t) =>
+          `<button class="chip pick ${m.triggers_off.includes(t.id) ? "on" : ""}" data-action="mode-trig-off" data-i="${i}" data-name="${esc(t.id)}">${esc(t.name || t.id)}</button>`).join("")}</div></div>
+      </div>
+      <div class="row end">
+        <button class="flat" data-action="dup-mode" data-i="${i}">Duplicate</button>
+        <button class="flat danger" data-action="del-mode" data-i="${i}">Delete</button>
+      </div></div>`;
+  }
+
   // ------------------------------------------------------------ triggers
 
   _triggers() {
@@ -951,6 +1121,10 @@ class AlfiePanel extends HTMLElement {
           (id) => this._draft.signals.find((s) => s.id === id)?.label || id)}</div>`;
     } else if (t.kind === "wake") {
       own += `<label>When Alfie${this._select(`${P}.edge`, t.edge, [["wakes", "wakes up"], ["sleeps", "falls asleep"]])}</label>`;
+    } else if (t.kind === "mode") {
+      const ms = this._draft.modes || [];
+      own += `<label>When${this._select(`${P}.edge`, t.edge, [["enter", "it starts"], ["leave", "it ends"], ["either", "it starts or ends"]])}</label>
+        <div class="wide"><span class="lbl">Modes (none: any)</span>${picks("modes", ms.map((m) => m.id), (id) => ms.find((m) => m.id === id)?.name || id)}</div>`;
     }
     const stories = this._draft.stories.map((s) => [s.id, s.name || s.id]);
     if (t.story && !stories.some(([v]) => v === t.story)) stories.push([t.story, `${t.story} (missing)`]);
@@ -1133,9 +1307,10 @@ class AlfiePanel extends HTMLElement {
         <input list="entities" class="grow" data-path="behaviour.gaze_map.${i}.entity" value="${esc(g.entity)}" placeholder="binary_sensor.…_motion">
         ${this._select(`behaviour.gaze_map.${i}.action`, g.action, [["notice", "notice you (a random pick below)"], ...anims.map((a) => [a, a])])}
         <button class="icon" data-action="rm-gaze" data-i="${i}" title="Remove">✕</button></div>`).join("");
-    return `<h3>Sleep</h3><div class="grid">
-        <label>Sleeps while this is on<input list="entities" data-path="behaviour.sleep_entity" value="${esc(b.sleep_entity)}" placeholder="none">
-          <small>Only something critical wakes him. The Mode entity's "night" also sends him to sleep.</small></label>
+    return `<h3>Sleep</h3>
+      <p class="intro">When he sleeps is a house mode (Night, by default) on the
+        <button class="link" data-action="tab" data-tab="modes">Modes</button> tab.</p>
+      <div class="grid">
         <label>Sleeping expression${this._select("behaviour.sleep_expression", b.sleep_expression, c.expressions)}</label>
       </div>
       <h3>Motion</h3>
@@ -1592,6 +1767,8 @@ const CSS = `
   .row.step { flex-wrap: wrap; gap: 6px; }
   .row.step .secs { width: 70px; }
   label.check.inline { display: inline-flex; align-items: center; gap: 4px; }
+  [hidden] { display: none !important; }
+  label.inline { display: inline-flex; align-items: center; gap: 8px; }
   details.repeat { margin: 8px 0; }
   details.repeat summary { cursor: pointer; color: var(--secondary-text-color); }
   .playing { margin: 0 0 8px; }

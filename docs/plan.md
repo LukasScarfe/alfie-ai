@@ -95,8 +95,8 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         `select.alfie_mode` options; tests.
   - [x] C. Card: blank presence (nothing drawn, loop paused), mode rotation or pause,
         `follow_mode` option and editor; checks.
-  - [ ] D. Panel: Modes tab, mode trigger kind, Behaviour sleep pointer; click-through.
-  - [ ] E. Dev HA: Night, Away and Welcome home live, PNGs to Lukas; design.md; version 0.5.0.
+  - [x] D. Panel: Modes tab, mode trigger kind, Behaviour sleep pointer; click-through.
+  - [x] E. Dev HA: Night, Away and Welcome home live, PNGs to Lukas; design.md; version 0.5.0.
   - [ ] F. Shown on the real tablet against dev HA (Lukas).
 - [ ] **6. Voice.** React to all `assist_satellite` states, the what's-wrong LLM tool and intent,
       optional persona, mood-aware replies, TTS announcement step.

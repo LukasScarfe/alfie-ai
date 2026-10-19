@@ -127,7 +127,32 @@ export function triggerSummary(t) {
     case "mood": return `mood ${t.direction === "any" ? "changes" : `gets ${t.direction}`}${t.from?.length ? ` from ${t.from.join("/")}` : ""}${t.to?.length ? ` to ${t.to.join("/")}` : ""}`;
     case "signal": return `${list(t.signals, "any signal")} ${t.edge === "goes_bad" ? "goes bad" : t.edge === "recovers" ? "recovers" : "goes bad or recovers"}`;
     case "wake": return t.edge === "wakes" ? "Alfie wakes up" : "Alfie falls asleep";
+    case "mode": return `${list(t.modes, "any mode")} ${t.edge === "enter" ? "starts" : t.edge === "leave" ? "ends" : "starts or ends"}`;
     default: return t.kind;
+  }
+}
+
+// One line on when a house mode holds and what it does, for its collapsed header.
+export function modeSummary(m) {
+  const c = m.condition;
+  const when = !c ? "picked by hand" : `${c.entities.length ? c.entities.join(c.match === "all" ? " and " : " or ") : "no entity"} ${c.op.replace("_", " ")} ${c.value}`;
+  const does = [m.presence !== "normal" ? m.presence : "", m.hold_back !== "none" ? `holds back ${m.hold_back}` : "",
+    m.mood_fixed ? `mood ${m.mood_fixed}` : m.mood_floor ? `mood at least ${m.mood_floor}` : "",
+    m.personality, m.rotation ? (m.rotation === "pause" ? "rotation paused" : `rotation ${m.rotation}`) : "",
+    m.triggers_off.length ? `${m.triggers_off.length} trigger${m.triggers_off.length > 1 ? "s" : ""} off` : ""].filter(Boolean);
+  return `${when} → ${does.join(", ") || "no changes"}`;
+}
+
+// Follow a renamed id into the house modes and mode triggers that refer to it:
+// kind is "mode", "trigger" or "rotation".
+export function renameModeRefs(draft, kind, from, to) {
+  if (from === to) return;
+  for (const m of draft.modes || []) {
+    if (kind === "trigger") m.triggers_off = m.triggers_off.map((x) => (x === from ? to : x));
+    if (kind === "rotation" && m.rotation === from) m.rotation = to;
+  }
+  if (kind === "mode") {
+    for (const t of draft.triggers || []) if (t.kind === "mode") t.modes = t.modes.map((x) => (x === from ? to : x));
   }
 }
 
