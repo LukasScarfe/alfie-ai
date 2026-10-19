@@ -1,7 +1,7 @@
 # Alfie: handoff
 
-**Milestones 1 and 2 are done; M3 (Screens) is built, waiting on the tablet check.** Version 0.3.0.
-(2026-10-18)
+**Milestones 1 to 3 are done (M3 approved on the tablet 2026-10-19); M4 (Triggers and stories) is
+claimed and being planned.** Version 0.3.0.
 
 ## Working, in dev HA (`./dev up`, then `http://192.168.1.241:8125`)
 
@@ -40,9 +40,7 @@
 - The panel has the Screens, Look and Playground tabs, and the global `look` reaches every
   card (a card's own options win).
 
-1. **Next: Lukas checks it on the tablet** against dev HA (screens, rotation, presenting, the
-   card editor). Then tick M3.
-2. **Then M4, Triggers and stories.** Plan it in plan mode with Lukas's OK. Presenting is already
+1. **Next: M4, Triggers and stories.** Plan it in plan mode with Lukas's OK. Presenting is already
    decided (design.md "Screens"), and `alfie.show_screen` is the hook stories build on.
 
 Known gaps:

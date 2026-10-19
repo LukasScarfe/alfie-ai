@@ -38,7 +38,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         stroke with crisp lid corners.
   - [x] M3 groundwork: presenting and rotation decided (design.md "Screens"); xy-bench port
         inventory in `docs/m3-screens.md`.
-- [~] **3. Screens.** Port the templates to JS (plot, bars/value, weather, home clock, sky, stars,
+- [x] **3. Screens.** Port the templates to JS (plot, bars/value, weather, home clock, sky, stars,
       map, text) with entity pickers, add the rotation display mode and transitions. Built by
       parallel Sonnet agents with disjoint files; the research is in `docs/m3-screens.md`.
   - [x] A. Foundation: the stroke model and the card's screen renderer, the font (JSON from
@@ -65,9 +65,9 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
       with an optional "play on every display".
     - The full shape, expression and animation editors stay in M7.
   - [x] Dev HA: a rotation card in both presenting styles, screenshots for Lukas.
-  - [ ] Shown on the real tablet against dev HA (Lukas): screens, rotation, both presenting
+  - [x] Shown on the real tablet against dev HA (Lukas): screens, rotation, both presenting
         styles, the card editor.
-- [ ] **4. Triggers and stories.** Trigger config (any entity, per-motion-sensor actions, mood
+- [~] **4. Triggers and stories.** Trigger config (any entity, per-motion-sensor actions, mood
       changes, signal crossings), the fill-in story template and the advanced sequence builder, the
       default mood-change, bad-news and celebrate stories. Presenting is agreed (design.md
       "Screens": hand over or corner).
