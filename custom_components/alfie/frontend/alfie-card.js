@@ -96,6 +96,7 @@ const DEFAULTS = {
   icons: true,            // false: this card ignores icons (alfie.show_icon, a story's icon steps)
   vector_out: false,      // true: each frame's strokes go out as an "alfie-vector" event (the oscilloscope feed)
   paint: true,            // false: draw nothing on the canvas (a headless vector feed skips the cost)
+  vector_order: "tour",   // tour: the feed's strokes in the order with the shortest beam jumps; drawn: as painted
 };
 
 // A 2D context that does nothing, for `paint: false`: the drawing code runs as
@@ -694,8 +695,10 @@ class AlfieCard extends HTMLElement {
     ctx.shadowBlur = 0;
     this._drawBadges(ctx, w, h, R, { cx, cy, r: Rf });
     if (this._vec) {
+      let strokes = this._vec.strokes;
+      if (c.vector_order !== "drawn") ({ strokes, plan: this._tour } = G.tourStrokes(strokes, this._tour));
       this.dispatchEvent(new CustomEvent("alfie-vector", {
-        detail: { strokes: this._vec.strokes, aspect: w / h, t: this._now() } }));
+        detail: { strokes, aspect: w / h, t: this._now() } }));
     }
   }
 

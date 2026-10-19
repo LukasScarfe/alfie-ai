@@ -205,9 +205,139 @@ export function vectorStroke(pts, closed, weight, w, h) {
   const r = (n) => Math.round(n * 1000) / 1000;
   const p = [];
   for (const [x, y] of pts) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;   // xy-bench refuses a frame with one
     const q = [r((2 * x) / w - 1), r(1 - (2 * y) / h)];
     const last = p[p.length - 1];
     if (!last || last[0] !== q[0] || last[1] !== q[1]) p.push(q);
   }
+  if (!p.length) return null;
   return { p, c: !!closed && p.length > 2, w: r(clamp(weight, 0, 1)) };
+}
+
+// The order the scope's beam takes through a frame's strokes. There is no
+// blanking on an X-Y scope: every jump from one stroke to the next is a real
+// line the beam draws, and it costs samples the strokes could have had. So the
+// strokes go out as a short closed tour (the wrap from last to first counts),
+// each open stroke turned the way the beam arrives and each loop re-started at
+// the vertex nearest it. xy-bench traces them in this order (`ordered`).
+//
+// The tour is solved only when the frame's strokes change in kind (count and
+// closed-ness) or the kept order has grown TOUR_SLACK longer than a fresh one
+// would be, so moving parts don't make the order, and the jumps, flicker.
+// `prev` is the last call's `plan`; returns {strokes, plan}.
+const TOUR_SLACK = 1.15;
+const TOUR_STARTS = 24;   // greedy starts tried per solve
+const LOOP_PORTS = 24;    // a loop's vertices considered while solving
+
+const dist = (a, b) => { const x = a[0] - b[0], y = a[1] - b[1]; return Math.sqrt(x * x + y * y); };   // not Math.hypot: slow in V8
+
+// Strokes in `order` ([index, reversed] pairs), open ones turned as it says
+// and each loop re-started at the vertex that makes the jumps in and out of
+// it shortest (a loop leaves where it entered). Returns the placed strokes
+// and the tour's total jump length.
+function placeTour(strokes, order) {
+  const out = order.map(([i, r]) => (r && !strokes[i].c ? { ...strokes[i], p: strokes[i].p.slice().reverse() } : strokes[i]));
+  const n = out.length;
+  const exit = (s) => (s.c ? s.p[0] : s.p[s.p.length - 1]);
+  // Twice round: a loop's neighbours may be loops that move on the first pass.
+  for (let pass = 0; pass < 2 && n > 1; pass++) {
+    for (let k = 0; k < n; k++) {
+      const s = out[k];
+      if (!s.c) continue;
+      const a = exit(out[(k + n - 1) % n]), b = out[(k + 1) % n].p[0];
+      let j = 0, best = Infinity;
+      for (let m = 0; m < s.p.length; m++) {
+        const d = dist(s.p[m], a) + dist(s.p[m], b);
+        if (d < best) { best = d; j = m; }
+      }
+      if (j) out[k] = { ...s, p: s.p.slice(j).concat(s.p.slice(0, j)) };
+    }
+  }
+  let cost = 0;
+  for (let k = 0; n > 1 && k < n; k++) cost += dist(exit(out[k]), out[(k + 1) % n].p[0]);
+  return { out, cost };
+}
+
+// A fresh order: a greedy nearest-entry walk from several starts, each tidied
+// by 2-opt (a reversed run of strokes is traced backwards, open ones flipped).
+function solveTour(strokes) {
+  const n = strokes.length;
+  const ports = strokes.map((s) => {
+    if (!s.c) return null;
+    const step = Math.max(1, Math.floor(s.p.length / LOOP_PORTS));
+    return s.p.filter((_, j) => j % step === 0);
+  });
+  let best = null, bestCost = Infinity;
+  // Fewer starts on a crowded frame: each is a walk over every pair.
+  const starts = Math.max(1, Math.min(n, TOUR_STARTS, Math.floor(2000 / n)));
+  for (let k = 0; k < starts; k++) {
+    const first = Math.floor((k * n) / starts);
+    // ends[i] = [entry, exit] of the i-th stroke of the tour, as placed.
+    const order = [first], ends = [];
+    const left = new Set(strokes.keys()); left.delete(first);
+    const s0 = strokes[first];
+    ends.push(s0.c ? [s0.p[0], s0.p[0]] : [s0.p[0], s0.p[s0.p.length - 1]]);
+    let at = ends[0][1];
+    while (left.size) {
+      let pick = -1, pe = null, d = Infinity;
+      for (const i of left) {
+        const s = strokes[i];
+        if (s.c) {
+          for (const v of ports[i]) { const e = dist(v, at); if (e < d) { d = e; pick = i; pe = [v, v]; } }
+        } else {
+          const a = s.p[0], b = s.p[s.p.length - 1];
+          const da = dist(a, at), db = dist(b, at);
+          if (da < d) { d = da; pick = i; pe = [a, b]; }
+          if (db < d) { d = db; pick = i; pe = [b, a]; }
+        }
+      }
+      left.delete(pick); order.push(pick); ends.push(pe); at = pe[1];
+    }
+    twoOpt(order, ends);
+    let cost = 0;
+    for (let x = 0; x < n; x++) cost += dist(ends[x][1], ends[(x + 1) % n][0]);
+    // A stroke runs backwards when the tour enters it at its last point.
+    if (cost < bestCost - 1e-9) { best = order.map((i, x) => [i, !strokes[i].c && ends[x][0] !== strokes[i].p[0]]); bestCost = cost; }
+  }
+  return best;
+}
+
+// 2-opt on a closed tour of oriented strokes: reversing the run i..j swaps
+// each stroke's entry and exit, so the joins at both ends of the run change.
+function twoOpt(order, ends) {
+  const n = order.length;
+  if (n < 3) return;
+  for (let pass = 0, better = true; better && pass < 20; pass++) {
+    better = false;
+    for (let i = 1; i < n - 1; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const a = ends[i - 1][1], b = ends[i][0], c = ends[j][1], d = ends[(j + 1) % n][0];
+        if (dist(a, c) + dist(b, d) < dist(a, b) + dist(c, d) - 1e-9) {
+          for (let x = i, y = j; x < y; x++, y--) {
+            [order[x], order[y]] = [order[y], order[x]];
+            [ends[x], ends[y]] = [ends[y], ends[x]];
+          }
+          for (let x = i; x <= j; x++) ends[x] = [ends[x][1], ends[x][0]];
+          better = true;
+        }
+      }
+    }
+  }
+}
+
+export function tourStrokes(strokes, prev = null) {
+  const n = strokes.length;
+  const sig = strokes.map((s) => (s.c ? "c" : "o")).join("");
+  if (n < 2) return { strokes, plan: { sig, order: n ? [[0, false]] : [] } };
+  if (prev?.sig === sig) {
+    const kept = placeTour(strokes, prev.order);
+    // Re-check a kept order now and then, not every frame: solving costs.
+    if ((prev.age ?? 0) < 15) return { strokes: kept.out, plan: { ...prev, age: (prev.age ?? 0) + 1 } };
+    const order = solveTour(strokes);
+    const fresh = placeTour(strokes, order);
+    if (kept.cost <= fresh.cost * TOUR_SLACK + 0.02) return { strokes: kept.out, plan: { ...prev, age: 0 } };
+    return { strokes: fresh.out, plan: { sig, order, age: 0 } };
+  }
+  const order = solveTour(strokes);
+  return { strokes: placeTour(strokes, order).out, plan: { sig, order, age: 0 } };
 }
