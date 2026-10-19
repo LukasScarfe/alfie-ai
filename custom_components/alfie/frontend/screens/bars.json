@@ -7,7 +7,7 @@
    {"key": "max", "kind": "number", "label": "Maximum", "default": 100, "min": -10000, "max": 10000, "hint": "For a fixed scale."},
    {"key": "direction", "kind": "choice", "label": "Direction", "default": "vertical", "choices": ["vertical", "horizontal"]},
    {"key": "values", "kind": "bool", "label": "Show values", "default": true},
-   {"key": "unit", "kind": "text", "label": "Unit", "default": "", "hint": "Empty: the first entity's."},
+   {"key": "unit", "kind": "text", "label": "Unit", "default": "", "hint": "Empty: the first entity's. none: no unit."},
    {"key": "decimals", "kind": "number", "label": "Decimals", "default": 0, "min": 0, "max": 3},
    {"key": "highlight_below", "kind": "text", "label": "Accent bars below", "default": "", "hint": "A number. Empty: off."},
    {"key": "sort", "kind": "choice", "label": "Sort", "default": "none", "choices": ["none", "ascending", "descending"]},

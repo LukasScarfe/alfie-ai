@@ -142,3 +142,20 @@ def test_fetch_needs_entities_and_recorder(monkeypatch):
         asyncio.run(H.HistoryProvider().fetch(Hass(), {"id": "p", "options": {"entities": []}}))
     with pytest.raises(RuntimeError):
         asyncio.run(H.HistoryProvider().fetch(Hass(components=()), screen()))
+
+
+def test_bucketize_combine_keeps_real_values():
+    s = [(0, 1.0), (10, 4.0), (15, 2.0), (30, 3.0)]      # buckets of 20 s
+    assert H.bucketize(s, 0, 40, 2, "mean") == [2.0, 2.5]
+    assert H.bucketize(s, 0, 40, 2, "max") == [4.0, 3.0]
+    assert H.bucketize(s, 0, 40, 2, "min") == [1.0, 2.0]
+    assert H.bucketize(s, 0, 40, 2, "last") == [2.0, 3.0]
+    assert H.bucketize([(0, 5.0), (10, None)], 0, 40, 2, "max") == [5.0, None]
+
+
+def test_fetch_combine_option(monkeypatch):
+    now = datetime.now(timezone.utc).timestamp()
+    install_recorder(monkeypatch, {"sensor.fern": [FakeState(now - 90000, "1"), FakeState(now - 3.5 * 3600, "3"),
+                                                   FakeState(now - 3.4 * 3600, "1")]})
+    data = asyncio.run(H.HistoryProvider().fetch(Hass(), screen(combine="max")))
+    assert data["series"][0]["values"][-1] == 3.0

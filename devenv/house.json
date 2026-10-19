@@ -247,6 +247,8 @@
     "styles": "solid",
     "hours": 1,
     "buckets": 30,
+    "combine": "mean",
+    "shape": "straight",
     "range": "auto",
     "y_min": 0,
     "y_max": 100,

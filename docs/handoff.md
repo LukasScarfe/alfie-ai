@@ -9,9 +9,15 @@
 - **5¾ (Icons):** built and checked in dev HA, with the PNGs sent to Lukas (A to E). F is
   waiting on his review.
 
-Version 0.7.0.
+Version 0.7.1.
 
-**Latest (0.7.0): icons.** Lukas asked for Alfie to show any HA icon in stories and from
+**Latest (0.7.1): counts on a plot.** Lukas plotted Plex viewers (`3 watching`). The Unit
+option on plot, value and bars now takes `none` (`S.unitOf`). Plot gained Combine points
+(`combine`: mean, max, min, last; `bucketize(..., combine)` in `providers/history.py`, and the
+matching statistics field for long spans, mean standing in for last) and Line shape
+(`shape`: straight or steps; `S.curve(..., { steps })`). Render: `devenv/out/plex-steps.png`.
+
+**Before that (0.7.0): icons.** Lukas asked for Alfie to show any HA icon in stories and from
 automations. design.md "Icons" has what was decided; here is where it lives:
 - **`alfie-icons.js`:**
   - `iconPath` asks an off-DOM `<ha-icon>` for the path (it reads the inner

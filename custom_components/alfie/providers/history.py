@@ -34,13 +34,20 @@ def number(state: Any) -> float | None:
     return v if math.isfinite(v) else None
 
 
-def bucketize(samples: list[Sample], start: float, end: float, buckets: int) -> list[float | None]:
-    """`buckets` time-weighted means of a step function over [start, end).
+COMBINE = ("mean", "max", "min", "last")
+
+
+def bucketize(samples: list[Sample], start: float, end: float, buckets: int,
+              combine: str = "mean") -> list[float | None]:
+    """`buckets` values of a step function over [start, end), one per bucket.
 
     Each sample holds its value until the next one (the last until `end`), so a
     sensor that only reports on change still fills the buckets it sat steady
     through. Time with no data (None samples, or before the first sample) does
-    not count; a bucket with none at all is None.
+    not count; a bucket with none at all is None. `combine` says what a bucket
+    holds: the time-weighted mean, the highest or lowest value it saw, or the
+    value in force at its end. All but the mean are values the sensor really
+    had, so a count stays a whole number.
     """
     buckets = max(1, min(int(buckets), MAX_BUCKETS))
     width = (end - start) / buckets
@@ -48,6 +55,7 @@ def bucketize(samples: list[Sample], start: float, end: float, buckets: int) -> 
         return [None] * buckets
     total = [0.0] * buckets      # sum of value * seconds
     secs = [0.0] * buckets       # seconds with data
+    pick: list[float | None] = [None] * buckets   # max, min or last
     pts = sorted(samples, key=lambda s: s[0])
     for i, (ts, v) in enumerate(pts):
         if v is None:
@@ -63,6 +71,11 @@ def bucketize(samples: list[Sample], start: float, end: float, buckets: int) -> 
             if hi > lo:
                 total[k] += v * (hi - lo)
                 secs[k] += hi - lo
+                p = pick[k]
+                if p is None or combine == "last" or (combine == "max" and v > p) or (combine == "min" and v < p):
+                    pick[k] = v
+    if combine in ("max", "min", "last"):
+        return pick
     return [round(total[k] / secs[k], 2) if secs[k] > 1e-9 else None for k in range(buckets)]
 
 
@@ -72,9 +85,9 @@ def to_samples(states: list[Any]) -> list[Sample]:
     return [(s.last_changed.timestamp(), number(s.state)) for s in states]
 
 
-def stats_samples(rows: list[dict], period: float = 3600.0) -> list[Sample]:
-    """Hourly statistics rows ({"start", "mean"}) as samples: each row holds for
-    its period, and a missing hour is a gap."""
+def stats_samples(rows: list[dict], period: float = 3600.0, field: str = "mean") -> list[Sample]:
+    """Hourly statistics rows ({"start", "mean", ...}) as samples: each row's
+    `field` holds for its period, and a missing hour is a gap."""
     out: list[Sample] = []
     last_end = None
     for r in rows:
@@ -82,7 +95,7 @@ def stats_samples(rows: list[dict], period: float = 3600.0) -> list[Sample]:
         s = s.timestamp() if isinstance(s, datetime) else float(s)
         if last_end is not None and s - last_end > 1:
             out.append((last_end, None))
-        out.append((s, number(r.get("mean"))))
+        out.append((s, number(r.get(field))))
         last_end = s + period
     if last_end is not None:
         out.append((last_end, None))
@@ -114,6 +127,9 @@ class HistoryProvider(Provider):
         entities = [e for e in (o.get("entities") or []) if isinstance(e, str)][:6]
         hours = max(1.0, float(o.get("hours") or 72))
         buckets = max(2, min(int(o.get("buckets") or 36), MAX_BUCKETS))
+        combine = o.get("combine") if o.get("combine") in COMBINE else "mean"
+        # Hourly statistics have no "last"; the mean stands in for it.
+        field = combine if combine in ("max", "min") else "mean"
         if not entities:
             raise ValueError("no entities chosen")
         if "recorder" not in hass.config.components:
@@ -128,10 +144,10 @@ class HistoryProvider(Provider):
             stats: dict[str, list] = {}
             if hours > STATS_FROM_HOURS:
                 stats = statistics.statistics_during_period(
-                    hass, start, end, set(entities), "hour", None, {"mean"})
+                    hass, start, end, set(entities), "hour", None, {field})
             for e in entities:
                 if stats.get(e):
-                    out[e] = stats_samples(stats[e])
+                    out[e] = stats_samples(stats[e], field=field)
                     continue
                 got = history.state_changes_during_period(
                     hass, start, end, entity_id=e, no_attributes=True,
@@ -149,6 +165,6 @@ class HistoryProvider(Provider):
                 "entity_id": e,
                 "name": attrs.get("friendly_name") or e.split(".", 1)[1].replace("_", " "),
                 "unit": attrs.get("unit_of_measurement") or "",
-                "values": bucketize(samples.get(e, []), t0, t1, buckets),
+                "values": bucketize(samples.get(e, []), t0, t1, buckets, combine),
             })
         return {"series": series, "start": t0, "end": t1}

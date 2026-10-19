@@ -414,7 +414,10 @@ built types:
 
 - **plot**: 1 to 6 series over a span, bucketed server-side from the recorder (long-term
   statistics for spans over 10 days), with markers, dotted or solid lines, and auto, fixed or
-  "reach" ranges.
+  "reach" ranges. Each point holds the bucket's mean, max, min or last value (Combine points;
+  all but the mean keep a count whole), and the line is straight or steps.
+- Plot, value and bars take the sensor's unit unless the Unit option says otherwise; `none`
+  shows no unit (a Plex sensor reports "watching").
 - **value**: one big readout with an icon (auto by device class) and threshold colouring.
 - **bars**: several entities as bars, e.g. soil moisture, with a highlight below a threshold.
 - **weather**: the condition icon and temperature now, an hourly curve with rain bars, or daily
