@@ -39,7 +39,7 @@ export default {
     const uh = bigUnit ? 1 : 0.42;
     const uw = unit ? S.width(unit, uh) + 0.12 : 0;
     const nw = S.width(num, 1), rowW0 = nw + uw;
-    const lh = 0.28, lw = name ? S.width(name, lh) : 0;
+    const lh = 0.28 * (Number(o.text_size) || 1), lw = name ? S.width(name, lh) : 0;
     const wide = w >= 1.3 * h, ih = icon ? 0.95 : 0;
     const rowW = rowW0 + (icon && wide ? ih + 0.25 : 0);
     const blockW = Math.max(rowW, lw);

@@ -445,6 +445,11 @@ built types:
   (`mdi:plex Viewers`) is drawn as the icon, and a plot series marker may be one
   (`mdi:account`).
 - **label**: plain text, the reference type.
+- **Text size (decided, 2026-10-19):** every type that draws text has a Text size option
+  (`text_size`, a multiplier from 0.5 to 2, default 1), except label and text, whose `size` is
+  already a height. It scales the heights of text before layout, so margins and rows make room.
+  Text that is fitted to its room (bar labels, a digital clock, the value's number) still shrinks
+  to fit, and a band with nowhere to grow (the sky's rows under a narrow disc) stops at the edge.
 
 Data and cost:
 - Server data (history, forecast, calendar, streets) comes from providers in `providers/`. They
@@ -461,6 +466,10 @@ letters: accents drop to the base letter, and letters it can't decompose (Ł) ar
   tune, materialise, condense and morph. Morph turns the face itself into the screen, and
   `random` picks any but cut, afresh for each change: the screen leaving and the one coming
   in (or Alfie coming back) go by the same pick.
+- **Condense on the card** (2026-10-19, Lukas: no field of big dots before it moves): a grain in
+  flight is a dot, and grains in their places draw the stroke between them, through its own
+  corners. A screen leaving stays whole lines that crumble as grains set off; one arriving
+  gathers dots that join into lines as they land.
 - **Presenting (decided):** two styles, a user option per card (and per story step later):
   - **Hand over:** Alfie leaves with a transition, the screen takes the whole card, then he
     comes back when it ends.
@@ -540,8 +549,17 @@ keeps the DAC, the planner, the wiring correction, music and its own screens.
   screenshots with. It loads the card from HA's own `/alfie_static/` at HA's origin, so it's
   always the installed version. The card gets a small `hass` shim (connection, states, config),
   icons resolve from bundled mdi paths, and frames go to xy-bench as `PUT /api/strokes`. The
-  latest frame wins. Settings are in `scope/.env.example`: card options as JSON, aspect and fps.
-  It reloads when HA reconnects (a deploy).
+  latest frame wins. The connection, aspect and fps are in `.env` (`scope/.env.example`). It
+  reloads when HA reconnects (a deploy).
+- **The scope's settings page** (Lukas's pick: a page on Numbat, not the Alfie panel). The
+  sidecar serves it on `SETTINGS_PORT` (8642), with HTTP basic auth when `SETTINGS_PASSWORD`
+  is set. It hosts Alfie's own card editor (`alfie-card-editor.js`, fetched from HA through the
+  sidecar), so it has every card option, plus beam order and condense. Its one WebSocket ask
+  (`alfie/screens`, from an allowlist) goes through the headless page's connection, so the
+  browser never sees the HA token. Edits save as you go to `data/card.json` (a volume) and reach
+  the running card at once (`SCOPE_SET`, no reload). The keys the scope sets itself (`card`,
+  `vector_out`, `paint`, `aspect`, `fps`) are dropped. `ALFIE_CARD` is only the start, before
+  anything is saved. The preview draws the frame the scope last sent.
 - **xy-bench's side** (built by the xy-scope session):
   - `PUT /api/strokes` with `{strokes, ordered, aspect, t}` and the push token. It allows up to
     600 strokes and 20000 points, and a body up to 512 KB.

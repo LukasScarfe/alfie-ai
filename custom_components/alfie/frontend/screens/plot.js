@@ -61,9 +61,10 @@ function build({ w, h, data, options: o, states, S }) {
 
   // Scale the type with the box's height, so the corner box stays legible.
   const sc = Math.min(1.25, Math.max(0.25, Math.min(h / 0.85, w / 1.2)));
-  const pad = 0.06 * sc, labelH = 0.075 * sc, readH = 0.11 * sc, mSize = 0.055 * sc;
+  const ts = Number(o.text_size) || 1;   // the Text size option scales every height of text
+  const pad = 0.06 * sc, labelH = 0.075 * sc * ts, readH = 0.11 * sc * ts, mSize = 0.055 * sc;
   const titleText = S.title(o.title);
-  const titleH = titleText ? Math.min(0.12 * sc, (2 * w * 0.9) / Math.max(1, S.width(titleText, 1))) : 0;
+  const titleH = titleText ? Math.min(0.12 * sc * ts, (2 * w * 0.9) / Math.max(1, S.width(titleText, 1))) : 0;
 
   // Value range.
   let [lo, hi] = S.span(vals, { pad: 0.08, minSpan: o.min_span });
@@ -85,7 +86,7 @@ function build({ w, h, data, options: o, states, S }) {
 
   // Right column: the latest values (and optionally the labels).
   const last = vals.map((v) => { for (let i = v.length - 1; i >= 0; i--) if (v[i] !== null) return v[i]; return null; });
-  const labH = 0.06 * sc;
+  const labH = 0.06 * sc * ts;
   const readW = o.now ? Math.max(...last.map((v) => S.readoutWidth(v, readH, { decimals: o.decimals }))) : 0;
   const legW = o.legend ? Math.max(...names.map((s) => S.width(s, labH))) : 0;
   // An icon marker is wider than the built-in ones: keep it clear of the readouts.
@@ -117,6 +118,11 @@ function build({ w, h, data, options: o, states, S }) {
   if (o.now || o.legend) {
     const gap = (o.legend ? readH + labH + 0.03 * sc : readH * 1.45);
     const ys = spread(ends, gap);
+    // Spread apart, the readouts may run past the box (large Text size): slide them back in.
+    const top = h - readH * 0.55 - (o.legend ? labH * 0.9 : 0), bottom = -h + (o.legend ? readH * 0.75 + labH * 0.55 : readH * 0.55);
+    const over = Math.max(0, ...ys) - top, under = bottom - Math.min(...ys);
+    if (over > 0) ys.forEach((_, i) => { ys[i] -= over; });
+    else if (under > 0) ys.forEach((_, i) => { ys[i] += under; });
     const cx = w - pad - Math.max(readW, legW) / 2;
     ys.forEach((y, i) => {
       if (o.now) out.push(...S.readout(last[i], readH, cx, y + (o.legend ? labH * 0.9 : 0), { decimals: o.decimals }));

@@ -144,6 +144,19 @@ for (const st of I.STYLES) {
   check(I.apply("condense", 0.5, false, label, box).strokes.length > 10, "condense without lines is still dots");
 }
 
+// condense on the card: grains in flight are dots, grains in place draw their stroke,
+// so it never turns into a field of dots before it moves.
+{
+  const C = (p) => I.apply("condense", p, false, label, box).strokes;
+  const dots = (ss) => ss.filter((s) => s.pts.length === 1).length;
+  const near = C(0.999), early = C(0.02), mid = C(0.75);
+  check(finite(near) && finite(early) && finite(mid), "condense: no NaN");
+  check(near.length === label.length && near.every((s, i) => s === label[i]), "condense: nearly done, every stroke is itself");
+  check(dots(early) === early.length && early.length > 50, "condense: early on, all dots in flight");
+  check(dots(mid) > 0 && mid.some((s) => s.pts.length > 2), "condense: midway, some dots and some settled lines");
+  check(dots(C(0.95)) < dots(mid), "condense: fewer dots as it settles");
+}
+
 // perf: no style takes real time per frame on a busy screen
 {
   const busy = [];

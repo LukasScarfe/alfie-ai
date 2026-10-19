@@ -7,7 +7,7 @@
        sheet=personality            each preset across expressions and an animation frame
        sheet=screen&type=label&opts=<json>&data=<json>[&states=<json>&hcfg=<json>&present=corner&u=1]   one screen
        sheet=present                label screen, both presenting styles, u = 0, .25, .5, 1, and the four corners
-       sheet=intros[&only=draw,zoom][&kind=screen|face]   every intro style at u = 0, .25, .5, .75, 1: a label screen arriving, and
+       sheet=intros[&only=draw,zoom][&kind=screen|face][&us=0,.5,1]   every intro style at u = 0, .25, .5, .75, 1 (or us): a label screen arriving, and
                                     the face leaving as strokes (morph from the face); about SIZE=2000x1900 at both kinds
        sheet=font                   every glyph of the vector font, large
        sheet=icons[&icon=mdi:heart]  an icon in each style: transform (whole, ring) and beside at u = 0 .. 1, badges
@@ -102,10 +102,11 @@
     const I = await import("../custom_components/alfie/frontend/alfie-intros.js?v=dev");
     const info = await (await fetch("../custom_components/alfie/frontend/screens/label.json")).json();
     const only = q.get("only") ? q.get("only").split(",") : I.STYLES, kind = q.get("kind") || "both";
+    const us = q.get("us") ? q.get("us").split(",").map(Number) : [0, 0.25, 0.5, 0.75, 1];
     for (const style of only) {
       for (const k of ["screen", "face"]) {
         if (kind !== "both" && kind !== k) continue;
-        for (const u of [0, 0.25, 0.5, 0.75, 1]) frames.push({ label: `${style} ${k} u=${u}`, intro: { I, style, k, u }, type: "label", typeInfo: info,
+        for (const u of us) frames.push({ label: `${style} ${k} u=${u}`, intro: { I, style, k, u }, type: "label", typeInfo: info,
           options: { text: "Hello Alfie 12:30" }, present: "handover", u: 1 });
       }
     }

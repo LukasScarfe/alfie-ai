@@ -289,38 +289,68 @@ const DUST = (() => {
   return d;
 })();
 const LATE = 0.5;
-let sx = new Float64Array(512), sy = new Float64Array(512);
+
+// The point at arc length `at` along `path` (with cumulative lengths `cum`),
+// searching on from segment `j`; returns [x, y, j] for the next search.
+function arcAt(path, cum, at, j) {
+  const m = path.length;
+  while (j < m - 2 && cum[j + 1] < at) j++;
+  const seg = cum[j + 1] - cum[j], t = seg > 0 ? Math.min(1, Math.max(0, (at - cum[j]) / seg)) : 0;
+  return [path[j][0] + (path[j + 1][0] - path[j][0]) * t, path[j][1] + (path[j + 1][1] - path[j][1]) * t, j];
+}
+
+// `path` from arc length a to b, through its own corners.
+function subPath(path, cum, a, b) {
+  const p0 = arcAt(path, cum, a, 0), out = [[p0[0], p0[1]]];
+  let j = p0[2];
+  while (j + 1 < path.length - 1 && cum[j + 1] < b) { j++; out.push(path[j]); }
+  const p1 = arcAt(path, cum, b, j);
+  out.push([p1[0], p1[1]]);
+  return out;
+}
 
 // Every grain of dust drifts in from a spot of its own, swirling, to its place
-// on the strokes, the stragglers last. Drawn as dots, which close into the
-// real strokes at the end.
+// on the strokes, the stragglers last. A grain in flight is a dot; grains in
+// their places draw the stroke between them, through its own corners. So an
+// arriving screen's dots join into lines as they land, and a leaving one
+// stays whole lines that crumble as grains set off, with no field of dots first.
 function condense(p, strokes, box) {
   let total = 0;
   for (const s of strokes) total += pathLength(s.pts, s.closed);
   if (!total) return strokes;
   const budget = Math.max(80, Math.min(360, Math.round(total / 0.025)));
-  if (sx.length < budget + strokes.length * 2 + 4) { sx = new Float64Array(budget * 2 + strokes.length * 2); sy = new Float64Array(sx.length); }
-  const meta = [];
-  let n = 0;
-  for (const s of strokes) {
-    if (!s.pts.length) continue;
-    const m = s.pts.length === 1 ? 1 : Math.max(2, Math.round((budget * pathLength(s.pts, s.closed)) / total));
-    resampleInto(s.closed ? s.pts.concat([s.pts[0]]) : s.pts, m, sx, sy, n);
-    meta.push([s, n, m]);
-    n += m;
-  }
   const e0 = extent(strokes, box);
   const rx = Math.max(0.1, e0.bw) * 1.1, ry = Math.max(0.1, e0.bh) * 1.1;
   const out = [];
   let i = 0;
-  for (const [s, off, m] of meta) {
+  for (const s of strokes) {
+    if (!s.pts.length) continue;
+    const path = s.closed && s.pts.length > 1 ? s.pts.concat([s.pts[0]]) : s.pts;
+    const m = path.length === 1 ? 1 : Math.max(2, Math.round((budget * pathLength(s.pts, s.closed)) / total));
+    const cum = new Float64Array(path.length);
+    for (let k = 1; k < path.length; k++) cum[k] = cum[k - 1] + Math.hypot(path[k][0] - path[k - 1][0], path[k][1] - path[k - 1][1]);
+    const L = cum[path.length - 1], step = m > 1 ? L / (m - 1) : 0;
+    let run = -1, j = 0;
+    const flush = (end) => {
+      if (run < 0) return;
+      out.push(end > run && path.length > 1 ? piece(s, subPath(path, cum, run * step, end * step)) : piece(s, [arcAt(path, cum, run * step, 0).slice(0, 2)]));
+      run = -1;
+    };
     for (let k = 0; k < m; k++, i++) {
       const g = (i * 7 + 3) % 4096 * 3;   // a stride, so neighbours do not start side by side
-      const q = clamp01((p - DUST[g + 2]) / (1 - LATE)), e = 1 - (1 - q) ** 3, a = (1 - e) * 2.5;
+      const q = clamp01((p - DUST[g + 2]) / (1 - LATE));
+      if (q >= 1) { if (run < 0) run = k; continue; }
+      flush(k - 1);
+      const e = 1 - (1 - q) ** 3, a = (1 - e) * 2.5;
       const c = Math.cos(a), si = Math.sin(a), nx = DUST[g], ny = DUST[g + 1];
       const dx = (nx * c - ny * si) * rx, dy = (nx * si + ny * c) * ry;
-      out.push(piece(s, [[dx + (sx[off + k] - dx) * e, dy + (sy[off + k] - dy) * e]]));
+      const t = path.length > 1 ? arcAt(path, cum, k * step, j) : [path[0][0], path[0][1], 0];
+      j = t[2];
+      out.push(piece(s, [[dx + (t[0] - dx) * e, dy + (t[1] - dy) * e]]));
     }
+    // A stroke whose grains are all in place is the stroke itself (its fill too).
+    if (run === 0) { out.push(s); continue; }
+    flush(m - 1);
   }
   return out;
 }

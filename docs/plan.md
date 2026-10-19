@@ -132,6 +132,8 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] C. xy-bench `PUT /api/strokes` and the `alfie` screen (xy-scope session; live, not yet
         committed in xy-bench).
   - [x] D. Deployed on Numbat (`~/alfie-ai/scope`, Lukas chose the existing HA token).
+  - [x] F. Settings page on the sidecar (`scope/settings.html`, port 8642): the card editor,
+        beam order and condense, a live preview, saved to a volume and applied live.
   - [ ] E. On the CRT: Lukas looks; tune fps, weights and aspect.
 - [ ] **6. Voice.** React to all `assist_satellite` states, the what's-wrong LLM tool and intent,
       optional persona, mood-aware replies, TTS announcement step.

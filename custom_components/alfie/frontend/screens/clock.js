@@ -120,7 +120,8 @@ function digital(S, cx, cy, boxW, boxH, lt, o) {
   const hm = `${h}:${two(lt.m)}`, sec = o.seconds ? `:${two(lt.s)}` : "";
   const sh = 0.55;       // seconds are set smaller than the hours and minutes
   const wid = S.width(hm, 1) + (sec ? S.width(sec, sh) + 0.15 : 0);
-  const ht = Math.min(boxH * 0.9, (boxW * 0.96) / wid);
+  // Text size below 1 shrinks it; above, it already fills its room.
+  const ht = Math.min(boxH * 0.9, (boxW * 0.96) / wid) * Math.min(1, Number(o.text_size) || 1);
   const total = wid * ht, x0 = cx - total / 2;
   const out = S.text(hm, ht, x0 + (S.width(hm, ht)) / 2, cy);
   if (sec) out.push(...S.text(sec, ht * sh, x0 + S.width(hm, ht) + ht * 0.15 + S.width(sec, ht * sh) / 2, cy - ht * (1 - sh) / 2, { role: "dim" }));
@@ -172,8 +173,9 @@ export default {
       return s;
     };
     const phase = (t * 0.4) % 1;
+    const ts = Number(o.text_size) || 1;
     if (wide) {
-      let th = Math.min(0.3, h * 0.28), R = Math.min(h * 0.9, w * 0.42);
+      let th = Math.min(0.3, h * 0.28) * ts, R = Math.min(h * 0.9, w * 0.42);
       const room = () => 2 * w * 0.94 - 2 * R - 0.12 * w;
       while (th > 0.05 && Math.max(...readouts.map((r) => group(r, th).width)) > room()) th *= 0.92;
       const gw = Math.max(...readouts.map((r) => group(r, th).width));
@@ -182,7 +184,7 @@ export default {
       const gx = left + 2 * R + 0.12 * w + gw / 2, dy = Math.min(h * 0.4, th * 1.4);
       readouts.forEach((r, i) => out.push(...place(r, th, gx, readouts.length === 1 ? 0 : (i ? -dy : dy), phase)));
     } else {
-      let th = Math.min(0.26, h * 0.2, w * 0.22);
+      let th = Math.min(0.26, h * 0.2, w * 0.22) * ts;
       const spread = (k) => readouts.reduce((s, r) => s + group(r, k).width, 0) + (readouts.length - 1) * k * 0.9;
       while (th > 0.05 && spread(th) > 2 * w * 0.94) th *= 0.92;
       const R = Math.min(w * 0.9, (2 * h * 0.94 - 1.7 * th) / 2);

@@ -9,5 +9,6 @@
    {"key": "sun_path", "kind": "bool", "label": "Dotted sun path for today", "default": true},
    {"key": "moon_path", "kind": "bool", "label": "Dotted moon pass", "default": true},
    {"key": "moon_fill", "kind": "bool", "label": "Fill the lit part of the moon", "default": false},
-   {"key": "size", "kind": "number", "label": "Sun and moon size", "default": 1, "min": 0.5, "max": 2.5}
+   {"key": "size", "kind": "number", "label": "Sun and moon size", "default": 1, "min": 0.5, "max": 2.5},
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the screen's text. Text fitted to its room still shrinks to fit."}
  ]}

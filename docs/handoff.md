@@ -8,12 +8,35 @@
   F is waiting on his review.
 - **5¾ (Icons):** built and checked in dev HA, with the PNGs sent to Lukas (A to E). F is
   waiting on his review.
-- **5⅞ (Oscilloscope):** A to D are done; the sidecar runs on Numbat. E (Lukas on the CRT) is
-  open.
+- **5⅞ (Oscilloscope):** A to D and F (the settings page) are done; the sidecar runs on
+  Numbat. E (Lukas on the CRT) is open.
 
-Version 0.8.5.
+Version 0.8.6.
 
-**Latest (0.8.5): 60 Hz, steady loop entries, condense joins, a joined clock.** Lukas still
+**Latest (0.8.6): Text size on every screen, the scope's settings page, condense without dots.**
+Lukas asked for a text size wherever a screen has text, a graphical way to set the scope's card
+(he picked a page on Numbat), and a condense that starts disintegrating at once instead of
+first turning into big dots.
+- **Text size:** `text_size` (0.5 to 2, default 1) on bars, clock, map, plot, sky, stars, value
+  and weather. Each draw module scales its text heights before layout. At 1 every drawing is
+  unchanged, which `tests/screens/text_size.test.mjs` checks along with valid, in-box drawings
+  at 0.5 and 2. The fixed-band layouts (weather, sky) move their rows by it. `devenv/house.json`
+  gained the key.
+- **Settings page:** `scope/settings.html`, served by `bridge.js` on `SETTINGS_PORT` (8642;
+  8099 was taken on raccoon). `SETTINGS_PASSWORD` turns on basic auth. It loads
+  `alfie-card-editor.js` through `/alfie_static/` proxied from HA. `/api/ws` forwards only
+  `alfie/screens`, through the headless page (`window.SCOPE_WS`). `PUT /api/card` writes
+  `data/card.json` (a compose volume) and calls `window.SCOPE_SET`, live. Checked against dev HA:
+  a ring colour and beam order saved from the editor, and a rotation change took effect without
+  a reload.
+- **Not yet on Numbat:** there, `git pull`, add `SETTINGS_PASSWORD=` and `SETTINGS_PORT=8642` to
+  `.env`, then `docker compose up -d --build`. The current `ALFIE_CARD` stays the start until
+  the page saves.
+- **Condense:** `alfie-intros.js` `condense` draws settled grains as their stroke
+  (`subPath`, through the original corners) and only grains in flight as dots. A fully settled
+  stroke is the stroke itself. The harness's `sheet=intros` takes `us=` for chosen u values.
+
+**Before that (0.8.5): 60 Hz, steady loop entries, condense joins, a joined clock.** Lukas still
 saw choppy transitions, condense's joins turned solid just before the end, and the jump lines
 moved when Alfie glanced. He asked for 60 Hz always, and for a clock with no second hand whose
 minute hand reaches the rim, as one line.

@@ -11,5 +11,6 @@
    {"key": "moon", "kind": "bool", "label": "Moon", "default": true},
    {"key": "moon_fill", "kind": "bool", "label": "Fill the lit part of the moon", "default": false},
    {"key": "labels", "kind": "bool", "label": "Names and facing letter", "default": true},
-   {"key": "times", "kind": "bool", "label": "Show the time", "default": true}
+   {"key": "times", "kind": "bool", "label": "Show the time", "default": true},
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the screen's text. Text fitted to its room still shrinks to fit."}
  ]}

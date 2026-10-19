@@ -98,6 +98,7 @@ export default {
     // Constellations: each run of a line that is in view, with a small loop on each
     // star the first time a line reaches it. Lines leaving the window are dropped whole.
     const dotK = Number(o.dot_size) || 1;
+    const ts = Number(o.text_size) || 1;
     for (const c of shown) {
       const aa = K.stars(c.lines.flat(), lat, lon, t);
       let i = 0, shownPts = [];
@@ -125,7 +126,7 @@ export default {
       if (o.labels && shownPts.length >= 3) {
         const cx = shownPts.reduce((s, p) => s + p[0], 0) / shownPts.length;
         const top2 = Math.max(...shownPts.map((p) => p[1]));
-        const lh = 0.05 * u;
+        const lh = 0.05 * u * ts;
         if (Math.abs(cx) < w * 0.85 && top2 + 2.2 * lh < h) out.push(...S.text(c.name, lh, cx, top2 + 1.6 * lh, { role: "dim", w: 0.8 }));
       }
     }
@@ -136,7 +137,7 @@ export default {
         const xy = place(alt, az, facing);
         if (!xy) continue;
         out.push(...K.planetMark(n, xy[0], xy[1], 0.024 * u));
-        if (o.labels) out.push(...S.text(NAMES[n], 0.045 * u, xy[0], xy[1] - 0.085 * u, { role: "dim", w: 0.8 }));
+        if (o.labels) out.push(...S.text(NAMES[n], 0.045 * u * ts, xy[0], xy[1] - (0.0625 + 0.0225 * ts) * u, { role: "dim", w: 0.8 }));
       }
     }
     if (o.moon) {
@@ -146,13 +147,13 @@ export default {
     }
 
     // Under the horizon: the bearing faced and the time.
-    const below = y0 - 0.16 * u;
+    const below = y0 - (0.115 + 0.045 * ts) * u;
     if (o.labels) {
       const b = ((facing % 360) + 360) % 360;
-      out.push(...S.text(COMPASS[Math.round(b / 45) % 8], 0.09 * u, o.times ? -0.25 * u : 0, below, { role: "text" }));
+      out.push(...S.text(COMPASS[Math.round(b / 45) % 8], 0.09 * u * ts, o.times ? -0.25 * u * Math.max(1, ts) : 0, below, { role: "text" }));
     }
     if (o.times) {
-      out.push(...S.text(K.clock(K.localHours(t, tz)), 0.09 * u, o.labels ? 0.25 * u : 0, below));
+      out.push(...S.text(K.clock(K.localHours(t, tz)), 0.09 * u * ts, o.labels ? 0.25 * u * Math.max(1, ts) : 0, below));
     }
     memo.key = key; memo.out = out;
     return out;

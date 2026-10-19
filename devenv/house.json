@@ -259,7 +259,8 @@
     "axis": true,
     "ticks": 3,
     "now": true,
-    "legend": false
+    "legend": false,
+    "text_size": 1
    }
   },
   {
@@ -280,7 +281,8 @@
     "suffix": "°",
     "decimals": 0,
     "time_labels": true,
-    "animate": true
+    "animate": true,
+    "text_size": 1
    }
   },
   {
@@ -301,7 +303,8 @@
     "suffix": "°",
     "decimals": 0,
     "time_labels": true,
-    "animate": true
+    "animate": true,
+    "text_size": 1
    }
   },
   {
@@ -318,7 +321,8 @@
     "solar_rim": true,
     "house": true,
     "smoke": true,
-    "decimals": 0
+    "decimals": 0,
+    "text_size": 1
    }
   },
   {
@@ -332,7 +336,8 @@
     "unit": "",
     "decimals": 1,
     "below": "35",
-    "above": ""
+    "above": "",
+    "text_size": 1
    }
   },
   {
@@ -354,7 +359,8 @@
     "decimals": 0,
     "highlight_below": "35",
     "sort": "none",
-    "fill": false
+    "fill": false,
+    "text_size": 1
    }
   },
   {
@@ -371,7 +377,8 @@
     "sun_path": true,
     "moon_path": true,
     "moon_fill": false,
-    "size": 1.5
+    "size": 1.5,
+    "text_size": 1
    }
   },
   {
@@ -390,7 +397,8 @@
     "moon": true,
     "moon_fill": false,
     "labels": true,
-    "times": true
+    "times": true,
+    "text_size": 1
    }
   },
   {
@@ -406,7 +414,8 @@
     "show_home": true,
     "title": "",
     "allow_network": false,
-    "endpoint": "https://overpass-api.de/api/interpreter"
+    "endpoint": "https://overpass-api.de/api/interpreter",
+    "text_size": 1
    }
   },
   {

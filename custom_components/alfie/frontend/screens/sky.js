@@ -68,8 +68,10 @@ function chart(o, lat, lon, tz, t, S) {
   }
   if (o.labels) {
     // Letters just outside the ticks; north's sits above its arrow.
-    for (const [ch, x, y] of [["N", 0, CY + R + 0.25], ["E", R + 0.14, CY], ["S", 0, CY - R - 0.14], ["W", -R - 0.14, CY]]) {
-      out.push(...S.text(ch, 0.07, x, y, { role: "dim" }));
+    // Bigger letters (Text size) sit further out, so they keep clear of the rim.
+    const lh = 0.07 * (Number(o.text_size) || 1), d = (lh - 0.07) / 2;
+    for (const [ch, x, y] of [["N", 0, Math.min(CY + R + 0.25 + d, Math.max(CY + R + 0.25, 0.995 - lh / 2))], ["E", R + 0.14 + d, CY], ["S", 0, CY - R - 0.14 - d], ["W", -R - 0.14 - d, CY]]) {
+      out.push(...S.text(ch, lh, x, y, { role: "dim" }));
     }
   }
 
@@ -119,7 +121,14 @@ export default {
       const hrs = (x) => (x === null ? null : K.localHours(x, tz));
       const rows = [[sunRS, null]];
       if (o.moon_times) rows.push([K.riseSet((s) => K.moon(lat, lon, s)[0], mid, 0), "moon"]);
-      const hh = 0.1 * u;
+      const ts = Number(o.text_size) || 1;
+      // Beside a wide box's disc, bigger text (Text size) grows outwards from an inner edge
+      // clear of the compass letters, and stops at the room there is.
+      const inner = (R + 0.33) * u, perH = S.width("00:00", 1) + 1.4;
+      // Under a narrow box's disc, the rows grow only as far as the bottom edge allows.
+      const k = ts <= 1 ? ts : wide ? Math.max(1, Math.min(ts, (w * 0.98 - inner) / (perH * 0.1 * u)))
+        : Math.max(1, Math.min(ts, 0.25 / (0.1 + 0.14 * (rows.length - 1))));
+      const hh = 0.1 * u * k;
       // A small arrow, up for rise and down for set, then the time.
       const entry = (cx, cy, up, text) => {
         const wTxt = S.width(text, hh), a = hh * 0.45, gap = hh * 0.5;
@@ -131,10 +140,11 @@ export default {
         const rise = K.clock(hrs(rs.rise)), set = K.clock(hrs(rs.set));
         if (wide) {
           // Beside the disc, which leaves the corners of a wide box free.
-          const x = w * 0.7, y = (0.1 - i * 0.24) * u;
-          entry(-x, y, true, rise); entry(x, y, false, set);
+          const y = (0.1 - i * 0.24 * Math.max(1, k)) * u;
+          const x = (t) => (ts > 1 ? Math.max(w * 0.7, inner + (S.width(t, hh) + 1.4 * hh) / 2) : w * 0.7);
+          entry(-x(rise), y, true, rise); entry(x(set), y, false, set);
         } else {
-          const y = (-0.8 - i * 0.14) * u;
+          const y = (-0.8 - 0.05 * Math.max(0, k - 1) - i * 0.14 * Math.max(1, k)) * u;
           entry(-0.5 * u, y, true, rise); entry(0.5 * u, y, false, set);
           if (o.moon_times) out.push(...(kind ? K.moonStrokes(0, y, 0.035 * u, 0.3, { dark: false }) : K.sunMark(0, y, 0.025 * u)));
         }
