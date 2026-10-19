@@ -558,11 +558,26 @@ keeps the DAC, the planner, the wiring correction, music and its own screens.
   short closed tour (greedy walks from several starts, then 2-opt; open strokes turned, loops
   re-started at the vertex nearest their neighbours). It matches xy-bench's own full solve within
   a few percent in about 1 ms, and on Lukas's screens it halves the jumps (stars 9.3 → 4.0).
-  The order is kept while the frame's strokes stay the same kind and it stays within 15% of a
-  fresh solve (re-checked every 15 frames), so moving parts don't make the jumps flicker.
-- **60 fps** (the sidecar's default; keep fps a divisor of 60, Chromium's frame clock). xy-bench
-  plays 50 to 60 frames a second, so 30 showed each frame twice and judders. Lukas wants 50 at
-  least. 30 cost about a third of a core and ~210 MB on raccoon; 60 is about twice the CPU.
+  A plan is kept per kind of frame (its open/closed strokes in order) and replaced only when
+  it has grown 15% longer than when solved (checked at most every 15 frames), so moving parts
+  and strokes that come and go don't make the jumps flicker.
+- **Transitions keep the screen's tour.** In the vector feed a screen's strokes are toured
+  before its transition reshapes them (`_tourScreen`, a plan per screen), and a frame that is
+  mid-transition (`moving` from `_describe`) or has over 200 strokes is not re-toured. This is
+  xy-bench's own rule for its intros. A dot goes as a two-point stroke, since xy-bench drops
+  one-point strokes.
+- **Condense on the scope is xy-bench's** (`vector_condense: lines`, the default; `dots` is the
+  canvas version). The picture becomes one path, its strokes joined in tour order, resampled,
+  and each pair of samples is a grain of dust drifting in. Until they settle, the beam draws
+  lines between random points.
+- **50 fps from a timer.** `scope/page.html` replaces `requestAnimationFrame` with a timer at
+  `FPS` (default 50), because Chromium's frame clock only gives divisors of 60. xy-bench plays
+  Alfie at 50 (its floor: his frames are long, `/api/status` fps), and a 60 feed into 50 skipped
+  every sixth frame, which juddered. Lukas wants 50 at least. The card's own cap is lifted
+  there (fps 120). 30 fps cost about a third of a core and ~210 MB on raccoon.
+- **Pacing in the status line:** frames over 1.5 frame times late, and the longest gap. Measured
+  on raccoon after the first pass through a rotation, slide, condense and materialise show 0 or
+  1 late frames per 5 s. Before these changes, condense stalled up to 230 ms.
 
 ## Non-goals (for now)
 

@@ -97,11 +97,15 @@ const DEFAULTS = {
   vector_out: false,      // true: each frame's strokes go out as an "alfie-vector" event (the oscilloscope feed)
   paint: true,            // false: draw nothing on the canvas (a headless vector feed skips the cost)
   vector_order: "tour",   // tour: the feed's strokes in the order with the shortest beam jumps; drawn: as painted
+  vector_condense: "lines", // the feed's condense: lines between random points (as xy-bench's own), or dots
 };
 
 // A 2D context that does nothing, for `paint: false`: the drawing code runs as
 // ever, so the vector feed sees exactly what a painted card would show.
 const NO_PAINT = new Proxy({}, { get: () => () => {}, set: () => true });
+
+const INTRO_LINES = { lines: true };
+const TOUR_MAX = 200;   // a frame with more strokes than this goes out as drawn (solving it costs)
 
 const DISPLAYS = ["companion", "rotation"];
 const PRESENTS = ["handover", "corner"];
@@ -214,6 +218,7 @@ class FaceState {
 // deliberate corners, which stay sharp. Shared by the face (closed outlines) and
 // screens (open or closed strokes). Adds to the current path; the caller strokes.
 function trace(ctx, pts, closed = true) {
+  if (ctx === NO_PAINT) return;   // the vector feed taps the points; there is no path to build
   const m = pts.length, mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
   if (!closed) {
     ctx.moveTo(...pts[0]);
@@ -696,7 +701,11 @@ class AlfieCard extends HTMLElement {
     this._drawBadges(ctx, w, h, R, { cx, cy, r: Rf });
     if (this._vec) {
       let strokes = this._vec.strokes;
-      if (c.vector_order !== "drawn") ({ strokes, plan: this._tour } = G.tourStrokes(strokes, this._tour));
+      // Mid-transition the screen is already in its own tour order (_tourScreen),
+      // and the frame is not re-solved: that would make the beam's path jump about.
+      if (c.vector_order !== "drawn" && !scr?.moving && strokes.length <= TOUR_MAX) {
+        strokes = G.tourStrokes(strokes, this._tour ??= new Map());
+      }
       this.dispatchEvent(new CustomEvent("alfie-vector", {
         detail: { strokes, aspect: w / h, t: this._now() } }));
     }
@@ -796,6 +805,7 @@ class AlfieCard extends HTMLElement {
     this._screenIndex = new Map();
     this._data = new Map();    // screen id -> {data, error, at (ms), inflight}
     this._memo = new Map();    // screen id -> memo object for its module
+    this._scrTour = new Map(); // screen id -> its kept beam tours (vector feed; G.tourStrokes)
     this._bad = new Set();     // screen ids whose module failed (logged once)
     this._icons ??= new Map(); // icon "screens" (@icon:<seq>), kept across a screens reload
     this._badges ??= new Map(); // seq (or local key) -> {v, at (s, wall clock), style}
@@ -998,7 +1008,7 @@ class AlfieCard extends HTMLElement {
       const p = leaving ? I.presence(b.style, 1 - left / dout, true) : I.presence(b.style, (now - b.at) / din, false);
       const at = G.badgeAt(b.v, w, h, R, face, m);
       const s = at.s / R;
-      const out = I.apply(b.style, p, leaving, IC.placed(strokes, s), { w: s, h: s });
+      const out = I.apply(b.style, p, leaving, IC.placed(strokes, s), { w: s, h: s }, null, this._introOpts());
       if (out.alpha > 0.003 && out.strokes.length) this._drawStrokes(ctx, out.strokes, at.cx, at.cy, R, out.alpha);
     }
   }
@@ -1197,10 +1207,12 @@ class AlfieCard extends HTMLElement {
     const iconCorner = screen?.icon?.corner;
     return {
       present, corner: iconCorner && iconCorner !== "card" ? iconCorner : c.corner, size: c.corner_size, k, faceAlpha,
+      // Mid-transition, or Alfie on his way to or from the corner.
+      moving: (p > 0 && p < 1) || (k > 0 && k < 1) || gone,
       noHead: ring && p > 0,
       faceLine: !!screen?.icon && !corner && style === "morph",
       alpha: gone ? 0 : I.apply(style, p, leaving, [], null).alpha,
-      face: shaped ? (shapes, box) => I.apply(style, 1 - clamp(p, 0, 1), !leaving, I.faceStrokes(shapes), box) : null,
+      face: shaped ? (shapes, box) => I.apply(style, 1 - clamp(p, 0, 1), !leaving, I.faceStrokes(shapes), box, null, this._introOpts()) : null,
       strokes: (hw, hh, shapes) => this._screenStrokes(screen, hw, hh, t, style, p, leaving,
         style === "morph" && shapes && !corner && !away ? I.faceStrokes(shapes).slice(0, ring ? 1 : 3) : null),
     };
@@ -1230,10 +1242,25 @@ class AlfieCard extends HTMLElement {
       }
     }
     if (!strokes) strokes = S.fontReady() ? this._titleStrokes(screen, hw, hh) : [];
-    const out = I.apply(style, p, leaving, strokes, box, from).strokes;
+    const c = this._config;
+    if (c.vector_out && c.vector_order !== "drawn" && strokes.length > 1) strokes = this._tourScreen(screen.id, strokes);
+    const out = I.apply(style, p, leaving, strokes, box, from, this._introOpts()).strokes;
     // A filled icon's fill comes in with it, not all at once halfway through a morph.
     if (screen.icon && p < 1) for (const st of out) if (st.solid) st.solid *= clamp(p, 0, 1) ** 2;
     return out;
+  }
+
+  // A screen's strokes in tour order, before its transition reshapes them: an
+  // intro keeps the order it is given, so the beam's path through a transition
+  // holds steady instead of re-solving each frame (xy-bench does the same).
+  _tourScreen(id, strokes) {
+    const wrap = strokes.map((s) => ({ p: s.pts, c: !!s.closed && s.pts.length > 2, s }));
+    if (!this._scrTour.has(id)) this._scrTour.set(id, new Map());
+    return G.tourStrokes(wrap, this._scrTour.get(id)).map((o) => (o.p === o.s.pts ? o.s : { ...o.s, pts: o.p }));
+  }
+
+  _introOpts() {
+    return this._config.vector_out && this._config.vector_condense !== "dots" ? INTRO_LINES : null;
   }
 
   _fail(screen, e) {

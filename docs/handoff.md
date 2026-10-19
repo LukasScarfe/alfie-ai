@@ -11,22 +11,24 @@
 - **5⅞ (Oscilloscope):** A to D are done; the sidecar runs on Numbat. E (Lukas on the CRT) is
   open.
 
-Version 0.8.3.
+Version 0.8.4.
 
-**Latest (0.8.3): the scope's beam tour and 60 fps.** Lukas disliked the screens on the scope
-(long jumps between strokes) and found 30 fps nauseating (50 at least).
-- `alfie-stage.js` `tourStrokes` orders the vector feed as a short tour; the card's
-  `vector_order` (`tour` default, `drawn`) and `this._tour` (the kept plan). design.md
-  "Oscilloscope" has the numbers. Measured on one frame of each production screen (captured with
-  dry-run sidecars against production) through a copy of xy-bench's planner.
-- The sidecar's default FPS is 60; Numbat's `.env` is set to `FPS=60`.
-- `vectorStroke` drops non-finite points. The live sidecar was logging HTTP 400s from xy-bench
-  (a few a minute, cause unseen); the status line now shows xy-bench's reason, so check
-  `docker compose logs` on Numbat for it.
+**Latest (0.8.4): smooth transitions on the scope, xy-bench's condense.** Lukas found the
+screens good after 0.8.3, but transitions very choppy on the tube, and wanted condense to look
+like xy-bench's (lines between random points). design.md "Oscilloscope" has the design.
+- **Choppy:** dot transitions sent hundreds of strokes, and each frame re-solved the tour
+  (stalls up to 230 ms). Fixed by `_tourScreen` (tour before the intro), no frame tour while
+  `moving`, a plan memo per kind of frame (`G.tourStrokes(strokes, memo)`), and `trace`
+  skipping `NO_PAINT`.
+- **Judder:** xy-bench plays Alfie at exactly 50 fps, so the 60 fps feed skipped frames.
+  `page.html` now runs the card on a 50 Hz timer (`FPS=50`; Numbat's `.env` too).
+- **Condense:** `I.apply(..., opts)` with `{lines: true}` (`condenseLines`). The card passes it
+  in vector mode unless `vector_condense: dots`.
+- **Status line:** gains `N late, longest gap M ms`. On Numbat, check it after a rotation pass.
 
-**Development now happens on production HA** (Lukas, 2026-10-19). Push, then `./dev prod
-deploy` (HACS refresh, install, restart, wait); `./dev prod get` / `./dev prod ws` read it.
-`devenv/prodtool.py` is a stdlib WebSocket client. The dev HA is still there for screenshots.
+**Before that (0.8.3): the scope's beam tour.** `tourStrokes` and `vector_order`.
+`vectorStroke` drops non-finite points. The live sidecar had logged a few HTTP 400s; the status
+line now shows xy-bench's reason, and none have been seen since.
 
 **Before that (0.8.2): Alfie on the oscilloscope.** design.md "Oscilloscope" has the design.
 - **The card:** `vector_out` / `paint` (`_tap` at the head, eyes and `_drawStrokes`;

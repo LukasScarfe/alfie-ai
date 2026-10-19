@@ -127,6 +127,18 @@ for (const st of I.STYLES) {
   check(I.faceAlpha("morph", 0.3) === 0 && I.faceAlpha("morph", 0) === 1 && I.faceAlpha("fade", 0.5) > 0 && I.faceAlpha("fade", 1) === 0, "faceAlpha");
 }
 
+// condense for the scope: one path through random points that closes onto the drawing
+{
+  const L = (p) => I.apply("condense", p, false, label, box, null, { lines: true });
+  const early = L(0.05), mid = L(0.5);
+  check(early.strokes.length === 1 && mid.strokes.length === 1 && !early.strokes[0].closed, "condense lines: one open stroke");
+  check(finite(early.strokes) && finite(mid.strokes), "condense lines: no NaN");
+  check(early.strokes[0].pts.length % 2 === 0 && early.strokes[0].pts.length >= 200, "condense lines: a grain per pair of points");
+  check(len(early.strokes) > len(mid.strokes) * 1.5, "condense lines: long random lines early, shorter as it gathers");
+  check(L(1).strokes === label, "condense lines: done is the drawing itself");
+  check(I.apply("condense", 0.5, false, label, box).strokes.length > 10, "condense without lines is still dots");
+}
+
 // perf: no style takes real time per frame on a busy screen
 {
   const busy = [];
@@ -134,7 +146,7 @@ for (const st of I.STYLES) {
   const pts = busy.reduce((a, s) => a + s.pts.length, 0);
   for (const st of I.STYLES) {
     const t0 = performance.now();
-    for (let i = 0; i < 100; i++) I.apply(st, 0.3 + (i % 5) * 0.1, false, busy, box, face);
+    for (let i = 0; i < 100; i++) I.apply(st, 0.3 + (i % 5) * 0.1, false, busy, box, face, i % 2 ? { lines: true } : null);
     const ms = (performance.now() - t0) / 100;
     check(ms < 6, `${st}: ${ms.toFixed(2)} ms/frame on ${pts} points`);
   }
