@@ -86,6 +86,28 @@
           "description": "How long to show it (1 to 3600, default 20)."
         }
       }
+    },
+    "play_story": {
+      "name": "Play story",
+      "description": "Make Alfie play one of his stories on every display.",
+      "fields": {
+        "story": {
+          "name": "Story",
+          "description": "The id of a story from the Alfie panel's Stories tab."
+        },
+        "priority": {
+          "name": "Priority",
+          "description": "0 to 100. A higher priority interrupts a story that is playing; otherwise it waits its turn."
+        },
+        "busy": {
+          "name": "When busy",
+          "description": "auto (by priority), queue, interrupt or skip."
+        }
+      }
+    },
+    "stop_story": {
+      "name": "Stop story",
+      "description": "End the story Alfie is playing and forget any waiting ones."
     }
   }
 }

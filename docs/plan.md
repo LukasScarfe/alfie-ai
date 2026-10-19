@@ -73,7 +73,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
       "Screens": hand over or corner).
   - [x] A. Model (pure): `stories.py`, `triggers.py` (validate, template compile, defaults),
         config v2 with the v1 reactions migrated into triggers; tests.
-  - [ ] B. Engine: trigger matching and coalescing, the story runner with priority/queue,
+  - [x] B. Engine: trigger matching and coalescing, the story runner with priority/queue,
         scene `story`, `alfie.play_story` / `stop_story`, `alfie_story` events, WS
         `alfie/story/play` and `alfie/triggers/status`, per-signal repeats; tests.
   - [ ] C. Card: story interrupts rotation, `place` spring (move/resize), per-step present and

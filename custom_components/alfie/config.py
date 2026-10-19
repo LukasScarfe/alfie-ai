@@ -99,8 +99,9 @@ def signal_dict(s: Signal) -> dict[str, Any]:
 
 def default_repeat() -> dict[str, Any]:
     """A signal's repeat options, all off: replay its bad news on walk-in,
-    every N hours, or add its screen to the rotation while it is bad."""
-    return {"on_motion": False, "every_hours": 0, "in_rotation": False}
+    every N hours (both play `story`), or add its screen to the rotation
+    while it is bad."""
+    return {"on_motion": False, "every_hours": 0, "in_rotation": False, "story": "bad_news"}
 
 
 def personality_values(name: str, face: Mapping[str, Any] | None = None) -> dict[str, float]:
@@ -325,7 +326,8 @@ def _repeat(where: str, raw: Any, ck: _Check) -> dict[str, Any]:
     return {"on_motion": bool(r["on_motion"]),
             "every_hours": _num(ck.number(f"{where} repeat hours", r["every_hours"],
                                           0, 168, 0)),
-            "in_rotation": bool(r["in_rotation"])}
+            "in_rotation": bool(r["in_rotation"]),
+            "story": str(r["story"] or "").strip()}
 
 
 def _ordered(where: str, d: Mapping[str, float], ck: _Check) -> None:
@@ -606,6 +608,11 @@ def validate(raw: Any, face: Mapping[str, Any],
     cfg["triggers"] = validate_triggers(raw.get("triggers", base["triggers"]), ck,
                                         {s["id"] for s in cfg["stories"]},
                                         {s["id"] for s in cfg["signals"]})
+    story_ids = {s["id"] for s in cfg["stories"]}
+    for sig in cfg["signals"]:
+        r = sig["repeat"]
+        if (r["on_motion"] or r["every_hours"]) and r["story"] not in story_ids:
+            ck.bad(f"signal {sig['id']} repeat", f"story {r['story']!r} does not exist")
     if not ck.errors:
         try:
             build(cfg)

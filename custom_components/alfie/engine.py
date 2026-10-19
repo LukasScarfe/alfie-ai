@@ -23,12 +23,21 @@ from homeassistant.const import EVENT_STATE_CHANGED
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.helpers.event import async_call_later
 
+from . import triggers as trig
 from .config import NOTICE, build, reset, validate
-from .const import CONF_NAME, DEFAULT_NAME, EVENT_ANIMATION, FACE_FILE, SCENE_VERSION
+from .const import (
+    CONF_NAME,
+    DEFAULT_NAME,
+    EVENT_ANIMATION,
+    EVENT_STORY,
+    FACE_FILE,
+    SCENE_VERSION,
+)
 from .mood import Mood, MoodSettings, combine
 from .providers import provider_for
 from .screen_types import load_types
 from .signals import Signal, evaluate, evaluate_all, is_pattern, matching, watches
+from .stories import Action, Context, animation_length, expand, play_rate, steps_of
 from .store import AlfieStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,6 +45,10 @@ _LOGGER = logging.getLogger(__name__)
 SLEEP_ENERGY = 0.15
 IDLE_QUIET_AFTER = 10.0      # seconds after any animation before a fidget may play
 PREVIEW_ENTITIES = 25        # per signal, in a panel preview
+QUEUE_MAX = 3                # stories waiting behind the one playing
+QUEUE_STALE = 60.0           # seconds a queued story may wait before it is dropped
+REPEAT_GAP = 900.0           # seconds between one signal's walk-in replays
+ANIMATION_SLACK = 0.25       # seconds added to an animation a story waits for
 
 Listener = Callable[[dict[str, Any]], None]
 
@@ -90,6 +103,22 @@ class AlfieEngine:
         self._signal_entities: set[str] = set()   # resolved, patterns included
         self.state_key: tuple = ()                # what the entities show; see _push
 
+        # Triggers and stories (triggers.py, stories.py). None of this is
+        # entity state: a story never writes the recorder.
+        self.stories: dict[str, dict[str, Any]] = {}
+        self.triggers: list[dict[str, Any]] = []        # enabled ones only
+        self._entity_triggers: list[dict[str, Any]] = []
+        self.story: dict[str, Any] | None = None        # playing now
+        self._story_seq = 0
+        self._story_unsub: CALLBACK_TYPE | None = None
+        self._queue: list[dict[str, Any]] = []
+        self._last_fired: dict[str, float] = {}         # trigger id -> monotonic
+        self.trigger_status: dict[str, dict[str, Any]] = {}
+        self._bad_since: dict[str, float] = {}          # signal id -> monotonic
+        self._repeated: dict[str, float] = {}           # signal id -> monotonic
+        self._repeat_unsub: CALLBACK_TYPE | None = None
+        self._old_expression: str | None = None         # the mood's, before this change
+
     # ------------------------------------------------------------ lifecycle
 
     async def async_start(self) -> None:
@@ -108,10 +137,12 @@ class AlfieEngine:
         for unsub in self._unsubs:
             unsub()
         self._unsubs.clear()
-        for u in (self._idle_unsub, self._override_unsub, self._screen_unsub):
+        for u in (self._idle_unsub, self._override_unsub, self._screen_unsub,
+                  self._story_unsub, self._repeat_unsub):
             if u:
                 u()
         self._idle_unsub = self._override_unsub = self._screen_unsub = None
+        self._story_unsub = self._repeat_unsub = None
         # Tell the cards this engine is gone, so they resubscribe to the next.
         for listener in list(self._listeners):
             listener({"v": SCENE_VERSION, "ended": True})
@@ -141,6 +172,10 @@ class AlfieEngine:
         self.personality = built.personality
         self.gaze_map = {g["entity"]: g["action"] for g in self.behaviour["gaze_map"]}
         self.sleep_entity = self.behaviour["sleep_entity"] or None
+        self.stories = {s["id"]: s for s in cfg["stories"]}
+        self.triggers = [t for t in cfg["triggers"] if t["enabled"]]
+        self._entity_triggers = [t for t in self.triggers if t["kind"] in ("entity", "motion")]
+        self._queue = [q for q in self._queue if q["story"] in self.stories]
         self._relevant_cache.clear()
         # Patterns are resolved against all states once, here (at start and on
         # a save); afterwards only a brand-new entity can add a match. Nothing
@@ -161,6 +196,7 @@ class AlfieEngine:
         if self._idle_unsub:
             self._idle_unsub()
         self._schedule_idle()
+        self._schedule_repeat()
         self._push()
         return cfg
 
@@ -207,7 +243,8 @@ class AlfieEngine:
         hit = self._relevant_cache.get(eid)
         if hit is None:
             hit = (eid in self.gaze_map or eid == self.sleep_entity
-                   or self._is_signal_entity(eid))
+                   or self._is_signal_entity(eid)
+                   or any(trig.watches(t, eid) for t in self._entity_triggers))
             self._relevant_cache[eid] = hit
         return hit
 
@@ -224,8 +261,17 @@ class AlfieEngine:
             self._motion(eid)
         if eid not in self._signal_entities and self._is_signal_entity(eid):
             self._signal_entities.add(eid)
+        fired: list[tuple[dict[str, Any], tuple[str, ...]]] = []
         if eid == self.sleep_entity or eid in self._signal_entities:
-            self._recompute(react=True)
+            fired = self._recompute(react=True)
+        if self._entity_triggers:
+            ns, os_ = (new.state if new else None), (old.state if old else None)
+            fired += [(t, ()) for t in self._entity_triggers
+                      if trig.watches(t, eid) and trig.entity_fires(t, os_, ns)
+                      and (t["kind"] != "motion" or not t["only_if_bad"]
+                           or (self.mood and self.mood.bad))]
+        if fired:
+            self._fire(fired)
 
     # ------------------------------------------------------------- thinking
 
@@ -238,7 +284,10 @@ class AlfieEngine:
         return st is not None and st.state == "on"
 
     @callback
-    def _recompute(self, react: bool) -> None:
+    def _recompute(self, react: bool) -> list[tuple[dict[str, Any], tuple[str, ...]]]:
+        """Re-evaluate the mood. With `react`, returns the mood, signal and
+        wake triggers this change fires (each with the signals behind it),
+        for the caller to coalesce with its own; it never plays them."""
         old = self.mood
         mood = combine(evaluate_all(self.signals, self._signal_states()), self.settings)
         critical = mood.level == "miserable"
@@ -246,21 +295,33 @@ class AlfieEngine:
         changed = (old is None or old.level != mood.level or asleep != self.asleep
                    or {r.signal.id for r in old.bad} != {r.signal.id for r in mood.bad}
                    or {r.signal.id for r in old.good} != {r.signal.id for r in mood.good})
-        woke = self.asleep and not asleep
+        woke, slept = self.asleep and not asleep, asleep and not self.asleep
         self.mood, self.asleep = mood, asleep
         if not changed:
-            return
+            return []
         _LOGGER.debug("mood %s (%s) asleep=%s: %s", mood.level, mood.score, asleep, mood.reason)
-        b = self.behaviour
+        now = time.monotonic()
+        bad_now = {r.signal.id for r in mood.bad}
+        self._bad_since = {s: self._bad_since.get(s, now) for s in bad_now}
+        self._schedule_repeat()
+        fired: list[tuple[dict[str, Any], tuple[str, ...]]] = []
         if react and old is not None:
-            if critical and old.level != "miserable":
-                self._react(b["on_critical"], "Something critical is wrong.", "mood")
-            elif woke:
-                self._react(b["on_wake"], "Waking up.", "mode")
-            elif b["celebrate"] and not asleep and \
-                    {r.signal.id for r in old.bad} - {r.signal.id for r in mood.bad}:
-                self._react(b["on_recover"], "Something got fixed.", "recover")
+            bad_then = {r.signal.id for r in old.bad}
+            went_bad, recovered = bad_now - bad_then, bad_then - bad_now
+            changed_ids = tuple(sorted(
+                went_bad | recovered
+                | ({r.signal.id for r in mood.good} ^ {r.signal.id for r in old.good})))
+            self._old_expression = old.expression
+            for t in self.triggers:
+                k = t["kind"]
+                if k == "mood" and trig.mood_fires(t, old.level, mood.level):
+                    fired.append((t, changed_ids))
+                elif k == "signal" and (ids := trig.signal_fires(t, went_bad, recovered)):
+                    fired.append((t, tuple(ids)))
+                elif k == "wake" and trig.wake_fires(t, woke, slept):
+                    fired.append((t, changed_ids))
         self._push()
+        return fired
 
     @callback
     def _motion(self, entity_id: str) -> None:
@@ -280,6 +341,14 @@ class AlfieEngine:
         st = self.hass.states.get(entity_id)
         where = st.name if st is not None else entity_id
         self.play(name, f"Movement: {where}.", "motion")
+        # Walk-in replays: a bad signal that asks for it tells its news again.
+        for r in (self.mood.bad if self.mood else ()):
+            rep = self._repeat_of(r.signal.id)
+            if rep and rep["on_motion"] and \
+                    now - self._repeated.get(r.signal.id, -1e9) > REPEAT_GAP:
+                self._repeated[r.signal.id] = now
+                self._queue_repeat(r.signal.id, rep["story"], f"Still: {r.signal.label}.")
+                break
 
     def _schedule_idle(self) -> None:
         self._idle_unsub = None
@@ -304,6 +373,8 @@ class AlfieEngine:
     def expression(self) -> str:
         if self.override:
             return self.override
+        if self.story and self.story.get("expression"):
+            return self.story["expression"]
         if self.asleep:
             return self.behaviour.get("sleep_expression", "closed")
         return self.mood.expression if self.mood else "neutral"
@@ -317,12 +388,6 @@ class AlfieEngine:
         if self.asleep:
             return SLEEP_ENERGY
         return self._biased(self.mood.energy if self.mood else 0.8, self.personality)
-
-    @callback
-    def _react(self, name: str, reason: str, source: str) -> None:
-        """A configured reaction; an empty name means the user chose none."""
-        if name in self.animations:
-            self.play(name, reason, source, push=False)
 
     @callback
     def play(self, name: str, reason: str = "", source: str = "service",
@@ -361,8 +426,225 @@ class AlfieEngine:
     @callback
     def set_mode(self, mode: str) -> None:
         self.mode = mode
-        self._recompute(react=True)
+        fired = self._recompute(react=True)
+        if fired:
+            self._fire(fired)
         self._push()
+
+    # ------------------------------------------------------------ stories
+
+    def _repeat_of(self, signal_id: str) -> dict[str, Any] | None:
+        for s in self.config.get("signals", []):
+            if s["id"] == signal_id:
+                return s.get("repeat")
+        return None
+
+    def _screens_of(self, signal_ids: Any) -> tuple[str, ...]:
+        """The screens linked to these signals, each once, that still exist."""
+        have = {s["id"] for s in self.config.get("screens", [])}
+        by_id = {s.id: s for s in self.signals}
+        out: list[str] = []
+        for sid in signal_ids:
+            sc = by_id[sid].screen if sid in by_id else None
+            if sc and sc in have and sc not in out:
+                out.append(sc)
+        return tuple(out)
+
+    def _note(self, trigger_id: str, outcome: str) -> None:
+        self.trigger_status[trigger_id] = {"at": time.time(), "outcome": outcome}
+
+    @callback
+    def _fire(self, fired: list[tuple[dict[str, Any], tuple[str, ...]]]) -> None:
+        """Triggers fired by one change: one plays (the highest priority)."""
+        level = self.mood.level if self.mood else "content"
+        old_expression, self._old_expression = self._old_expression, None
+        now = time.monotonic()
+        ok = []
+        for t, why in fired:
+            if not trig.allowed(t, level, self.asleep):
+                continue
+            if t["cooldown"] and now - self._last_fired.get(t["id"], -1e9) < t["cooldown"]:
+                self._note(t["id"], "cooldown")
+                continue
+            ok.append((t, why))
+        t = trig.choose([t for t, _ in ok])
+        if t is None:
+            return
+        why = next(w for x, w in ok if x is t)
+        for other, _ in ok:
+            if other is not t:
+                self._note(other["id"], "outranked")
+        self._last_fired[t["id"]] = now
+        self.request_story(t["story"], priority=t["priority"], busy=t["busy"],
+                           trigger=t["id"], reason=t["name"], why=why,
+                           old_expression=old_expression)
+
+    @callback
+    def _queue_repeat(self, signal_id: str, story_id: str, reason: str) -> None:
+        if story_id in self.stories:
+            self.request_story(story_id, priority=20, busy="queue",
+                               trigger=f"repeat:{signal_id}", reason=reason, why=(signal_id,))
+
+    @callback
+    def request_story(self, story_id: str, priority: int = 50, busy: str = "auto",
+                      trigger: str = "service", reason: str = "",
+                      why: tuple[str, ...] = (), story: dict[str, Any] | None = None,
+                      old_expression: str | None = None) -> str:
+        """Play a story now, after the current one, or not at all, by the
+        busy rules (triggers.busy_action). `story` plays an unsaved draft.
+        Returns the outcome. Raises ValueError for an unknown story."""
+        if story is None and story_id not in self.stories:
+            raise ValueError(f"unknown story {story_id!r}")
+        req = {"story": story_id, "draft": story, "priority": priority, "trigger": trigger,
+               "reason": reason, "why": tuple(why), "at": time.monotonic(),
+               "old_expression": old_expression}
+        playing = self.story["priority"] if self.story else None
+        outcome = trig.busy_action(busy, priority, playing)
+        if outcome == "interrupt":
+            self._end_story("interrupted", run_queue=False)
+            self._start_story(req)
+        elif outcome == "play":
+            self._start_story(req)
+        elif outcome == "queue":
+            self._queue.append(req)
+            self._queue.sort(key=lambda q: -q["priority"])   # stable: FIFO within one
+            del self._queue[QUEUE_MAX:]
+        self._note(trigger, {"play": "played", "interrupt": "played"}.get(outcome, outcome))
+        return outcome
+
+    def _anim_seconds(self, name: str) -> float:
+        rate = play_rate(self.energy, self.personality.get("speed", 1.0))
+        return animation_length(self.face, name) / max(rate, 0.05) + ANIMATION_SLACK
+
+    @callback
+    def _start_story(self, req: dict[str, Any]) -> None:
+        story = req["draft"] or self.stories.get(req["story"])
+        if story is None:
+            return
+        m = self.mood
+        mood_expr = m.expression if m else "neutral"
+        ctx = Context(mood_expression=mood_expr,
+                      old_mood_expression=req["old_expression"] or mood_expr,
+                      why=self._screens_of(req["why"]),
+                      wrong=self._screens_of(r.signal.id for r in (m.bad if m else ())))
+        actions = expand(steps_of(story), ctx, self._anim_seconds)
+        self._story_seq += 1
+        self.story = {"id": story["id"], "name": story["name"], "seq": self._story_seq,
+                      "trigger": req["trigger"], "reason": req["reason"] or story["name"],
+                      "priority": req["priority"], "actions": actions, "step": 0,
+                      "expression": None, "blend": 0, "place": None}
+        _LOGGER.debug("story %s starts (%s): %s", story["id"], req["trigger"],
+                      [(a.kind, a.value if a.kind != "screen" else a.value["id"], a.seconds)
+                       for a in actions])
+        self.hass.bus.async_fire(EVENT_STORY, {"story": story["id"], "trigger": req["trigger"],
+                                               "phase": "start"})
+        self._run_story(self._story_seq)
+
+    @callback
+    def _run_story(self, seq: int) -> None:
+        """Do the story's actions up to the next one that takes time, push
+        once, and set one timer for it."""
+        self._story_unsub = None
+        st = self.story
+        if st is None or st["seq"] != seq:
+            return
+        acts: list[Action] = st["actions"]
+        while st["step"] < len(acts):
+            a = acts[st["step"]]
+            st["step"] += 1
+            if a.kind != "screen" and self.screen and self.screen.get("story"):
+                self._clear_screen(None)
+            if a.kind == "expression":
+                if a.value["name"] in self.expressions:
+                    st["expression"], st["blend"] = a.value["name"], a.value["blend"]
+            elif a.kind == "animation":
+                self.play(a.value, st["reason"], "story", push=False)
+            elif a.kind == "screen":
+                self._present(a.value)
+            elif a.kind == "place":
+                st["place"] = a.value
+            elif a.kind == "speak":
+                _LOGGER.debug("story %s would say %r (speaking comes with Voice)",
+                              st["id"], a.value)
+            if a.seconds > 0:
+                self._push()
+                self._story_unsub = async_call_later(
+                    self.hass, a.seconds, callback(lambda _now: self._run_story(seq)))
+                return
+        self._end_story("end")
+
+    @callback
+    def _present(self, step: dict[str, Any]) -> None:
+        if step["id"] not in {s["id"] for s in self.config.get("screens", [])}:
+            return
+        if self._screen_unsub:
+            self._screen_unsub()
+            self._screen_unsub = None
+        self._screen_seq += 1
+        self.screen = {"id": step["id"], "until": time.time() + step["seconds"],
+                       "seq": self._screen_seq, "story": True,
+                       "present": None if step["present"] == "card" else step["present"],
+                       "transition": step["transition"] or None}
+
+    @callback
+    def _end_story(self, phase: str, run_queue: bool = True) -> None:
+        st = self.story
+        if st is None:
+            return
+        if self._story_unsub:
+            self._story_unsub()
+            self._story_unsub = None
+        if self.screen and self.screen.get("story"):
+            self._clear_screen(None)
+        self.story = None
+        _LOGGER.debug("story %s %s", st["id"], phase)
+        self.hass.bus.async_fire(EVENT_STORY, {"story": st["id"], "trigger": st["trigger"],
+                                               "phase": phase})
+        if run_queue:
+            now = time.monotonic()
+            self._queue = [q for q in self._queue if now - q["at"] < QUEUE_STALE]
+            if self._queue:
+                self._start_story(self._queue.pop(0))
+                return
+        self._push()
+
+    @callback
+    def stop_story(self) -> None:
+        """End the story playing now and forget the queue."""
+        self._queue.clear()
+        self._end_story("interrupted", run_queue=False)
+        self._push()
+
+    def _schedule_repeat(self) -> None:
+        """One timer for the next "every N hours" replay that is due."""
+        if self._repeat_unsub:
+            self._repeat_unsub()
+            self._repeat_unsub = None
+        now, due = time.monotonic(), None
+        for sid, since in self._bad_since.items():
+            rep = self._repeat_of(sid)
+            if not rep or not rep["every_hours"]:
+                continue
+            at = max(since, self._repeated.get(sid, since)) + rep["every_hours"] * 3600
+            due = at if due is None else min(due, at)
+        if due is not None:
+            self._repeat_unsub = async_call_later(self.hass, max(due - now, 1.0), self._repeat)
+
+    @callback
+    def _repeat(self, _now: Any) -> None:
+        self._repeat_unsub = None
+        now = time.monotonic()
+        for r in (self.mood.bad if self.mood else ()):
+            sid = r.signal.id
+            rep = self._repeat_of(sid)
+            if not rep or not rep["every_hours"] or sid not in self._bad_since:
+                continue
+            last = max(self._bad_since[sid], self._repeated.get(sid, self._bad_since[sid]))
+            if now - last >= rep["every_hours"] * 3600 - 1:
+                self._repeated[sid] = now
+                if not self.asleep:
+                    self._queue_repeat(sid, rep["story"], f"Still: {r.signal.label}.")
+        self._schedule_repeat()
 
     # ------------------------------------------------------------ screens
 
@@ -378,7 +660,7 @@ class AlfieEngine:
         seq = self._screen_seq
         self.screen = {"id": screen_id, "until": time.time() + seconds, "seq": seq}
         self._screen_unsub = async_call_later(
-            self.hass, seconds, lambda _now: self._clear_screen(seq))
+            self.hass, seconds, callback(lambda _now: self._clear_screen(seq)))
         self._push()
 
     @callback
@@ -438,11 +720,19 @@ class AlfieEngine:
             "look": self.config.get("look") or {},
             "signals": signals,
             "reason": "Asleep." if self.asleep else (m.reason if m else ""),
-            "story": None,
+            "story": self._story_scene(),
             "screen": self.screen,
             "screens_rev": self.screens_rev,
             "now": time.time(),
         }
+
+    def _story_scene(self) -> dict[str, Any] | None:
+        st = self.story
+        if st is None:
+            return None
+        return {"id": st["id"], "seq": st["seq"], "step": st["step"],
+                "total": len(st["actions"]), "trigger": st["trigger"], "reason": st["reason"],
+                "blend": st["blend"], "place": st["place"]}
 
     @callback
     def _push(self) -> None:
