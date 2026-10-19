@@ -213,6 +213,16 @@ with missing ids kept visible) stay on the panel, because they read the draft.
   a story the default is "Default (the card's)".
 - **Transition:** options are the human names plus "Random: a different one each time". The
   default is "Default (the card's)", or for a rotation "Fade".
+- **Icons** (design.md "Icons"): an Icon step shows HA's icon beside its name field, and has
+  a "Try it" button that plays it on the dock only.
+  - Style: "Transform: he turns into it", "Beside: he goes to his corner", "Badge: added to the
+    card";
+  - Transform: "Whole face", "Ring only (his eyes stay)";
+  - Colour: "Ring colour", "Eye colour", "Text colour";
+  - Fill: "Outline", "Soft fill", "Solid";
+  - a badge's transition defaults to "Default (zoom)";
+  - an above / below trigger's Value reads a number or an entity: "A number, or an entity whose
+    state is the threshold (an input_number, a sensor)."
 - **A house mode's `alfie`:**
   - "Awake";
   - "Asleep: only bad enough news wakes him";

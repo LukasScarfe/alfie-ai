@@ -70,8 +70,8 @@ def _anim(name: str) -> dict:
     return {"kind": "animation", "name": name, "wait": True}
 
 
-SIMPLE = {"expression": "", "animation": "", "screen": "@why", "seconds": 15,
-            "present": "card", "transition": "", "closing": ""}
+SIMPLE = {"expression": "", "animation": "", "icon": "", "icon_style": "transform",
+          "screen": "@why", "seconds": 15, "present": "card", "transition": "", "closing": ""}
 
 STORIES: tuple[dict, ...] = (
     {"id": "alarm", "name": "Alarm", "form": "steps", "simple": dict(SIMPLE),

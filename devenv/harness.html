@@ -10,6 +10,8 @@
        sheet=intros[&only=draw,zoom][&kind=screen|face]   every intro style at u = 0, .25, .5, .75, 1: a label screen arriving, and
                                     the face leaving as strokes (morph from the face); about SIZE=2000x1900 at both kinds
        sheet=font                   every glyph of the vector font, large
+       sheet=icons[&icon=mdi:heart]  an icon in each style: transform (whole, ring) and beside at u = 0 .. 1, badges
+                                    at their places (icons from devenv/icons.json)
        expr=happy[&anim=X&u=0.3]    one face
      plus cfg=<url-encoded JSON card config> and cols=N. -->
 <meta charset="utf-8">
@@ -24,6 +26,8 @@
 <script type="module">
   // The card waits for HA's own element before defining itself.
   customElements.define("home-assistant", class extends HTMLElement {});
+  // No HA here, so no <ha-icon>: a few real mdi paths stand in.
+  globalThis.ALFIE_ICONS = await (await fetch("./icons.json")).json();
   await import("../custom_components/alfie/frontend/alfie-card.js?v=dev");
   await customElements.whenDefined("alfie-card");
 
@@ -103,12 +107,26 @@
       }
     }
     cfg.aspect = 1.6;
+  } else if (sheet === "icons") {
+    const icon = q.get("icon") || "mdi:white-balance-sunny";
+    for (const transform of ["whole", "ring"]) {
+      for (const u of [0, 0.25, 0.5, 0.75, 1]) frames.push({ label: `transform ${transform} u=${u}`, iconStill: { icon, style: "transform", transform, u } });
+    }
+    for (const u of [0, 0.5, 1]) frames.push({ label: `beside u=${u}`, iconStill: { icon, style: "beside", u, transition: "zoom" }, cfg: { aspect: 1.6 } });
+    frames.push({ label: "beside top_left", iconStill: { icon, style: "beside", corner: "top_left", u: 1 }, cfg: { aspect: 1.6 } });
+    frames.push({ label: "beside, eye colour", iconStill: { icon, style: "beside", color: "accent", u: 1 }, cfg: { aspect: 1.6, eye_color: "#ffcc44" } });
+    for (const place of ["above", "right", "top_right", "bottom_left", "centre"]) {
+      frames.push({ label: `badge ${place}`, iconStill: { icon, style: "overlay", place, u: 1 }, cfg: { aspect: 1.6 } });
+    }
+    frames.push({ label: "badge above, size 1.6", iconStill: { icon, style: "overlay", place: "above", size: 1.6, u: 1 }, cfg: { aspect: 1.6 } });
+    for (const fill of ["none", "soft", "solid"]) frames.push({ label: `transform fill ${fill}`, iconStill: { icon, style: "transform", fill, u: 1 } });
+    frames.push({ label: "badge zooming in u=0.5", iconStill: { icon, style: "overlay", place: "right", u: 0.5 }, cfg: { aspect: 1.6 } });
   } else {
     frames = [{ label: q.get("expr") || "neutral", expression: q.get("expr") || "neutral",
                 animation: q.get("anim"), u: Number(q.get("u") || 0) }];
   }
   const g = document.getElementById("g");
-  g.style.gridTemplateColumns = `repeat(${q.get("cols") || (sheet === "present" ? 4 : sheet === "screen" || sheet === "font" ? 1 : sheet === "shapes" ? 4 : sheet === "personality" ? 5 : sheet === "intros" ? (q.get("kind") ? 5 : 10) : Math.min(frames.length, 6))}, 1fr)`;
+  g.style.gridTemplateColumns = `repeat(${q.get("cols") || (sheet === "present" ? 4 : sheet === "screen" || sheet === "font" ? 1 : sheet === "shapes" ? 4 : sheet === "personality" ? 5 : sheet === "intros" ? (q.get("kind") ? 5 : 10) : sheet === "icons" ? 5 : Math.min(frames.length, 6))}, 1fr)`;
   for (const f of frames) {
     const fig = document.createElement("figure");
     const el = document.createElement("alfie-card");
@@ -133,7 +151,8 @@
         strokes: (hw, hh) => I.apply(style, 1 - Math.min(1, p), true, faceS, box(hw, hh), base(hw, hh)).strokes,
       };
       el._draw(el._stillFrame, el._stillScr);
-    } else if (f.type) await el.renderScreenStill(f); else await el.renderStill(f);
+    } else if (f.iconStill) await el.renderIconStill(f.iconStill);
+    else if (f.type) await el.renderScreenStill(f); else await el.renderStill(f);
   }
   document.body.dataset.ready = "1";
 </script>

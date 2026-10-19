@@ -91,6 +91,7 @@ export function compileSimple(t, defaults) {
   const steps = [];
   if (t.expression) steps.push({ ...defaults.expression, name: t.expression, hold: 1 });
   if (t.animation) steps.push({ ...defaults.animation, name: t.animation });
+  if (t.icon) steps.push({ ...defaults.icon, icon: t.icon, style: t.icon_style || "transform" });
   if (t.screen) steps.push({ ...defaults.screen, screen: t.screen, seconds: t.seconds, present: t.present, transition: t.transition });
   if (t.closing) steps.push({ ...defaults.animation, name: t.closing });
   return steps;

@@ -9,6 +9,8 @@
 
 export const HOME = { x: 0, y: 0, s: 1 };
 
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
 const isAlfie = (st) => !!st?.alfie;
 
 export function start(spec, clock) {
@@ -71,10 +73,10 @@ export const storyLength = (actions) => (actions || []).reduce((t, a) => t + (Nu
 
 // Where a story played on one card stands `to` seconds in: the last
 // expression (with its blend) and place so far, the screen on show (only
-// while its own action lasts, as in the engine), the animations that start
-// in (from, to], and whether it is over. Mirrors engine._run_story.
+// while its own action lasts, as in the engine), the animations and icon
+// badges that start in (from, to], and whether it is over. Mirrors engine._run_story.
 export function runStory(actions, from, to) {
-  const out = { expression: null, blend: 0, place: null, screen: null, fire: [], done: false };
+  const out = { expression: null, blend: 0, place: null, screen: null, fire: [], icons: [], done: false };
   let t = 0;
   for (const a of actions || []) {
     if (t > to) break;
@@ -82,6 +84,7 @@ export function runStory(actions, from, to) {
     if (a.kind === "expression") { out.expression = a.value.name; out.blend = a.value.blend || 0; }
     else if (a.kind === "place") out.place = a.value;
     else if (a.kind === "animation" && t > from) out.fire.push(a.value);
+    else if (a.kind === "icon" && t > from) out.icons.push(a.value);
     else if (a.kind === "screen" && to < t + secs) out.screen = a.value;
     t += secs;
   }
@@ -118,4 +121,52 @@ export const atHome = (p) => Math.abs(p.x) < 1e-3 && Math.abs(p.y) < 1e-3 && Mat
 export function placeAt(p, w, h, R) {
   const r = R * p.s * 1.02;
   return { cx: w / 2 + p.x * Math.max(0, w / 2 - r), cy: h / 2 - p.y * Math.max(0, h / 2 - r), s: p.s };
+}
+
+// ------------------------------------------------------------------- icons
+// design.md "Icons". The same as stories.icon_action, for an icon played on one
+// card only (the panel's Try it): transform and beside are screens with the
+// icon on them, an overlay is a badge.
+export const ICON_SCREEN = "@icon";
+export function iconAction(icon, wait = true) {
+  const i = { icon: "mdi:lightbulb-on", style: "transform", transform: "whole", seconds: 5, transition: "",
+    corner: "card", place: "top_right", x: 0, y: 0, size: 1, color: "line", fill: "soft", ...(icon || {}) };
+  const look = { name: i.icon, size: Number(i.size) || 1, color: i.color, fill: i.fill };
+  const secs = Number(i.seconds) || 5;
+  if (i.style === "overlay") {
+    return { kind: "icon", value: { ...look, place: i.place, x: Number(i.x) || 0, y: Number(i.y) || 0, seconds: secs, transition: i.transition }, seconds: wait ? secs : 0 };
+  }
+  const value = i.style === "transform"
+    ? { id: ICON_SCREEN, icon: { ...look, ring: i.transform === "ring" }, seconds: secs, present: "handover", transition: "morph" }
+    : { id: ICON_SCREEN, icon: { ...look, corner: i.corner }, seconds: secs, present: "corner", transition: i.transition };
+  return { kind: "screen", value, seconds: secs };
+}
+
+export const BADGE = 0.35;   // a badge's half size at size 1, in ring radii
+
+// Where a badge goes, in canvas px: its centre and half size. `face` is where
+// Alfie is drawn ({cx, cy, r} px), `m` the card's margin; y is up for custom.
+// Beside him (above, below, left, right) it sits just off his ring, kept on the card.
+export function badgeAt(b, w, h, R, face, m) {
+  const s = R * BADGE * clamp(Number(b.size) || 1, 0.3, 2);
+  const lo = m + s, hi = (n) => n - m - s;
+  const fit = (v, n) => (hi(n) < lo ? n / 2 : Math.max(lo, Math.min(hi(n), v)));
+  const gap = s * 0.25 + face.r;
+  let x = w / 2, y = h / 2;
+  switch (b.place) {
+    case "above": x = face.cx; y = face.cy - gap - s; break;
+    case "below": x = face.cx; y = face.cy + gap + s; break;
+    case "left": x = face.cx - gap - s; y = face.cy; break;
+    case "right": x = face.cx + gap + s; y = face.cy; break;
+    case "top_left": x = lo; y = lo; break;
+    case "top_right": x = hi(w); y = lo; break;
+    case "bottom_left": x = lo; y = hi(h); break;
+    case "bottom_right": x = hi(w); y = hi(h); break;
+    case "custom":
+      x = w / 2 + clamp(Number(b.x) || 0, -1, 1) * Math.max(0, w / 2 - m - s);
+      y = h / 2 - clamp(Number(b.y) || 0, -1, 1) * Math.max(0, h / 2 - m - s);
+      break;
+    default: break;   // centre
+  }
+  return { cx: fit(x, w), cy: fit(y, h), s };
 }

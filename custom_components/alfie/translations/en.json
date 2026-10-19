@@ -107,6 +107,116 @@
     "stop_story": {
       "name": "Stop story",
       "description": "End the story Alfie is playing and drop any waiting ones."
+    },
+    "show_icon": {
+      "name": "Show icon",
+      "description": "Make Alfie show any Home Assistant icon on every display: he turns into it, it shows beside him, or it goes on the card as a badge.",
+      "fields": {
+        "icon": {
+          "name": "Icon",
+          "description": "Any icon Home Assistant can show, like mdi:white-balance-sunny."
+        },
+        "style": {
+          "name": "Style",
+          "description": "Transform: he turns into it. Beside: he goes to his corner and it fills the rest. Badge: it goes on the card while he carries on."
+        },
+        "transform": {
+          "name": "Turn into it",
+          "description": "Transform only. Whole: his ring and eyes become the icon. Ring only: his ring becomes it and his eyes stay."
+        },
+        "seconds": {
+          "name": "Seconds",
+          "description": "How long it shows."
+        },
+        "transition": {
+          "name": "Transition",
+          "description": "Beside and badge: how it comes and goes (fade, zoom, draw, … or random). Empty: the card's for beside, zoom for a badge."
+        },
+        "corner": {
+          "name": "Corner",
+          "description": "Beside only: which corner he goes to. Card: the card's own."
+        },
+        "place": {
+          "name": "Place",
+          "description": "Badge only: where it goes."
+        },
+        "x": {
+          "name": "X",
+          "description": "Badge at a custom place: -1 is the left edge, 1 the right."
+        },
+        "y": {
+          "name": "Y",
+          "description": "Badge at a custom place: -1 is the bottom edge, 1 the top."
+        },
+        "size": {
+          "name": "Size",
+          "description": "Times its usual size."
+        },
+        "color": {
+          "name": "Colour",
+          "description": "Draw it in the ring's colour, the eyes' or the text's."
+        },
+        "fill": {
+          "name": "Fill",
+          "description": "Outline only, a soft fill, or solid."
+        }
+      }
+    },
+    "clear_icons": {
+      "name": "Clear icons",
+      "description": "Take every icon off the displays."
+    }
+  },
+  "selector": {
+    "icon_style": {
+      "options": {
+        "transform": "Transform",
+        "beside": "Beside",
+        "overlay": "Badge"
+      }
+    },
+    "icon_transform": {
+      "options": {
+        "whole": "Whole",
+        "ring": "Ring only"
+      }
+    },
+    "icon_corner": {
+      "options": {
+        "card": "Card's",
+        "top_left": "Top left",
+        "top_right": "Top right",
+        "bottom_left": "Bottom left",
+        "bottom_right": "Bottom right"
+      }
+    },
+    "icon_place": {
+      "options": {
+        "above": "Above him",
+        "below": "Below him",
+        "left": "Left of him",
+        "right": "Right of him",
+        "top_left": "Top left",
+        "top_right": "Top right",
+        "bottom_left": "Bottom left",
+        "bottom_right": "Bottom right",
+        "centre": "Centre",
+        "custom": "Custom"
+      }
+    },
+    "icon_color": {
+      "options": {
+        "line": "Ring colour",
+        "accent": "Eye colour",
+        "text": "Text colour"
+      }
+    },
+    "icon_fill": {
+      "options": {
+        "none": "Outline",
+        "soft": "Soft",
+        "solid": "Solid"
+      }
     }
   }
 }

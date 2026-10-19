@@ -39,3 +39,10 @@ WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH 
 `frontend/alfie-sky.js` implements the low-precision formulas from Paul Schlyter's "How to compute
 planetary positions" (stjarnhimlen.se), via xy-bench's `sky.py`. They are published mathematics,
 not code, and are credited here out of courtesy.
+
+## Material Design Icons: dev fixtures
+
+`devenv/icons.json` holds the SVG paths of ten
+[Material Design Icons](https://pictogrammers.com/library/mdi/) (Pictogrammers), so the tests
+and the card harness can draw icons without Home Assistant. They are released under the Apache
+License 2.0. In Home Assistant, Alfie takes every icon from HA's own icon set and bundles none.

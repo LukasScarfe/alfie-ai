@@ -50,6 +50,11 @@ SEED = {
     "binary_sensor.bathroom_motion_sensor_occupancy": "off",
     "binary_sensor.bedroom_light_motion_sensor_occupancy": "off",
     "binary_sensor.dining_room_presence_motion_sensor_presence": "off",
+    # The living room's light level and the threshold the "Bright living room" trigger uses.
+    "sensor.living_room_motion_sensor_illuminance": ("120", {"unit_of_measurement": "lx",
+                                                            "device_class": "illuminance"}),
+    "input_number.living_room_lights_on_lux": ("300", {"unit_of_measurement": "lx",
+                                                      "min": 0, "max": 2000}),
 }
 
 

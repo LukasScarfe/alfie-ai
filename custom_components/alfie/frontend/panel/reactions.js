@@ -25,7 +25,21 @@ const BUSY_TEXT = [["auto", "By priority: higher interrupts"], ["queue", "Wait i
   ["interrupt", "Interrupt whatever is playing"], ["skip", "Don't play"]];
 const STEP_TEXT = {
   expression: "Expression", animation: "Animation", screen: "Screen", wait: "Wait", move: "Move", resize: "Resize", speak: "Speak",
+  icon: "Icon",
 };
+// Icons (design.md "Icons"): the words for each choice.
+const ICON_TEXT = {
+  styles: { transform: "Transform: he turns into it", beside: "Beside: he goes to his corner", overlay: "Badge: added to the card" },
+  transforms: { whole: "Whole face", ring: "Ring only (his eyes stay)" },
+  corners: { card: "Default (the card's)", top_left: "Top left", top_right: "Top right", bottom_left: "Bottom left", bottom_right: "Bottom right" },
+  places: { above: "Above him", below: "Below him", left: "Left of him", right: "Right of him", top_left: "Top left",
+    top_right: "Top right", bottom_left: "Bottom left", bottom_right: "Bottom right", centre: "Centre", custom: "Custom (x, y)" },
+  colors: { line: "Ring colour", accent: "Eye colour", text: "Text colour" },
+  fills: { none: "Outline", soft: "Soft fill", solid: "Solid" },
+};
+const iconOptions = (p, key) => (p.choices.icon?.[key] || Object.keys(ICON_TEXT[key])).map((x) => [x, ICON_TEXT[key][x] || U.human(x)]);
+// The icon as HA draws it, beside its name, so a typo shows at once.
+const iconPreview = (name) => `<ha-icon class="iconprev" icon="${U.esc(name || "")}" title="${U.esc(name || "")}"></ha-icon>`;
 const PLACE_TEXT = { centre: "Centre", top_left: "Top left", top_right: "Top right", bottom_left: "Bottom left", bottom_right: "Bottom right", custom: "Custom (x, y)" };
 export const PRESENT_TEXT = [["card", "Default (the card's)"], ["handover", "Hand over: Alfie steps aside"], ["corner", "Corner: Alfie shrinks into a corner"]];
 export const transitionOptions = (dflt) => [["", dflt], ...TRANSITIONS.map((x) => [x, U.human(x)]), ["random", "Random: a different one each time"]];
@@ -73,7 +87,10 @@ function trigger(p, t, i, n) {
   if (t.kind === "entity") {
     const ops = [["changes", "Changes at all"], ["above", "Goes above"], ["below", "Goes below"], ["is", "Becomes"], ["is_not", "Stops being"]];
     own += `${U.field("When it", U.select(`${P}.op`, t.op, ops, { rerender: true }))}
-      ${t.op === "changes" ? "" : U.field("Value", U.text(`${P}.value`, t.value, { kind: "value" }))}`;
+      ${t.op === "changes" ? "" : ["above", "below"].includes(t.op)
+        ? U.field("Value", U.text(`${P}.value`, t.value, { kind: "value", list: "entities", placeholder: "300, or input_number.lux" }),
+          "A number, or an entity whose state is the threshold (an input_number, a sensor).")
+        : U.field("Value", U.text(`${P}.value`, t.value, { kind: "value" }))}`;
   } else if (t.kind === "motion") {
     own += U.check(`${P}.only_if_bad`, t.only_if_bad, "Only while something is wrong", "A walk-in reminder.");
   } else if (t.kind === "mood") {
@@ -143,10 +160,14 @@ const animOptions = (p, none) => [...(none ? [["", none]] : []), ...p.choices.an
 
 function simple(p, st, i) {
   const t = st.simple, P = `stories.${i}.simple`;
-  return `<p class="muted">React, then show a screen, then close. Leave a part empty to skip it.</p>
+  return `<p class="muted">React, then show an icon and a screen, then close. Leave a part empty to skip it.</p>
     ${U.group("React", `
       ${U.field("Expression", U.select(`${P}.expression`, t.expression, exprOptions(p, "None")))}
       ${U.field("Animation", U.select(`${P}.animation`, t.animation, animOptions(p, "None")))}`)}
+    ${U.group("Icon", `
+      ${U.field("Icon", `<span class="row">${iconPreview(t.icon)}${U.text(`${P}.icon`, t.icon, { placeholder: "None, or mdi:lightbulb-on", attrs: "data-rerender" })}</span>`,
+        "Any icon Home Assistant can show.")}
+      ${U.field("Style", U.select(`${P}.icon_style`, t.icon_style, iconOptions(p, "styles")))}`)}
     ${U.group("Show", `
       ${U.field("Screen", p.screenSelect(`${P}.screen`, t.screen, screenOptions("No screen")))}
       ${U.field("For", U.num(`${P}.seconds`, t.seconds, { min: 3, max: 3600, step: 1, unit: "s" }))}
@@ -167,7 +188,9 @@ function steps(p, st, i) {
   return `<div class="steps">${rows || U.empty("No steps yet.")}</div>
     <div class="row addrow">${kinds}<button class="add" data-action="st-step-add" data-i="${i}">+ Add step</button></div>
     <style>.steps .step { padding: 6px 0; border-bottom: 1px solid var(--line); } .steps .n { width: 22px; }
-      .steps .secs { width: 84px; } .row.form { margin: 8px 0 4px; }</style>`;
+      .steps .secs { width: 84px; } .row.form { margin: 8px 0 4px; }
+      .steps .step { flex-wrap: wrap; } .steps .stepmore { flex-basis: 100%; padding-left: 22px; }
+      .iconprev { --mdc-icon-size: 22px; color: var(--accent, currentColor); } .steps .iconname { width: 190px; }</style>`;
 }
 
 function stepFields(p, s, P) {
@@ -191,8 +214,29 @@ function stepFields(p, s, P) {
     case "speak":
       return `<input class="grow" data-path="${P}.text" value="${U.esc(s.text)}" placeholder="Something to say">
         <small class="muted">Speaking comes with Voice; until then this step is skipped.</small>`;
+    case "icon": return iconFields(p, s, P, secs);
     default: return "";
   }
+}
+
+// An icon step: the icon, how it shows, for how long; its look under More.
+function iconFields(p, s, P, secs) {
+  const sel = (key, list, opts = {}) => U.select(`${P}.${key}`, s[key], iconOptions(p, list), opts);
+  const how = s.style === "transform" ? sel("transform", "transforms")
+    : s.style === "beside" ? `in ${sel("corner", "corners")}`
+    : `at ${sel("place", "places", { rerender: true })}${s.place === "custom" ? ` x ${secs("x", -1, 1, "")} y ${secs("y", -1, 1, "")}` : ""}`;
+  const own = s.style === "transform" ? "" : U.field("Transition", U.select(`${P}.transition`, s.transition,
+    transitionOptions(s.style === "beside" ? "Default (the card's)" : "Default (zoom)")));
+  const key = `icon:${P}`;
+  return `${iconPreview(s.icon)}<input class="iconname" data-path="${P}.icon" value="${U.esc(s.icon)}" placeholder="mdi:lightbulb-on" data-rerender>
+    ${sel("style", "styles", { rerender: true })} ${how} for ${secs("seconds", 1, 3600)}
+    ${s.style === "overlay" ? `<label class="check">${U.toggle(`${P}.wait`, s.wait)}<span>Wait for it</span></label>` : ""}
+    <button class="flat" data-action="st-step-try" data-path="${P}" title="Show it on the Alfie beside this page">Try it</button>
+    <div class="stepmore">${U.more(p, key, `
+      ${U.field("Size", U.num(`${P}.size`, s.size, { min: 0.3, max: 2, step: 0.05, unit: "×" }), "1 is its usual size.")}
+      ${U.field("Colour", sel("color", "colors"))}
+      ${U.field("Fill", sel("fill", "fills"))}
+      ${own}`)}</div>`;
 }
 
 // ------------------------------------------------------------ motion & idle
@@ -341,6 +385,11 @@ export function click(p, a, el) {
       if (Fm.moveItem(sts[i].steps, j, a === "st-step-up" ? j - 1 : j + 1)) p.edited(true);
       return true;
     case "st-play": playStory(p, i, el); return true;
+    case "st-step-try": {
+      const step = el.dataset.path.split(".").reduce((o, k) => o?.[k], d);
+      if (step && p.face?.showIconLocal) p.face.showIconLocal(step);
+      return true;
+    }
     // motion & idle
     case "mo-add": d.behaviour.motion_sensors.push({ entity: "", action: "notice" }); p.edited(true); return true;
     case "mo-rm": d.behaviour.motion_sensors.splice(i, 1); p.edited(true); return true;

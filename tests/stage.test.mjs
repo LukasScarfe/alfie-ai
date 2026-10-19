@@ -128,5 +128,33 @@ const spec = { steps: [{ screen: "a", seconds: 10 }, { screen: "b", seconds: 5 }
   near(big.cx, 100, "too big to move stays centred");
 }
 
+// Icons: the same actions as stories.icon_action, fired once by runStory.
+{
+  const t = G.iconAction({ icon: "mdi:heart", style: "transform", transform: "ring", seconds: 4 });
+  eq([t.kind, t.value.present, t.value.transition, t.value.icon.ring, t.seconds], ["screen", "handover", "morph", true, 4], "transform is a morph screen");
+  const b = G.iconAction({ style: "beside", corner: "top_left" });
+  eq([b.value.present, b.value.icon.corner, b.value.id], ["corner", "top_left", "@icon"], "beside is a corner screen");
+  const o = G.iconAction({ style: "overlay", place: "above" }, false);
+  eq([o.kind, o.value.place, o.seconds], ["icon", "above", 0], "overlay is a badge");
+  const acts = [{ kind: "icon", value: { name: "a" }, seconds: 2 }, { kind: "wait", value: null, seconds: 1 }];
+  eq(G.runStory(acts, -1, 0).icons.length, 1, "a badge fires at its start");
+  eq(G.runStory(acts, 0, 1).icons.length, 0, "and only once");
+}
+
+// Badges: placed beside the face, in corners, kept on the card.
+{
+  const face = { cx: 100, cy: 100, r: 80 };
+  const above = G.badgeAt({ place: "above", size: 1 }, 400, 200, 80, face, 8);
+  near(above.s, 28, "badge half size");
+  near(above.cx, 100, "above: over his centre");
+  near(above.cy, 36, "above: kept on the card");
+  const right = G.badgeAt({ place: "right", size: 1 }, 400, 200, 80, face, 8);
+  near(right.cx, 100 + 80 + 7 + 28, "right: just off his ring");
+  const tr = G.badgeAt({ place: "top_right", size: 1 }, 400, 200, 80, face, 8);
+  eq([tr.cx, tr.cy], [400 - 36, 36], "top right corner");
+  const c = G.badgeAt({ place: "custom", x: -1, y: 1, size: 1 }, 400, 200, 80, face, 8);
+  eq([c.cx, c.cy], [36, 36], "custom x -1, y 1 is top left");
+}
+
 console.log(`stage: ${checks - failures}/${checks} checks passed`);
 if (failures) process.exit(1);

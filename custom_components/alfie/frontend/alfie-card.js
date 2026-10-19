@@ -13,9 +13,19 @@ const S = await import(`./alfie-screens.js${V}`);
 const L = await import(`./alfie-look.js${V}`);
 const I = await import(`./alfie-intros.js${V}`);
 const G = await import(`./alfie-stage.js${V}`);
+const IC = await import(`./alfie-icons.js${V}`);
 const FACE_URL = new URL(`./alfie-face.json${V}`, import.meta.url);
 
 let faceData = null;
+
+// An icon on show as a screen (transform and beside; design.md "Icons"): the
+// icon's outlines fitted to the box. Its options are the icon's look.
+const ICON_MODULE = {
+  draw({ w, h, options: o }) {
+    const st = IC.strokesFor(o.name, { role: o.color || "line", fill: o.fill });
+    return st ? IC.placed(st, Math.min(w, h) * ICON_FIT * clamp(Number(o.size) || 1, 0.3, 2)) : [];
+  },
+};
 // A screen's options with the type's defaults under them.
 function withDefaults(type, options) {
   const out = { ...(options || {}) };
@@ -70,12 +80,15 @@ const DEFAULTS = {
   text_color: null,       // screen text; null takes the face colour
   accent_color: null,     // screen accents; null takes the face colour
   screen_line_width: 0.02, // ring radii: screens draw finer than the face
+  icons: true,            // false: this card ignores icons (alfie.show_icon, a story's icon steps)
 };
 
 const DISPLAYS = ["companion", "rotation"];
 const PRESENTS = ["handover", "corner"];
 const CORNERS = ["bottom_right", "bottom_left", "top_right", "top_left"];
 const CORNER_SECONDS = 0.8;   // how long the face takes to move to or from its corner
+const ICON_FIT = 0.8;         // an icon at size 1 fills this share of its box (or of his ring)
+const BADGE_STYLE = "zoom";   // how a badge comes and goes when its icon names no transition
 const DATA_STALE = 300;       // seconds before a shown screen's data is fetched again
 const DATA_RETRY = 30;        // seconds before retrying a failed fetch
 
@@ -344,6 +357,8 @@ class AlfieCard extends HTMLElement {
     this._error = null;
     this._showError();
     if (scene.screens_rev !== this._screensRev) this._fetchScreens(scene.screens_rev);
+    if (scene.screen?.icon && this._config.icons !== false) this._iconScreen(scene.screen.id, scene.screen.icon);
+    this._syncBadges(scene.icons);
     // What is wrong (and which of it asks to join the rotation) reshapes the rotation.
     const badKey = (scene.signals || []).filter((s) => s.kind === "bad")
       .map((s) => `${s.id}:${s.screen}:${s.in_rotation ? 1 : 0}`).join(",");
@@ -607,6 +622,15 @@ class AlfieCard extends HTMLElement {
     const cx = P ? P.cx : L ? L.face.cx : w / 2, cy = P ? P.cy : L ? L.face.cy : h / 2;
     const X = (x) => cx + x * Rf, Y = (y) => cy - y * Rf;
     const faceAlpha = scr ? scr.faceAlpha : 1;
+    const screen = () => {
+      if (!scr || scr.alpha <= 0.003) return;
+      const strokes = scr.strokes(L.box.hw / R, L.box.hh / R, shapes);
+      // An icon he turned into is drawn as he is: his line, his colours.
+      const own = scr.faceLine ? { lw, palette: { line: col.face, accent: col.eye, text: col.text, dim: col.face } } : null;
+      if (strokes?.length) this._drawStrokes(ctx, strokes, L.box.cx, L.box.cy, R, scr.alpha, own);
+    };
+    // His eyes over an icon his ring became: the icon goes under them.
+    if (scr?.noHead) screen();
     if (scr?.face) {
       // The face as strokes, shaped by the transition, in the same units as the screen.
       const out = scr.face(shapes, { w: w / 2 / R, h: h / 2 / R });
@@ -625,10 +649,12 @@ class AlfieCard extends HTMLElement {
       // The head's outline sits just inside the drawing area, so its stroke fits.
       const hs = (Rf - lw / 2) / Rf;
       const [hx, hy] = shapes.ring;
-      ctx.strokeStyle = ctx.shadowColor = col.face;
-      ctx.beginPath();
-      trace(ctx, shapes.head.map(([x, y]) => [X(hx + (x - hx) * hs), Y(hy + (y - hy) * hs)]));
-      ctx.stroke();
+      if (!scr?.noHead) {
+        ctx.strokeStyle = ctx.shadowColor = col.face;
+        ctx.beginPath();
+        trace(ctx, shapes.head.map(([x, y]) => [X(hx + (x - hx) * hs), Y(hy + (y - hy) * hs)]));
+        ctx.stroke();
+      }
 
       ctx.strokeStyle = ctx.fillStyle = ctx.shadowColor = col.eye;
       for (const eye of [shapes.left, shapes.right]) {
@@ -639,10 +665,9 @@ class AlfieCard extends HTMLElement {
       }
       ctx.globalAlpha = 1;
     }
-    if (scr && scr.alpha > 0.003) {
-      const strokes = scr.strokes(L.box.hw / R, L.box.hh / R, shapes);
-      if (strokes?.length) this._drawStrokes(ctx, strokes, L.box.cx, L.box.cy, R, scr.alpha);
-    }
+    if (!scr?.noHead) screen();
+    ctx.shadowBlur = 0;
+    this._drawBadges(ctx, w, h, R, { cx, cy, r: Rf });
   }
 
   // Where Alfie sits and what is left for the screen, in canvas pixels. `k` is
@@ -677,6 +702,23 @@ class AlfieCard extends HTMLElement {
     const color = face ? face.palette : { line: col.face, text: col.text, accent: col.accent, dim: col.face };
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
+    // A filled icon: each group's closed strokes as one shape, under its outlines.
+    let groups = null;
+    for (const st of strokes) {
+      if (!st.group || !(st.solid > 0) || st.pts?.length < 3) continue;
+      groups ??= new Map();
+      if (!groups.has(st.group)) groups.set(st.group, []);
+      groups.get(st.group).push(st);
+    }
+    for (const g of groups?.values() ?? []) {
+      const colr = color[g[0].role] || col.face;
+      ctx.globalAlpha = alpha * clamp(g[0].solid, 0, 1);
+      ctx.fillStyle = ctx.shadowColor = colr;
+      ctx.shadowBlur = 0;
+      ctx.beginPath();
+      for (const st of g) trace(ctx, st.pts.map(([x, y]) => [X(x), Y(y)]), true);
+      ctx.fill("nonzero");
+    }
     for (const st of strokes) {
       const pts = st.pts;
       if (!pts?.length) continue;
@@ -714,6 +756,8 @@ class AlfieCard extends HTMLElement {
     this._data = new Map();    // screen id -> {data, error, at (ms), inflight}
     this._memo = new Map();    // screen id -> memo object for its module
     this._bad = new Set();     // screen ids whose module failed (logged once)
+    this._icons ??= new Map(); // icon "screens" (@icon:<seq>), kept across a screens reload
+    this._badges ??= new Map(); // seq (or local key) -> {v, at (s, wall clock), style}
     this._cur = null;          // {id, tIn, tOut}: the screen on show
     this._rot = null;
     this._rotClock = 0;        // seconds of rotation time; stops while hidden
@@ -728,6 +772,7 @@ class AlfieCard extends HTMLElement {
       this._screens = r;
       this._screensRev = rev ?? r.rev;
       this._screenIndex = new Map((r.screens || []).map((s) => [s.id, s]));
+      for (const v of this._icons.values()) this._screenIndex.set(v.id, v);
       this._memo.clear();
       this._bad.clear();
       for (const d of this._data.values()) d.at = 0;   // keep what we have, fetch afresh
@@ -747,6 +792,13 @@ class AlfieCard extends HTMLElement {
   _loadModule(screen) {
     if (screen.__mod || screen.__loading || this._bad.has(screen.id)) return;
     screen.__loading = true;
+    if (screen.icon) {
+      IC.iconPath(screen.icon.name).then((r) => {
+        if (r) screen.__mod = ICON_MODULE;
+        else this._fail(screen, new Error(`no icon ${screen.icon.name}`));
+      }).finally(() => { screen.__loading = false; });
+      return;
+    }
     Promise.all([S.fontReady() ? 0 : S.loadFont(), S.loadScreen(screen.type)]).then(([, m]) => { screen.__mod = m; })
       .catch((e) => this._fail(screen, e)).finally(() => { screen.__loading = false; });
   }
@@ -799,7 +851,8 @@ class AlfieCard extends HTMLElement {
     const sc = this._scene?.screen;
     if (sc && sc.until * 1000 > Date.now() && this._screenIndex.has(sc.id)) {
       this._override = sc.id;
-      return { id: sc.id, next: null };   // the rotation waits (its clock is not advanced)
+      // An icon comes in once its path is here, so it never morphs out of nothing.
+      return { id: this._ready(sc.id) ? sc.id : null, next: null };   // the rotation waits (its clock is not advanced)
     }
     if (this._scene?.story) {
       this._override = "story";
@@ -811,15 +864,95 @@ class AlfieCard extends HTMLElement {
       this._rot = spec ? (this._rot?.steps ? G.carry(this._rot, spec) : G.start(spec, this._rotClock)) : { steps: null };
     }
     const rot = this._rot;
-    if (!rot.steps) return { id: null, next: null };
+    if (!rot.steps) return { id: this._localScreen(), next: null };
     if (this._modeRotation() !== "pause") this._rotClock += dt;   // a house mode may pause it
     const want = G.advance(rot, this._rotClock);
     if (want.appear) this._appear(rot);
     // Alfie's own story may show a screen while he has the stage.
-    if (!want.id && this._local?.screen && this._screenIndex.has(this._local.screen.id)) {
-      return { id: this._local.screen.id, next: want.next };
-    }
+    if (!want.id && this._localScreen()) return { id: this._localScreen(), next: want.next };
     return want;
+  }
+
+  // The screen this card's own story shows now, once it is ready.
+  _localScreen() {
+    const id = this._local?.screen?.id;
+    return id && this._screenIndex.has(id) && this._ready(id) ? id : null;
+  }
+
+  // A screen that can come in: any but an icon whose path is still loading.
+  _ready(id) {
+    const screen = this._screenIndex.get(id);
+    if (!screen?.icon || screen.__mod || this._bad.has(id)) return true;
+    this._loadModule(screen);
+    return false;
+  }
+
+  // ----------------------------------------------------------- icons
+
+  // An icon shown as a screen (transform, beside), under `id` (the scene's
+  // @icon:<seq>, or a fresh local one). Old ones are dropped past a few.
+  _iconScreen(id, icon) {
+    id ??= `${G.ICON_SCREEN}:local:${(this._localIcons = (this._localIcons || 0) + 1)}`;
+    let v = this._icons.get(id);
+    if (!v) {
+      v = { id, type: G.ICON_SCREEN, title: icon.name, icon, options: icon };
+      this._icons.set(id, v);
+      this._screenIndex.set(id, v);
+      for (const old of [...this._icons.keys()].slice(0, Math.max(0, this._icons.size - 6))) {
+        if (old !== this._cur?.id) { this._icons.delete(old); this._screenIndex.delete(old); }
+      }
+      this._loadModule(v);
+    }
+    return v;
+  }
+
+  // The scene's badges (and this card's own) as the ones on show: a new one
+  // starts coming in, one the scene dropped goes when its time is up.
+  _syncBadges(list, local = false) {
+    if (this._config.icons === false) return;
+    for (const b of list || []) {
+      const key = local ? `local:${(this._localIcons = (this._localIcons || 0) + 1)}` : String(b.seq);
+      if (this._badges.has(key)) continue;
+      const now = Date.now() / 1000;
+      let style = b.transition || BADGE_STYLE;
+      if (style === "random") style = I.RANDOM_STYLES[Math.floor(Math.random() * I.RANDOM_STYLES.length)];
+      if (!I.STYLES.includes(style) || style === "morph") style = BADGE_STYLE;
+      this._badges.set(key, { v: b, at: now, until: local ? now + (Number(b.seconds) || 5) : b.until, style });
+      IC.iconPath(b.name);
+    }
+  }
+
+  // Draw the badges over everything; `face` is where Alfie is ({cx, cy, r} px).
+  _drawBadges(ctx, w, h, R, face) {
+    if (!this._badges.size) return;
+    const now = Date.now() / 1000, m = (Math.min(w, h) / 2) * clamp(Number(this._config.padding), 0, 0.45);
+    for (const [key, b] of this._badges) {
+      const strokes = IC.strokesFor(b.v.name, { role: b.v.color || "line", fill: b.v.fill });
+      if (!strokes) {
+        if (IC.failed(b.v.name) || now > b.until) this._badges.delete(key);
+        else b.at = now;    // its clock starts once the path is in
+        continue;
+      }
+      const din = I.SECONDS[b.style] || 0.6, dout = din * I.OUTRO_SHARE;
+      const left = b.until - now;
+      if (left <= 0) { this._badges.delete(key); continue; }
+      const leaving = left < dout;
+      const p = leaving ? I.presence(b.style, 1 - left / dout, true) : I.presence(b.style, (now - b.at) / din, false);
+      const at = G.badgeAt(b.v, w, h, R, face, m);
+      const s = at.s / R;
+      const out = I.apply(b.style, p, leaving, IC.placed(strokes, s), { w: s, h: s });
+      if (out.alpha > 0.003 && out.strokes.length) this._drawStrokes(ctx, out.strokes, at.cx, at.cy, R, out.alpha);
+    }
+  }
+
+  // For the panel: show an icon on this card only ({icon, style, transform,
+  // seconds, …} as a story's icon step has them). The service shows it everywhere.
+  showIconLocal(icon) {
+    const a = G.iconAction(icon);
+    if (a.kind === "icon") { this._syncBadges([a.value], true); return; }
+    this._endLocal(false);
+    this._local = { actions: [a], t0: this._now(), tick: null, last: -1, expression: null, blend: 0, place: null, screen: null };
+    this._wake();
   }
 
   // ----------------------------------------------------------- Alfie's own story
@@ -875,8 +1008,11 @@ class AlfieCard extends HTMLElement {
     const r = G.runStory(L.actions, L.last, el);
     L.last = el;
     for (const name of r.fire) this.playLocal(name);
+    this._syncBadges(r.icons, true);
+    // A local icon screen gets its own id the first time it comes up.
+    if (r.screen?.icon && r.screen.id === G.ICON_SCREEN) r.screen.id = this._iconScreen(null, r.screen.icon).id;
     L.place = r.place;
-    L.screen = r.screen;
+    L.screen = r.screen?.icon && this._config.icons === false ? null : r.screen;
     if (r.expression !== L.expression && face && !this._exprPreview) {
       this._applyExpression(face, r.expression in face.expressions ? r.expression : this._scene?.expression, t, r.blend);
     }
@@ -913,7 +1049,8 @@ class AlfieCard extends HTMLElement {
   _transitionStyle(keep = null) {
     const c = this._config;
     const sc = this._scene?.screen;
-    let style = (this._override && this._override === sc?.id && sc.transition) || c.transition || this._rot?.transition || "fade";
+    const own = this._override === "local" ? this._local?.screen?.transition : this._override && this._override === sc?.id && sc.transition;
+    let style = own || c.transition || this._rot?.transition || "fade";
     const random = style === "random";
     if (random) style = keep || I.RANDOM_STYLES[Math.floor(Math.random() * I.RANDOM_STYLES.length)];
     return [I.STYLES.includes(style) ? style : "fade", random];
@@ -929,7 +1066,7 @@ class AlfieCard extends HTMLElement {
   // Decide what is on show at `t` and build the draw description for it, or null
   // when it is Alfie alone (the common, free case).
   _presentation(t, dt) {
-    if (this._config.display === "companion" && !this._scene?.screen && !this._cur) return null;
+    if (this._config.display === "companion" && !this._scene?.screen && !this._cur && !this._local?.screen) return null;
     const want = this._wanted(dt);
     if (t - this._lastWant > 1 && this._hass) {
       this._lastWant = t;
@@ -992,17 +1129,22 @@ class AlfieCard extends HTMLElement {
   _describe(id, style, p, leaving, k, t, present = this._config.present, away = false, gone = false) {
     const c = this._config, corner = present === "corner";
     const screen = this._screenIndex.get(id);
+    // An icon he turns into by the ring only: his eyes stay, alive, over it.
+    const ring = !!screen?.icon?.ring && !corner && style === "morph";
     // In "hand over" the face goes by the same transition the screen comes by
     // (drawn, zoomed, wiped away...); fade and cut just change its alpha, and
     // morph turns the face itself into the screen. Between two screens he stays away.
-    const faceAlpha = corner ? 1 : away ? 0 : I.faceAlpha(style, p);
+    const faceAlpha = ring || corner ? 1 : away ? 0 : I.faceAlpha(style, p);
     const shaped = !corner && !away && !["cut", "fade", "morph"].includes(style) && p > 0 && p < 1;
+    const iconCorner = screen?.icon?.corner;
     return {
-      present, corner: c.corner, size: c.corner_size, k, faceAlpha,
+      present, corner: iconCorner && iconCorner !== "card" ? iconCorner : c.corner, size: c.corner_size, k, faceAlpha,
+      noHead: ring && p > 0,
+      faceLine: !!screen?.icon && !corner && style === "morph",
       alpha: gone ? 0 : I.apply(style, p, leaving, [], null).alpha,
       face: shaped ? (shapes, box) => I.apply(style, 1 - clamp(p, 0, 1), !leaving, I.faceStrokes(shapes), box) : null,
       strokes: (hw, hh, shapes) => this._screenStrokes(screen, hw, hh, t, style, p, leaving,
-        style === "morph" && shapes && !corner && !away ? I.faceStrokes(shapes) : null),
+        style === "morph" && shapes && !corner && !away ? I.faceStrokes(shapes).slice(0, ring ? 1 : 3) : null),
     };
   }
 
@@ -1015,7 +1157,7 @@ class AlfieCard extends HTMLElement {
     this._loadModule(screen);
     const mod = screen.__mod;
     // Nothing until the module and the first data are in: never a stand-in title for a moment.
-    const pending = !this._bad.has(screen.id) && (!mod || !S.fontReady() || (this._typeOf(screen)?.needs && this._hass && d?.data == null && !d?.error && !d?.at));
+    const pending = !this._bad.has(screen.id) && (!mod || (!screen.icon && !S.fontReady()) || (this._typeOf(screen)?.needs && this._hass && d?.data == null && !d?.error && !d?.at));
     if (pending) return [];
     if (mod && !this._bad.has(screen.id)) {
       try {
@@ -1030,7 +1172,10 @@ class AlfieCard extends HTMLElement {
       }
     }
     if (!strokes) strokes = S.fontReady() ? this._titleStrokes(screen, hw, hh) : [];
-    return I.apply(style, p, leaving, strokes, box, from).strokes;
+    const out = I.apply(style, p, leaving, strokes, box, from).strokes;
+    // A filled icon's fill comes in with it, not all at once halfway through a morph.
+    if (screen.icon && p < 1) for (const st of out) if (st.solid) st.solid *= clamp(p, 0, 1) ** 2;
+    return out;
   }
 
   _fail(screen, e) {
@@ -1111,6 +1256,36 @@ class AlfieCard extends HTMLElement {
     this._stillFrame = this._frame(0, { pose, parts, channels, noBreath: true, noBlink: true });
     this._resize();
     this._draw(this._stillFrame);
+  }
+
+  // For tests and the dev harness: one still frame of an icon with Alfie, no
+  // clock, no HA (the icon from globalThis.ALFIE_ICONS). {icon, style, transform,
+  // u (0..1, how far it has arrived), size, color, corner, place, x, y, expression}.
+  async renderIconStill({ icon = "mdi:white-balance-sunny", style = "transform", transform = "whole", u = 1, size = 1,
+    color = "line", fill = "soft", corner = "card", place = "top_right", x = 0, y = 0, transition = "", expression = "neutral" } = {}) {
+    const face = await loadFace();
+    await IC.iconPath(icon);
+    this._still = true;
+    this._running = false;
+    this._face = new FaceState();
+    const p0 = this._personality(face);
+    this._face.energy = this._face.energyTarget = Math.max(0.05, 0.8 + p0.energy_bias);
+    this._applyExpression(face, expression, 0);
+    this._stillFrame = this._frame(0, { pose: this._face.target, parts: this._face.targetParts, channels: {}, noBreath: true, noBlink: true });
+    const a = G.iconAction({ icon, style, transform, size, color, fill, corner, place, x, y, transition, seconds: 100 });
+    this._badges = new Map();
+    this._stillScr = null;
+    if (a.kind === "icon") {
+      const b = a.value, st = transition || BADGE_STYLE, now = Date.now() / 1000;
+      this._badges.set("still", { v: b, at: now - u * (I.SECONDS[st] || 0.6), until: now + 100, style: st });
+    } else {
+      const v = this._iconScreen("@icon:still", a.value.icon);
+      v.__mod = ICON_MODULE;
+      const st = a.value.transition || "fade", corner_ = a.value.present === "corner";
+      this._stillScr = this._describe(v.id, st, I.presence(st, u, false), false, corner_ ? F.spring(u) : 0, 0, a.value.present);
+    }
+    this._resize();
+    this._draw(this._stillFrame, this._stillScr);
   }
 
   // For tests and the dev harness: one still frame of a screen with Alfie, no
