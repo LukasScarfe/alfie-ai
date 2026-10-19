@@ -5,3 +5,36 @@ logger:
   default: warning
   logs:
     custom_components.alfie: debug
+
+# A fake weather entity for the weather screen: an hourly and a daily forecast
+# from templates, so no network and no account are needed.
+template:
+  - weather:
+      - name: "Dev weather"
+        unique_id: alfie_dev_weather
+        condition_template: "{{ 'rainy' if now().hour % 6 < 2 else 'partlycloudy' }}"
+        temperature_template: "{{ 14 + 5 * sin(now().hour / 24 * 2 * pi) | round(1) }}"
+        temperature_unit: "°C"
+        humidity_template: "70"
+        forecast_hourly_template: >
+          {% set ns = namespace(f=[]) %}
+          {% for h in range(48) %}
+            {% set t = now() + timedelta(hours=h) %}
+            {% set ns.f = ns.f + [{
+              'datetime': t.replace(minute=0, second=0, microsecond=0).isoformat(),
+              'condition': 'rainy' if (t.hour % 7) < 2 else ('clear-night' if t.hour < 6 or t.hour > 20 else 'sunny'),
+              'temperature': (13 + 6 * sin((t.hour - 9) / 24 * 2 * pi)) | round(1),
+              'precipitation_probability': ((t.hour * 37) % 100) if (t.hour % 7) < 3 else 5,
+              'precipitation': 1.2 if (t.hour % 7) < 2 else 0.0 }] %}
+          {% endfor %}
+          {{ ns.f }}
+        forecast_daily_template: >
+          {% set ns = namespace(f=[]) %}
+          {% for d in range(7) %}
+            {% set ns.f = ns.f + [{
+              'datetime': (now() + timedelta(days=d)).date().isoformat(),
+              'condition': ['sunny', 'rainy', 'cloudy', 'partlycloudy', 'snowy', 'sunny', 'lightning'][d],
+              'temperature': 16 + d, 'templow': 7 + d % 3,
+              'precipitation_probability': [5, 80, 30, 20, 60, 0, 90][d] }] %}
+          {% endfor %}
+          {{ ns.f }}

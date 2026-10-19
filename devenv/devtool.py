@@ -7,7 +7,7 @@ raccoon). ./dev calls this; run it directly only when debugging ./dev.
     devtool.py add                create the Alfie config entry
     devtool.py state ID STATE [JSON-attrs]   set any entity's state (fakes)
     devtool.py seed               Lukas's house entities, all in their good state
-    devtool.py call DOMAIN.SERVICE [JSON]    call a service
+    devtool.py call DOMAIN.SERVICE [JSON] [--response]   call a service (print its response)
     devtool.py get ID             print an entity's state + attributes
 
 Fake entities set through /api/states are not backed by an integration, so
@@ -165,8 +165,13 @@ def main(argv):
     elif cmd == "call":
         tok, _ = token()
         domain, service = args[0].split(".", 1)
+        want = "--response" in args          # print the service's own response
+        args = [a for a in args if a != "--response"]
         body = json.loads(args[1]) if len(args) > 1 else {}
-        _req("POST", f"/api/services/{domain}/{service}", body, tok)
+        out = _req("POST", f"/api/services/{domain}/{service}"
+                   + ("?return_response" if want else ""), body, tok)
+        if want:
+            print(json.dumps(out, indent=2))
     elif cmd == "get":
         tok, _ = token()
         print(json.dumps(_get_raw(args[0], tok), indent=2))
