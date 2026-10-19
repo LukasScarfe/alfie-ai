@@ -93,7 +93,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         defaults Night and Away, Welcome home story and trigger; tests.
   - [x] B. Engine: mode resolution and overrides, mode triggers, scene `mode_info`, dynamic
         `select.alfie_mode` options; tests.
-  - [ ] C. Card: blank presence (nothing drawn, loop paused), mode rotation or pause,
+  - [x] C. Card: blank presence (nothing drawn, loop paused), mode rotation or pause,
         `follow_mode` option and editor; checks.
   - [ ] D. Panel: Modes tab, mode trigger kind, Behaviour sleep pointer; click-through.
   - [ ] E. Dev HA: Night, Away and Welcome home live, PNGs to Lukas; design.md; version 0.5.0.
