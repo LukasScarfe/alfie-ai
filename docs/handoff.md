@@ -1,6 +1,6 @@
 # Alfie: handoff
 
-**Milestones 1 and 2 are done; M3 (Screens) is claimed.** Version 0.2.0.
+**Milestones 1 and 2 are done; M3 (Screens) is nearly done.** Version 0.2.0.
 (2026-10-18)
 
 ## Working, in dev HA (`./dev up`, then `http://192.168.1.241:8125`)
@@ -32,27 +32,42 @@
 
 ## Next
 
-**M3, Screens.** The steps are in plan.md, and the full approved plan is summarised there.
-Presenting and rotation are decided (design.md "Screens"):
-- presenting is **hand over** (he leaves with a transition) or **corner** (he shrinks into a
-  corner and stays alive), an option per card;
-- screens and named rotations are built in the panel, and a card picks a rotation or lists its
-  own;
-- the map is opt-in, sends only rounded cells to Overpass, and its endpoint is configurable.
-
-The port inventory with file:line, sizes and order is `docs/m3-screens.md`. Phase A (the
-foundation) comes first. Then B1 to B6 (one agent per screen family, disjoint files) run in
-parallel, then C (the panel Screens tab).
+**M3 (Screens) is mostly built** (see plan.md):
+- **Done:** A (the foundation), B1 to B6 (every screen type, the providers, 13 transitions) and D
+  (the card visual editor). All ten screen types run live in dev HA on the **Alfie dev → Screens**
+  view, with one card per screen held on a one-step `only_<id>` rotation.
+- **Running when this was written:** C and E. C is the panel's Screens tab. E is the Look tab
+  and the Playground, plus the global `look` config section (contract: docs/screens-contract.md,
+  "Look and playground"). If plan.md still shows them `[ ]`, check `git status` for partial
+  work before redoing anything.
+- **After C and E:**
+  - a tablet check with Lukas;
+  - update design.md (screens, look, editor);
+  - bump the version;
+  - tick M3.
 
 Ways of working:
-- Lukas likes Sonnet subagents in parallel.
-- Only the lead agent restarts dev HA.
+- Lukas likes Sonnet subagents in parallel, each owning disjoint files.
+- Interfaces are written down first (`docs/screens-contract.md`).
+- Only the lead agent restarts dev HA and commits.
 - **Don't enter plan mode while subagents run**: it stops them.
+
+Dev data:
+- dev HA's home is set to London (Europe/London);
+- `weather.dev_weather` is a template entity with hourly and daily forecasts;
+- `calendar.birthdays` is a local calendar (add events for HA's today);
+- `device_tracker.dev_phone` and `sensor.dev_inside` / `sensor.dev_outside` are fake states.
+  They vanish on restart; re-run the posts in `devenv/out/` scripts or `./dev state`.
 
 ## Gotchas
 
 - The panel compares configs ignoring key order, and `validate()` emits the defaults' key order.
   Keep both, or a reset section looks unsaved.
+- The map screen never touches the network unless its `allow_network` option is on: it's
+  Lukas's privacy rule. Only a position rounded to about 100 m is sent, and cells are cached on
+  disk.
+- `shot.js` falls back to shooting after 30 s on pages that never go network-idle (many live
+  cards).
 - The card's `_draw` returns early on a canvas with no size. Resizing from `_draw` must not
   redraw, or it recurses.
 - The panel can be created before its class is defined (its module awaits the card), so `hass`
