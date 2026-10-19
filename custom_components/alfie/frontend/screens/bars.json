@@ -11,5 +11,6 @@
    {"key": "decimals", "kind": "number", "label": "Decimals", "default": 0, "min": 0, "max": 3},
    {"key": "highlight_below", "kind": "text", "label": "Accent bars below", "default": "", "hint": "A number. Empty: off."},
    {"key": "sort", "kind": "choice", "label": "Sort", "default": "none", "choices": ["none", "ascending", "descending"]},
-   {"key": "fill", "kind": "bool", "label": "Shade the bars", "default": false}
+   {"key": "fill", "kind": "bool", "label": "Shade the bars", "default": false},
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the screen's text. Text fitted to its room still shrinks to fit."}
  ]}

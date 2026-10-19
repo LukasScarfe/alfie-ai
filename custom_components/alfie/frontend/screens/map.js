@@ -105,6 +105,7 @@ export default {
     const home = ok(Number(config?.latitude), Number(config?.longitude)) ? [Number(config.latitude), Number(config.longitude)] : null;
     const title = S.title(o.title ?? "");
     const unit = Math.min(w, h);                       // marker sizes scale with the smaller side
+    const ts = Number(o.text_size) || 1;
     const bw = w - 0.06 * unit, bh = h - 0.06 * unit;   // markers stay this far inside the edge
     const centre = found.length ? found[0].pos : home;
     if (!centre) return S.text(title || "--", 0.2 * unit);
@@ -130,7 +131,7 @@ export default {
     spots.forEach((s, i) => {
       const size = (i === 0 ? 0.16 : 0.13) * unit;
       out.push(...S.marker(KINDS[i % KINDS.length], s[0], s[1], size, { role: "accent" }));
-      if (o.labels) out.push(...S.text(letters[i], size * 0.5, s[0], s[1], { role: "accent" }));
+      if (o.labels) out.push(...S.text(letters[i], size * 0.5 * Math.min(ts, 1.3), s[0], s[1], { role: "accent" }));
     });
 
     if (o.show_home && home) {
@@ -145,7 +146,7 @@ export default {
       }
       if (Math.abs(hx) < w - 0.08 * unit && Math.abs(hy) < h - 0.08 * unit) out.push(...S.house(hx, hy, 0.16 * unit));
     }
-    if (title) out.push(...S.text(title, 0.07 * unit, 0, h - 0.1 * unit));
+    if (title) out.push(...S.text(title, 0.07 * unit * ts, 0, h - (0.03 + 0.07 * ts) * unit));
     return out;
   },
 };

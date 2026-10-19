@@ -41,6 +41,7 @@ export default {
     const dec = Math.max(0, Math.min(3, Number(o.decimals) || 0));
     const below = S.number(o.highlight_below);
     const n = items.length, vert = o.direction !== "horizontal";
+    const ts = Number(o.text_size) || 1;   // the Text size option
     const out = [];
 
     // One bar: S.bars draws vertical bars; horizontal ones are the same
@@ -56,7 +57,7 @@ export default {
 
     if (vert) {
       const padX = 0.04 * w, x0 = -w + padX, W = 2 * w - 2 * padX, slot = W / n;
-      const lblH = Math.min(0.14, slot * 0.5, h * 0.12), valH = Math.min(0.16, slot * 0.4, h * 0.14);
+      const lblH = Math.min(0.14, slot * 0.5, h * 0.12) * ts, valH = Math.min(0.16, slot * 0.4, h * 0.14) * ts;
       const rows = (o.values ? valH * 1.6 : 0), labRow = lblH * 2;
       const top = h * 0.92 - rows, base = -h * 0.92 + labRow + lblH * 0.3, len = top - base;
       items.forEach((it, i) => {
@@ -74,7 +75,7 @@ export default {
       out.push(...S.baseline(x0, base, W, { weight: 0.5 }));   // ground line under the bars
     } else {
       const padY = 0.06 * h, Y = 2 * h - 2 * padY, slot = Y / n;
-      const lblH = Math.min(0.14, slot * 0.4), valH = Math.min(0.16, slot * 0.4);
+      const lblH = Math.min(0.14, slot * 0.4) * ts, valH = Math.min(0.16, slot * 0.4) * ts;
       const labW = Math.min(w * 0.6, Math.max(...items.map((it) => S.width(S.title(it.name), lblH))) + 0.06);
       const valW = o.values ? Math.min(w * 0.4, Math.max(...items.map((it) => S.width(S.fmt(it.v, dec) + unit, valH))) + 0.06) : 0;
       const bx = -w + 0.04 * w + labW, len = 2 * w * 0.96 - labW - valW - 0.04 * w;

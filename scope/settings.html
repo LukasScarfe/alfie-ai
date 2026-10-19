@@ -1,0 +1,177 @@
+<!doctype html>
+<!-- alfie-scope's settings page (bridge.js serves it on SETTINGS_PORT). It
+     hosts Alfie's own card editor, so every card option is here, plus the few
+     that only the scope's vector feed has. Edits save as you go and the card on
+     the scope takes them at once; the preview is the frame it last sent. -->
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alfie scope settings</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --primary-text-color: #e3e6e4; --secondary-text-color: #9aa39e; --primary-color: #4dffa0;
+    --card-background-color: #181c1a; --secondary-background-color: #222826; --divider-color: #2e3532;
+    --warning-color: #ffb347;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0e1110; color: var(--primary-text-color); font: 15px/1.45 system-ui, sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px; border-bottom: 1px solid var(--divider-color); }
+  h1 { margin: 0; font-size: 18px; font-weight: 600; }
+  #saved { font-size: 13px; color: var(--secondary-text-color); margin-left: auto; }
+  #saved.err { color: var(--warning-color); }
+  main { display: grid; grid-template-columns: minmax(0, 560px) minmax(0, 1fr); gap: 20px; padding: 16px; max-width: 1280px; margin: 0 auto; }
+  @media (max-width: 860px) { main { grid-template-columns: minmax(0, 1fr); } #side { order: -1; } }
+  .panel { background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 10px; padding: 14px 16px; }
+  .panel + .panel { margin-top: 16px; }
+  h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
+  #side { position: sticky; top: 16px; align-self: start; }
+  #tube { display: block; width: 100%; background: #000; border-radius: 8px; }
+  #stat { margin-top: 8px; font: 12px/1.4 ui-monospace, monospace; color: var(--secondary-text-color); }
+  .f { margin: 10px 0; }
+  .f label { display: block; font-size: 14px; margin-bottom: 4px; }
+  .f select { width: 100%; padding: 7px 8px; background: var(--secondary-background-color); color: inherit; border: 1px solid var(--divider-color); border-radius: 6px; font: inherit; }
+  .hint { font-size: 12px; color: var(--secondary-text-color); margin-top: 3px; }
+  .fixed { display: flex; gap: 18px; font-size: 14px; color: var(--secondary-text-color); }
+  .fixed b { color: var(--primary-text-color); font-weight: 600; }
+  .note { font-size: 13px; color: var(--secondary-text-color); margin: 0 0 6px; }
+  .bad { color: var(--warning-color); }
+</style>
+
+<header>
+  <h1>Alfie on the scope</h1>
+  <span id="saved"></span>
+</header>
+<main>
+  <div>
+    <section class="panel">
+      <h2>Card</h2>
+      <p class="note">Every option of Alfie's dashboard card. The scope sets the card's frame, aspect and frame rate itself, so those do nothing here.</p>
+      <div id="editor">Loading Alfie's card editor…</div>
+    </section>
+    <section class="panel">
+      <h2>Scope</h2>
+      <div class="f">
+        <label for="order">Beam order</label>
+        <select id="order" data-key="vector_order">
+          <option value="tour">Tour: the shortest beam jumps between strokes</option>
+          <option value="drawn">Drawn: strokes in the order the card paints them</option>
+        </select>
+      </div>
+      <div class="f">
+        <label for="condense">Condense transition</label>
+        <select id="condense" data-key="vector_condense">
+          <option value="lines">Lines between random points, as xy-bench draws it</option>
+          <option value="dots">Dots, as the dashboard card draws it</option>
+        </select>
+      </div>
+      <div class="fixed"><span>Aspect <b id="aspect">-</b></span><span>Frame rate <b id="fps">-</b></span></div>
+      <div class="hint">These two must match xy-bench, so they stay in the scope's .env (ASPECT, FPS).</div>
+    </section>
+  </div>
+  <aside id="side" class="panel">
+    <h2>On the tube now</h2>
+    <canvas id="tube" width="640" height="640" aria-label="The frame the scope last drew"></canvas>
+    <div id="stat">Waiting for a frame…</div>
+  </aside>
+</main>
+
+<script type="module">
+  const DEFAULTS = { vector_order: "tour", vector_condense: "lines" };
+  const $ = (id) => document.getElementById(id);
+  const saved = $("saved");
+  const note = (text, bad = false) => { saved.textContent = text; saved.className = bad ? "err" : ""; };
+
+  const api = async (url, opts) => {
+    const r = await fetch(url, opts);
+    const v = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(v.error || `HTTP ${r.status}`);
+    return v;
+  };
+
+  const start = await api("/api/card");
+  let card = start.card || {};
+  $("aspect").textContent = start.aspect;
+  $("fps").textContent = start.fps;
+
+  // Saving: whole card, debounced, so a dragged slider is one write.
+  let timer = null;
+  const save = () => {
+    clearTimeout(timer);
+    note("Saving…");
+    timer = setTimeout(async () => {
+      try {
+        card = (await api("/api/card", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(card) })).card;
+        note(`Saved ${new Date().toLocaleTimeString()}`);
+      } catch (e) { note(`Not saved: ${e.message}`, true); }
+    }, 400);
+  };
+
+  // The scope-only options: a key at its default is left out, as the editor does.
+  for (const sel of document.querySelectorAll("select[data-key]")) {
+    const k = sel.dataset.key;
+    sel.value = card[k] ?? DEFAULTS[k];
+    sel.addEventListener("change", () => {
+      card = { ...card };
+      if (sel.value === DEFAULTS[k]) delete card[k]; else card[k] = sel.value;
+      save();
+    });
+  }
+
+  // Alfie's card editor, from HA through the scope. Its one WebSocket ask
+  // (the rotations, screens and stories) goes through the scope too.
+  try {
+    await import(`/alfie_static/alfie-card-editor.js?v=${Date.now()}`);
+    await customElements.whenDefined("alfie-card-editor");
+    const ed = document.createElement("alfie-card-editor");
+    ed.setConfig({ type: "custom:alfie-card", ...card });
+    ed.hass = { connection: { sendMessagePromise: (msg) => api("/api/ws", { method: "POST", body: JSON.stringify(msg) }) } };
+    ed.addEventListener("config-changed", (e) => {
+      const { type, ...rest } = e.detail.config;
+      // The scope-only keys aren't the editor's: keep them from this page.
+      for (const k of Object.keys(DEFAULTS)) { if (card[k] !== undefined) rest[k] = card[k]; else delete rest[k]; }
+      card = rest;
+      save();
+    });
+    $("editor").replaceChildren(ed);
+  } catch (e) {
+    $("editor").innerHTML = `<p class="bad">Could not load Alfie's card editor from Home Assistant: ${e.message}</p>`;
+  }
+
+  // The preview: the frame the scope last sent, drawn as the beam would.
+  const cv = $("tube"), ctx = cv.getContext("2d");
+  const draw = ({ strokes, aspect }) => {
+    const W = cv.width, H = Math.round(W / (aspect || 1));
+    if (cv.height !== H) cv.height = H;
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+    const X = (x) => (x + 1) * W / 2, Y = (y) => (1 - y) * H / 2;
+    ctx.lineCap = ctx.lineJoin = "round";
+    for (const st of strokes) {
+      const a = 0.3 + 0.7 * Math.min(1, st.w ?? 1);
+      ctx.strokeStyle = ctx.fillStyle = `rgba(125, 255, 160, ${a})`;
+      ctx.lineWidth = 1.6;
+      if (st.p.length === 1) { ctx.fillRect(X(st.p[0][0]) - 1.5, Y(st.p[0][1]) - 1.5, 3, 3); continue; }
+      ctx.beginPath();
+      st.p.forEach(([x, y], i) => (i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y))));
+      if (st.c) ctx.closePath();
+      ctx.stroke();
+    }
+  };
+  const stat = (s, n) => {
+    if (!s) return `${n} strokes. Scope status after its first minute.`;
+    return `${s.fps.toFixed(1)} fps from the card · ${s.strokes} strokes · ${s.sent} sent · ${s.dropped} dropped · ` +
+      `${s.failed} failed${s.error ? ` (${s.error})` : ""} · ${s.late} late, longest gap ${s.gap} ms`;
+  };
+  const tick = async () => {
+    if (!document.hidden) {
+      try {
+        const f = await api("/api/frame");
+        draw(f);
+        $("stat").textContent = f.strokes.length ? stat(f.status, f.strokes.length) : "No frame yet: the card may be hidden by a house mode.";
+      } catch (e) { $("stat").textContent = `No frame: ${e.message}`; }
+    }
+    setTimeout(tick, 150);
+  };
+  tick();
+</script>
+</html>

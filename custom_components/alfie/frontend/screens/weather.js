@@ -111,9 +111,11 @@ export default {
   type: "weather",
   draw({ w, h, t, data, options, states, config, memo, S }) {
     const f = Math.min(h / 0.72, w / 0.8);
+    // Text size: the small text in full; the big readout less, as it already fills its band.
+    const ts = Number(options.text_size) || 1, big = Math.min(ts, 1.4);
     const out = [];
     const title = S.title(options.title || "");
-    if (title) out.push(...S.text(title, 0.06 * f, 0, 0.66 * f, { role: "dim" }));
+    if (title) out.push(...S.text(title, 0.06 * f * ts, 0, (0.69 - 0.03 * ts) * f, { role: "dim" }));
 
     const [raw, srcUnit] = nowTemp(options, states, data, S);
     const forecastUnit = data?.unit || states?.[options.weather]?.attributes?.temperature_unit || config?.unit_system?.temperature;
@@ -127,7 +129,7 @@ export default {
     }
 
     // Top: the condition as an icon beside the temperature, centred as a pair.
-    const nowH = 0.2 * f, isz = 0.22 * f, gap = 0.08 * f, ny = 0.45 * f;
+    const nowH = 0.2 * f * big, isz = 0.22 * f * big, gap = 0.08 * f * big, ny = (0.45 - 0.12 * (big - 1)) * f;
     const iconKey = `${cond}|${night}|${isz.toFixed(3)}`;
     const base = stamp(memo.icon ??= {}, iconKey, () => S.weatherIcon(cond, 0, 0, isz, night));
     const tw = S.readoutWidth(cur, nowH, { unit: suffix, decimals: options.decimals });
@@ -146,15 +148,15 @@ export default {
     const conv = (arr) => S.series(arr).map((v) => convert(v, forecastUnit, options.unit));
     const key = `${mode}|${data.times?.[0]}|${data.times?.length}|${config?.time_zone}`;
 
-    if (mode === "daily") return out.concat(daily({ w, f, data, options, config, memo, S, conv, suffix, key }));
-    return out.concat(hourly({ w, f, cur, data, options, config, memo, S, conv, suffix, key }));
+    if (mode === "daily") return out.concat(daily({ w, f, ts, data, options, config, memo, S, conv, suffix, key }));
+    return out.concat(hourly({ w, f, ts, cur, data, options, config, memo, S, conv, suffix, key }));
   },
 };
 
-function hourly({ w, f, cur, data, options, config, memo, S, conv, suffix, key }) {
+function hourly({ w, f, ts, cur, data, options, config, memo, S, conv, suffix, key }) {
   const out = [];
   const nH = Math.max(2, Math.min(options.hours, 48));
-  const lh = 0.06 * f;
+  const lh = 0.06 * f * ts;
   const padL = S.width("-99" + suffix, lh) + 0.04 * f + 0.07;
   const mode = rainMode(options.rain, data);
   const padR = mode ? S.width("100%", lh) + 0.04 * f + 0.07 : 0.04 * f;
@@ -201,14 +203,14 @@ function hourly({ w, f, cur, data, options, config, memo, S, conv, suffix, key }
       const lw = pw / nH;
       for (let j = 1; j <= div; j++) {
         const s = labels[j * step - 1];
-        if (s) out.push(...S.text(s, lh * 0.85, x0 + lw * j * step, y0 - 0.075 * f));
+        if (s) out.push(...S.text(s, lh * 0.85, x0 + lw * j * step, Math.max(y0 - (0.05 + 0.025 * ts) * f, -0.72 * f + lh * 0.43)));
       }
     }
   } else out.push(...S.baseline(x0, y0, pw));
   return out;
 }
 
-function daily({ w, f, data, options, config, memo, S, conv, suffix, key }) {
+function daily({ w, f, ts, data, options, config, memo, S, conv, suffix, key }) {
   const out = [];
   const n = Math.max(1, Math.min(options.days, data.temp.length));
   const hi = conv(data.temp).slice(0, n), lo = conv(data.low || []).slice(0, n);
@@ -219,15 +221,16 @@ function daily({ w, f, data, options, config, memo, S, conv, suffix, key }) {
   for (let i = 0; i < n; i++) {
     const cx = x0 + cw * (i + 0.5);
     const nm = names[i];
-    if (nm) out.push(...S.text(nm, fitH(S, nm, 0.065 * f, room), cx, 0.2 * f, { role: "dim" }));
-    const isz = Math.min(cw * 0.75, 0.2 * f);
+    if (nm) out.push(...S.text(nm, fitH(S, nm, 0.065 * f * ts, room), cx, (0.2 + 0.03 * (ts - 1)) * f, { role: "dim" }));
+    // Bigger text (Text size) takes room from the icon and the rain strip.
+    const isz = Math.min(cw * 0.75, 0.2 * f * (1 - 0.25 * Math.max(0, ts - 1)));
     const ic = stamp((memo.icons ??= [])[i] ??= {}, `${conds[i]}|${isz.toFixed(3)}`, () => S.weatherIcon(conds[i], 0, 0, isz, false));
-    out.push(...ic.map((k) => ({ ...k, pts: k.pts.map(([x, y]) => [x + cx, y - 0.01 * f]) })));
+    out.push(...ic.map((k) => ({ ...k, pts: k.pts.map(([x, y]) => [x + cx, y + (0.02 * Math.max(0, ts - 1) - 0.01) * f]) })));
     const sh = S.fmt(hi[i]) + suffix;
-    out.push(...S.text(sh, fitH(S, sh, 0.09 * f, room), cx, -0.16 * f));
+    out.push(...S.text(sh, fitH(S, sh, 0.09 * f * ts, room), cx, (-0.16 - 0.06 * (ts - 1)) * f));
     if (lo[i] !== null && lo[i] !== undefined) {
       const sl = S.fmt(lo[i]) + suffix;
-      out.push(...S.text(sl, fitH(S, sl, 0.07 * f, room), cx, -0.28 * f, { role: "dim" }));
+      out.push(...S.text(sl, fitH(S, sl, 0.07 * f * ts, room), cx, (-0.28 - 0.13 * (ts - 1)) * f, { role: "dim" }));
     }
   }
   // Rain per day: bars aligned with the columns, over a 0..100 (or 0..max) strip.
@@ -236,7 +239,7 @@ function daily({ w, f, data, options, config, memo, S, conv, suffix, key }) {
     const vals = S.series(data[mode]).slice(0, n);
     let top = 100;
     if (mode === "precip") top = Math.max(5, Math.ceil(Math.max(0, ...vals.filter((v) => v !== null)) / 5) * 5);
-    out.push(...S.bars(vals, x0, -0.62 * f, cw * n, 0.22 * f, { lo: 0, hi: top, fill: 0.4, weight: RAIN_WEIGHT }));
+    out.push(...S.bars(vals, x0, -0.62 * f, cw * n, (0.22 - 0.1 * Math.max(0, ts - 1)) * f, { lo: 0, hi: top, fill: 0.4, weight: RAIN_WEIGHT }));
   } else out.push(...S.baseline(x0, -0.62 * f, cw * n));
   return out;
 }

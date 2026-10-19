@@ -52,7 +52,11 @@
   await customElements.whenDefined("alfie-card");
   const el = document.createElement("alfie-card");
   // The card's own cap is lifted: the timer above sets the pace.
-  el.setConfig({ ...S.card, card: false, vector_out: true, paint: false, aspect: S.aspect, fps: 120 });
+  const forced = { card: false, vector_out: true, paint: false, aspect: S.aspect, fps: 120 };
+  el.setConfig({ ...S.card, ...forced });
+  // For the settings page (bridge.js): a new card config, live, and its few WebSocket asks.
+  window.SCOPE_SET = (card) => el.setConfig({ ...card, ...forced });
+  window.SCOPE_WS = (msg) => conn.sendMessagePromise(msg);
   el.addEventListener("alfie-vector", (e) => window.scopeFrame(e.detail));
 
   // hass is handed over at most every HASS_GAP ms: the card only reads states

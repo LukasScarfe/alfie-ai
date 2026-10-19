@@ -5,6 +5,8 @@ WORKDIR /usr/src/app
 RUN npm install --no-audit --no-fund home-assistant-js-websocket@9.4.0 @mdi/svg@7.4.47
 COPY mdi.js ./
 RUN node mdi.js && rm -rf node_modules/@mdi
-COPY bridge.js page.html ./
+COPY bridge.js page.html settings.html ./
+# The settings page's saved card (a volume in compose.yaml).
+RUN mkdir -p data
 ENV HOME=/tmp
 ENTRYPOINT ["node", "bridge.js"]

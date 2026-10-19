@@ -6,5 +6,6 @@
    {"key": "unit", "kind": "text", "label": "Unit", "default": "", "hint": "Empty: the entity's. none: no unit."},
    {"key": "decimals", "kind": "number", "label": "Decimals", "default": 1, "min": 0, "max": 3},
    {"key": "below", "kind": "text", "label": "Accent colour below", "default": "", "hint": "A number. Empty: off."},
-   {"key": "above", "kind": "text", "label": "Accent colour above", "default": "", "hint": "A number. Empty: off."}
+   {"key": "above", "kind": "text", "label": "Accent colour above", "default": "", "hint": "A number. Empty: off."},
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the label. The number fills the room left."}
  ]}

@@ -10,14 +10,21 @@ services:
     restart: unless-stopped
     env_file: .env
     # xy-bench's own network: it is reached as http://xy-bench:8080 and keeps
-    # its port bound to localhost. Nothing here listens.
+    # its port bound to localhost.
     networks: [xy-bench]
+    # The settings page (SETTINGS_PORT in .env; keep the two equal).
+    ports: ["8642:8642"]
     read_only: true
+    volumes:
+      - data:/usr/src/app/data      # the settings page's saved card
     tmpfs:
       - /tmp                        # Chromium's profile and shared memory
     mem_limit: 768m
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
+
+volumes:
+  data:
 
 networks:
   xy-bench:

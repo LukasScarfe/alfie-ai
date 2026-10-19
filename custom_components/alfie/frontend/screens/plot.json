@@ -18,5 +18,6 @@
    {"key": "axis", "kind": "bool", "label": "Value axis and ticks", "default": true},
    {"key": "ticks", "kind": "number", "label": "Most ticks on the axis", "default": 3, "min": 2, "max": 6},
    {"key": "now", "kind": "bool", "label": "Latest values at the right", "default": true},
-   {"key": "legend", "kind": "bool", "label": "Series labels beside the values", "default": false}
+   {"key": "legend", "kind": "bool", "label": "Series labels beside the values", "default": false},
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the screen's text. Text fitted to its room still shrinks to fit."}
  ]}

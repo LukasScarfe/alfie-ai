@@ -13,5 +13,6 @@
    {"key": "suffix", "kind": "text", "label": "Unit mark after numbers", "default": "°"},
    {"key": "decimals", "kind": "number", "label": "Decimals", "default": 0, "min": 0, "max": 2, "hint": "For the temperature now."},
    {"key": "time_labels", "kind": "bool", "label": "Hour labels under the curve", "default": true},
-   {"key": "animate", "kind": "bool", "label": "Animated icon", "default": true}
+   {"key": "animate", "kind": "bool", "label": "Animated icon", "default": true},
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the screen's text. Text fitted to its room still shrinks to fit."}
  ]}

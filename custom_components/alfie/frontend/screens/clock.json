@@ -9,5 +9,6 @@
    {"key": "solar_rim", "kind": "bool", "label": "Day and night on the rim", "default": true},
    {"key": "house", "kind": "bool", "label": "House icon by the inside temperature", "default": true},
    {"key": "smoke", "kind": "bool", "label": "Smoke from the house chimney", "default": true},
-   {"key": "decimals", "kind": "number", "label": "Temperature decimals", "default": 0, "min": 0, "max": 2}
+   {"key": "decimals", "kind": "number", "label": "Temperature decimals", "default": 0, "min": 0, "max": 2},
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the temperatures, and a digital clock up to the room it has."}
  ]}
