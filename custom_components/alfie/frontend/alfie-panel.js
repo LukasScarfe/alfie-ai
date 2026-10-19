@@ -61,7 +61,7 @@ const PREVIEW_ANIMS = ["glance_left", "nod", "look_around", "laugh", "startle", 
 const KIND_TEXT = {
   entity: "An entity changes", motion: "Motion", mood: "Mood changes", signal: "A signal goes bad or recovers", wake: "Waking or sleeping",
 };
-const BUSY_TEXT = [["auto", "by priority: higher interrupts, otherwise wait"], ["queue", "wait its turn"],
+const BUSY_TEXT = [["auto", "by priority: higher interrupts"], ["queue", "wait its turn"],
   ["interrupt", "interrupt whatever is playing"], ["skip", "don't play"]];
 const STEP_TEXT = {
   expression: "Expression", animation: "Animation", screen: "Screen", wait: "Wait", move: "Move", resize: "Resize", speak: "Speak",
