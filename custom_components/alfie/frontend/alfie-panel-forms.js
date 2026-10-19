@@ -57,11 +57,15 @@ export function uniqueId(list, base, except = -1) {
   return id;
 }
 
-// Rename a screen id everywhere it is referenced (rotation steps, signals).
+// Rename a screen id everywhere it is referenced (rotation steps, signals, stories).
 export function renameScreenRefs(draft, from, to) {
   if (from === to) return;
   for (const r of draft.rotations || []) for (const s of r.steps || []) if (s.screen === from) s.screen = to;
   for (const s of draft.signals || []) if (s.screen === from) s.screen = to;
+  for (const st of draft.stories || []) {
+    if (st.template?.screen === from) st.template.screen = to;
+    for (const s of st.steps || []) if (s.kind === "screen" && s.screen === from) s.screen = to;
+  }
 }
 
 // Remove a screen's id from rotation steps and signals; returns how many steps went.
@@ -73,7 +77,56 @@ export function dropScreenRefs(draft, id) {
     n += before - r.steps.length;
   }
   for (const s of draft.signals || []) if (s.screen === id) s.screen = null;
+  for (const st of draft.stories || []) {
+    if (st.template?.screen === id) st.template.screen = "";
+    st.steps = (st.steps || []).filter((s) => !(s.kind === "screen" && s.screen === id));
+  }
   return n;
+}
+
+// ---------------------------------------------------------------- stories
+
+// The steps a template stands for (stories.py compile_template, kept equal).
+export function compileTemplate(t, defaults) {
+  const steps = [];
+  if (t.expression) steps.push({ ...defaults.expression, name: t.expression, hold: 1 });
+  if (t.animation) steps.push({ ...defaults.animation, name: t.animation });
+  if (t.screen) steps.push({ ...defaults.screen, screen: t.screen, seconds: t.seconds, present: t.present, transition: t.transition });
+  if (t.closing) steps.push({ ...defaults.animation, name: t.closing });
+  return steps;
+}
+
+// Rename a story id in the triggers and signal repeats that play it.
+export function renameStoryRefs(draft, from, to) {
+  if (from === to) return;
+  for (const t of draft.triggers || []) if (t.story === from) t.story = to;
+  for (const s of draft.signals || []) if (s.repeat?.story === from) s.repeat.story = to;
+}
+
+// How many triggers play a story (for the delete warning).
+export const storyUses = (draft, id) => (draft.triggers || []).filter((t) => t.story === id).length;
+
+// A trigger switched to another kind: the shared fields stay, the kind's own
+// fields come fresh from `fresh` (the server's default trigger of that kind).
+export function changeTriggerKind(trigger, fresh) {
+  const shared = ["id", "name", "enabled", "story", "priority", "busy", "cooldown", "while_asleep", "moods"];
+  const out = { ...fresh };
+  for (const k of shared) if (k in trigger) out[k] = trigger[k];
+  out.kind = fresh.kind;
+  return out;
+}
+
+// One line on what a trigger listens for, for its collapsed header.
+export function triggerSummary(t) {
+  const list = (a, none) => (a?.length ? a.join(", ") : none);
+  switch (t.kind) {
+    case "entity": return `${list(t.entities, "no entity")} ${t.op === "changes" ? "changes" : `${t.op.replace("_", " ")} ${t.value}`}`;
+    case "motion": return `motion: ${list(t.entities, "no sensor")}${t.only_if_bad ? " (only while something is wrong)" : ""}`;
+    case "mood": return `mood ${t.direction === "any" ? "changes" : `gets ${t.direction}`}${t.from?.length ? ` from ${t.from.join("/")}` : ""}${t.to?.length ? ` to ${t.to.join("/")}` : ""}`;
+    case "signal": return `${list(t.signals, "any signal")} ${t.edge === "goes_bad" ? "goes bad" : t.edge === "recovers" ? "recovers" : "goes bad or recovers"}`;
+    case "wake": return t.edge === "wakes" ? "Alfie wakes up" : "Alfie falls asleep";
+    default: return t.kind;
+  }
 }
 
 export function moveItem(list, i, j) {
