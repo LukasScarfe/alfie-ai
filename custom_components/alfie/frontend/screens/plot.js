@@ -55,7 +55,7 @@ function build({ w, h, data, options: o, states, S }) {
     return m === "none" ? null : MARKERS.includes(m) ? m : MARKERS[i % 3];
   });
   const dotted = rows.map((_, i) => (styles[i] ?? styles[0] ?? "solid").toLowerCase() === "dotted");
-  const unit = S.clean(o.unit || (rows.every((r) => r.unit === rows[0].unit) ? rows[0].unit : "") || "");
+  const unit = S.clean(S.unitOf(o.unit, rows.every((r) => r.unit === rows[0].unit) ? rows[0].unit : ""));
 
   // Scale the type with the box's height, so the corner box stays legible.
   const sc = Math.min(1.25, Math.max(0.25, Math.min(h / 0.85, w / 1.2)));
@@ -100,7 +100,7 @@ function build({ w, h, data, options: o, states, S }) {
 
   const ends = [];
   vals.forEach((v, i) => {
-    out.push(...S.curve(v, x0, y0, cw, ch, { lo, hi, weight: dotted[i] ? S.DOTTED : 1 }));
+    out.push(...S.curve(v, x0, y0, cw, ch, { lo, hi, weight: dotted[i] ? S.DOTTED : 1, steps: o.shape === "steps" }));
     const k = v.length - 1 - [...v].reverse().findIndex((x) => x !== null);
     const hasData = v.some((x) => x !== null);
     const f = (x) => y0 + (Math.min(Math.max(x, lo), hi) - lo) * (ch / (hi - lo));

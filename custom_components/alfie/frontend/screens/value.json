@@ -3,7 +3,7 @@
    {"key": "entity", "kind": "entity", "label": "Entity", "required": true},
    {"key": "label", "kind": "text", "label": "Label", "default": "", "hint": "Empty: the entity's name."},
    {"key": "icon", "kind": "choice", "label": "Icon", "default": "auto", "choices": ["auto", "none", "leaf", "drop", "house", "sun", "cloud"]},
-   {"key": "unit", "kind": "text", "label": "Unit", "default": "", "hint": "Empty: the entity's."},
+   {"key": "unit", "kind": "text", "label": "Unit", "default": "", "hint": "Empty: the entity's. none: no unit."},
    {"key": "decimals", "kind": "number", "label": "Decimals", "default": 1, "min": 0, "max": 3},
    {"key": "below", "kind": "text", "label": "Accent colour below", "default": "", "hint": "A number. Empty: off."},
    {"key": "above", "kind": "text", "label": "Accent colour above", "default": "", "hint": "A number. Empty: off."}

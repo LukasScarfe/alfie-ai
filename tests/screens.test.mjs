@@ -17,6 +17,11 @@ S.setFont(JSON.parse(fs.readFileSync(new URL("../custom_components/alfie/fronten
 for (const ch of "0123456789:.-°%'! AZaz") check(S.hasGlyph(ch), `glyph for ${JSON.stringify(ch)}`);
 check(S.glyphChars().length === 70, "70 glyphs");
 check(S.clean("Café ñ 😀") === "Cafe n ", "NFKD drops accents and unsupported characters");
+check(S.unitOf("none", "watching") === "" && S.unitOf("", " W ") === "W" && S.unitOf("kWh", "W") === "kWh", "unitOf: none hides the unit, empty falls back");
+{
+  const pts = S.curve([0, 1, 1, 0], 0, 0, 3, 1, { lo: 0, hi: 1, steps: true })[0].pts;
+  check(JSON.stringify(pts.map(([x, y]) => [Math.round(x), Math.round(y)])) === "[[0,0],[1,0],[1,1],[2,1],[2,1],[3,1],[3,0]]", "curve steps run flat, then jump");
+}
 check(S.title("  a   b ’c ") === "a b 'c", "title collapses space and straightens apostrophes");
 check(S.width("") === 0, "empty string has no width");
 const m = S.metrics();

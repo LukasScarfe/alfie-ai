@@ -37,7 +37,7 @@ export default {
       if (hi <= lo) hi = lo + 1;
     }
     if (!(hi > lo)) hi = lo + 1;
-    const unit = (o.unit || states[ids[0]]?.attributes?.unit_of_measurement || "").trim();
+    const unit = S.unitOf(o.unit, states[ids[0]]?.attributes?.unit_of_measurement);
     const dec = Math.max(0, Math.min(3, Number(o.decimals) || 0));
     const below = S.number(o.highlight_below);
     const n = items.length, vert = o.direction !== "horizontal";

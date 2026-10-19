@@ -27,7 +27,7 @@ export default {
     const name = S.title(o.label || st?.attributes?.friendly_name || (o.entity || "").split(".")[1]?.replace(/_/g, " ") || "");
     if (!o.entity) return S.text("Value", Math.min(0.3, h * 0.5), 0, 0, { role: "dim" });
     const num = S.fmt(raw, Math.max(0, Math.min(3, Number(o.decimals) || 0)));
-    const unit = (o.unit || st?.attributes?.unit_of_measurement || "").trim();
+    const unit = S.unitOf(o.unit, st?.attributes?.unit_of_measurement);
     const below = S.number(o.below), above = S.number(o.above);
     const hot = raw !== null && ((below !== null && raw < below) || (above !== null && raw > above));
     const role = hot ? "accent" : "text";

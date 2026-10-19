@@ -107,6 +107,13 @@ export const metrics = () => FONT?.metrics ?? { cap: 1, x_height: 0.62, descende
 export const glyphChars = () => [...GLYPHS.keys()];
 export const hasGlyph = (ch) => GLYPHS.has(ch);
 
+// A screen's unit: the `unit` option, else the sensor's; "none" shows no unit.
+export function unitOf(option, fallback) {
+  const u = String(option ?? "").trim();
+  if (u.toLowerCase() === "none") return "";
+  return (u || String(fallback ?? "")).trim();
+}
+
 // `s` as the font can set it: accents dropped (NFKD), curly apostrophes
 // straightened, anything the font lacks gone. Spaces are kept.
 export function clean(s) {
@@ -190,7 +197,8 @@ function place(vals, x0, y0, w, h, lo, hi) {
   return out;
 }
 
-export function curve(values, x0, y0, w, h, { lo = null, hi = null, marks = [], weight = 1, tick = null, role = "line" } = {}) {
+// `steps`: each value runs flat to the next point, then the line jumps.
+export function curve(values, x0, y0, w, h, { lo = null, hi = null, marks = [], weight = 1, tick = null, role = "line", steps = false } = {}) {
   const vals = [...values];
   if (lo === null || hi === null) [lo, hi] = span([vals]);
   let pts = place(vals, x0, y0, w, h, lo, hi);
@@ -204,6 +212,7 @@ export function curve(values, x0, y0, w, h, { lo = null, hi = null, marks = [], 
     const [x, y] = pts[i], d = y < y0 + h / 2 ? tick : -tick;
     pts = [...pts.slice(0, i + 1), [x, y + d], [x, y], ...pts.slice(i + 1)];
   }
+  if (steps) pts = pts.flatMap((p, i) => (i && pts[i - 1][0] !== p[0] ? [[p[0], pts[i - 1][1]], p] : [p]));
   return [stroke(pts, { w: weight, role })];
 }
 
