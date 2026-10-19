@@ -22,14 +22,14 @@ export function render(p, sub) {
 function screens(p) {
   const d = p.draft, types = p.choices.screen_types || {};
   const lists = new Map();
-  const list = (domain) => {
-    const k = (domain || []).join(",");
+  const list = (opt) => {
+    const k = opt.located ? "@located" : (opt.domain || []).join(",");
     if (!lists.has(k)) lists.set(k, `ent-${lists.size}`);
     return lists.get(k);
   };
   const cards = d.screens.map((sc, i) => screen(p, sc, i, d.screens.length, types, list)).join("");
   const datalists = [...lists].map(([k, lid]) => `<datalist id="${lid}">${Object.keys(p.hass.states).sort()
-    .filter((e) => Fm.inDomains(e, k ? k.split(",") : null)).map((e) => `<option value="${U.esc(e)}">`).join("")}</datalist>`).join("");
+    .filter((e) => k === "@located" ? Fm.located(p.hass.states[e]) : Fm.inDomains(e, k ? k.split(",") : null)).map((e) => `<option value="${U.esc(e)}">`).join("")}</datalist>`).join("");
   const tsel = U.select("", Object.keys(types)[0], Object.entries(types).map(([k, t]) => [k, t.title || k]), { attrs: 'id="newtype" aria-label="Screen type"' });
   return `${U.intro("Screens are data pages Alfie presents on a card: a plot, the weather, the sky, a clock.",
       `A card shows a screen when a story asks for it (a signal's screen, through @why and @wrong), when the
