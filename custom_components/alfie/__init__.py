@@ -42,12 +42,22 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         except ValueError as e:
             raise ServiceValidationError(str(e)) from e
 
+    async def show_screen(call: ServiceCall) -> None:
+        try:
+            _engine(hass).show_screen(call.data["screen"], call.data["seconds"])
+        except ValueError as e:
+            raise ServiceValidationError(str(e)) from e
+
     hass.services.async_register(DOMAIN, "set_expression", set_expression, schema=vol.Schema({
         vol.Required("expression"): cv.string,
         vol.Optional("duration"): vol.Coerce(float),
     }))
     hass.services.async_register(DOMAIN, "play_animation", play_animation, schema=vol.Schema({
         vol.Required("animation"): cv.string,
+    }))
+    hass.services.async_register(DOMAIN, "show_screen", show_screen, schema=vol.Schema({
+        vol.Required("screen"): cv.string,
+        vol.Optional("seconds", default=20): vol.All(vol.Coerce(float), vol.Range(min=1, max=3600)),
     }))
     return True
 

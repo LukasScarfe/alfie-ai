@@ -1,17 +1,20 @@
 """Alfie's whole user configuration as one plain dict, kept in HA's Store.
 
-PURE (no HA import), so the tests run under plain python. Four sections:
+PURE (no HA import), so the tests run under plain python. Six sections:
 
   signals      the good and bad signals (see signals.py)
   mood         how they combine into a level, and each level's look
   behaviour    sleep, the motion gaze map, fidgets and the reaction animations
   personality  a preset plus the motion sliders it fills in
+  screens      the user's screens: a type plus its options (screen_types.py)
+  rotations    ordered lists of screens with seconds each
 
 `default_config()` is Lukas's house (defaults.py). `validate()` turns any
 stored or panel-sent dict into a complete, checked one, filling what is
 missing from the defaults. `build()` turns a valid one into what the engine
 runs on. Names of expressions, animations and personality presets come from
-the face file (frontend/alfie-face.json), passed in as `face`.
+the face file (frontend/alfie-face.json), passed in as `face`; screen types
+come from frontend/screens/*.json, passed in as `types`.
 """
 
 from __future__ import annotations
@@ -37,7 +40,9 @@ from .mood import (
 from .signals import OPERATORS, SEVERITIES, Signal
 
 CONFIG_VERSION = 1
-SECTIONS = ("signals", "mood", "behaviour", "personality")
+SECTIONS = ("signals", "mood", "behaviour", "personality", "screens", "rotations")
+STEP_SECONDS = (3.0, 3600.0)     # how long a rotation step may show its screen
+DEFAULT_TRANSITION = "fade"
 
 # Personality sliders: (default, min, max). The default is "bubbly", which
 # is exactly the M1 feel, so a fresh install moves as it always did.
@@ -113,6 +118,8 @@ def default_config() -> dict[str, Any]:
             "on_wake": "wake_up",
         },
         "personality": {"preset": "bubbly", **personality_values("bubbly")},
+        "screens": [],        # Alfie ships none: the user builds them
+        "rotations": [],
     }
 
 
@@ -314,7 +321,93 @@ def _personality(raw: Mapping[str, Any], face: Mapping[str, Any], ck: _Check) ->
                for k, (d, lo, hi) in PERSONALITY.items()}}
 
 
-def validate(raw: Any, face: Mapping[str, Any]) -> dict[str, Any]:
+def _num(x: float) -> int | float:
+    """Whole numbers as ints, so the stored JSON reads 20, not 20.0."""
+    return int(x) if float(x).is_integer() else x
+
+
+def _screens(raw: Any, types: Mapping[str, Any], ck: _Check) -> list[dict[str, Any]]:
+    from .screen_types import check_options   # lazy: screen_types imports this module
+    if not isinstance(raw, list):
+        ck.bad("screens", "must be a list")
+        return []
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for i, s in enumerate(raw):
+        where = f"screen {i + 1}"
+        if not isinstance(s, Mapping):
+            ck.bad(where, "must be a mapping")
+            continue
+        sid = str(s.get("id") or "").strip()
+        if not _ID.match(sid):
+            ck.bad(where, "id must be lower-case letters, digits and _")
+            continue
+        where = f"screen {sid}"
+        if sid in seen:
+            ck.bad(where, "id is used twice")
+            continue
+        seen.add(sid)
+        meta = types.get(str(s.get("type") or ""))
+        if meta is None:
+            ck.bad(where, f"unknown type {s.get('type')!r}")
+            continue
+        out.append({"id": sid, "type": meta["type"],
+                    "title": str(s.get("title") or "").strip() or meta.get("title") or sid,
+                    "options": check_options(meta, s.get("options"), ck, where)})
+    return out
+
+
+def _rotations(raw: Any, screen_ids: set[str], ck: _Check) -> list[dict[str, Any]]:
+    if not isinstance(raw, list):
+        ck.bad("rotations", "must be a list")
+        return []
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for i, r in enumerate(raw):
+        where = f"rotation {i + 1}"
+        if not isinstance(r, Mapping):
+            ck.bad(where, "must be a mapping")
+            continue
+        rid = str(r.get("id") or "").strip()
+        if not _ID.match(rid):
+            ck.bad(where, "id must be lower-case letters, digits and _")
+            continue
+        where = f"rotation {rid}"
+        if rid in seen:
+            ck.bad(where, "id is used twice")
+            continue
+        seen.add(rid)
+        # Any slug, "random" included: the intro names live in the frontend and
+        # grow, so the server only insists on a well-formed one.
+        tr = str(r.get("transition") or DEFAULT_TRANSITION).strip()
+        if not _ID.match(tr):
+            ck.bad(f"{where} transition", "must be a name (lower-case letters, digits and _)")
+            tr = DEFAULT_TRANSITION
+        steps = r.get("steps", [])
+        if not isinstance(steps, list):
+            ck.bad(f"{where} steps", "must be a list")
+            steps = []
+        out_steps = []
+        for j, st in enumerate(steps):
+            sw = f"{where} step {j + 1}"
+            if not isinstance(st, Mapping):
+                ck.bad(sw, "must be a mapping")
+                continue
+            sc = str(st.get("screen") or "").strip()
+            if sc not in screen_ids:
+                ck.bad(sw, f"screen {sc!r} does not exist")
+                continue
+            secs = ck.number(f"{sw} seconds", st.get("seconds", 20), *STEP_SECONDS, 20.0)
+            out_steps.append({"screen": sc, "seconds": _num(secs)})
+        # Alfie's own time between screens; 0 goes straight from screen to screen.
+        face = ck.number(f"{where} face seconds", r.get("face_seconds", 20), 0, 3600, 20.0)
+        out.append({"id": rid, "name": str(r.get("name") or "").strip() or rid,
+                    "transition": tr, "face_seconds": _num(face), "steps": out_steps})
+    return out
+
+
+def validate(raw: Any, face: Mapping[str, Any],
+             types: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """A complete, checked config from `raw`, or ConfigError listing every
     problem. Missing sections and keys take the defaults."""
     if not isinstance(raw, Mapping):
@@ -330,6 +423,9 @@ def validate(raw: Any, face: Mapping[str, Any]) -> dict[str, Any]:
         "behaviour": _behaviour(raw, base["behaviour"], expressions, animations, ck),
         "personality": _personality(raw, face, ck),
     }
+    cfg["screens"] = _screens(raw.get("screens", base["screens"]), types or {}, ck)
+    cfg["rotations"] = _rotations(raw.get("rotations", base["rotations"]),
+                                  {s["id"] for s in cfg["screens"]}, ck)
     if not ck.errors:
         try:
             build(cfg)

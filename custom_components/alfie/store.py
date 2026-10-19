@@ -31,18 +31,19 @@ class AlfieStore:
         self._data: dict[str, Any] | None = None
 
     async def async_load(self, face: Mapping[str, Any],
-                         options: Mapping[str, Any]) -> dict[str, Any]:
+                         options: Mapping[str, Any],
+                         types: Mapping[str, Any] | None = None) -> dict[str, Any]:
         raw = await self._store.async_load()
         if raw is None:
-            cfg = validate(migrate_options(default_config(), options), face)
+            cfg = validate(migrate_options(default_config(), options), face, types)
             self.save(cfg)
             return cfg
         try:
-            return validate(raw, face)
+            return validate(raw, face, types)
         except ConfigError as e:
             _LOGGER.error("Alfie's saved configuration is invalid (%s); running on the "
                           "defaults until it is saved again", e)
-            return validate(default_config(), face)
+            return validate(default_config(), face, types)
 
     def save(self, cfg: dict[str, Any]) -> None:
         self._data = cfg

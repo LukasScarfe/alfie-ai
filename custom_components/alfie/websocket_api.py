@@ -7,6 +7,9 @@ sends the full scene state now and on every change.
 
 `alfie/config/*` are the admin panel's: read, save, reset and preview the
 stored configuration (config.py). Saves apply live, with no reload.
+
+`alfie/screens` and `alfie/screen_data` feed the cards the user's screens and
+their server-side data. Like subscribe they are open to every logged-in user.
 """
 
 from __future__ import annotations
@@ -35,7 +38,8 @@ def async_register(hass: HomeAssistant) -> None:
     data = hass.data.setdefault(DOMAIN, {})
     if data.get("_ws_registered"):
         return
-    for cmd in (ws_subscribe, ws_config_get, ws_config_set, ws_config_reset, ws_config_preview):
+    for cmd in (ws_subscribe, ws_config_get, ws_config_set, ws_config_reset, ws_config_preview,
+                ws_screens, ws_screen_data):
         websocket_api.async_register_command(hass, cmd)
     data["_ws_registered"] = True
 
@@ -86,6 +90,7 @@ def ws_config_get(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
             "severities": list(SEVERITIES),
             "combine": list(COMBINE_MODES),
             "sections": list(SECTIONS),
+            "screen_types": engine.types,
         },
     })
 
@@ -133,3 +138,32 @@ def ws_config_preview(hass: HomeAssistant, connection: websocket_api.ActiveConne
         connection.send_result(msg["id"], {"errors": e.errors})
         return
     connection.send_result(msg["id"], {"errors": [], **result})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "alfie/screens"})
+@callback
+def ws_screens(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+               msg: dict[str, Any]) -> None:
+    if (engine := _engine(hass, connection, msg["id"])) is None:
+        return
+    connection.send_result(msg["id"], {
+        "rev": engine.screens_rev,
+        "screens": engine.config["screens"],
+        "rotations": engine.config["rotations"],
+        "types": engine.types,
+    })
+
+
+@websocket_api.websocket_command({vol.Required("type"): "alfie/screen_data",
+                                  vol.Required("screen"): str})
+@websocket_api.async_response
+async def ws_screen_data(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+                         msg: dict[str, Any]) -> None:
+    if (engine := _engine(hass, connection, msg["id"])) is None:
+        return
+    try:
+        result = await engine.screen_data(msg["screen"])
+    except ValueError as e:
+        connection.send_error(msg["id"], "not_found", str(e))
+        return
+    connection.send_result(msg["id"], result)
