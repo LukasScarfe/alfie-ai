@@ -156,5 +156,37 @@ const spec = { steps: [{ screen: "a", seconds: 10 }, { screen: "b", seconds: 5 }
   eq([c.cx, c.cy], [36, 36], "custom x -1, y 1 is top left");
 }
 
+// A screen's say in its turn: skip passes it over free, seconds lengthen it.
+{
+  const three = { steps: [{ screen: "a", seconds: 10 }, { screen: "b", seconds: 5 }, { screen: "c", seconds: 5 }], face: 20 };
+  let say = { b: { skip: true } };
+  const fit = (id) => say[id] ?? null;
+  const rot = G.start(three, 0);
+  eq(G.advance(rot, 0, fit).id, "a", "a first");
+  eq(G.advance(rot, 10, fit).id, null, "Alfie's gap after a");
+  eq(G.advance(rot, 30, fit).id, "c", "b skipped, straight to c with no second gap");
+  eq(G.advance(rot, 34.9, fit).id, "c", "c keeps its own 5 s");
+  say = { a: { seconds: 18 } };
+  eq(G.advance(rot, 55, fit).id, "a", "round to a after c's gap");
+  say = { a: { seconds: 2 } };
+  eq(G.advance(rot, 72, fit).id, "a", "a's 18 s were fixed when its turn began");
+  eq(G.advance(rot, 73, fit).id, null, "then the gap");
+}
+{
+  let say = { a: { skip: true }, b: { skip: true } };
+  const fit = (id) => say[id] ?? null;
+  const rot = G.start(spec, 0);
+  eq(G.advance(rot, 0, fit), { id: null, next: null, appear: false }, "every screen skips: Alfie has the stage");
+  say = {};
+  eq(G.advance(rot, 0.5, fit).id, null, "looks again only after SKIP_RECHECK");
+  eq(G.advance(rot, 1.2, fit).id, "a", "something to show: back on");
+  eq(G.advance(rot, 11, fit).id, "a", "its turn counts from when it came back");
+  eq(G.advance(rot, 11.3, fit).id, "b", "then b");
+}
+{
+  const rot = G.start({ steps: [{ screen: "a", seconds: 10 }, { alfie: true, seconds: 5 }], face: 0 }, 0);
+  eq(G.advance(rot, 0, () => ({ skip: true })), { id: null, next: "a", appear: true }, "a skipping screen hands over to an Alfie step");
+}
+
 console.log(`stage: ${checks - failures}/${checks} checks passed`);
 if (failures) process.exit(1);

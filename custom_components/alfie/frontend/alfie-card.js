@@ -16,6 +16,19 @@ const G = await import(`./alfie-stage.js${V}`);
 const IC = await import(`./alfie-icons.js${V}`);
 const FACE_URL = new URL(`./alfie-face.json${V}`, import.meta.url);
 
+// Icon names in screen text and plot markers (design.md "Icons"): the strokes
+// once the path is in; meanwhile null, and its arrival redraws cached screens.
+const iconWaits = new Set();
+S.setIconSource((name, { fill = "soft" } = {}) => {
+  if (IC.failed(name)) return false;
+  const got = IC.strokesFor(name, { fill });
+  if (!got && !iconWaits.has(name)) {
+    iconWaits.add(name);
+    IC.iconPath(name).then(() => { iconWaits.delete(name); S.iconLoaded(); });
+  }
+  return got;
+});
+
 let faceData = null;
 
 // An icon on show as a screen (transform and beside; design.md "Icons"): the
@@ -421,12 +434,13 @@ class AlfieCard extends HTMLElement {
     const look = this._lookNow(), key = L.lookKey(look);
     if (key === this._lookKey) return false;
     this._lookKey = key;
-    const bg = (c) => (c.background && c.background !== "none" ? c.background : "");
-    const before = bg(this._config);
+    // The background and the aspect live in the built CSS.
+    const css = (c) => `${c.background && c.background !== "none" ? c.background : ""}|${Number(c.aspect) || 1}`;
+    const before = css(this._config);
     this._config = L.effectiveConfig(DEFAULTS, look, this._user);
     this._colors = null;
     this._partsCache = null;
-    if (bg(this._config) !== before) this._build();
+    if (css(this._config) !== before) this._build();
     return true;
   }
 
@@ -866,11 +880,28 @@ class AlfieCard extends HTMLElement {
     const rot = this._rot;
     if (!rot.steps) return { id: this._localScreen(), next: null };
     if (this._modeRotation() !== "pause") this._rotClock += dt;   // a house mode may pause it
-    const want = G.advance(rot, this._rotClock);
+    const want = G.advance(rot, this._rotClock, (this._fitFn ??= (id) => this._fit(id)));
     if (want.appear) this._appear(rot);
     // Alfie's own story may show a screen while he has the stage.
     if (!want.id && this._localScreen()) return { id: this._localScreen(), next: want.next };
     return want;
+  }
+
+  // A screen's say in its rotation turn (alfie-stage `advance`): its module's
+  // `rotation()`, once the module and its data are in. Unknown never skips.
+  _fit(id) {
+    const screen = this._screenIndex.get(id);
+    if (!screen) return null;
+    this._ensureData(id);   // a skipped screen keeps its data fresh, so it can come back
+    const mod = screen.__mod;
+    if (!mod?.rotation || this._bad.has(id)) return null;
+    const d = this._data.get(id);
+    if (this._typeOf(screen)?.needs && d?.data == null) return null;
+    try {
+      return mod.rotation({ data: d?.data ?? null, options: this._withDefaults(screen), states: this._hass?.states ?? {}, S });
+    } catch (e) {
+      return null;
+    }
   }
 
   // The screen this card's own story shows now, once it is ready.
@@ -1163,7 +1194,7 @@ class AlfieCard extends HTMLElement {
       try {
         if (!this._memo.has(screen.id)) this._memo.set(screen.id, {});
         strokes = mod.draw({
-          w: hw, h: hh, t: Date.now() / 1000, data: d?.data ?? null,
+          w: hw, h: hh, t: Date.now() / 1000, shown: this._cur?.id === screen.id ? tCard - this._cur.tIn : 0, data: d?.data ?? null,
           options: this._withDefaults(screen), states: this._hass?.states ?? {}, config: this._hass?.config ?? {},
           memo: this._memo.get(screen.id), S,
         });
@@ -1322,6 +1353,9 @@ class AlfieCard extends HTMLElement {
         }
       },
     };
+    // A still draws once: a dry run asks for its icons, and they come in first.
+    this._stillScr.strokes(1, 1);
+    await Promise.all([...iconWaits].map((n) => IC.iconPath(n)));
     this._resize();
     this._draw(this._stillFrame, this._stillScr);
   }

@@ -122,6 +122,7 @@ def default_look() -> dict[str, Any]:
     return {"style": "neon", "ring_color": "", "eye_color": "", "background": "",
             "text_color": "", "accent_color": "", "line_width": 0.035,
             "screen_line_width": 0.02, "glow": None, "eye_fill": False, "padding": 0.08,
+            "aspect": 1.0,
             "shapes": {"head": {"type": "circle"}, "eye": {"type": "circle"}}}
 
 
@@ -591,6 +592,7 @@ def _look(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str,
         "glow": None if glow in (None, "") else ck.number("look glow", glow, 0, 2, 0.0),
         "eye_fill": bool(lk.get("eye_fill")),
         "padding": ck.number("look padding", lk.get("padding"), 0, 0.45, base["padding"]),
+        "aspect": ck.number("look aspect", lk.get("aspect"), 0.5, 3, base["aspect"]),
         "shapes": shapes,
     }
 

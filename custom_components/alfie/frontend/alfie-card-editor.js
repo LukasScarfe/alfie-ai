@@ -13,7 +13,7 @@ const { renameOld } = await import(`./alfie-look.js${V}`);
 // stale entry here only means a redundant key is written, never a wrong card).
 export const DEFAULTS = {
   style: "neon", ring_color: null, eye_color: null, background: "none",
-  line_width: 0.035, glow: null, eye_fill: false, padding: 0.08, aspect: 1,
+  line_width: 0.035, glow: null, eye_fill: false, padding: 0.08, aspect: null,
   fps: 30, liveliness: 1, breathing: true, blinking: true, card: true,
   shapes: null, personality: null, display: "companion", rotation: null,
   present: "handover", corner: "bottom_right", corner_size: 0.3, transition: null,
@@ -344,6 +344,15 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
       return out.join("");
     }
 
+    // Unset, the card takes the aspect from Alfie's panel (Appearance → Look).
+    _aspect() {
+      const set = this._config.aspect != null;
+      const reset = this._add({ kind: "button", run: () => { this._emit(applyChange(this._config, "aspect", null)); this._render(); } });
+      return this._range("Aspect", { get: () => this._config.aspect ?? 1, set: (v) => this._emit(applyChange(this._config, "aspect", v)) }, 0.5, 3, 0.05,
+        { unset: !set, hint: "Width over height. Left alone, Alfie's panel decides (Appearance → Look).",
+          after: set ? `<button class="x" data-b="${reset}" title="Back to the panel's">Reset</button>` : "" });
+    }
+
     _more() {
       const t = (k) => this._top(k);
       return [
@@ -352,7 +361,7 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
         this._bool("Alfie blinks", t("blinking")),
         this._range("Frame rate cap", t("fps"), 5, 60, 5, { hint: "30 is smooth and kind to a tablet." }),
         this._range("Padding", t("padding"), 0, 0.3, 0.01, { hint: "Share of the card kept clear around the ring." }),
-        this._range("Aspect", t("aspect"), 0.5, 3, 0.05, { hint: "Width over height." }),
+        this._aspect(),
         this._bool("Card frame", t("card"), "Off drops the card background and border."),
       ].join("");
     }

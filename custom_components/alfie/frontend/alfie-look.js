@@ -3,7 +3,7 @@
 // values skipped), then the card's DEFAULTS.
 
 export const LOOK_KEYS = ["style", "ring_color", "eye_color", "background", "text_color", "accent_color",
-  "line_width", "screen_line_width", "glow", "eye_fill", "padding", "shapes"];
+  "line_width", "screen_line_width", "glow", "eye_fill", "padding", "aspect", "shapes"];
 
 const empty = (v) => v === undefined || v === null || v === "";
 

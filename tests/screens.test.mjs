@@ -18,6 +18,30 @@ for (const ch of "0123456789:.-°%'! AZaz") check(S.hasGlyph(ch), `glyph for ${J
 check(S.glyphChars().length === 70, "70 glyphs");
 check(S.clean("Café ñ 😀") === "Cafe n ", "NFKD drops accents and unsupported characters");
 check(S.unitOf("none", "watching") === "" && S.unitOf("", " W ") === "W" && S.unitOf("kWh", "W") === "kWh", "unitOf: none hides the unit, empty falls back");
+
+// Icon names in text: a slot ICON_W wide, the icon once it is in, the name as text if it never is.
+{
+  const box = [{ pts: [[-1, -1], [1, -1], [1, 1], [-1, 1]], closed: true, role: "line", w: 1 }];
+  const have = { "mdi:plex": box, "mdi:slow": null, "mdi:nope": false };
+  check(S.isIcon("mdi:plex") && S.isIcon("hass:home") && !S.isIcon("12:30") && !S.isIcon("Mdi:plex") && !S.isIcon("Time:"), "isIcon");
+  const nope = S.width("mdi:nope", 1), wide = S.wrap("mdi:plex Hi", 4).length;
+  S.setIconSource((n) => (n in have ? have[n] : false));
+  const tr = S.metrics().tracking;
+  check(near(S.width("mdi:plex Viewers", 1), S.ICON_W + tr + S.width(" Viewers", 1)), "an icon sets ICON_W wide");
+  check(near(S.width("mdi:slow", 2), S.ICON_W * 2), "a loading icon keeps its slot");
+  check(near(S.width("mdi:nope", 1), nope), "a failed icon is set as its name");
+  const st = S.text("mdi:plex", 0.2, 1, 1, { role: "accent" });
+  check(st.length === 1 && st[0].role === "accent" && near(st[0].pts[0][0], 1 - 0.13) && near(st[0].pts[2][1], 1.13), "an icon in text: centred, ICON_W tall, the text's role");
+  check(S.text("mdi:slow", 0.2).length === 0, "nothing drawn while loading");
+  check(S.title("  mdi:plex   Plex_viewers ") === "mdi:plex Plexviewers", "title keeps icon names whole");
+  check(wide === 2 && S.wrap("mdi:plex Hi", 4).length === 1, "wrap measures icons");
+  const m = S.marker("mdi:plex", 0, 0, 0.1);
+  check(m.length === 1 && near(m[0].pts[1][0], (S.MARKER_ICON * 0.1) / 2), "an icon marker");
+  check(S.marker("mdi:slow", 0, 0, 0.1)[0].pts.length === 24, "a ring while the marker icon loads");
+  const before = S.iconStamp(); S.iconLoaded();
+  check(S.iconStamp() === before + 1, "iconLoaded bumps the stamp");
+  S.setIconSource(null);
+}
 {
   const pts = S.curve([0, 1, 1, 0], 0, 0, 3, 1, { lo: 0, hi: 1, steps: true })[0].pts;
   check(JSON.stringify(pts.map(([x, y]) => [Math.round(x), Math.round(y)])) === "[[0,0],[1,0],[1,1],[2,1],[2,1],[3,1],[3,0]]", "curve steps run flat, then jump");

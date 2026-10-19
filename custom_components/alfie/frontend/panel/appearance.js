@@ -65,6 +65,7 @@ function look(p) {
       <div class="sliders">${range("look.line_width", Lk.line_width, 0.005, 0.1, 0.005, "Ring and eye line width")}
         ${range("look.screen_line_width", Lk.screen_line_width, 0.005, 0.06, 0.005, "Screen line width")}
         ${range("look.padding", Lk.padding, 0, 0.3, 0.01, "Padding around the ring")}
+        ${range("look.aspect", Lk.aspect ?? 1, 0.5, 3, 0.05, "Card aspect (width over height)")}
         <label class="check">${U.toggle(null, Lk.glow == null, { action: "look-glow" })}<span><b>Glow from the style</b></span></label>
         ${Lk.glow == null ? "" : range("look.glow", Lk.glow, 0, 2, 0.05, "Glow")}
         ${U.check("look.eye_fill", Lk.eye_fill, "Fill the eyes")}</div>
