@@ -52,7 +52,7 @@ from .triggers import validate_triggers
 # became triggers and stories; migrate_v1 carries them over.
 # 3: house modes; behaviour.sleep_entity became the Night mode (migrate_v2).
 # 4: keys follow design.md "Words" (migrate_v3), and the overview section.
-CONFIG_VERSION = 4
+CONFIG_VERSION = 5
 SECTIONS = ("signals", "mood", "behaviour", "personality", "look", "screens", "rotations",
             "stories", "triggers", "modes", "overview")
 GUIDE_STEPS = ("signals", "motion", "sleep", "dashboard", "screens")   # Get started
@@ -279,9 +279,26 @@ def migrate_v3(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+# Hello as it shipped before it explained his mood.
+_HELLO_V4 = [{"kind": "expression", "name": "@mood", "hold": 1.5, "blend": 0},
+             {"kind": "animation", "name": "nod", "wait": True}]
+
+
+def migrate_v4(raw: dict[str, Any]) -> dict[str, Any]:
+    """Hello, still as it shipped, gains its @why screen, so Alfie shows what
+    sets his mood when he appears in a rotation. An edited Hello is left be."""
+    for st in raw.get("stories") or []:
+        if isinstance(st, dict) and st.get("id") == defaults.APPEAR_STORY_OK \
+                and st.get("steps") == _HELLO_V4:
+            hello = next(d for d in defaults.STORIES if d["id"] == defaults.APPEAR_STORY_OK)
+            st["steps"] = copy.deepcopy(hello["steps"])
+    raw["version"] = CONFIG_VERSION
+    return raw
+
+
 def migrate(raw: Mapping[str, Any]) -> dict[str, Any]:
     """Any stored or imported config, in the current version's keys."""
-    return migrate_v3(migrate_v2(_add_appear(migrate_v1(raw))))
+    return migrate_v4(migrate_v3(migrate_v2(_add_appear(migrate_v1(raw)))))
 
 
 def _add_appear(raw: dict[str, Any]) -> dict[str, Any]:

@@ -175,7 +175,7 @@ def test_v3_store_migrates_to_the_house_json():
     cfg = validate(v3, FACE, TYPES)
     expect = {**house.CONFIG, "overview": cfg["overview"]}   # house.json hides Get started
     assert cfg == expect
-    assert cfg["version"] == 4
+    assert cfg["version"] == 5
 
 
 def test_migrate_v3_renames_every_key():
