@@ -48,6 +48,18 @@ const tk = P.changeTriggerKind({ id: "t", kind: "entity", story: "s", priority: 
   { id: "", kind: "wake", story: "", priority: 50, edge: "wakes" });
 check(tk.kind === "wake" && tk.priority === 70 && tk.story === "s" && !("entities" in tk) && tk.edge === "wakes", "trigger kind change");
 check(P.triggerSummary({ kind: "mood", direction: "worse", from: [], to: ["miserable"] }) === "mood gets worse to miserable", "summary");
+check(P.triggerSummary({ kind: "mode", modes: ["away"], edge: "leave" }) === "away ends", "mode trigger summary");
+
+// House modes: summary, and ids followed on rename.
+const mode = { condition: { entities: ["zone.home"], match: "any", op: "below", value: 1 }, presence: "idle",
+  hold_back: "none", mood_fixed: "", mood_floor: "", personality: "", rotation: "pause", triggers_off: ["a", "b"] };
+check(P.modeSummary(mode) === "zone.home below 1 → idle, rotation paused, 2 triggers off", "mode summary");
+check(P.modeSummary({ ...mode, condition: null, presence: "normal", rotation: "", triggers_off: [] }) === "picked by hand → no changes", "hand mode summary");
+const md = { modes: [{ ...mode, rotation: "r1" }], triggers: [{ kind: "mode", modes: ["away"] }, { kind: "wake" }] };
+P.renameModeRefs(md, "trigger", "a", "z");
+P.renameModeRefs(md, "rotation", "r1", "r2");
+P.renameModeRefs(md, "mode", "away", "out");
+check(md.modes[0].triggers_off.join() === "z,b" && md.modes[0].rotation === "r2" && md.triggers[0].modes[0] === "out", "mode refs");
 
 if (failures) process.exit(1);
 console.log("panel forms ok");
