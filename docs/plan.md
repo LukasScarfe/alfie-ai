@@ -24,7 +24,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] Tests (signals, mood, face data, a JS/Python pose cross-check) and `./dev face` sheet.
   - [x] Dev HA screenshot: mood and gaze change with poked signals and motion.
   - [x] Shown and approved by Lukas ("the card looks good").
-- [~] **2. Signals and personality.** Panel page for signals (entity / operator / value, severity,
+- [x] **2. Signals and personality.** Panel page for signals (entity / operator / value, severity,
       linked screen), the combine-mode options, mood levels, personality presets.
   - [x] Config model, pure Python (`config.py`): defaults seed, validate, build; `Signal.enabled`.
   - [x] Store (`alfie.config`) seeded from defaults, options-flow values migrated; live
@@ -32,14 +32,28 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] Admin WS API: `alfie/config/get|set|reset|preview`.
   - [x] Personality presets (bubbly, stoic, grumpy, sleepy, nervous, custom) in the engine, the
         scene and the card; per-card `personality` override.
-  - [ ] Admin sidebar panel: Signals, Mood, Behaviour, Personality tabs with live preview.
-  - [ ] Tests, design.md, dev HA screenshots of the panel and a personality sheet.
+  - [x] Admin sidebar panel: Signals, Mood, Behaviour, Personality tabs with live preview.
+  - [x] Tests, design.md, dev HA screenshots of the panel and a personality sheet.
   - [x] True rounded corners (pulled forward from M7): fillets, arc-length sampling, smooth
         stroke with crisp lid corners.
   - [x] M3 groundwork: presenting and rotation decided (design.md "Screens"); xy-bench port
         inventory in `docs/m3-screens.md`.
-- [ ] **3. Screens.** Port the templates to JS (plot, bars/value, weather, home clock, sky, stars,
-      map, text) with entity pickers, add the rotation display mode and transitions.
+- [~] **3. Screens.** Port the templates to JS (plot, bars/value, weather, home clock, sky, stars,
+      map, text) with entity pickers, add the rotation display mode and transitions. Built by
+      parallel Sonnet agents with disjoint files; the research is in `docs/m3-screens.md`.
+  - [ ] A. Foundation: the stroke model and the card's screen renderer, the font (JSON from
+        xy), the view helpers and icons, `screens` and `rotations` in the config,
+        `alfie/screen_data` and the provider registry, the card's rotation mode and presenting
+        (handover and corner), `alfie.show_screen`, and the harness `sheet=screen`.
+  - [ ] B1. Plot plus the history provider.
+  - [ ] B2. Weather plus the forecast provider.
+  - [ ] B3. Home clock, value and bars.
+  - [ ] B4. Sky maths (golden-tested against xy), sky and stars.
+  - [ ] B5. Map (opt-in Overpass, rounded cells, disk cache) and text (calendar).
+  - [ ] B6. Intros: the stroke transforms and fade, then materialise, condense and morph.
+  - [ ] C. The panel's Screens tab: build screens from each type's schema, rotations, and a
+        live preview.
+  - [ ] Dev HA: a rotation card in both presenting styles, screenshots for Lukas.
 - [ ] **4. Triggers and stories.** Trigger config (any entity, per-motion-sensor actions, mood
       changes, signal crossings), the fill-in story template and the advanced sequence builder, the
       default mood-change, bad-news and celebrate stories. Presenting is agreed (design.md

@@ -1,6 +1,6 @@
 # Alfie: handoff
 
-**Milestone 2 is nearly done; M1 is done** (Lukas approved the card). Version 0.2.0.
+**Milestones 1 and 2 are done; M3 (Screens) is claimed.** Version 0.2.0.
 (2026-10-18)
 
 ## Working, in dev HA (`./dev up`, then `http://192.168.1.241:8125`)
@@ -32,23 +32,29 @@
 
 ## Next
 
-1. **Finish M2.** The panel's own QA pass (every tab and interaction, save persisting across
-   `./dev restart`, the error display) was running when this was written. If the step "Admin
-   sidebar panel" in plan.md is still `[ ]`:
-   - redo the QA with `./dev shot alfie … --eval` and `./dev js`;
-   - send Lukas the four tab screenshots;
-   - tick M2.
-2. **M3, Screens.** Presenting and rotation are decided (design.md "Screens"):
-   - presenting is **hand over** (he leaves with a transition) or **corner** (he shrinks into a
-     corner and stays alive), an option per card;
-   - rotation is user-built, with no default.
+**M3, Screens.** The steps are in plan.md, and the full approved plan is summarised there.
+Presenting and rotation are decided (design.md "Screens"):
+- presenting is **hand over** (he leaves with a transition) or **corner** (he shrinks into a
+  corner and stays alive), an option per card;
+- screens and named rotations are built in the panel, and a card picks a rotation or lists its
+  own;
+- the map is opt-in, sends only rounded cells to Overpass, and its endpoint is configurable.
 
-   The port inventory with file:line, sizes and a suggested order is `docs/m3-screens.md`. Plan
-   M3 in plan mode with Lukas's OK. Lukas likes the work split across parallel Sonnet subagents,
-   each owning disjoint files.
+The port inventory with file:line, sizes and order is `docs/m3-screens.md`. Phase A (the
+foundation) comes first. Then B1 to B6 (one agent per screen family, disjoint files) run in
+parallel, then C (the panel Screens tab).
+
+Ways of working:
+- Lukas likes Sonnet subagents in parallel.
+- Only the lead agent restarts dev HA.
+- **Don't enter plan mode while subagents run**: it stops them.
 
 ## Gotchas
 
+- The panel compares configs ignoring key order, and `validate()` emits the defaults' key order.
+  Keep both, or a reset section looks unsaved.
+- The card's `_draw` returns early on a canvas with no size. Resizing from `_draw` must not
+  redraw, or it recurses.
 - The panel can be created before its class is defined (its module awaits the card), so `hass`
   lands as an own property. The constructor re-applies it through the setter. Keep that.
 - The panel's mini faces use `alfie-card.renderStill`, and the live face uses `playLocal` /
