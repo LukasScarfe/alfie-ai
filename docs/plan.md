@@ -122,6 +122,17 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] D. Panel: the Icon step, the simple form's icon, number-or-entity thresholds; editor.
   - [x] E. Lukas's house: Bright living room → Bright in here; checked live in dev HA, PNGs.
   - [ ] F. Lukas's review of the PNGs and the choreography.
+- [~] **5⅞. Oscilloscope.** Alfie on the X-Y scope through xy-bench: the card's vector output, the
+      `scope/` sidecar (headless card to xy-bench), and xy-bench's `alfie` screen. design.md
+      "Oscilloscope".
+  - [x] A. Card: `vector_out` / `paint`, `G.vectorStroke`, the `alfie-vector` event; tests;
+        harness `vec=1` and `vecjson=`.
+  - [x] B. Sidecar `scope/` (Dockerfile, bridge.js, page.html, compose, .env.example) and
+        `./dev scope` (dry run against dev HA).
+  - [x] C. xy-bench `PUT /api/strokes` and the `alfie` screen (xy-scope session; live, not yet
+        committed in xy-bench).
+  - [ ] D. A production HA user and token for the scope (Lukas's OK), then deploy on Numbat.
+  - [ ] E. On the CRT: Lukas looks; tune fps, weights and aspect.
 - [ ] **6. Voice.** React to all `assist_satellite` states, the what's-wrong LLM tool and intent,
       optional persona, mood-aware replies, TTS announcement step.
 - [ ] **7. Editors and polish.** Shape (freehand path), expression and animation editors,

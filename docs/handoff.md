@@ -8,14 +8,32 @@
   F is waiting on his review.
 - **5¾ (Icons):** built and checked in dev HA, with the PNGs sent to Lukas (A to E). F is
   waiting on his review.
+- **5⅞ (Oscilloscope):** A to C are done. D is next: a production HA user and token for the
+  scope (needs Lukas's OK), then deploy the sidecar on Numbat.
 
-Version 0.8.1.
+Version 0.8.2.
 
 **Development now happens on production HA** (Lukas, 2026-10-19). Push, then `./dev prod
 deploy` (HACS refresh, install, restart, wait); `./dev prod get` / `./dev prod ws` read it.
 `devenv/prodtool.py` is a stdlib WebSocket client. The dev HA is still there for screenshots.
 
-**Latest (0.8.1): his rotation turn explains his mood.** Hello gained a `@why` screen step
+**Latest (0.8.2): Alfie on the oscilloscope.** design.md "Oscilloscope" has the design.
+- **The card:** `vector_out` / `paint` (`_tap` at the head, eyes and `_drawStrokes`;
+  `G.vectorStroke`; `NO_PAINT` is a no-op 2D context). The harness has `vec=1` (feed under each
+  card) and `vecjson=` (plot a dumped frame).
+- **The sidecar:** `scope/`, headless card to xy-bench, served at HA's origin by request
+  interception. Try it with `./dev scope`. Checked against dev HA: 30 fps, 0 dropped, about a
+  third of a core and ~210 MB.
+- **xy-bench side:** built and live on Numbat by the xy-scope session (`PUT /api/strokes`,
+  screen `alfie`). It's not committed in xy-bench; Lukas commits it.
+- **Next:**
+  - the prod token, then on Numbat `git clone` to `~/alfie-ai` and
+    `scope/.env` (XYBENCH_TOKEN from `~/xy-bench/.env`, never printed);
+  - `docker compose up -d --build` in `scope/`;
+  - `PUT /api/screen {"screen": "alfie"}`, then check `/api/status` and an `/api/frame` PNG.
+- `const.VERSION` had been left at 0.8.0 by 0.8.1 (a failing test); both are 0.8.2 now.
+
+**Before that (0.8.1): his rotation turn explains his mood.** Hello gained a `@why` screen step
 (config v5, `migrate_v4` upgrades a Hello still as shipped), and `engine.expand_story` makes
 `@why` the bad signals, or the good ones while nothing is bad. On production Hello is upgraded
 and deployed; Bright Living Room (good, above 300 lx) wasn't on at deploy time (267 lx), so its

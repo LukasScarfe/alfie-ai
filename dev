@@ -74,6 +74,16 @@ JS
            q=${2:-sheet=moods}; out=${3:-$OUT/face.png}
            chrome "file:///repo/devenv/harness.html?$q" "$out" --size "${SIZE:-1200x900}" --wait 800 --selector '#g'
            echo "$out" ;;
+  scope)   # ./dev scope [card-json] [seconds]: alfie-scope (scope/) against dev HA, dry run;
+           # plots its newest frame to $OUT/scope.png
+           docker build -q -t alfie-scope:dev scope >/dev/null
+           tok=$(python3 devenv/devtool.py token | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
+           docker rm -f alfie-scope-dev >/dev/null 2>&1 || true
+           docker run -d --name alfie-scope-dev --network host --user "$(id -u):$(id -g)" -v "$ROOT/$OUT:/out" \
+             -e STATS=4 -e DUMP=/out/scope.json -e "ALFIE_CARD=${2:-{\}}" -e XYBENCH_URL= \
+             -e HA_URL=http://192.168.1.241:8125 -e HA_TOKEN="$tok" alfie-scope:dev >/dev/null
+           sleep "${3:-13}"; docker logs alfie-scope-dev 2>&1 | tail -n 4; docker rm -f alfie-scope-dev >/dev/null
+           "$0" face "vecjson=/repo/$OUT/scope.json" "$OUT/scope.png" ;;
   sheet)   # ./dev sheet DIR out.png [cols]: contact sheet of every PNG in DIR (under the repo)
            dir=$2; out=$3; imgs=$(cd "$dir" && ls *.png | paste -sd,)
            chrome "file:///repo/devenv/sheet.html?dir=/repo/$dir&imgs=$imgs&cols=${4:-4}" "$out" --size 1200x900 --wait 500 --selector '#g'
@@ -82,7 +92,7 @@ JS
            echo "usage: ./dev up|down|restart|wait|logs [n]|errors [n]"
            echo "       ./dev onboard|add|seed|house|token"
            echo "       ./dev state ENTITY STATE [attrs-json] | call DOMAIN.SERVICE [json] | get ENTITY"
-           echo "       ./dev test | dashboard"
+           echo "       ./dev test | dashboard | scope [card-json] [seconds]"
            echo "       ./dev prod deploy | get ENTITY | ws TYPE [json]"
            echo "       ./dev shot [dashboard-path] [out.png] | face [query] [out.png] | sheet DIR out.png [cols]"
            exit 1 ;;

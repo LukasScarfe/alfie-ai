@@ -195,3 +195,19 @@ export function badgeAt(b, w, h, R, face, m) {
   }
   return { cx: fit(x, w), cy: fit(y, h), s };
 }
+
+// One painted stroke for the vector feed (the oscilloscope): canvas pixels to
+// [-1, 1] across a w x h canvas, y up, rounded, repeats dropped. `weight` is
+// how bright it should be (its alpha), since on a scope brightness is how long
+// the beam dwells; null for a stroke too faint to send.
+export function vectorStroke(pts, closed, weight, w, h) {
+  if (!(weight > 0.003) || !pts?.length) return null;
+  const r = (n) => Math.round(n * 1000) / 1000;
+  const p = [];
+  for (const [x, y] of pts) {
+    const q = [r((2 * x) / w - 1), r(1 - (2 * y) / h)];
+    const last = p[p.length - 1];
+    if (!last || last[0] !== q[0] || last[1] !== q[1]) p.push(q);
+  }
+  return { p, c: !!closed && p.length > 2, w: r(clamp(weight, 0, 1)) };
+}

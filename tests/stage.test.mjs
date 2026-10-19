@@ -188,5 +188,16 @@ const spec = { steps: [{ screen: "a", seconds: 10 }, { screen: "b", seconds: 5 }
   eq(G.advance(rot, 0, () => ({ skip: true })), { id: null, next: "a", appear: true }, "a skipping screen hands over to an Alfie step");
 }
 
+// The vector feed: pixels to [-1, 1] with y up, repeats dropped, faint strokes not sent.
+{
+  eq(G.vectorStroke([[0, 0], [100, 50], [100, 50], [200, 100]], false, 0.5, 200, 100),
+    { p: [[-1, 1], [0, 0], [1, -1]], c: false, w: 0.5 }, "corner to centre to corner, y up, repeat dropped");
+  eq(G.vectorStroke([[10, 10], [20, 10], [15, 20]], true, 2, 100, 100).c, true, "a closed triangle stays closed");
+  eq(G.vectorStroke([[10, 10], [20, 10], [15, 20]], true, 2, 100, 100).w, 1, "weight capped at 1");
+  eq(G.vectorStroke([[10, 10], [10, 10]], true, 1, 100, 100), { p: [[-0.8, 0.8]], c: false, w: 1 }, "a dot is never closed");
+  eq(G.vectorStroke([[10, 10]], false, 0.001, 100, 100), null, "too faint to send");
+  eq(G.vectorStroke([[100 / 3, 0]], false, 1, 100, 100).p, [[-0.333, 1]], "rounded to 3 decimals");
+}
+
 console.log(`stage: ${checks - failures}/${checks} checks passed`);
 if (failures) process.exit(1);

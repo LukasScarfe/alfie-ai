@@ -524,10 +524,39 @@ letters: accents drop to the base letter, and letters it can't decompose (Ł) ar
   - It worked in browsers but showed "Configuration error" only in the Android Companion app, and
     the cause was never found. **Test on the tablet early.**
 
+## Oscilloscope (decided, 2026-10-19)
+
+Alfie also shows on Lukas's X-Y oscilloscope, through xy-bench on the scope box (Scarfe-Numbat,
+`192.168.1.112`), as one more xy-bench screen (`alfie`) that HA picks like any other. xy-bench
+keeps the DAC, the planner, the wiring correction, music and its own screens.
+
+- **The card is the renderer.** The options `vector_out: true` and `paint: false` make the card
+  dispatch an `alfie-vector` event each frame (`{strokes, aspect, t}`) and skip the canvas. It
+  sends every stroke it would have painted: head, eyes, screens, intros, badges. A stroke is
+  `{p: [[x, y], …], c: closed, w: weight}` in [-1, 1] across the canvas, y up, rounded to 3
+  decimals (`alfie-stage.js` `vectorStroke`). `w` is the alpha. The scope has no fill or line
+  width, so filled icons show as outlines.
+- **The `scope/` sidecar (`alfie-scope`)** is headless Chromium, in the same image `./dev`
+  screenshots with. It loads the card from HA's own `/alfie_static/` at HA's origin, so it's
+  always the installed version. The card gets a small `hass` shim (connection, states, config),
+  icons resolve from bundled mdi paths, and frames go to xy-bench as `PUT /api/strokes`. The
+  latest frame wins. Settings are in `scope/.env.example`: card options as JSON, aspect and fps.
+  It reloads when HA reconnects (a deploy).
+- **xy-bench's side** (built by the xy-scope session):
+  - `PUT /api/strokes` with `{strokes, ordered, aspect, t}` and the push token. It allows up to
+    600 strokes and 20000 points, and a body up to 512 KB.
+  - x is scaled by aspect, then the frame to 0.95.
+  - After 3 s without a frame it shows a struck-through ring.
+  - `GET /api/status` reports `alfie {age, strokes}`.
+  - Keep `ordered` true: a re-solved tour costs about 125 ms a frame.
+  - `w` is *relative*: each stroke's share of the frame's samples. So a whole-picture fade does
+    not dim the scope; only one part against another does.
+- **Cost:** 30 fps (the default; keep fps a divisor of 60) is about a third of a core and
+  ~210 MB on raccoon.
+
 ## Non-goals (for now)
 
-Talking to the oscilloscope box or rewriting its container; a body; replacing the voice pipeline
-itself; an add-on.
+A body; replacing the voice pipeline itself; an add-on.
 
 ## Scene state: engine to card (decided)
 
