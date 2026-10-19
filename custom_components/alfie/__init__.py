@@ -28,7 +28,7 @@ from .stories import (
 from .triggers import BUSY
 from .websocket_api import async_register as async_register_ws
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SELECT]
+PLATFORMS: list[Platform] = [Platform.SENSOR]   # Platform.SELECT (house mode pick) hidden for now
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 

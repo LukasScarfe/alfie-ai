@@ -363,6 +363,11 @@ or the `alfie.show_icon` action (with `alfie.clear_icons`), and every display sh
 Built in M5: `modes.py` (pure), the engine's mode choice, the card's hiding and rotation
 handling, and the panel's **House modes** section.
 
+**Hidden for now** (Lukas, 2026-10-19: he doesn't want them and they clutter the options). The
+engine still runs modes from config, but the panel's House modes tab, the "A house mode starts or
+ends" trigger kind, the card editor's Follow house modes toggle, the Overview's house mode line
+and `select.alfie_mode` are commented out. Search for "hidden for now" to bring them back.
+
 - **One mode at a time.** Modes are an ordered list (config `modes`). The mode is the first
   enabled one whose condition holds, otherwise Normal (no mode).
   - A condition is an entity or pattern, an operator and a value, with match any or all, like a
