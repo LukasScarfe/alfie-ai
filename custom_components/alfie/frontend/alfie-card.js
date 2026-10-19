@@ -898,12 +898,21 @@ class AlfieCard extends HTMLElement {
     }
   }
 
-  _transitionStyle() {
+  // The style for a screen coming in: [style, random]. On random each change picks
+  // afresh, and both sides of it share the pick: `keep` is the leaving screen's.
+  _transitionStyle(keep = null) {
     const c = this._config;
     const sc = this._scene?.screen;
     let style = (this._override && this._override === sc?.id && sc.transition) || c.transition || this._rot?.transition || "fade";
-    if (style === "random") style = I.RANDOM_STYLES[Math.floor(Math.random() * I.RANDOM_STYLES.length)];
-    return I.STYLES.includes(style) ? style : "fade";
+    const random = style === "random";
+    if (random) style = keep || I.RANDOM_STYLES[Math.floor(Math.random() * I.RANDOM_STYLES.length)];
+    return [I.STYLES.includes(style) ? style : "fade", random];
+  }
+
+  // A new screen on show, and how it comes in.
+  _enter(id, t, present, keep = null, extra = {}) {
+    const [style, random] = this._transitionStyle(keep);
+    return (this._cur = { id, tIn: t, tOut: null, style, random, present, ...extra });
   }
 
   // Decide what is on show at `t` and build the draw description for it, or null
@@ -930,10 +939,12 @@ class AlfieCard extends HTMLElement {
       // Screen to screen: the old one leaves and the next arrives, with Alfie
       // kept as he is (gone, or in his corner) throughout.
       cur.tOut = t;
+      // On random a change picks its own style, which the leaving screen goes by too.
+      if (cur.random) cur.style = this._transitionStyle()[0];
       cur.swap = !!want.id && presentOf(want.id) === cur.present;
     }
     if (cur?.swap && cur.tOut != null && !want.id) cur.swap = false;   // Alfie wants the stage after all
-    if (!cur && want.id) cur = this._cur = { id: want.id, tIn: t, tOut: null, style: this._transitionStyle(), present: presentOf(want.id) };
+    if (!cur && want.id) cur = this._enter(want.id, t, presentOf(want.id));
     if (!cur) return null;
     let corner = cur.present === "corner";
     let leaving = cur.tOut != null;
@@ -946,7 +957,7 @@ class AlfieCard extends HTMLElement {
     if (leaving && age >= (back ? durS + durBack : Math.max(durS, durM))) {
       this._cur = null;
       if (!(cur.swap && want.id)) return null;
-      cur = this._cur = { id: want.id, tIn: t, tOut: null, style: this._transitionStyle(), present: presentOf(want.id), held: true };
+      cur = this._enter(want.id, t, presentOf(want.id), cur.style, { held: true });
       corner = cur.present === "corner";
       leaving = false;
       durS = I.SECONDS[cur.style] ?? 0.6;
