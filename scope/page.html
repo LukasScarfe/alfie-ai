@@ -48,7 +48,12 @@
   conn.addEventListener("ready", () => location.reload());
 
   const hass = { connection: conn, states: {}, config: null, callWS: (msg) => conn.sendMessagePromise(msg) };
-  await import(`/alfie_static/alfie-card.js?v=${Date.now()}`);
+  // Just after HA restarts (a deploy), Alfie may not be serving his files yet: try again.
+  try { await import(`/alfie_static/alfie-card.js?v=${Date.now()}`); } catch (e) {
+    console.error(`alfie-scope: no card yet (${e.message}), retrying in 5 s`);
+    setTimeout(() => location.reload(), 5000);
+    throw e;
+  }
   await customElements.whenDefined("alfie-card");
   const el = document.createElement("alfie-card");
   // The card's own cap is lifted: the timer above sets the pace.

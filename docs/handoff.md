@@ -21,6 +21,8 @@ shrink small marks. So the picture changed shape when the leave began, and again
 it arrived. Settled neighbouring grains now draw the stroke between them through its own
 vertices, and a stroke wholly in place is its own path. Re-recorded: one shape for the whole
 turn, and the same beam path into the leave.
+- The scope page retries (reloads after 5 s) when HA isn't serving `alfie-card.js` yet. After a
+  deploy it had reloaded too early, got a 404 and sat on its last frame until restarted.
 - `bridge.js` gained `RECORD=<file>`: every frame appended as a JSON line, for this kind of
   check (`./dev scope` doesn't set it; run the container by hand with a volume).
 
