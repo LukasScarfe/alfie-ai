@@ -703,8 +703,11 @@ class AlfieCard extends HTMLElement {
       let strokes = this._vec.strokes;
       // Mid-transition the screen is already in its own tour order (_tourScreen),
       // and the frame is not re-solved: that would make the beam's path jump about.
-      if (c.vector_order !== "drawn" && !scr?.moving && strokes.length <= TOUR_MAX) {
-        strokes = G.tourStrokes(strokes, this._tour ??= new Map());
+      if (c.vector_order !== "drawn") {
+        strokes = !scr?.moving && strokes.length <= TOUR_MAX
+          ? G.tourStrokes(strokes, this._tour ??= new Map())
+          : G.placeStrokes(strokes, this._loops ??= new Map());
+        strokes = G.openLoops(strokes);
       }
       this.dispatchEvent(new CustomEvent("alfie-vector", {
         detail: { strokes, aspect: w / h, t: this._now() } }));

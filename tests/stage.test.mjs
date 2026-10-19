@@ -240,6 +240,27 @@ eq(G.vectorStroke([[100 / 3, 0]], false, 1, 100, 100).p.length, 2, "a dot goes a
   let last;
   for (let i = 0; i < 20; i++) last = G.tourStrokes(shuffled, memo);
   near(jumps(last), jumps(t), "a stale order is re-solved", 1e-6);
+  // A moving loop keeps its entry: an eye glancing doesn't make the jump hop round it.
+  const eye = (x) => ({ p: Array.from({ length: 24 }, (_, i) => [x + 0.1 * Math.cos(i * Math.PI / 12), 0.1 * Math.sin(i * Math.PI / 12)]), c: true, w: 1 });
+  const head = { p: Array.from({ length: 48 }, (_, i) => [0.8 * Math.cos(i * Math.PI / 24), 0.8 * Math.sin(i * Math.PI / 24)]), c: true, w: 1 };
+  // An eye glancing under a mark: the nearest way in to it turns as it moves.
+  const fm = new Map(), mark = { p: [[0, 0.5], [0.001, 0.5]], c: false, w: 1 };
+  const rel = [-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3].map((dx) => {
+    const e = G.tourStrokes([mark, eye(dx)], fm).find((s) => s.c);
+    return [e.p[0][0] - dx, e.p[0][1]];
+  });
+  ok(rel.every((r) => Math.abs(r[0] - rel[0][0]) < 1e-9 && Math.abs(r[1] - rel[0][1]) < 1e-9), "the eye is entered at the same spot on it as it glances");
+  // But a loop that has moved far is entered afresh.
+  const far = G.tourStrokes([mark, { ...eye(0), p: eye(0).p.map(([x, y]) => [x, y + 1]) }], fm).find((s) => s.c);
+  ok(far.p[0][1] < 1, "a loop moved past the mark is entered from below");
+  // Loops go out open, ending where they start, so xy-bench can't re-pick their entry.
+  const opened = G.openLoops([ring, line(0, 1, 0)]);
+  ok(!opened[0].c && opened[0].p.length === 13 && opened[0].p[12] === ring.p[0], "a loop goes as an open stroke back to its start");
+  eq(opened[1], line(0, 1, 0), "an open stroke is left alone");
+  // Mid-transition: the order is kept, loops' entries still chosen and held.
+  const pm = new Map(), pl = G.placeStrokes([line(-1, -0.5, 0), ring, line(0.5, 1, 0)], pm);
+  eq(pl.map((s) => s.c), [false, true, false], "placeStrokes keeps the order");
+  ok(Math.abs(pl[1].p[0][0]) > 0.19, "and enters the loop at a side");
   eq(G.tourStrokes([]), [], "no strokes");
   eq(G.tourStrokes([ring]), [ring], "one stroke untouched");
 }

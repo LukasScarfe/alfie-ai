@@ -18,7 +18,7 @@ const HA_URL = env("HA_URL", "").replace(/\/+$/, "");
 const HA_TOKEN = env("HA_TOKEN", "");
 const XYBENCH_URL = env("XYBENCH_URL", "").replace(/\/+$/, "");
 const XYBENCH_TOKEN = env("XYBENCH_TOKEN", "");
-const FPS = Number(env("FPS", "50"));   // xy-bench plays Alfie at 50
+const FPS = Number(env("FPS", "60"));   // match xy-bench (XYBENCH_MIN_FPS=60 holds it there)
 const ASPECT = Number(env("ASPECT", "1"));
 const ORDERED = env("ORDERED", "true") !== "false";
 const CARD = JSON.parse(env("ALFIE_CARD", "{}"));

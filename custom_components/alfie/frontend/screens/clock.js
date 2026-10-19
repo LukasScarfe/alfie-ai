@@ -2,11 +2,13 @@
 // _home): an analogue clock whose rim is a solar clock (bright where the sun
 // will be up when the hour hand gets there, within the next 12 hours), a
 // seconds bead, and inside and outside temperature readouts with the house.
-// All local time comes from HA's time zone, not the browser's, and is derived
+// The minute hand may reach the rim (`joined`), and then the rim and both
+// hands are one line. All local time comes from HA's time zone, not the browser's, and is derived
 // from `t`; nothing here touches the network or HA.
 const TAU = 2 * Math.PI;
 const RIM_N = 120;           // rim points for a full lap
 const RIM_W = 0.7, DAY_W = 1.0, NIGHT_W = 0.35;
+const JOINED_W = 0.85;      // the rim and hands as one line: between the rim's weight and a hand's
 
 // States and config come from the draw context; the dev harness cannot feed
 // them, so it falls back to data.states / data.config (never set in HA).
@@ -90,10 +92,25 @@ function analogue(S, cx, cy, r, lt, o, memo, sunUp) {
     memo.rim = rimStrokes(S, 0, 0, r, hourNow, o.solar_rim ? sunUp : null);
   }
   const mv = (pts) => pts.map(([x, y]) => [x + cx, y + cy]);
+  const fm = lt.m / 60 + lt.s / 3600, hour = at(cx, cy, 0.5 * r, ((lt.h % 12) + lt.m / 60) / 12);
+  if (o.joined && memo.rim.length === 1) {
+    // One line: round the rim from the minute hand's tip and back to it, then
+    // down the minute hand and out along the hour hand.
+    const rim = memo.rim[0].pts, tip = at(0, 0, r, fm);
+    const frac = ([x, y]) => ((Math.atan2(x, y) / TAU) % 1 + 1) % 1;
+    let k = rim.findIndex((q) => frac(q) > fm);
+    if (k < 0) k = 0;
+    const lap = [tip, ...rim.slice(k), ...rim.slice(0, k), tip];
+    return [S.stroke([...mv(lap), [cx, cy], hour], { w: JOINED_W }), ...bead(S, cx, cy, r, lt, o)];
+  }
   const out = memo.rim.map((s) => ({ ...s, pts: mv(s.pts) }));
-  out.push(S.stroke([at(cx, cy, 0.78 * r, lt.m / 60 + lt.s / 3600), [cx, cy], at(cx, cy, 0.5 * r, ((lt.h % 12) + lt.m / 60) / 12)]));
-  if (o.seconds) out.push(S.stroke([at(cx, cy, r, lt.s / 60)], { role: "accent", w: 1.6 }));   // the bead
+  out.push(S.stroke([at(cx, cy, (o.joined ? 1 : 0.78) * r, fm), [cx, cy], hour]));
+  out.push(...bead(S, cx, cy, r, lt, o));
   return out;
+}
+
+function bead(S, cx, cy, r, lt, o) {
+  return o.seconds ? [S.stroke([at(cx, cy, r, lt.s / 60)], { role: "accent", w: 1.6 })] : [];
 }
 
 const two = (n) => String(n).padStart(2, "0");

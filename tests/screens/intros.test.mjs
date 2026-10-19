@@ -131,9 +131,14 @@ for (const st of I.STYLES) {
 {
   const L = (p) => I.apply("condense", p, false, label, box, null, { lines: true });
   const early = L(0.05), mid = L(0.5);
-  check(early.strokes.length === 1 && mid.strokes.length === 1 && !early.strokes[0].closed, "condense lines: one open stroke");
+  check(early.strokes.length === label.length && early.strokes.every((s) => !s.closed), "condense lines: an open stroke per stroke");
   check(finite(early.strokes) && finite(mid.strokes), "condense lines: no NaN");
-  check(early.strokes[0].pts.length % 2 === 0 && early.strokes[0].pts.length >= 200, "condense lines: a grain per pair of points");
+  const pts = early.strokes.reduce((a, s) => a + s.pts.length, 0);
+  check(early.strokes.every((s) => s.pts.length % 2 === 0) && pts >= 200, "condense lines: a grain per pair of points");
+  // Nearly settled, each stroke ends where the drawing's does: no solid joins between them.
+  const late = L(0.97).strokes;
+  check(late.every((s, i) => { const e = label[i].closed ? label[i].pts[0] : label[i].pts.at(-1); return Math.hypot(s.pts.at(-1)[0] - e[0], s.pts.at(-1)[1] - e[1]) < 0.05; }),
+    "condense lines: strokes end where the drawing's do");
   check(len(early.strokes) > len(mid.strokes) * 1.5, "condense lines: long random lines early, shorter as it gathers");
   check(L(1).strokes === label, "condense lines: done is the drawing itself");
   check(I.apply("condense", 0.5, false, label, box).strokes.length > 10, "condense without lines is still dots");
