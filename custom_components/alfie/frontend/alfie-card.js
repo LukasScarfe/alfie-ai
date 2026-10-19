@@ -10,6 +10,7 @@
 const V = new URL(import.meta.url).search; // ?v=<version>: carry it to our own files
 const F = await import(`./alfie-face.js${V}`);
 const S = await import(`./alfie-screens.js${V}`);
+const L = await import(`./alfie-look.js${V}`);
 const I = await import(`./alfie-intros.js${V}`);
 const FACE_URL = new URL(`./alfie-face.json${V}`, import.meta.url);
 
@@ -209,6 +210,11 @@ class AlfieCard extends HTMLElement {
     this._config = { ...DEFAULTS };
     this._face = new FaceState();
     this._scene = null;
+    this._user = {};
+    this._lookKey = "";       // the applied look, as JSON, to tell a change from a re-sent scene
+    this._lookPreview = null;
+    this._exprPreview = null;
+    this._energyPreview = null;
     this._lastAnimId = null;
     this._visible = true;
     this._running = false;
@@ -250,7 +256,8 @@ class AlfieCard extends HTMLElement {
     if (pc !== undefined && pc !== null && typeof pc !== "string" && typeof pc !== "object") {
       throw new Error("personality must be a preset name or a mapping of sliders");
     }
-    this._config = { ...DEFAULTS, ...config };
+    this._user = { ...config };   // the card's own keys: they beat Alfie's global look
+    this._config = L.effectiveConfig(DEFAULTS, this._lookNow(), this._user);
     this._rot = null;   // rebuilt from the new rotation option
     this._partsCache = null;
     if (this._face.expression !== null && faceData) {
@@ -322,6 +329,7 @@ class AlfieCard extends HTMLElement {
     }
     const face = await loadFace();
     this._scene = scene;
+    this._applyLook();
     this._error = null;
     this._showError();
     if (scene.screens_rev !== this._screensRev) this._fetchScreens(scene.screens_rev);
@@ -331,8 +339,8 @@ class AlfieCard extends HTMLElement {
     // The engine's energy already has Alfie's own bias in it; a card with its
     // own personality swaps that bias for its own.
     const energy = (scene.mood?.energy ?? 0.8) - global.energy_bias + p.energy_bias;
-    this._face.setEnergy(Math.max(0.05, energy) * this._config.liveliness, t);
-    this._applyExpression(face, scene.expression, t);
+    this._face.setEnergy(Math.max(0.05, this._energyPreview ?? energy) * this._config.liveliness, t);
+    this._applyExpression(face, this._exprPreview ?? scene.expression, t);
     const a = scene.animation;
     if (a && a.id !== this._lastAnimId) {
       const first = this._lastAnimId === null;
@@ -342,6 +350,27 @@ class AlfieCard extends HTMLElement {
         this._face.play(face.compiled[a.name]);
       }
     }
+  }
+
+  // The look in force: the panel's preview, else Alfie's global one from the scene.
+  _lookNow() {
+    return this._lookPreview ?? this._scene?.look ?? null;
+  }
+
+  // Apply the look when it really changed (a cheap JSON compare: scenes arrive
+  // often). Colours re-resolve, the shapes cache drops, and the new shapes
+  // blend in because the expression's parts object is a new one.
+  _applyLook() {
+    const look = this._lookNow(), key = L.lookKey(look);
+    if (key === this._lookKey) return false;
+    this._lookKey = key;
+    const bg = (c) => (c.background && c.background !== "none" ? c.background : "");
+    const before = bg(this._config);
+    this._config = L.effectiveConfig(DEFAULTS, look, this._user);
+    this._colors = null;
+    this._partsCache = null;
+    if (bg(this._config) !== before) this._build();
+    return true;
   }
 
   // The card's `personality` option over Alfie's own (`base`, from the scene).
@@ -817,7 +846,35 @@ class AlfieCard extends HTMLElement {
     if (face.compiled[name]) this._face.play(face.compiled[name]);
   }
 
+  // Panel previews, local to this card and never sent anywhere. null ends one.
+  // previewLook(look): a look instead of the scene's; previewExpression(name):
+  // hold an expression; previewEnergy(value): hold an energy (before liveliness).
+  async previewLook(look) {
+    this._lookPreview = look && typeof look === "object" ? look : null;
+    if (this._applyLook()) await this._replay();
+  }
+
+  async previewExpression(name) {
+    this._exprPreview = name || null;
+    await this._replay();
+  }
+
+  async previewEnergy(value) {
+    this._energyPreview = value === null || value === undefined || Number.isNaN(Number(value)) ? null : Number(value);
+    await this._replay();
+  }
+
+  // Re-run the scene through the current previews (or, with no scene, hold them).
+  async _replay() {
+    if (this._scene) return this._onScene(this._scene);
+    const face = await loadFace();
+    this._personality(face);
+    if (this._energyPreview !== null) this._face.setEnergy(this._energyPreview * this._config.liveliness, this._now());
+    if (this._exprPreview) this._applyExpression(face, this._exprPreview, this._now());
+  }
+
   async setPersonality(personality) {
+    this._user = { ...this._user, personality };
     this._config = { ...this._config, personality };
     const face = await loadFace();
     if (this._scene) this._onScene(this._scene);
@@ -864,6 +921,7 @@ class AlfieCard extends HTMLElement {
     const opts = withDefaults(typeInfo, options);
     const pres = I.presence("fade", u, false);
     const k = present === "corner" ? F.spring(u) : 0;
+    this._user = { ...this._user, present, corner };
     this._config = { ...this._config, present, corner };
     this._stillScr = {
       present, corner, size: this._config.corner_size, k,

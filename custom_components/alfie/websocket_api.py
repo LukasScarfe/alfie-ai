@@ -22,6 +22,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
 from .config import (
+    STYLES,
     CUSTOM,
     PERSONALITY,
     SECTIONS,
@@ -89,6 +90,7 @@ def ws_config_get(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
             "operators": list(OPERATORS),
             "severities": list(SEVERITIES),
             "combine": list(COMBINE_MODES),
+            "styles": list(STYLES),
             "sections": list(SECTIONS),
             "screen_types": engine.types,
         },
