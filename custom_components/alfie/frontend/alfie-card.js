@@ -781,6 +781,11 @@ class AlfieCard extends HTMLElement {
   async _appear(rot) {
     const pick = this._config.appear_story ?? "auto";
     this._endLocal(true);
+    // When he will be back on stage: the screen on show leaves first, then he comes in.
+    const cur = this._cur;
+    const durS = cur ? I.SECONDS[cur.style] ?? 0.6 : 0;
+    this._backAt = this._now() + (!cur ? 0 : cur.style === "morph" ? durS
+      : durS + (cur.present === "corner" ? CORNER_SECONDS : durS));
     if (pick === "none" || !this._hass) return;
     rot.hold = 1e9;
     let r = null;
@@ -792,9 +797,11 @@ class AlfieCard extends HTMLElement {
     }
     if (this._rot !== rot) return;           // the rotation was rebuilt meanwhile
     const actions = r?.actions || [];
-    rot.hold = G.storyLength(actions);
+    // The story starts once the screen has left and he is back on stage.
+    const delay = Math.max(0, this._backAt - this._now()) || 0;
+    rot.hold = actions.length ? delay + G.storyLength(actions) : 0;
     if (!actions.length || this._scene?.story) return;
-    this._local = { actions, t0: this._now(), last: -1, expression: null, blend: 0, place: null, screen: null };
+    this._local = { actions, t0: this._now() + delay, last: -1, expression: null, blend: 0, place: null, screen: null };
     this._stepLocal(this._local.t0);
   }
 
@@ -865,7 +872,11 @@ class AlfieCard extends HTMLElement {
     let leaving = cur.tOut != null;
     let durS = I.SECONDS[cur.style] ?? 0.6, durM = corner && !(leaving ? cur.swap : cur.held) ? CORNER_SECONDS : 0;
     let age = t - (leaving ? cur.tOut : cur.tIn);
-    if (leaving && age >= Math.max(durS, durM)) {
+    // Alfie taking the stage back waits for the screen to be gone, then comes in:
+    // out of his corner, or by the transition (morph alone turns one into the other).
+    const back = leaving && !cur.swap && cur.style !== "morph";
+    const durBack = back ? (corner ? CORNER_SECONDS : durS) : 0;
+    if (leaving && age >= (back ? durS + durBack : Math.max(durS, durM))) {
       this._cur = null;
       if (!(cur.swap && want.id)) return null;
       cur = this._cur = { id: want.id, tIn: t, tOut: null, style: this._transitionStyle(), present: presentOf(want.id), held: true };
@@ -875,15 +886,22 @@ class AlfieCard extends HTMLElement {
       durM = 0;
       age = 0;
     }
-    // Alfie stays away while one screen hands over to the next.
-    const away = leaving ? !!cur.swap : !!cur.held;
+    if (back && age >= durS) {
+      // The screen is gone; Alfie comes in.
+      const u = durBack ? clamp((age - durS) / durBack, 0, 1) : 1;
+      if (corner) return this._describe(cur.id, cur.style, 0, true, 1 - F.spring(u), t, cur.present, false, true);
+      return this._describe(cur.id, cur.style, I.presence(cur.style, u, true), true, 0, t, cur.present, false, true);
+    }
+    // Alfie stays away while one screen hands over to the next, or leaves before he comes back.
+    const away = leaving ? (!!cur.swap || back) : !!cur.held;
     const uS = durS ? clamp(age / durS, 0, 1) : 1, uM = durM ? clamp(age / durM, 0, 1) : 1;
     const p = I.presence(cur.style, uS, leaving);
     const k = corner ? (away ? 1 : leaving ? 1 - F.spring(uM) : F.spring(uM)) : 0;
     return this._describe(cur.id, cur.style, p, leaving, k, t, cur.present, away);
   }
 
-  _describe(id, style, p, leaving, k, t, present = this._config.present, away = false) {
+  // `gone`: the screen has left and only Alfie is drawn, coming back by presence `p`.
+  _describe(id, style, p, leaving, k, t, present = this._config.present, away = false, gone = false) {
     const c = this._config, corner = present === "corner";
     const screen = this._screenIndex.get(id);
     // In "hand over" the face goes by the same transition the screen comes by
@@ -893,7 +911,7 @@ class AlfieCard extends HTMLElement {
     const shaped = !corner && !away && !["cut", "fade", "morph"].includes(style) && p > 0 && p < 1;
     return {
       present, corner: c.corner, size: c.corner_size, k, faceAlpha,
-      alpha: I.apply(style, p, leaving, [], null).alpha,
+      alpha: gone ? 0 : I.apply(style, p, leaving, [], null).alpha,
       face: shaped ? (shapes, box) => I.apply(style, 1 - clamp(p, 0, 1), !leaving, I.faceStrokes(shapes), box) : null,
       strokes: (hw, hh, shapes) => this._screenStrokes(screen, hw, hh, t, style, p, leaving,
         style === "morph" && shapes && !corner && !away ? I.faceStrokes(shapes) : null),
