@@ -153,3 +153,11 @@ def test_alfie_steps_and_face_seconds(types):
     assert errs(types, screens=SCREENS, rotations=[{**rot, "steps": [{"alfie": True, "seconds": 1}]}])
     kept = validate(cfg_with(screens=SCREENS, rotations=[{**rot, "face_seconds": 20}]), FACE, types)
     assert kept["rotations"][0]["face_seconds"] == 20
+
+
+def test_map_trackers_take_anything_located():
+    # A parked-car sensor carries latitude/longitude like a person does.
+    from test_config import TYPES
+    opts = {"trackers": ["person.lukas", "sensor.lukas_last_car_location"]}
+    out = validate_options(TYPES["map"], opts)
+    assert out["trackers"] == opts["trackers"]

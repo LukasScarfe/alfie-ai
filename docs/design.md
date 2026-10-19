@@ -433,7 +433,8 @@ built types:
   constellations, planets, the moon in phase). Both are computed in the browser from HA's home
   location with Schlyter's formulas (`alfie-sky.js`), golden-tested against xy. The
   constellation data is d3-celestial's (BSD, see `THIRD_PARTY.md`).
-- **map**: streets around trackers, with markers and a house. **Privacy (decided): off unless the
+- **map**: streets around trackers, with markers and a house. A tracker is any entity with
+  `latitude`/`longitude` attributes: a person, a phone, or a sensor such as where a car was parked. **Privacy (decided): off unless the
   screen's `allow_network` option is on.** Only a position rounded to about 100 m goes to
   Overpass, each cell is cached on disk forever, and the endpoint is an option.
 - **text**: word-wrapped, shrink-to-fit titles from calendars (e.g. birthdays, with a template),

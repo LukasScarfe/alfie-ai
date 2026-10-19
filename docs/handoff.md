@@ -11,9 +11,19 @@
 - **5⅞ (Oscilloscope):** A to D and F (the settings page) are done; the sidecar runs on
   Numbat. E (Lukas on the CRT) is open.
 
-Version 0.8.10.
+Version 0.8.11.
 
-**Latest (0.8.10): Alfie comes and goes like a screen.** After 0.8.9 Lukas still saw Alfie
+**Latest (0.8.11): map trackers can be any located entity.** Lukas wants his parked-car sensors
+(`sensor.lukas_last_car_location`, `sensor.michelle_last_car_location`: a timestamp state with
+`latitude`/`longitude` attributes) on the map. The drawing and the streets provider already read
+those attributes from any entity; only the option's `domain` (device_tracker, person) stood in
+the way, in the panel's suggestions and the server check. The option is now `located: true`: no
+domain check, and the panel suggests every entity whose state has a position (`Fm.located`).
+Open from the same talk: Lukas would rather not use Overpass. Choices raised (not decided):
+zones from HA drawn locally, a user-supplied GeoJSON street file, and reusing a nearby cached
+cell while a tracker stays inside it.
+
+**Before that (0.8.10): Alfie comes and goes like a screen.** After 0.8.9 Lukas still saw Alfie
 come in a moment early. In hand over he came in while the screen left, and left while the next
 screen came in, where one screen to the next is leave, then arrive. Now `_presentation` does the
 same for him: after a screen leaves, he comes in by the transition (the `back` phase, as the

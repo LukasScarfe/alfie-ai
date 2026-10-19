@@ -174,8 +174,11 @@ export const swatchValue = (v) => (/^#[0-9a-f]{6}$/i.test(v) ? v : /^#[0-9a-f]{3
 // Entities for a domain-limited datalist: ids starting with one of the domains.
 export const inDomains = (id, domain) => !domain?.length || domain.some((d) => id.startsWith(`${d}.`));
 
+// A state with a usable position, for options marked `located` (map trackers).
+export const located = (st) => Number.isFinite(Number(st?.attributes?.latitude)) && Number.isFinite(Number(st?.attributes?.longitude));
+
 // One option's form control, as HTML. `P` is the data-path prefix of the
-// screen's options ("screens.3.options"). ctx = {i, type, list(domain) -> datalist id}.
+// screen's options ("screens.3.options"). ctx = {i, type, list(opt) -> datalist id}.
 // Value handling lives in the panel's _onInput (kinds optnum, opttext, optent, bool).
 export function optionField(opt, value, P, ctx) {
   const path = `${P}.${opt.key}`;
@@ -206,7 +209,7 @@ export function optionField(opt, value, P, ctx) {
         value="${swatchValue(value ?? dflt ?? "")}"><input class="grow" data-path="${path}" data-kind="opttext"
         value="${esc(value ?? "")}" placeholder="${esc(dflt || "Default (from Look)")}"></span>${noteHtml}</label>`;
     case "entity":
-      return `<label class="field opt"><span>${label}</span><input list="${ctx.list(opt.domain)}" data-path="${path}" data-kind="optent"
+      return `<label class="field opt"><span>${label}</span><input list="${ctx.list(opt)}" data-path="${path}" data-kind="optent"
         value="${esc(value ?? "")}" placeholder="${esc(opt.domain?.length ? `${opt.domain[0]}.…` : "entity id")}">${noteHtml}</label>`;
     case "entities": {
       const vals = Array.isArray(value) ? value : [];
@@ -214,7 +217,7 @@ export function optionField(opt, value, P, ctx) {
         <div class="chips">${vals.map((e, j) => `<span class="ent"><code>${esc(e)}</code>
           <button class="icon" data-action="rm-opt-entity" data-i="${ctx.i}" data-key="${esc(opt.key)}" data-j="${j}" title="Remove">✕</button></span>`).join("")
           || `<span class="muted">None yet</span>`}</div>
-        <div class="row"><input list="${ctx.list(opt.domain)}" class="grow" placeholder="${esc(opt.domain?.length ? `${opt.domain.join(", ")}…` : "Pick an entity")}">
+        <div class="row"><input list="${ctx.list(opt)}" class="grow" placeholder="${esc(opt.domain?.length ? `${opt.domain.join(", ")}…` : opt.located ? "Anything with a position…" : "Pick an entity")}">
           <button class="flat" data-add data-action="add-opt-entity" data-i="${ctx.i}" data-key="${esc(opt.key)}">Add</button></div>${noteHtml}</div>`;
     }
     default: // text

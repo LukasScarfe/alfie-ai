@@ -1,6 +1,6 @@
 {"type": "map", "title": "Map", "needs": "streets",
  "options": [
-   {"key": "trackers", "kind": "entities", "label": "Trackers", "domain": ["device_tracker", "person"]},
+   {"key": "trackers", "kind": "entities", "label": "Trackers", "located": true, "hint": "Anything with a position (latitude and longitude): people, phones, or a sensor such as where a car was parked. The first one with a position is the centre."},
    {"key": "radius", "kind": "number", "label": "Radius", "default": 0, "min": 0, "max": 500, "hint": "0: automatic.", "unit": "m"},
    {"key": "labels", "kind": "bool", "label": "Initial letters in the markers", "default": true},
    {"key": "show_home", "kind": "bool", "label": "Show the house at home", "default": true},
