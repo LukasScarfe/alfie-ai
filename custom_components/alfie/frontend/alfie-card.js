@@ -1164,16 +1164,32 @@ class AlfieCard extends HTMLElement {
       cur.swap = !!want.id && presentOf(want.id) === cur.present;
     }
     if (cur?.swap && cur.tOut != null && !want.id) cur.swap = false;   // Alfie wants the stage after all
-    if (!cur && want.id) cur = this._enter(want.id, t, presentOf(want.id));
+    if (!cur && want.id) {
+      cur = this._enter(want.id, t, presentOf(want.id));
+      // In hand over Alfie leaves first and then the screen comes in, as one screen
+      // hands over to the next, so his turn ends on the beat. Morph is both at once.
+      cur.pre = cur.present !== "corner" && cur.style !== "morph" && (I.SECONDS[cur.style] ?? 0.6) > 0;
+    }
     if (!cur) return null;
     let corner = cur.present === "corner";
     let leaving = cur.tOut != null;
     let durS = I.SECONDS[cur.style] ?? 0.6, durM = corner && !(leaving ? cur.swap : cur.held) ? CORNER_SECONDS : 0;
+    if (cur.pre) {
+      const u = (t - cur.tIn) / durS;
+      if (leaving) {   // wanted away again before it came in: Alfie stays
+        this._cur = null;
+        return null;
+      }
+      if (u < 1) return this._describe(cur.id, cur.style, 1 - I.presence(cur.style, u, true), false, 0, t, cur.present, false, true);
+      cur.pre = false;
+      cur.tIn += durS;
+      cur.held = true;
+    }
     let age = t - (leaving ? cur.tOut : cur.tIn);
-    // Alfie taking the stage back from his corner waits for the screen to be gone, then
-    // springs out. In hand over he comes in by the transition as the screen leaves.
-    const back = leaving && corner && !cur.swap && cur.style !== "morph";
-    const durBack = back ? CORNER_SECONDS : 0;
+    // Alfie taking the stage back waits for the screen to be gone, as the next screen
+    // would, then springs out of his corner, or in hand over comes in by the transition.
+    const back = leaving && !cur.swap && cur.style !== "morph" && (corner || durS > 0);
+    const durBack = back ? (corner ? CORNER_SECONDS : durS) : 0;
     if (leaving && age >= (back ? durS + durBack : Math.max(durS, durM))) {
       this._cur = null;
       if (!(cur.swap && want.id)) return null;
@@ -1185,9 +1201,10 @@ class AlfieCard extends HTMLElement {
       age = 0;
     }
     if (back && age >= durS) {
-      // The screen is gone; Alfie comes out of his corner.
+      // The screen is gone; Alfie comes out of his corner, or in by the transition.
       const u = clamp((age - durS) / durBack, 0, 1);
-      return this._describe(cur.id, cur.style, 0, true, 1 - F.spring(u), t, cur.present, false, true);
+      if (corner) return this._describe(cur.id, cur.style, 0, true, 1 - F.spring(u), t, cur.present, false, true);
+      return this._describe(cur.id, cur.style, 1 - I.presence(cur.style, u, false), true, 0, t, cur.present, false, true);
     }
     // Alfie stays away while one screen hands over to the next, or leaves before he comes back.
     const away = leaving ? (!!cur.swap || back) : !!cur.held;
