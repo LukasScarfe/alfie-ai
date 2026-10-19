@@ -37,15 +37,14 @@ const spec = { steps: [{ screen: "a", seconds: 10 }, { screen: "b", seconds: 5 }
   eq(G.advance(rot, 55).id, "a", "round to a");
 }
 
-// An Alfie step: he appears, and stays for his story when it runs longer.
+// An Alfie step: he appears for exactly its seconds, as a screen's turn, whatever his story's length.
 {
   const rot = G.start({ steps: [{ screen: "a", seconds: 10 }, { alfie: true, seconds: 5 }, { screen: "b", seconds: 10 }], face: 20 }, 0);
   eq(G.advance(rot, 10), { id: null, next: "b", appear: true }, "Alfie step, no gap before it");
-  rot.hold = 12;                                   // the card: his story runs 12 s
-  eq(G.advance(rot, 21).id, null, "held for the story");
-  eq(G.advance(rot, 22).id, "b", "then b, no gap after an Alfie step");
-  eq(G.advance(rot, 32).id, null, "a gap after b (face 20)");
-  eq(G.advance(rot, 52).id, "a", "and round");
+  eq(G.advance(rot, 14.9).id, null, "his turn");
+  eq(G.advance(rot, 15).id, "b", "then b on the beat, no gap after an Alfie step");
+  eq(G.advance(rot, 25).id, null, "a gap after b (face 20)");
+  eq(G.advance(rot, 45).id, "a", "and round");
 }
 
 // A rotation that starts on Alfie appears at once; only Alfie steps still terminate.
