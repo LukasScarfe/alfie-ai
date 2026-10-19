@@ -709,7 +709,10 @@ class AlfieCard extends HTMLElement {
           : G.placeStrokes(strokes, this._loops ??= new Map());
         strokes = G.openLoops(strokes);
       }
-      this.dispatchEvent(new CustomEvent("alfie-vector", {
+      // Between one screen going and the next coming a frame or two can be empty. On
+      // the scope that parks the beam in the middle as a bright dot, so none is sent:
+      // xy-bench goes on tracing the last frame for that moment.
+      if (strokes.length || !scr) this.dispatchEvent(new CustomEvent("alfie-vector", {
         detail: { strokes, aspect: w / h, t: this._now() } }));
     }
   }

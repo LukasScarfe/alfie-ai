@@ -11,9 +11,16 @@
 - **5⅞ (Oscilloscope):** A to D and F (the settings page) are done; the sidecar runs on
   Numbat. E (Lukas on the CRT) is open.
 
-Version 0.8.7.
+Version 0.8.8.
 
-**Latest (0.8.7): no jump before a screen leaves on the scope.** Lukas saw screens glitch just
+**Latest (0.8.8): no dot between screens on the scope.** Lukas saw a frame or two of blank
+screen with a dot in the middle between one screen's exit and the next one's entry. A recording
+showed one or two frames with no strokes at each hand-over, which park the beam in the middle.
+The card now sends no empty frame while a screen is coming or going. xy-bench goes on tracing
+the last one (the leaving screen's last grains), so the feed pauses 2 to 4 frames there.
+Re-recorded: no empty frames.
+
+**Before that (0.8.7): no jump before a screen leaves on the scope.** Lukas saw screens glitch just
 before their transition, the sky most and the plants too. A recording of the feed showed each
 screen drawn two ways during its turn. In the second or so that condense's slow ends leave
 nothing visibly moving, `condenseLines` drew the evenly spaced samples, which cut corners and

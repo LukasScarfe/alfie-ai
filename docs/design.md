@@ -583,7 +583,8 @@ keeps the DAC, the planner, the wiring correction, music and its own screens.
   before its transition reshapes them (`_tourScreen`, a plan per screen), and a frame that is
   mid-transition (`moving` from `_describe`) or has over 200 strokes is not re-toured. This is
   xy-bench's own rule for its intros. A dot goes as a two-point stroke, since xy-bench drops
-  one-point strokes.
+  one-point strokes. No empty frame is sent while a screen comes or goes: on the scope it parks the beam
+  in the middle as a dot, so xy-bench is left tracing the last frame for that moment.
 - **Loop entries hold still.** A loop (the head, an eye) keeps the point where the beam enters it
   from frame to frame, as a share of the way round, unless moving it saves 0.15. So when Alfie
   glances, the jump lines follow his eyes instead of hopping round them. Loops go to xy-bench as
