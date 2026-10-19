@@ -80,7 +80,9 @@ function extent(strokes, box) {
   };
 }
 
-const piece = (s, pts, closed = false) => ({ pts, closed, w: s.w, role: s.role, fill: closed && s.fill });
+// A filled icon's `group` (filled as one shape) only survives on a closed piece.
+const piece = (s, pts, closed = false) => ({ pts, closed, w: s.w, role: s.role, fill: closed && s.fill,
+  ...(closed && s.group ? { group: s.group, solid: s.solid } : {}) });
 const mapStrokes = (strokes, f, wmul = null) => strokes.map((s) => {
   const o = piece(s, s.pts.map(f), s.closed);
   if (wmul) o.w = s.w * wmul;

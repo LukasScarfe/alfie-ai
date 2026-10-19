@@ -6,10 +6,47 @@
 - **M5 (House modes):** built and checked in dev HA. Its tablet check F is still open.
 - **5½ (Settings tidy-up):** built and checked in dev HA, with the PNGs sent to Lukas (A to E).
   F is waiting on his review.
+- **5¾ (Icons):** built and checked in dev HA, with the PNGs sent to Lukas (A to E). F is
+  waiting on his review.
 
-Version 0.6.1.
+Version 0.7.0.
 
-**Latest (0.6.1): the dock.** Lukas asked for the settings' Alfie preview on every page. The
+**Latest (0.7.0): icons.** Lukas asked for Alfie to show any HA icon in stories and from
+automations. design.md "Icons" has what was decided; here is where it lives:
+- **`alfie-icons.js`:**
+  - `iconPath` asks an off-DOM `<ha-icon>` for the path (it reads the inner
+    `ha-svg-icon.path`);
+  - `pathStrokes` is the SVG parser and flattener, with every subpath closed;
+  - fill is a stroke `group` + `solid`, filled as one nonzero shape in `_drawStrokes`.
+- **Stories (`stories.py`):** `check_icon`, then `icon_action`. Transform and beside become a
+  `screen` action with `icon` (id `@icon`); the engine makes it `@icon:<seq>`. A badge is an
+  `icon` action, and the engine keeps it in `self.overlays` (the scene's `icons`).
+- **The card:**
+  - `_iconScreen` registers a virtual screen whose module is `ICON_MODULE`. It is re-added
+    after `_fetchScreens`. `_ready` holds it back until the path is in.
+  - Ring mode is `_describe`'s `noHead`. The morph comes from the head stroke only, and the
+    icon is drawn under the eyes.
+  - Badges are `_syncBadges` / `_drawBadges` with `G.badgeAt`.
+  - `showIconLocal` is the panel's Try it, run as a one-action local story. A local story's
+    screen now shows on a companion card and with no rotation (`_localScreen`).
+- **Triggers:** an above/below `value` may be an entity id (`threshold_entity`). The engine's
+  `_thresholds` map gets the threshold entity into the filtered listener, and a threshold move
+  re-checks with `entity_fires(t, s, s, new, old)`.
+- **Services:** `alfie.show_icon` and `alfie.clear_icons`, plus the `alfie_icon` event.
+- **Lukas's house:**
+  - `house.json` and `tests/house_v3.json` gained the **Bright in here** story and the
+    **Bright living room** triggers;
+  - `./dev seed` fakes the lux sensor (120) and `input_number.living_room_lights_on_lux` (300);
+  - `./dev state sensor.living_room_motion_sensor_illuminance 900` fires it, then there is a
+    30 min cooldown.
+- **Checks:**
+  - `./dev face sheet=icons` (fixtures in `devenv/icons.json`, ten real mdi paths);
+  - the live shots and click scripts are in `devenv/out/icons/` (`panel.js` opens the story and
+    presses Try it).
+- **Gotcha:** calling an `alfie.*` action straight after `./dev restart && ./dev wait` can 400
+  ("Alfie is not set up"), because HA is up before the integration. Wait a few seconds.
+
+**Before that (0.6.1): the dock.** Lukas asked for the settings' Alfie preview on every page. The
 panel shell now draws one live face in a sticky right-hand column on every section (design.md
 "The dock"; settings-contract.md `p.face`, `p.syncFace`, `p.faceHold`, a section's `dock()`).
 The shell's header, tabs and dock are built once (`_frame`), and only the body redraws, so the
@@ -100,7 +137,7 @@ vocabulary everywhere, simple first setup, more nesting, nicer looking.
     `p._draft`, so they no longer work. Use `p.draft` and the hash routes.
 
 **Next:**
-1. Lukas's review of the PNGs (5½ F), and fixes from it.
+1. Lukas's review of the PNGs (5½ F and 5¾ F), and fixes from it.
 2. The tablet check for M4 and M5 (F).
 3. Claim M6 (Voice) and plan it in plan mode with Lukas's OK.
 

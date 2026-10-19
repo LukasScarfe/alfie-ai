@@ -10,6 +10,9 @@ of these kinds, plus the story it plays and how it behaves when Alfie is busy:
   wake    Alfie wakes up or falls asleep
   mode    a house mode starts or ends (modes.py), e.g. leaving away: a welcome
 
+An entity trigger's above / below value is a number or another entity (an
+input_number, a sensor), whose state is the threshold, read when it is checked.
+
 Entity and motion triggers are fed from the engine's one filtered listener;
 the rest are checked in its mood recompute, which already knows what moved.
 When several fire on the same change, only the highest priority plays.
@@ -83,6 +86,22 @@ def _value(v: Any) -> Any:
     return "" if v is None else str(v).strip()
 
 
+def is_entity_id(v: Any) -> bool:
+    """`domain.object_id`, as HA writes entity ids."""
+    if not isinstance(v, str) or v.count(".") != 1:
+        return False
+    a, b = v.split(".")
+    return _slug(a) and _slug(b)
+
+
+def threshold_entity(trigger: Mapping[str, Any]) -> str | None:
+    """The entity an above / below trigger takes its threshold from, if any."""
+    if trigger.get("kind") != "entity" or trigger.get("op") not in ("above", "below"):
+        return None
+    v = trigger.get("value")
+    return v if is_entity_id(v) else None
+
+
 def validate_triggers(raw: Any, ck: Any, story_ids: set[str], signal_ids: set[str],
                       mode_ids: set[str] | None = None) -> list[dict[str, Any]]:
     """Checked triggers from `raw`; problems go to `ck` (config._Check)."""
@@ -132,11 +151,12 @@ def validate_triggers(raw: Any, ck: Any, story_ids: set[str], signal_ids: set[st
         if kind == "entity":
             out_t["op"] = ck.choice(f"{where} operator", d["op"], ENTITY_OPS, "changes")
             out_t["value"] = _value(d["value"])
-            if out_t["op"] in ("above", "below") and not isinstance(out_t["value"], (int, float)):
+            if out_t["op"] in ("above", "below") and not isinstance(out_t["value"], (int, float)) \
+                    and not is_entity_id(out_t["value"]):
                 try:
                     out_t["value"] = float(out_t["value"])
                 except ValueError:
-                    ck.bad(where, f"'{out_t['op']}' needs a number")
+                    ck.bad(where, f"'{out_t['op']}' needs a number or an entity")
         elif kind == "motion":
             out_t["only_if_bad"] = bool(d["only_if_bad"])
         elif kind == "mood":
@@ -172,18 +192,32 @@ def watches(trigger: Mapping[str, Any], entity_id: str) -> bool:
                for p in trigger["entities"])
 
 
-def entity_fires(trigger: Mapping[str, Any], old: str | None, new: str | None) -> bool:
+def watches_threshold(trigger: Mapping[str, Any], entity_id: str) -> bool:
+    return bool(trigger["enabled"]) and threshold_entity(trigger) == entity_id
+
+
+def entity_fires(trigger: Mapping[str, Any], old: str | None, new: str | None,
+                 limit: Any = None, old_limit: Any = None) -> bool:
     """An entity or motion trigger on one state change (states as strings,
     None when the entity appeared or went away). Edges only: a test that was
-    already passing doesn't fire again."""
+    already passing doesn't fire again. A threshold entity's states are
+    `limit` (now) and `old_limit` (before; the same unless the threshold is
+    what moved). With no readable threshold the trigger can't fire."""
     if new is None:
         return False
     if trigger["kind"] == "motion":
         return compare(new, "is", "on") and not (old is not None and compare(old, "is", "on"))
     if trigger["op"] == "changes":
         return old is not None and old != new
-    was = old is not None and compare(old, trigger["op"], trigger["value"])
-    return compare(new, trigger["op"], trigger["value"]) and not was
+    value = trigger["value"]
+    if threshold_entity(trigger):
+        if limit is None:
+            return False
+        value, before = limit, limit if old_limit is None else old_limit
+    else:
+        before = value
+    was = old is not None and compare(old, trigger["op"], before)
+    return compare(new, trigger["op"], value) and not was
 
 
 def mood_fires(trigger: Mapping[str, Any], old: str, new: str) -> bool:

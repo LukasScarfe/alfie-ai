@@ -633,6 +633,8 @@
    "simple": {
     "expression": "",
     "animation": "",
+    "icon": "",
+    "icon_style": "transform",
     "screen": "@why",
     "seconds": 15,
     "present": "card",
@@ -666,6 +668,8 @@
    "simple": {
     "expression": "",
     "animation": "",
+    "icon": "",
+    "icon_style": "transform",
     "screen": "@why",
     "seconds": 15,
     "present": "card",
@@ -706,6 +710,8 @@
    "simple": {
     "expression": "",
     "animation": "",
+    "icon": "",
+    "icon_style": "transform",
     "screen": "@why",
     "seconds": 15,
     "present": "card",
@@ -746,6 +752,8 @@
    "simple": {
     "expression": "",
     "animation": "",
+    "icon": "",
+    "icon_style": "transform",
     "screen": "@why",
     "seconds": 15,
     "present": "card",
@@ -782,6 +790,8 @@
    "simple": {
     "expression": "",
     "animation": "wake_up",
+    "icon": "",
+    "icon_style": "transform",
     "screen": "",
     "seconds": 15,
     "present": "card",
@@ -797,6 +807,8 @@
    "simple": {
     "expression": "",
     "animation": "",
+    "icon": "",
+    "icon_style": "transform",
     "screen": "@why",
     "seconds": 15,
     "present": "card",
@@ -824,6 +836,8 @@
    "simple": {
     "expression": "",
     "animation": "",
+    "icon": "",
+    "icon_style": "transform",
     "screen": "@why",
     "seconds": 15,
     "present": "card",
@@ -841,6 +855,51 @@
      "name": "happy",
      "hold": 1.5,
      "blend": 0
+    },
+    {
+     "kind": "animation",
+     "name": "nod",
+     "wait": true
+    }
+   ]
+  },
+  {
+   "id": "bright_in_here",
+   "name": "Bright in here",
+   "form": "steps",
+   "simple": {
+    "expression": "",
+    "animation": "",
+    "icon": "",
+    "icon_style": "transform",
+    "screen": "@why",
+    "seconds": 15,
+    "present": "card",
+    "transition": "",
+    "closing": ""
+   },
+   "steps": [
+    {
+     "kind": "expression",
+     "name": "surprised",
+     "hold": 0.8,
+     "blend": 0
+    },
+    {
+     "kind": "icon",
+     "icon": "mdi:white-balance-sunny",
+     "style": "transform",
+     "transform": "whole",
+     "seconds": 4,
+     "transition": "",
+     "corner": "card",
+     "place": "top_right",
+     "x": 0,
+     "y": 0,
+     "size": 1,
+     "color": "line",
+     "fill": "soft",
+     "wait": true
     },
     {
      "kind": "animation",
@@ -940,6 +999,40 @@
     "away"
    ],
    "edge": "leave"
+  },
+  {
+   "id": "bright_living_room",
+   "name": "Bright living room",
+   "enabled": true,
+   "kind": "entity",
+   "story": "bright_in_here",
+   "priority": 35,
+   "busy": "auto",
+   "cooldown": 1800,
+   "while_asleep": false,
+   "moods": [],
+   "entities": [
+    "sensor.living_room_motion_sensor_illuminance"
+   ],
+   "op": "above",
+   "value": "input_number.living_room_lights_on_lux"
+  },
+  {
+   "id": "bright_living_room_300",
+   "name": "Bright living room (300 lx)",
+   "enabled": false,
+   "kind": "entity",
+   "story": "bright_in_here",
+   "priority": 35,
+   "busy": "auto",
+   "cooldown": 1800,
+   "while_asleep": false,
+   "moods": [],
+   "entities": [
+    "sensor.living_room_motion_sensor_illuminance"
+   ],
+   "op": "above",
+   "value": 300
   }
  ],
  "modes": [

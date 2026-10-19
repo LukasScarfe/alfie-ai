@@ -10,6 +10,8 @@ ordered list of steps that every display performs together:
   move        spring to a place on the card
   resize      spring to a size
   speak       say something (a placeholder until milestone 6, Voice)
+  icon        show a Home Assistant icon: he turns into it, it shows beside
+              him (his corner), or it is added onto the card as a badge
 
 A story's form is either `simple` (fill in: react, show a screen, close)
 or free `steps`; `compile_simple` turns the first into the second. `expand` resolves the tokens against the moment the story plays and
@@ -23,7 +25,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-STEP_KINDS = ("expression", "animation", "screen", "wait", "move", "resize", "speak")
+STEP_KINDS = ("expression", "animation", "screen", "wait", "move", "resize", "speak", "icon")
 MOOD_TOKENS = ("@mood", "@old_mood")
 SCREEN_TOKENS = ("@why", "@wrong")
 PRESENTS = ("card", "handover", "corner")     # "card": whatever the card is set to
@@ -33,11 +35,43 @@ PLACES = {"centre": (0.0, 0.0), "top_left": (-1.0, 1.0), "top_right": (1.0, 1.0)
 SCALE = (0.3, 1.5)
 SCREEN_SECONDS = (3.0, 3600.0)
 FORMS = ("simple", "steps")
+# Icons (design.md "Icons"). transform: he turns into it (whole: ring and eyes;
+# ring: the ring only, his eyes stay); beside: his corner, like a corner screen;
+# overlay: a badge on the card while he carries on.
+ICON_STYLES = ("transform", "beside", "overlay")
+ICON_TRANSFORMS = ("whole", "ring")
+ICON_CORNERS = ("card", "top_left", "top_right", "bottom_left", "bottom_right")
+# Overlay places: beside his ring (above, below, left, right), the card's
+# corners or centre, or custom x/y (fractions of the card, y up).
+ICON_PLACES = ("above", "below", "left", "right", "top_left", "top_right", "bottom_left",
+               "bottom_right", "centre", "custom")
+ICON_COLORS = ("line", "accent", "text")     # the ring's colour, the eyes', the text's
+ICON_FILLS = ("none", "soft", "solid")       # outlines only, a faint fill, filled in
+ICON_SIZE = (0.3, 2.0)                       # times the style's natural size
+ICON_SECONDS = (1.0, 3600.0)
+ICON_SCREEN = "@icon"                        # the screen id an icon shows as
+
+
+def is_icon_name(v: Any) -> bool:
+    """`prefix:name`, as HA writes icons (mdi:lightbulb, hass:home, a custom set's)."""
+    if not isinstance(v, str) or v.count(":") != 1:
+        return False
+    a, b = v.split(":")
+    ok = lambda x: x != "" and all(c.isalnum() or c in "_-" for c in x)  # noqa: E731
+    return ok(a) and ok(b)
 
 
 def default_simple() -> dict[str, Any]:
-    return {"expression": "", "animation": "", "screen": "@why", "seconds": 15,
-            "present": "card", "transition": "", "closing": ""}
+    return {"expression": "", "animation": "", "icon": "", "icon_style": "transform",
+            "screen": "@why", "seconds": 15, "present": "card", "transition": "",
+            "closing": ""}
+
+
+def default_icon() -> dict[str, Any]:
+    """An icon's options, as a story step has them and alfie.show_icon takes them."""
+    return {"icon": "mdi:lightbulb-on", "style": "transform", "transform": "whole",
+            "seconds": 5, "transition": "", "corner": "card", "place": "top_right",
+            "x": 0, "y": 0, "size": 1, "color": "line", "fill": "soft"}
 
 
 def default_step(kind: str) -> dict[str, Any]:
@@ -51,6 +85,7 @@ def default_step(kind: str) -> dict[str, Any]:
         "move": {"kind": "move", "to": "centre", "x": 0, "y": 0, "seconds": 0.8},
         "resize": {"kind": "resize", "scale": 1, "seconds": 0.8},
         "speak": {"kind": "speak", "text": ""},
+        "icon": {"kind": "icon", **default_icon(), "wait": True},
     }[kind]
 
 
@@ -61,6 +96,9 @@ def compile_simple(t: Mapping[str, Any]) -> list[dict[str, Any]]:
         steps.append({**default_step("expression"), "name": t["expression"], "hold": 1})
     if t.get("animation"):
         steps.append({**default_step("animation"), "name": t["animation"]})
+    if t.get("icon"):
+        steps.append({**default_step("icon"), "icon": t["icon"],
+                      "style": t.get("icon_style") or "transform"})
     if t.get("screen"):
         steps.append({**default_step("screen"), "screen": t["screen"], "seconds": t["seconds"],
                       "present": t["present"], "transition": t["transition"]})
@@ -120,9 +158,55 @@ def _step(raw: Any, where: str, ck: Any, expressions: Sequence[str],
     elif kind == "resize":
         s["scale"] = _num(ck.number(f"{where} size", s["scale"], *SCALE, 1))
         s["seconds"] = _num(ck.number(f"{where} seconds", s["seconds"], 0, 10, 0.8))
+    elif kind == "icon":
+        s.update(check_icon(s, where, ck))
+        s["wait"] = bool(s["wait"])
     else:
         s["text"] = str(s["text"] or "").strip()
     return s
+
+
+def check_icon(raw: Mapping[str, Any], where: str, ck: Any) -> dict[str, Any]:
+    """An icon's options, checked, with defaults filled (a step's, or a service call's)."""
+    base = default_icon()
+    d = {**base, **{k: v for k, v in raw.items() if k in base and v is not None}}
+    icon = str(d["icon"] or "").strip()
+    if not is_icon_name(icon):
+        ck.bad(f"{where} icon", f"{icon!r} is not an icon name (like mdi:lightbulb)")
+        icon = base["icon"]
+    return {
+        "icon": icon,
+        "style": ck.choice(f"{where} style", d["style"], ICON_STYLES, "transform"),
+        "transform": ck.choice(f"{where} transform", d["transform"], ICON_TRANSFORMS, "whole"),
+        "seconds": _num(ck.number(f"{where} seconds", d["seconds"], *ICON_SECONDS, 5)),
+        "transition": _transition(where, d["transition"], ck),
+        "corner": ck.choice(f"{where} corner", d["corner"], ICON_CORNERS, "card"),
+        "place": ck.choice(f"{where} place", d["place"], ICON_PLACES, "top_right"),
+        "x": _num(ck.number(f"{where} x", d["x"], -1, 1, 0)),
+        "y": _num(ck.number(f"{where} y", d["y"], -1, 1, 0)),
+        "size": _num(ck.number(f"{where} size", d["size"], *ICON_SIZE, 1)),
+        "color": ck.choice(f"{where} colour", d["color"], ICON_COLORS, "line"),
+        "fill": ck.choice(f"{where} fill", d["fill"], ICON_FILLS, "soft"),
+    }
+
+
+def icon_action(icon: Mapping[str, Any], wait: bool = True) -> Action:
+    """What one (checked) icon does. Transform and beside are screens: he turns
+    into it by morph, or goes to his corner; an overlay is a badge of its own."""
+    look = {"name": icon["icon"], "size": icon["size"], "color": icon["color"],
+            "fill": icon["fill"]}
+    if icon["style"] == "overlay":
+        return Action("icon", {**look, "place": icon["place"], "x": icon["x"], "y": icon["y"],
+                               "seconds": icon["seconds"], "transition": icon["transition"]},
+                      icon["seconds"] if wait else 0.0)
+    if icon["style"] == "transform":
+        look["ring"] = icon["transform"] == "ring"
+        present, transition = "handover", "morph"
+    else:
+        look["corner"] = icon["corner"]
+        present, transition = "corner", icon["transition"]
+    return Action("screen", {"id": ICON_SCREEN, "icon": look, "seconds": icon["seconds"],
+                             "present": present, "transition": transition}, icon["seconds"])
 
 
 def _transition(where: str, v: Any, ck: Any) -> str:
@@ -143,12 +227,17 @@ def _simple(raw: Any, where: str, ck: Any, expressions: Sequence[str],
         "expression": ck.choice(f"{where} expression", t["expression"] or "",
                                 ("", *MOOD_TOKENS, *expressions), ""),
         "animation": ck.choice(f"{where} animation", t["animation"] or "", ("", *animations), ""),
+        "icon": str(t["icon"] or "").strip(),
+        "icon_style": ck.choice(f"{where} icon style", t["icon_style"], ICON_STYLES, "transform"),
         "screen": str(t["screen"] or "").strip(),
         "seconds": _num(ck.number(f"{where} seconds", t["seconds"], *SCREEN_SECONDS, 15)),
         "present": ck.choice(f"{where} present", t["present"], PRESENTS, "card"),
         "transition": _transition(where, t["transition"], ck),
         "closing": ck.choice(f"{where} closing", t["closing"] or "", ("", *animations), ""),
     }
+    if out["icon"] and not is_icon_name(out["icon"]):
+        ck.bad(f"{where} icon", f"{out['icon']!r} is not an icon name (like mdi:lightbulb)")
+        out["icon"] = ""
     if out["screen"] and out["screen"] not in SCREEN_TOKENS and out["screen"] not in screen_ids:
         ck.bad(where, f"screen {out['screen']!r} does not exist")
     return out
@@ -208,7 +297,7 @@ class Context:
 @dataclass(frozen=True)
 class Action:
     """One timed thing to do. `seconds` is how long until the next action."""
-    kind: str                       # expression, animation, screen, place, speak
+    kind: str                       # expression, animation, screen, place, speak, icon
     value: Any
     seconds: float
 
@@ -247,6 +336,8 @@ def expand(steps: Sequence[Mapping[str, Any]], ctx: Context,
             out.append(Action("place", {**place, "seconds": s["seconds"]}, s["seconds"]))
         elif kind == "speak" and s["text"]:
             out.append(Action("speak", s["text"], 0.0))
+        elif kind == "icon":
+            out.append(icon_action(s, s["wait"]))
     return out
 
 

@@ -224,6 +224,7 @@ field-by-field list is in [settings-contract.md](settings-contract.md) "Words".
   - **house mode**: what Alfie is in it is **Awake, Asleep, Quiet or Hidden**;
   - **screen**, shown in a **rotation**;
   - **presenting**: **Hand over** or **Corner**;
+  - **icon**, shown as **Transform** (whole face or ring only), **Beside** or a **Badge**;
   - **transition**, **look**, **personality**.
 
   "Mode" alone is never used for anything else: a card's **display** is Companion or Rotation,
@@ -283,7 +284,9 @@ Reactions → Motion & idle; they are not triggers.
     (presented and transitioned as chosen, or as the card is set), then a closing gesture;
   - **free steps**, in order: `expression` (hold and blend), `animation` (optionally waiting for
     it), `screen` (seconds, present, transition), `wait`, `move` (centre, a corner, or custom x/y,
-    springing over N s), `resize` (0.3× to 1.5×), and `speak` (a placeholder until M6).
+    springing over N s), `resize` (0.3× to 1.5×), `speak` (a placeholder until M6), and `icon`
+    (see "Icons" below). The simple form can show an icon too, between the reaction and the
+    screen.
   - Tokens: `@mood` is the mood's face now and `@old_mood` the one before the change. `@why` shows
     the screens of the signals that caused the trigger, and `@wrong` those of everything bad, one
     after another. A token with no screens adds nothing.
@@ -298,6 +301,9 @@ Reactions → Motion & idle; they are not triggers.
 - **When Alfie appears in a rotation** (an Alfie step), he plays the most relevant story on that
   card: Bad news while something is wrong, Hello otherwise (behaviour `appear_story_bad` /
   `appear_story_ok`, a card's `appear_story` overrides). See "Screens → Rotation".
+- **An entity trigger's threshold** (above or below) is a number or **another entity**, whose
+  state is read when the trigger is checked (an `input_number`, a sensor). When the threshold
+  entity moves, its triggers check again, so lowering it below the reading fires too.
 - **Per-signal repeats** (off by default): replay a story (default Bad news) on walk-in or every N
   hours while the signal is bad, at priority 20, queued. Or add the signal's screen to the
   rotation while it is bad (`in_rotation`).
@@ -306,6 +312,51 @@ Reactions → Motion & idle; they are not triggers.
   from the panel. `alfie/triggers/status` gives each trigger's last outcome (played, queued,
   skipped, cooling down, outranked) and what is playing now. The scene carries the playing
   `story` (id, step, expression, blend, place), which the card follows.
+
+## Icons
+
+Decided with Lukas (2026-10-19): Alfie can show **any Home Assistant icon** (`mdi:*`, `hass:*`,
+custom iconsets) in his own line style. It comes from a story's `icon` step, the simple form,
+or the `alfie.show_icon` action (with `alfie.clear_icons`), and every display shows it together.
+
+- **Where icons come from:**
+  - HA's own `<ha-icon>` resolves the name to its SVG path from HA's cache. There is no network
+    of ours, and no icons are bundled (`alfie-icons.js`).
+  - The path is flattened into outlines. An icon is a filled shape, so every subpath is closed,
+    as SVG fill closes them.
+  - An icon comes in only once its path is loaded.
+- **Three styles** (`style`):
+  - **Transform**: he turns into it by morph, holds it, and morphs back. It is drawn in his own
+    line width and colours.
+    - `transform: whole` turns his ring and eyes into it.
+    - `ring` turns only his ring into it, and his eyes stay over it, alive and blinking.
+  - **Beside**: the corner layout, as a corner screen. He shrinks into his corner (the card's,
+    or the icon's `corner`), still alive, and the icon fills the rest by its transition.
+  - **Badge** (`overlay`): it goes on the card while he carries on.
+    - Its `place` is beside his ring (above, below, left, right; kept on the card), a corner,
+      the centre, or custom x/y.
+    - It comes and goes by its transition (zoom by default).
+    - At most 4 show at once, and the oldest goes first.
+- **Options** on every icon:
+  - `seconds` (1 to 3600);
+  - `size` (0.3× to 2× its usual size);
+  - `color` (the ring's, the eyes' or the text's);
+  - `fill`: outline, soft (the default) or solid. A fill is one nonzero shape, so holes stay
+    holes;
+  - `transition` (beside and badge);
+  - a badge step's `wait` (off: the story goes straight on).
+- **Under the hood:**
+  - transform and beside are a screen (`@icon:<seq>`) carrying the icon, so they reuse the
+    presenting and morph machinery;
+  - a badge is in the scene's `icons` list, and one engine timer clears each;
+  - none of it is entity state. `alfie_icon` events (`show`, `end`) tell automations.
+- **Per card:** `icons: false` leaves icons out on that display.
+- **The panel's Icon step** has **Try it**, which plays it on the dock's Alfie only.
+- **Lukas's house** (`devenv/house.json`):
+  - **Bright living room** fires when `sensor.living_room_motion_sensor_illuminance` goes above
+    `input_number.living_room_lights_on_lux`.
+  - It plays **Bright in here**: surprised, then a sun he turns into for 4 s, then a nod.
+  - A copy at a fixed 300 lx is there too, turned off.
 
 ## House modes
 

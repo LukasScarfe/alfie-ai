@@ -109,6 +109,19 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] D. Card and card editor: regrouped editor, new keys with old ones still read.
   - [x] E. Dev HA: fresh install and house import checked, PNGs to Lukas; design.md; 0.6.0.
   - [ ] F. Lukas's review of the PNGs (and the panel itself); fixes from it.
+- [~] **5¾. Icons.** Any HA icon in Alfie's line style: he turns into it (whole face or ring
+      only), it shows beside him (his corner), or it goes on the card as a badge. It plays from a
+      story step, the simple form, and `alfie.show_icon` / `clear_icons`, and entity triggers take
+      a threshold entity. design.md "Icons".
+  - [x] A. Model: the `icon` step and simple field, `check_icon` / `icon_action`, threshold
+        entities on triggers; tests.
+  - [x] B. Engine and services: icon screens, badges, `show_icon`, `clear_icons`, `alfie_icon`
+        events, threshold re-checks.
+  - [x] C. Card: `alfie-icons.js` (HA's paths to strokes, fill), transform / ring / beside /
+        badge, local stories and Try it, `icons` option; harness `sheet=icons`.
+  - [x] D. Panel: the Icon step, the simple form's icon, number-or-entity thresholds; editor.
+  - [x] E. Lukas's house: Bright living room → Bright in here; checked live in dev HA, PNGs.
+  - [ ] F. Lukas's review of the PNGs and the choreography.
 - [ ] **6. Voice.** React to all `assist_satellite` states, the what's-wrong LLM tool and intent,
       optional persona, mood-aware replies, TTS announcement step.
 - [ ] **7. Editors and polish.** Shape (freehand path), expression and animation editors,

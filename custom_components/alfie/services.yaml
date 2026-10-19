@@ -59,3 +59,80 @@ play_story:
         select:
           options: [auto, queue, interrupt, skip]
 stop_story:
+show_icon:
+  fields:
+    icon:
+      required: true
+      example: mdi:white-balance-sunny
+      selector:
+        icon:
+    style:
+      default: transform
+      selector:
+        select:
+          translation_key: icon_style
+          options: [transform, beside, overlay]
+    transform:
+      default: whole
+      selector:
+        select:
+          translation_key: icon_transform
+          options: [whole, ring]
+    seconds:
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 3600
+          unit_of_measurement: s
+    transition:
+      example: zoom
+      selector:
+        text:
+    corner:
+      default: card
+      selector:
+        select:
+          translation_key: icon_corner
+          options: [card, top_left, top_right, bottom_left, bottom_right]
+    place:
+      default: top_right
+      selector:
+        select:
+          translation_key: icon_place
+          options: [above, below, left, right, top_left, top_right, bottom_left,
+                    bottom_right, centre, custom]
+    x:
+      default: 0
+      selector:
+        number:
+          min: -1
+          max: 1
+          step: 0.05
+    "y":
+      default: 0
+      selector:
+        number:
+          min: -1
+          max: 1
+          step: 0.05
+    size:
+      default: 1
+      selector:
+        number:
+          min: 0.3
+          max: 2
+          step: 0.05
+    color:
+      default: line
+      selector:
+        select:
+          translation_key: icon_color
+          options: [line, accent, text]
+    fill:
+      default: soft
+      selector:
+        select:
+          translation_key: icon_fill
+          options: [none, soft, solid]
+clear_icons:

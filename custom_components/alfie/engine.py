@@ -30,6 +30,7 @@ from .const import (
     CONF_NAME,
     DEFAULT_NAME,
     EVENT_ANIMATION,
+    EVENT_ICON,
     EVENT_STORY,
     FACE_FILE,
     SCENE_VERSION,
@@ -38,7 +39,16 @@ from .mood import Mood, MoodSettings, combine
 from .providers import provider_for
 from .screen_types import load_types
 from .signals import Signal, SignalResult, evaluate, evaluate_all, is_pattern, matching, watches
-from .stories import Action, Context, animation_length, expand, play_rate, steps_of
+from .stories import (
+    ICON_SCREEN,
+    Action,
+    Context,
+    animation_length,
+    expand,
+    icon_action,
+    play_rate,
+    steps_of,
+)
 from .store import AlfieStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,6 +60,7 @@ QUEUE_MAX = 3                # stories waiting behind the one playing
 QUEUE_STALE = 60.0           # seconds a queued story may wait before it is dropped
 REPEAT_GAP = 900.0           # seconds between one signal's walk-in replays
 ANIMATION_SLACK = 0.25       # seconds added to an animation a story waits for
+OVERLAYS_MAX = 4             # icon badges on the cards at once; the oldest goes first
 
 Listener = Callable[[dict[str, Any]], None]
 
@@ -103,6 +114,9 @@ class AlfieEngine:
         self.screen: dict[str, Any] | None = None   # being shown now; not entity state
         self._screen_seq = 0
         self._screen_unsub: CALLBACK_TYPE | None = None
+        # Icon badges on the cards (an icon's overlay style); not entity state.
+        self.overlays: list[dict[str, Any]] = []
+        self._overlay_unsubs: dict[int, CALLBACK_TYPE] = {}
         self._relevant_cache: dict[str, bool] = {}
         self._signal_entities: set[str] = set()   # resolved, patterns included
         self.state_key: tuple = ()                # what the entities show; see _push
@@ -112,6 +126,7 @@ class AlfieEngine:
         self.stories: dict[str, dict[str, Any]] = {}
         self.triggers: list[dict[str, Any]] = []        # enabled ones only
         self._entity_triggers: list[dict[str, Any]] = []
+        self._thresholds: dict[str, list[dict[str, Any]]] = {}   # threshold entity -> triggers
         self.story: dict[str, Any] | None = None        # playing now
         self._story_seq = 0
         self._story_unsub: CALLBACK_TYPE | None = None
@@ -147,6 +162,9 @@ class AlfieEngine:
                 u()
         self._idle_unsub = self._override_unsub = self._screen_unsub = None
         self._story_unsub = self._repeat_unsub = None
+        for u in self._overlay_unsubs.values():
+            u()
+        self._overlay_unsubs.clear()
         # Tell the cards this engine is gone, so they resubscribe to the next.
         for listener in list(self._listeners):
             listener({"v": SCENE_VERSION, "ended": True})
@@ -168,7 +186,8 @@ class AlfieEngine:
         self.config = cfg
         self.screens_rev = hashlib.sha1(json.dumps(
             [cfg["screens"], cfg["rotations"]], sort_keys=True).encode()).hexdigest()[:10]
-        if self.screen and self.screen["id"] not in {s["id"] for s in cfg["screens"]}:
+        if self.screen and not self.screen.get("icon") \
+                and self.screen["id"] not in {s["id"] for s in cfg["screens"]}:
             self._clear_screen(None)   # the screen being shown was deleted
         self.signals = built.signals
         self.settings = built.mood
@@ -182,6 +201,10 @@ class AlfieEngine:
         self.stories = {s["id"]: s for s in cfg["stories"]}
         self.triggers = [t for t in cfg["triggers"] if t["enabled"]]
         self._entity_triggers = [t for t in self.triggers if t["kind"] in ("entity", "motion")]
+        self._thresholds = {}
+        for t in self._entity_triggers:
+            if (eid := trig.threshold_entity(t)) is not None:
+                self._thresholds.setdefault(eid, []).append(t)
         self._queue = [q for q in self._queue if q["story"] in self.stories]
         self._relevant_cache.clear()
         # Patterns are resolved against all states once, here (at start and on
@@ -249,6 +272,7 @@ class AlfieEngine:
         hit = self._relevant_cache.get(eid)
         if hit is None:
             hit = (eid in self.motion_sensors or self._is_signal_entity(eid)
+                   or eid in self._thresholds
                    or any(trig.watches(t, eid) for t in self._entity_triggers))
             self._relevant_cache[eid] = hit
         return hit
@@ -272,11 +296,36 @@ class AlfieEngine:
         if self._entity_triggers:
             ns, os_ = (new.state if new else None), (old.state if old else None)
             fired += [(t, ()) for t in self._entity_triggers
-                      if trig.watches(t, eid) and trig.entity_fires(t, os_, ns)
+                      if trig.watches(t, eid)
+                      and trig.entity_fires(t, os_, ns, *self._limits(t))
                       and (t["kind"] != "motion" or not t["only_if_bad"]
                            or (self.mood and self.mood.bad))]
+        # A threshold entity moved: its triggers re-check their entities against it.
+        for t in self._thresholds.get(eid, ()):
+            ns, os_ = (new.state if new else None), (old.state if old else None)
+            for e in self._trigger_states(t):
+                if trig.entity_fires(t, e, e, ns, os_) and all(t is not f for f, _ in fired):
+                    fired.append((t, ()))
+                    break
         if fired:
             self._fire(fired)
+
+    def _limits(self, t: dict[str, Any]) -> tuple[Any, Any]:
+        """A trigger's threshold now, twice (it didn't move), or Nones for a fixed value."""
+        eid = trig.threshold_entity(t)
+        if eid is None:
+            return None, None
+        st = self.hass.states.get(eid)
+        return (st.state, st.state) if st is not None else (None, None)
+
+    def _trigger_states(self, t: dict[str, Any]) -> list[str]:
+        """The states of a trigger's entities now (named ones; a pattern's
+        matches are only looked up when a threshold moves, which is rare)."""
+        get = self.hass.states.get
+        out = [st.state for e in t["entities"] if not is_pattern(e) and (st := get(e))]
+        if any(is_pattern(e) for e in t["entities"]):
+            out += [st.state for st in self.hass.states.async_all() if trig.watches(t, st.entity_id)]
+        return out
 
     # ------------------------------------------------------------- thinking
 
@@ -621,6 +670,8 @@ class AlfieEngine:
                 self._present(a.value)
             elif a.kind == "place":
                 st["place"] = a.value
+            elif a.kind == "icon":
+                self._overlay(a.value)
             elif a.kind == "speak":
                 _LOGGER.debug("story %s would say %r (speaking comes with Voice)",
                               st["id"], a.value)
@@ -633,16 +684,22 @@ class AlfieEngine:
 
     @callback
     def _present(self, step: dict[str, Any]) -> None:
-        if step["id"] not in {s["id"] for s in self.config.get("screens", [])}:
+        icon = step.get("icon")
+        if not icon and step["id"] not in {s["id"] for s in self.config.get("screens", [])}:
             return
         if self._screen_unsub:
             self._screen_unsub()
             self._screen_unsub = None
         self._screen_seq += 1
-        self.screen = {"id": step["id"], "until": time.time() + step["seconds"],
+        self.screen = {"id": f"{ICON_SCREEN}:{self._screen_seq}" if icon else step["id"],
+                       "until": time.time() + step["seconds"],
                        "seq": self._screen_seq, "story": True,
                        "present": None if step["present"] == "card" else step["present"],
                        "transition": step["transition"] or None}
+        if icon:
+            self.screen["icon"] = icon
+            self._icon_event("show", icon["name"],
+                             {"style": "beside" if step["present"] == "corner" else "transform"})
 
     @callback
     def _end_story(self, phase: str, run_queue: bool = True) -> None:
@@ -729,6 +786,10 @@ class AlfieEngine:
         if self._screen_unsub:
             self._screen_unsub()
         self._screen_unsub = None
+        if self.screen.get("icon"):
+            self._icon_event("end", self.screen["icon"]["name"],
+                             {"style": "beside" if self.screen["present"] == "corner"
+                              else "transform"})
         self.screen = None
         if seq is not None:
             self._push()
@@ -746,6 +807,66 @@ class AlfieEngine:
         if provider is None:
             return {"data": None, "at": time.time(), "error": f"no provider for {needs} yet"}
         return await provider.get(self.hass, screen)
+
+    # -------------------------------------------------------------- icons
+
+    @callback
+    def show_icon(self, icon: dict[str, Any]) -> None:
+        """Every card shows a (checked, stories.check_icon) icon: he turns
+        into it, it shows beside him, or it goes on the card as a badge.
+        Like show_screen it is not entity state, so no recorder rows."""
+        a = icon_action(icon)
+        if a.kind == "icon":
+            self._overlay(a.value)
+        else:
+            if self._screen_unsub:
+                self._screen_unsub()
+            self._screen_seq += 1
+            seq = self._screen_seq
+            v = a.value
+            self.screen = {"id": f"{ICON_SCREEN}:{seq}", "until": time.time() + v["seconds"],
+                           "seq": seq, "present": v["present"],
+                           "transition": v["transition"] or None, "icon": v["icon"]}
+            self._screen_unsub = async_call_later(
+                self.hass, v["seconds"], callback(lambda _now: self._clear_screen(seq)))
+            self._icon_event("show", icon["icon"], icon)
+        self._push()
+
+    @callback
+    def _overlay(self, v: dict[str, Any]) -> None:
+        """Add a badge; it clears itself after its seconds (one timer each)."""
+        self._screen_seq += 1
+        seq = self._screen_seq
+        while len(self.overlays) >= OVERLAYS_MAX:
+            self._drop_overlay(self.overlays[0]["seq"], push=False)
+        self.overlays.append({**v, "seq": seq, "until": time.time() + v["seconds"]})
+        self._overlay_unsubs[seq] = async_call_later(
+            self.hass, v["seconds"], callback(lambda _now: self._drop_overlay(seq)))
+        self._icon_event("show", v["name"], {"style": "overlay", **v})
+
+    @callback
+    def _drop_overlay(self, seq: int, push: bool = True) -> None:
+        if (u := self._overlay_unsubs.pop(seq, None)) is not None:
+            u()
+        gone = [o for o in self.overlays if o["seq"] == seq]
+        self.overlays = [o for o in self.overlays if o["seq"] != seq]
+        for o in gone:
+            self._icon_event("end", o["name"], {"style": "overlay"})
+        if push and gone:
+            self._push()
+
+    @callback
+    def clear_icons(self) -> None:
+        """Take every icon off the cards: badges, and one he has become."""
+        for seq in [o["seq"] for o in self.overlays]:
+            self._drop_overlay(seq, push=False)
+        if self.screen and self.screen.get("icon"):
+            self._clear_screen(None)
+        self._push()
+
+    def _icon_event(self, phase: str, name: str, how: dict[str, Any]) -> None:
+        self.hass.bus.async_fire(EVENT_ICON, {"icon": name, "phase": phase,
+                                              "style": how.get("style") or "transform"})
 
     # ------------------------------------------------------------ telling
 
@@ -786,6 +907,7 @@ class AlfieEngine:
             "reason": "Asleep." if self.asleep else (m.reason if m else ""),
             "story": self._story_scene(),
             "screen": self.screen,
+            "icons": self.overlays,
             "screens_rev": self.screens_rev,
             "now": time.time(),
         }

@@ -18,7 +18,7 @@ export const DEFAULTS = {
   shapes: null, personality: null, display: "companion", rotation: null,
   present: "handover", corner: "bottom_right", corner_size: 0.3, transition: null,
   text_color: null, accent_color: null, screen_line_width: 0.02,
-  appear_story: "auto", follow_mode: true,
+  appear_story: "auto", follow_mode: true, icons: true,
 };
 
 export const PRESETS = ["bubbly", "stoic", "grumpy", "sleepy", "nervous"];
@@ -310,7 +310,8 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
           this._range("Corner size", t("corner_size"), 0.15, 0.5, 0.01, { hint: "Alfie's size in the corner, as a share of his full size." }));
       }
       out.push(this._select("Transition", t("transition"), [["", "Default (the rotation's, else fade)"], ...TRANSITIONS.map((s) => [s, human(s)]), ["random", "Random: a different one each time"]]),
-        this._bool("Follow house modes", t("follow_mode"), "A house mode may hide Alfie on this card or swap its rotation. Off: the card keeps its own."));
+        this._bool("Follow house modes", t("follow_mode"), "A house mode may hide Alfie on this card or swap its rotation. Off: the card keeps its own."),
+        this._bool("Show icons", t("icons"), "Icons from stories and alfie.show_icon. Off: this card leaves them out."));
       return out.join("");
     }
 
