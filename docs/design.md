@@ -323,7 +323,8 @@ letters: accents drop to the base letter, and letters it can't decompose (Ł) ar
 - **Transitions (decided):** 13 styles from xy's intros, used both ways (a screen arriving, and
   Alfie leaving in "hand over"): cut, fade, draw, stagger, zoom, power_on, slide, flip, wipe,
   tune, materialise, condense and morph. Morph turns the face itself into the screen, and
-  `random` picks any but cut.
+  `random` picks any but cut, afresh for each change: the screen leaving and the one coming
+  in (or Alfie coming back) go by the same pick.
 - **Presenting (decided):** two styles, a user option per card (and per story step later):
   - **Hand over:** Alfie leaves with a transition, the screen takes the whole card, then he
     comes back when it ends.
