@@ -141,6 +141,15 @@ for (const st of I.STYLES) {
     "condense lines: strokes end where the drawing's do");
   check(len(early.strokes) > len(mid.strokes) * 1.5, "condense lines: long random lines early, shorter as it gathers");
   check(L(1).strokes === label, "condense lines: done is the drawing itself");
+  // Nearly done, the grains in place draw the strokes through their own corners:
+  // no change of shape between the last frame of a transition and the drawing.
+  {
+    const bb = (ss) => { const p = ss.flatMap((s) => s.pts); return [Math.min(...p.map((q) => q[0])), Math.max(...p.map((q) => q[0])), Math.min(...p.map((q) => q[1])), Math.max(...p.map((q) => q[1]))]; };
+    const a = bb(label), b = bb(L(0.9999).strokes);
+    check(b[0] <= a[0] + 1e-9 && b[1] >= a[1] - 1e-9 && b[2] <= a[2] + 1e-9 && b[3] >= a[3] - 1e-9, "condense lines: nearly done keeps every corner");
+    const all = L(0.99999).strokes;
+    check(all.every((s, i) => label[i].pts.every((q) => s.pts.some((r) => r[0] === q[0] && r[1] === q[1]))), "condense lines: settled strokes pass through every vertex");
+  }
   check(I.apply("condense", 0.5, false, label, box).strokes.length > 10, "condense without lines is still dots");
 }
 

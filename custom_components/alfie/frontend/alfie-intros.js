@@ -380,16 +380,30 @@ function condenseLines(p, strokes) {
     const n = 2 * Math.max(1, Math.round((grains * pathLength(s.pts, s.closed)) / total));
     const xs = new Float64Array(n), ys = new Float64Array(n);
     resampleInto(path, n, xs, ys, 0);
-    const pts = new Array(n);
+    const cum = new Float64Array(path.length);
+    for (let k = 1; k < path.length; k++) cum[k] = cum[k - 1] + Math.hypot(path[k][0] - path[k - 1][0], path[k][1] - path[k - 1][1]);
+    const step = n > 1 ? cum[path.length - 1] / (n - 1) : 0;
+    // Two neighbouring grains in their places draw the stroke between them through
+    // its own corners: the evenly spaced samples alone would cut them, and the
+    // picture would change shape the moment a transition starts or ends.
+    const pts = [];
+    let settled = 0, prevIn = false, v = 1;
     for (let i = 0; i < n; i++) {
       const g = (((g0 + i) >> 1) % 4096) * 3;
-      const q = clamp01((p - DUST[g + 2]) / (1 - LATE)), e = 1 - (1 - q) ** 3, a = (1 - e) * 2.5;
+      const q = clamp01((p - DUST[g + 2]) / (1 - LATE));
+      const inPlace = q >= 1;
+      while (v < path.length - 1 && cum[v] <= (i - 1) * step) v++;
+      if (inPlace && prevIn) for (; v < path.length - 1 && cum[v] < i * step; v++) pts.push(path[v]);
+      if (inPlace) { settled++; pts.push([xs[i], ys[i]]); prevIn = true; continue; }
+      prevIn = false;
+      const e = 1 - (1 - q) ** 3, a = (1 - e) * 2.5;
       const c = Math.cos(a), si = Math.sin(a), nx = DUST[g], ny = DUST[g + 1];
       const dx = cx + (nx * c - ny * si) * rx, dy = cy + (nx * si + ny * c) * ry;
-      pts[i] = [dx + (xs[i] - dx) * e, dy + (ys[i] - dy) * e];
+      pts.push([dx + (xs[i] - dx) * e, dy + (ys[i] - dy) * e]);
     }
     g0 += n;
-    out.push(piece(s, pts));
+    // All in place: the stroke itself (open, as the feed sends loops anyway).
+    out.push(piece(s, settled === n && path.length > 1 ? path.slice() : pts));
   }
   return out;
 }
