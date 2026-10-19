@@ -65,6 +65,7 @@ const DEFAULTS = {
   corner: "bottom_right", // bottom_right | bottom_left | top_right | top_left
   corner_size: 0.3,       // Alfie's size in the corner, share of his full size (0.15 to 0.5)
   transition: null,       // an intro style; null takes the rotation's, then fade
+  follow_mode: true,      // false: this card ignores house modes (their blank presence and rotation)
   appear_story: "auto",   // rotation: the story Alfie plays here when he appears in it; auto: the most relevant (mood-led), none, or a story id
   text_color: null,       // screen text; null takes the face colour
   accent_color: null,     // screen accents; null takes the face colour
@@ -348,6 +349,25 @@ class AlfieCard extends HTMLElement {
       this._badKey = badKey;
       if (this._rot) this._rot.stale = true;
     }
+    // A house mode may swap this card's rotation; the card's own comes back where it was.
+    // "pause" just holds the clock (see _wanted).
+    const modeRot = this._modeRotation(), was = this._modeRot ?? "";
+    if (modeRot !== was) {
+      const isId = (x) => x !== "" && x !== "pause";
+      this._modeRot = modeRot;
+      if (isId(was) && this._ownRot) {
+        this._rot = this._ownRot;
+        this._rot.t0 += this._rotClock - this._ownAt;   // resume where it was
+        this._rot.stale = true;
+      } else if (isId(was)) this._rot = null;
+      this._ownRot = null;
+      if (isId(modeRot)) {
+        this._ownRot = this._rot?.steps ? this._rot : null;
+        this._ownAt = this._rotClock;
+        this._rot = null;
+      }
+    }
+    this._wake();
     const t = this._now();
     const global = this._global = F.personalityOf(scene.personality, face.personalities);
     const p = this._personality(face, global);
@@ -489,13 +509,27 @@ class AlfieCard extends HTMLElement {
   }
 
   _wake() {
-    const go = this._visible && !document.hidden && this.isConnected && !this._still;
+    const blank = this._blank();
+    const go = this._visible && !document.hidden && this.isConnected && !this._still && !blank;
     if (go && !this._running) {
       this._running = true;
       requestAnimationFrame((ms) => this._loop(ms));
     } else if (!go) {
       this._running = false;
+      // A blank house mode: nothing on the card, and no frames drawn at all.
+      if (blank && this._canvas) this._canvas.getContext("2d").clearRect(0, 0, this._canvas.width, this._canvas.height);
     }
+  }
+
+  // The house mode wants this card blank (a story still brings Alfie on).
+  _blank() {
+    const s = this._scene;
+    return !this._still && this._config?.follow_mode !== false && s?.mode_info?.presence === "blank" && !s.story;
+  }
+
+  // The house mode's rotation for this card: "" (the card's own), "pause", or a rotation id.
+  _modeRotation() {
+    return this._config.follow_mode !== false ? this._scene?.mode_info?.rotation || "" : "";
   }
 
   _loop(ms) {
@@ -724,7 +758,8 @@ class AlfieCard extends HTMLElement {
   }
 
   _rotationSteps() {
-    const r = this._config.rotation;
+    const mr = this._modeRotation();
+    const r = mr && mr !== "pause" ? mr : this._config.rotation;
     if (this._config.mode !== "rotation" || !r) return null;
     let steps = r, face = null, transition = null;
     if (typeof r === "string") {
@@ -763,7 +798,7 @@ class AlfieCard extends HTMLElement {
     }
     const rot = this._rot;
     if (!rot.steps) return { id: null, next: null };
-    this._rotClock += dt;
+    if (this._modeRotation() !== "pause") this._rotClock += dt;   // a house mode may pause it
     const want = G.advance(rot, this._rotClock);
     if (want.appear) this._appear(rot);
     // Alfie's own story may show a screen while he has the stage.
