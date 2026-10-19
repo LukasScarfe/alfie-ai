@@ -479,7 +479,9 @@ letters: accents drop to the base letter, and letters it can't decompose (Ł) ar
     only, and the step lasts at least as long as the story:
     - the card option `appear_story` is `auto` by default, which is mood-led: behaviour's
       `appear_story_bad` (Bad news) while something is wrong, otherwise `appear_story_ok`
-      (Hello: his mood's face and a nod);
+      (Hello: his mood's face, the `@why` screens, a nod). Here `@why` is what sets his mood
+      now: the bad signals' screens, or while nothing is bad, the good ones' (Bright living
+      room's lux plot), so every turn explains his mood;
     - it can also be `none` or a story id;
     - the card fetches the timed actions over `alfie/story/expand` and plays them itself.
   - **Coming back:** in corner mode the screen leaves first and only then does Alfie spring out

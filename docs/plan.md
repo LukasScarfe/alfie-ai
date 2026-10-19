@@ -138,6 +138,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
 2. Resume the `[~]` milestone, or claim the first `[ ]` one (mark it `[~]`, commit).
 3. For a new milestone, plan it in plan mode and get Lukas's OK, then add its steps here as a nested
    checklist.
-4. Implement against the dev HA. Keep tests green. Show Lukas visual results as images.
+4. Implement, keep tests green, push and `./dev prod deploy` to production HA, and check it there.
+   Show Lukas visual results as images.
 5. Tick what's done, rewrite `docs/handoff.md` (state, next step, gotchas), and commit as Lukas
    Scarfe with no Claude attribution. Push.

@@ -33,9 +33,10 @@ Only one agent works on this repo at a time.
   changes, never for an animation, and bulky attributes stay `_unrecorded_attributes`. Cache any
   network fetch (Overpass, history). The card renders in the browser and also stays frugal: a
   frame-rate cap, and no drawing while hidden or off screen. See design.md "Resource budget".
-- **Develop against a throwaway dev HA on raccoon**, not production HA (`192.168.1.217`). Reading
-  production state is fine. Changing production (installing, editing automations, dashboards,
-  voice pipelines) needs Lukas's OK first.
+- **Develop against production HA** (`192.168.1.217`), which Lukas's household uses. Deploying
+  Alfie there (`./dev prod deploy`, which restarts HA) and changing Alfie's own config is fine.
+  Changing anything else in production (automations, dashboards, voice pipelines) needs Lukas's
+  OK first.
 - Tooling runs in containers or a `./dev` wrapper. Don't install packages on the raccoon host.
 - Commits are authored as Lukas Scarfe <lukas.scarfe@gmail.com>, with **no Claude attribution**
   (no Co-Authored-By trailer, no session link, no "Generated with" footer), in commits, PRs and
@@ -47,7 +48,18 @@ Only one agent works on this repo at a time.
 
 ## Dev loop
 
-A throwaway HA 2026.10 runs on raccoon as container `alfie-dev-ha`, at
+Changes go to production HA through HACS, the way users get them: commit and push, then
+`./dev prod deploy`. It has HACS fetch the pushed commit, installs it through `update.alfie_update`,
+restarts HA and waits for it to come back. Python and card changes both need it.
+
+```bash
+./dev prod deploy                    # after a push: install the new commit, restart HA
+./dev prod get sensor.alfie_mood     # an entity's state
+./dev prod ws alfie/story/expand     # any WebSocket command (stdlib client, token from the SMB mount)
+```
+
+The old throwaway HA is still there for faking states and screenshots. It runs on raccoon as
+container `alfie-dev-ha` (HA 2026.10), at
 `http://192.168.1.241:8125` (user `dev` / `devpass1234`). `custom_components/alfie` is
 bind-mounted read only. Everything goes through `./dev`; run it with no arguments for the list.
 
@@ -68,7 +80,7 @@ Card JS edits only need a page reload (the static path is uncached). Python edit
 
 ## Finishing a change
 
-1. `./dev test` is green, and `./dev errors` is clean after a restart.
+1. `./dev test` is green; push, `./dev prod deploy`, and check it on production.
 2. For anything visual, render it with `./dev face` or `./dev shot` and send Lukas the PNG.
 3. Tick plan.md, rewrite handoff.md, then commit (as Lukas, no attribution) and push.
 

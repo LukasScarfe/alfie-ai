@@ -9,9 +9,20 @@
 - **5¾ (Icons):** built and checked in dev HA, with the PNGs sent to Lukas (A to E). F is
   waiting on his review.
 
-Version 0.8.0.
+Version 0.8.1.
 
-**Latest (0.8.0): aspect, icons in text, a smarter text screen.**
+**Development now happens on production HA** (Lukas, 2026-10-19). Push, then `./dev prod
+deploy` (HACS refresh, install, restart, wait); `./dev prod get` / `./dev prod ws` read it.
+`devenv/prodtool.py` is a stdlib WebSocket client. The dev HA is still there for screenshots.
+
+**Latest (0.8.1): his rotation turn explains his mood.** Hello gained a `@why` screen step
+(config v5, `migrate_v4` upgrades a Hello still as shipped), and `engine.expand_story` makes
+`@why` the bad signals, or the good ones while nothing is bad. On production Hello is upgraded
+and deployed; Bright Living Room (good, above 300 lx) wasn't on at deploy time (267 lx), so its
+screen showing on Alfie's turn is not yet seen live.
+
+
+**Before that (0.8.0): aspect, icons in text, a smarter text screen.**
 - **Global aspect:** `look.aspect` (config.py, `LOOK_KEYS`), the Appearance → Look slider, and
   the card editor's Aspect is unset (follows the panel) until moved. `_applyLook` rebuilds the
   card when the aspect or background changes.

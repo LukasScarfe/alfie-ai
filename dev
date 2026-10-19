@@ -26,6 +26,8 @@ case "${1:-}" in
            echo "dev HA did not come up" >&2; exit 1 ;;
   onboard|add|seed|state|call|get|token)
            python3 devenv/devtool.py "$@" ;;
+  prod)    # ./dev prod deploy | get ENTITY | ws TYPE [json]: production HA (devenv/prodtool.py)
+           shift; python3 devenv/prodtool.py "$@" ;;
   test)    # Python unit tests, then the card maths check under node.
            docker run --rm -v "$ROOT:/src:ro" -v alfie-pip-cache:/root/.cache/pip -w /src \
              -e PYTHONDONTWRITEBYTECODE=1 python:3.13-alpine \
@@ -81,6 +83,7 @@ JS
            echo "       ./dev onboard|add|seed|house|token"
            echo "       ./dev state ENTITY STATE [attrs-json] | call DOMAIN.SERVICE [json] | get ENTITY"
            echo "       ./dev test | dashboard"
+           echo "       ./dev prod deploy | get ENTITY | ws TYPE [json]"
            echo "       ./dev shot [dashboard-path] [out.png] | face [query] [out.png] | sheet DIR out.png [cols]"
            exit 1 ;;
 esac
