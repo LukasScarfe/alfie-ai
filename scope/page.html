@@ -13,8 +13,8 @@
   const { createConnection, createLongLivedTokenAuth, subscribeEntities, subscribeConfig } = window.HAWS;
 
   // Frames come from a timer at S.fps, not Chromium's 60 Hz frame clock (which
-  // only divides down to 60, 30, 20...): xy-bench plays Alfie at 50, and a
-  // feed at 60 into 50 skips every sixth frame, a judder in anything moving.
+  // only divides down to 60, 30, 20...), so the feed can match xy-bench's rate
+  // exactly: a feed at 60 into 50 skips every sixth frame, a judder.
   // One tick runs every callback queued for it, as a real frame does.
   {
     const gap = 1000 / S.fps;

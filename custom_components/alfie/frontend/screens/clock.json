@@ -5,6 +5,7 @@
    {"key": "style", "kind": "choice", "label": "Clock", "default": "analogue", "choices": ["analogue", "digital"]},
    {"key": "hours", "kind": "choice", "label": "Hours", "default": "24", "choices": ["24", "12"], "hint": "On the digital clock."},
    {"key": "seconds", "kind": "bool", "label": "Seconds", "default": true},
+   {"key": "joined", "kind": "bool", "label": "Minute hand reaches the rim", "default": false, "hint": "The rim and both hands are then one line, which an oscilloscope draws without jumps."},
    {"key": "solar_rim", "kind": "bool", "label": "Day and night on the rim", "default": true},
    {"key": "house", "kind": "bool", "label": "House icon by the inside temperature", "default": true},
    {"key": "smoke", "kind": "bool", "label": "Smoke from the house chimney", "default": true},

@@ -566,15 +566,24 @@ keeps the DAC, the planner, the wiring correction, music and its own screens.
   mid-transition (`moving` from `_describe`) or has over 200 strokes is not re-toured. This is
   xy-bench's own rule for its intros. A dot goes as a two-point stroke, since xy-bench drops
   one-point strokes.
+- **Loop entries hold still.** A loop (the head, an eye) keeps the point where the beam enters it
+  from frame to frame, as a share of the way round, unless moving it saves 0.15. So when Alfie
+  glances, the jump lines follow his eyes instead of hopping round them. Loops go to xy-bench as
+  open strokes back to their start (`openLoops`), because xy-bench would otherwise re-pick a
+  closed stroke's entry every frame. Mid-transition `placeStrokes` keeps the order and still
+  holds the entries.
 - **Condense on the scope is xy-bench's** (`vector_condense: lines`, the default; `dots` is the
-  canvas version). The picture becomes one path, its strokes joined in tour order, resampled,
-  and each pair of samples is a grain of dust drifting in. Until they settle, the beam draws
-  lines between random points.
-- **50 fps from a timer.** `scope/page.html` replaces `requestAnimationFrame` with a timer at
-  `FPS` (default 50), because Chromium's frame clock only gives divisors of 60. xy-bench plays
-  Alfie at 50 (its floor: his frames are long, `/api/status` fps), and a 60 feed into 50 skipped
-  every sixth frame, which juddered. Lukas wants 50 at least. The card's own cap is lifted
-  there (fps 120). 30 fps cost about a third of a core and ~210 MB on raccoon.
+  canvas version). Each stroke is resampled and each pair of samples is a grain of dust drifting
+  in, so until they settle the beam draws lines between random points. Each stroke stays its
+  own stroke, so the joins between strokes stay faint jumps. (One path for the whole picture
+  made them solid lines just before the end.)
+- **60 Hz, from a timer** (Lukas: "always 60"). `scope/page.html` replaces
+  `requestAnimationFrame` with a timer at `FPS` (default 60), so the feed can match xy-bench
+  whatever its rate. Alfie's frames are long, so xy-bench used to stretch them to its 50 fps
+  floor. Numbat's xy-bench now has `XYBENCH_MIN_FPS=60` in its `.env`, so every screen is
+  60 Hz, at the cost of fewer samples per frame (sparser lines on a busy screen). A mismatched
+  feed judders: 60 into 50 skips every sixth frame. The card's own cap is lifted there (fps
+  120). 30 fps cost about a third of a core and ~210 MB on raccoon.
 - **Pacing in the status line:** frames over 1.5 frame times late, and the longest gap. Measured
   on raccoon after the first pass through a rotation, slide, condense and materialise show 0 or
   1 late frames per 5 s. Before these changes, condense stalled up to 230 ms.

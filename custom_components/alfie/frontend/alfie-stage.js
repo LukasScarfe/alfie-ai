@@ -239,29 +239,39 @@ const dist = (a, b) => { const x = a[0] - b[0], y = a[1] - b[1]; return Math.sqr
 
 // Strokes in `order` ([index, reversed] pairs), open ones turned as it says
 // and each loop re-started at the vertex that makes the jumps in and out of
-// it shortest (a loop leaves where it entered). Returns the placed strokes
-// and the tour's total jump length.
-function placeTour(strokes, order) {
-  const out = order.map(([i, r]) => (r && !strokes[i].c ? { ...strokes[i], p: strokes[i].p.slice().reverse() } : strokes[i]));
-  const n = out.length;
-  const exit = (s) => (s.c ? s.p[0] : s.p[s.p.length - 1]);
+// it shortest (a loop leaves where it entered). `was` holds each loop's entry
+// from the last frame, as a share of the way round; it is kept unless moving
+// saves LOOP_HOLD, so a loop that moves (an eye glancing) keeps its entry and
+// the jump lines to it follow it rather than hop round it. Returns the placed
+// strokes, the tour's total jump length and the entries (`ent`).
+const LOOP_HOLD = 0.15;
+
+function placeTour(strokes, order, was = null) {
+  const src = order.map(([i, r]) => (r && !strokes[i].c ? { ...strokes[i], p: strokes[i].p.slice().reverse() } : strokes[i]));
+  const n = src.length;
+  const held = (k) => src[k].c && was?.[k] != null;
+  const start = src.map((s, k) => (held(k) ? Math.round(was[k] * s.p.length) % s.p.length : 0));
+  const entry = (k) => src[k].p[start[k]];
+  const exit = (k) => (src[k].c ? entry(k) : src[k].p[src[k].p.length - 1]);
   // Twice round: a loop's neighbours may be loops that move on the first pass.
   for (let pass = 0; pass < 2 && n > 1; pass++) {
     for (let k = 0; k < n; k++) {
-      const s = out[k];
+      const s = src[k];
       if (!s.c) continue;
-      const a = exit(out[(k + n - 1) % n]), b = out[(k + 1) % n].p[0];
+      const a = exit((k + n - 1) % n), b = entry((k + 1) % n);
       let j = 0, best = Infinity;
       for (let m = 0; m < s.p.length; m++) {
         const d = dist(s.p[m], a) + dist(s.p[m], b);
         if (d < best) { best = d; j = m; }
       }
-      if (j) out[k] = { ...s, p: s.p.slice(j).concat(s.p.slice(0, j)) };
+      const q = s.p[start[k]];
+      if (!held(k) || dist(q, a) + dist(q, b) > best + LOOP_HOLD) start[k] = j;
     }
   }
+  const out = src.map((s, k) => (start[k] ? { ...s, p: s.p.slice(start[k]).concat(s.p.slice(0, start[k])) } : s));
   let cost = 0;
-  for (let k = 0; n > 1 && k < n; k++) cost += dist(exit(out[k]), out[(k + 1) % n].p[0]);
-  return { out, cost };
+  for (let k = 0; n > 1 && k < n; k++) cost += dist(exit(k), entry((k + 1) % n));
+  return { out, cost, ent: src.map((s, k) => (s.c ? start[k] / s.p.length : null)) };
 }
 
 // A fresh order: a greedy nearest-entry walk from several starts, each tidied
@@ -336,20 +346,43 @@ export function tourStrokes(strokes, memo = null) {
   if (n < 2) return strokes;
   const sig = strokes.map((st) => (st.c ? "c" : "o")).join("");
   const plan = memo?.get(sig);
-  if (plan) {
-    const kept = placeTour(strokes, plan.order);
+  if (plan?.order) {
+    const kept = placeTour(strokes, plan.order, plan.ent);
     plan.age++;
+    plan.ent = kept.ent;
     if (kept.cost <= plan.cost * TOUR_SLACK + 0.02 || plan.age < TOUR_RECHECK) return kept.out;
     plan.age = 0;
     const order = solveTour(strokes), fresh = placeTour(strokes, order);
-    if (fresh.cost * TOUR_SLACK < kept.cost) { plan.order = order; plan.cost = fresh.cost; return fresh.out; }
+    if (fresh.cost * TOUR_SLACK < kept.cost) { Object.assign(plan, { order, cost: fresh.cost, ent: fresh.ent }); return fresh.out; }
     plan.cost = kept.cost;   // the layout moved, but no better tour is to be had
     return kept.out;
   }
   const order = solveTour(strokes), fresh = placeTour(strokes, order);
-  if (memo) {
-    if (memo.size >= TOUR_KINDS) memo.delete(memo.keys().next().value);
-    memo.set(sig, { order, cost: fresh.cost, age: 0 });
-  }
+  remember(memo, sig, { order, cost: fresh.cost, age: 0, ent: fresh.ent });
   return fresh.out;
+}
+
+function remember(memo, sig, plan) {
+  if (!memo) return;
+  if (memo.size >= TOUR_KINDS) memo.delete(memo.keys().next().value);
+  memo.set(sig, plan);
+}
+
+// The strokes in the order given, only each loop's entry chosen (and held, as
+// placeTour holds it): for a frame mid-transition, whose order is already set.
+// `memo` is the caller's Map, kept apart from a tourStrokes one.
+export function placeStrokes(strokes, memo = null) {
+  if (strokes.length < 2) return strokes;
+  const sig = strokes.map((st) => (st.c ? "c" : "o")).join("");
+  const plan = memo?.get(sig);
+  const r = placeTour(strokes, strokes.map((_, i) => [i, false]), plan?.ent);
+  if (plan) plan.ent = r.ent; else remember(memo, sig, { ent: r.ent });
+  return r.out;
+}
+
+// Loops sent as open strokes that end where they start. xy-bench re-picks a
+// closed stroke's entry every frame, nearest the beam, and so would move the
+// jumps about; an open one it only turns, and a loop's two ways are the same.
+export function openLoops(strokes) {
+  return strokes.map((st) => (st.c ? { ...st, p: st.p.concat([st.p[0]]), c: false } : st));
 }

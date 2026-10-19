@@ -325,37 +325,43 @@ function condense(p, strokes, box) {
   return out;
 }
 
-// The scope's condense, as xy-bench draws its own: the picture as one path
-// (its strokes in order, joined end to start), resampled evenly, and every
-// pair of samples a grain of dust drifting in to its place. The beam runs from
-// grain to grain, so until they settle it draws lines between random points.
-// An X-Y scope can't show dots without the lines between them anyway.
+// The scope's condense, as xy-bench draws its own: each stroke resampled
+// evenly, and every pair of samples a grain of dust drifting in to its place.
+// The beam runs from grain to grain, so until they settle it draws lines
+// between random points. Each stroke stays a stroke of its own, so the jumps
+// between strokes stay jumps (faint, quick) and don't settle into solid lines
+// just before the picture is whole.
 function condenseLines(p, strokes) {
-  const path = [];
-  for (const s of strokes) {
-    if (!s.pts.length) continue;
-    for (const q of s.pts) path.push(q);
-    if (s.closed && s.pts.length > 1) path.push(s.pts[0]);
-  }
-  if (path.length < 2) return strokes;
-  const n = 2 * Math.max(100, Math.min(450, Math.round(pathLength(path, false) / 0.02)));
-  const xs = new Float64Array(n), ys = new Float64Array(n);
-  resampleInto(path, n, xs, ys, 0);
+  let total = 0;
+  for (const s of strokes) total += pathLength(s.pts, s.closed);
+  if (!total) return strokes;
+  const grains = Math.max(100, Math.min(450, Math.round(total / 0.02)));
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  for (let i = 0; i < n; i++) {
-    x0 = Math.min(x0, xs[i]); x1 = Math.max(x1, xs[i]); y0 = Math.min(y0, ys[i]); y1 = Math.max(y1, ys[i]);
+  for (const s of strokes) for (const q of s.pts) {
+    x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]);
   }
   const rx = Math.max(0.1, x1 - x0) / 2 * 1.2, ry = Math.max(0.1, y1 - y0) / 2 * 1.2;
   const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-  const pts = new Array(n);
-  for (let i = 0; i < n; i++) {
-    const g = ((i >> 1) % 4096) * 3;
-    const q = clamp01((p - DUST[g + 2]) / (1 - LATE)), e = 1 - (1 - q) ** 3, a = (1 - e) * 2.5;
-    const c = Math.cos(a), si = Math.sin(a), nx = DUST[g], ny = DUST[g + 1];
-    const dx = cx + (nx * c - ny * si) * rx, dy = cy + (nx * si + ny * c) * ry;
-    pts[i] = [dx + (xs[i] - dx) * e, dy + (ys[i] - dy) * e];
+  const out = [];
+  let g0 = 0;
+  for (const s of strokes) {
+    if (!s.pts.length) continue;
+    const path = s.closed && s.pts.length > 1 ? s.pts.concat([s.pts[0]]) : s.pts;
+    const n = 2 * Math.max(1, Math.round((grains * pathLength(s.pts, s.closed)) / total));
+    const xs = new Float64Array(n), ys = new Float64Array(n);
+    resampleInto(path, n, xs, ys, 0);
+    const pts = new Array(n);
+    for (let i = 0; i < n; i++) {
+      const g = (((g0 + i) >> 1) % 4096) * 3;
+      const q = clamp01((p - DUST[g + 2]) / (1 - LATE)), e = 1 - (1 - q) ** 3, a = (1 - e) * 2.5;
+      const c = Math.cos(a), si = Math.sin(a), nx = DUST[g], ny = DUST[g + 1];
+      const dx = cx + (nx * c - ny * si) * rx, dy = cy + (nx * si + ny * c) * ry;
+      pts[i] = [dx + (xs[i] - dx) * e, dy + (ys[i] - dy) * e];
+    }
+    g0 += n;
+    out.push(piece(s, pts));
   }
-  return [piece(strokes[0], pts)];
+  return out;
 }
 
 // -------------------------------------------------------------------- morph

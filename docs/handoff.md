@@ -11,9 +11,22 @@
 - **5⅞ (Oscilloscope):** A to D are done; the sidecar runs on Numbat. E (Lukas on the CRT) is
   open.
 
-Version 0.8.4.
+Version 0.8.5.
 
-**Latest (0.8.4): smooth transitions on the scope, xy-bench's condense.** Lukas found the
+**Latest (0.8.5): 60 Hz, steady loop entries, condense joins, a joined clock.** Lukas still
+saw choppy transitions, condense's joins turned solid just before the end, and the jump lines
+moved when Alfie glanced. He asked for 60 Hz always, and for a clock with no second hand whose
+minute hand reaches the rim, as one line.
+- **60 Hz:** the sidecar's default `FPS=60` (Numbat's `.env` too), and xy-bench's
+  `XYBENCH_MIN_FPS=60` in `~/xy-bench/.env` on Numbat (xy-bench config, set at Lukas's ask).
+- **Loops:** `placeTour` holds each loop's entry (`ent` in the plan, `LOOP_HOLD`);
+  `G.placeStrokes` runs mid-transition and `G.openLoops` runs on every frame sent.
+- **Condense:** `condenseLines` makes one stroke per stroke.
+- **Clock:** a new `joined` option ("Minute hand reaches the rim"; when the rim is one stroke,
+  the rim and both hands are one line). On production Lukas's clock has `joined: true` and
+  `seconds: false`.
+
+**Before that (0.8.4): smooth transitions on the scope, xy-bench's condense.** Lukas found the
 screens good after 0.8.3, but transitions very choppy on the tube, and wanted condense to look
 like xy-bench's (lines between random points). design.md "Oscilloscope" has the design.
 - **Choppy:** dot transitions sent hundreds of strokes, and each frame re-solved the tour

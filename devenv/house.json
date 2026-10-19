@@ -314,6 +314,7 @@
     "style": "analogue",
     "hours": "24",
     "seconds": true,
+    "joined": false,
     "solar_rim": true,
     "house": true,
     "smoke": true,
