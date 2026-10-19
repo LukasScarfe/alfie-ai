@@ -13,7 +13,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] Scene-state format decided (design.md "Scene state").
   - [x] Dev HA `alfie-dev-ha` on :8125, the `./dev` wrapper (test, shot, face, sheet, fake
         states), and CLAUDE.md "Dev loop" + "Finishing a change".
-- [~] **1. Living face (first win, on the tablet).** Integration skeleton, the card auto-registers,
+- [x] **1. Living face (first win, on the tablet).** Integration skeleton, the card auto-registers,
       the face renders with all 12 expressions and 20 animations, mood comes from a hard-coded set
       of good/bad signals, motion gaze works. Shown on the real tablet.
   - [x] Integration skeleton: manifest, config flow (name), frontend auto-registration.
@@ -23,9 +23,17 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] `alfie-face.json` and the canvas card: 12 expressions, 20 animations, blink, energy.
   - [x] Tests (signals, mood, face data, a JS/Python pose cross-check) and `./dev face` sheet.
   - [x] Dev HA screenshot: mood and gaze change with poked signals and motion.
-  - [ ] Shown on the real tablet against dev HA (Lukas).
-- [ ] **2. Signals and personality.** Panel page for signals (entity / operator / value, severity,
+  - [x] Shown and approved by Lukas ("the card looks good").
+- [~] **2. Signals and personality.** Panel page for signals (entity / operator / value, severity,
       linked screen), the combine-mode options, mood levels, personality presets.
+  - [ ] Config model, pure Python (`config.py`): defaults seed, validate, build; `Signal.enabled`.
+  - [ ] Store (`alfie.config`) seeded from defaults, options-flow values migrated; live
+        `engine.apply_config` with no reload.
+  - [ ] Admin WS API: `alfie/config/get|set|reset|preview`.
+  - [ ] Personality presets (bubbly, stoic, grumpy, sleepy, nervous, custom) in the engine, the
+        scene and the card; per-card `personality` override.
+  - [ ] Admin sidebar panel: Signals, Mood, Behaviour, Personality tabs with live preview.
+  - [ ] Tests, design.md, dev HA screenshots of the panel and a personality sheet.
 - [ ] **3. Screens.** Port the templates to JS (plot, bars/value, weather, home clock, sky, stars,
       map, text) with entity pickers, add the rotation display mode and transitions.
 - [ ] **4. Triggers and stories.** Trigger config (any entity, per-motion-sensor actions, mood
