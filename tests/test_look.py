@@ -53,12 +53,12 @@ def test_ranges_and_style():
 
 
 def test_colours():
-    assert look(face_color="#4dffa0", eye_color="#fff",
+    assert look(ring_color="#4dffa0", eye_color="#fff",
                 text_color="var(--primary-color)", accent_color="var(--a, #fff)",
                 background="#00000080")["text_color"] == "var(--primary-color)"
     assert look(background="none")["background"] == ""
     for bad in ("red", "#12", "var(primary)", "rgb(1,2,3)", 5):
-        assert errors(face_color=bad), bad
+        assert errors(ring_color=bad), bad
 
 
 def test_shapes():

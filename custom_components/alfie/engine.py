@@ -79,7 +79,7 @@ class AlfieEngine:
         self.settings = MoodSettings()
         self.behaviour: dict[str, Any] = {}
         self.personality: dict[str, float] = {}
-        self.gaze_map: dict[str, str] = {}
+        self.motion_sensors: dict[str, str] = {}
         self._base_personality: dict[str, float] = {}   # before the mode's overrides
         self._mode_signals: tuple[Signal, ...] = ()      # the modes' conditions
 
@@ -176,7 +176,7 @@ class AlfieEngine:
         self._base_personality = built.personality
         self.personality = md.personality(self.active, built.personality,
                                           self.face.get("personalities") or {})
-        self.gaze_map = {g["entity"]: g["action"] for g in self.behaviour["gaze_map"]}
+        self.motion_sensors = {g["entity"]: g["action"] for g in self.behaviour["motion_sensors"]}
         self._mode_signals = tuple(sig for m in cfg["modes"]
                                    if (sig := md.condition_signal(m)) is not None)
         self.stories = {s["id"]: s for s in cfg["stories"]}
@@ -233,7 +233,7 @@ class AlfieEngine:
             out.append({"id": sig.id, "active": res.active, "count": len(names),
                         "entities": ents})
         mood = combine(results, built.mood)
-        return {"signals": out, "mood": {
+        return {"config": cfg, "signals": out, "mood": {
             "level": mood.level, "score": mood.score, "expression": mood.expression,
             "energy": self._biased(mood.energy, built.personality), "reason": mood.reason}}
 
@@ -248,7 +248,7 @@ class AlfieEngine:
         eid = event_data["entity_id"]
         hit = self._relevant_cache.get(eid)
         if hit is None:
-            hit = (eid in self.gaze_map or self._is_signal_entity(eid)
+            hit = (eid in self.motion_sensors or self._is_signal_entity(eid)
                    or any(trig.watches(t, eid) for t in self._entity_triggers))
             self._relevant_cache[eid] = hit
         return hit
@@ -261,7 +261,7 @@ class AlfieEngine:
     def _on_state(self, event: Event) -> None:
         eid = event.data["entity_id"]
         new, old = event.data.get("new_state"), event.data.get("old_state")
-        if eid in self.gaze_map and new is not None and new.state == "on" \
+        if eid in self.motion_sensors and new is not None and new.state == "on" \
                 and (old is None or old.state != "on"):
             self._motion(eid)
         if eid not in self._signal_entities and self._is_signal_entity(eid):
@@ -286,13 +286,14 @@ class AlfieEngine:
         return self.active["id"] if self.active else md.NORMAL
 
     @property
-    def presence(self) -> str:
-        return self.active["presence"] if self.active else "normal"
+    def alfie_state(self) -> str:
+        """What the house mode makes Alfie: awake, asleep, quiet or hidden."""
+        return self.active["alfie"] if self.active else "awake"
 
     @property
     def quiet(self) -> bool:
-        """Idle or blank: no fidgets, no glances."""
-        return self.presence in ("idle", "blank")
+        """Quiet or hidden: no fidgets, no glances."""
+        return self.alfie_state in ("quiet", "hidden")
 
     @callback
     def _recompute(self, react: bool) -> list[tuple[dict[str, Any], tuple[str, ...]]]:
@@ -318,7 +319,7 @@ class AlfieEngine:
         if level != mood.level:
             mood = Mood(level, mood.score, self.settings.expressions[level],
                         self.settings.energy[level], mood.bad, mood.good)
-        asleep = self.presence == "asleep" and not md.wakes(
+        asleep = self.alfie_state == "asleep" and not md.wakes(
             mode, [r.signal.severity for r in mood.bad])
         changed = (old is None or old.level != mood.level or asleep != self.asleep
                    or old_mode != self.mode_id
@@ -362,7 +363,7 @@ class AlfieEngine:
         now = time.monotonic()
         if now - self._last_motion < self.behaviour["motion_debounce"]:
             return
-        action = self.gaze_map[entity_id]
+        action = self.motion_sensors[entity_id]
         if action == NOTICE:
             if not self.behaviour["notice"]:
                 return
@@ -379,7 +380,7 @@ class AlfieEngine:
             if rep and rep["on_motion"] and \
                     now - self._repeated.get(r.signal.id, -1e9) > REPEAT_GAP:
                 self._repeated[r.signal.id] = now
-                self._queue_repeat(r.signal.id, rep["story"], f"Still: {r.signal.label}.")
+                self._queue_repeat(r.signal.id, rep["story"], f"Still: {r.signal.name}.")
                 break
 
     def _schedule_idle(self) -> None:
@@ -422,7 +423,7 @@ class AlfieEngine:
         if self.asleep:
             return SLEEP_ENERGY
         e = self._biased(self.mood.energy if self.mood else 0.8, self.personality)
-        return round(e * md.IDLE_ENERGY, 3) if self.quiet else e
+        return round(e * md.QUIET_ENERGY, 3) if self.quiet else e
 
     @callback
     def play(self, name: str, reason: str = "", source: str = "service",
@@ -700,7 +701,7 @@ class AlfieEngine:
             if now - last >= rep["every_hours"] * 3600 - 1:
                 self._repeated[sid] = now
                 if not self.asleep:
-                    self._queue_repeat(sid, rep["story"], f"Still: {r.signal.label}.")
+                    self._queue_repeat(sid, rep["story"], f"Still: {r.signal.name}.")
         self._schedule_repeat()
 
     # ------------------------------------------------------------ screens
@@ -755,7 +756,7 @@ class AlfieEngine:
             for r in (*m.bad, *m.good):
                 s = r.signal
                 rep = self._repeat_of(s.id) or {}
-                signals.append({"id": s.id, "label": s.label, "kind": s.kind,
+                signals.append({"id": s.id, "name": s.name, "kind": s.kind,
                                 "severity": s.severity, "entities": list(r.entities),
                                 "screen": s.screen, "in_rotation": bool(rep.get("in_rotation"))})
         return {
@@ -775,7 +776,7 @@ class AlfieEngine:
             "mode": self.mode_id,
             "mode_pick": self.mode,
             "mode_info": {"name": self.active["name"] if self.active else "Normal",
-                          "presence": self.presence,
+                          "alfie": self.alfie_state,
                           "rotation": self.active["rotation"] if self.active else "",
                           "why": list(self.mode_why.entities) if self.mode_why else []},
             "personality": {"preset": self.config.get("personality", {}).get("preset"),

@@ -28,10 +28,10 @@ show_screen:
   fields:
     screen:
       required: true
-      example: plants
+      example: weather
       selector:
         text:
-    seconds:
+    duration:
       default: 20
       example: 20
       selector:

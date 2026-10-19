@@ -17,7 +17,12 @@ from alfie.config import (
 from alfie.mood import combine
 from alfie.signals import evaluate_all
 
+import house
+from alfie.screen_types import load_types
 from test_mood import GOOD_HOUSE
+
+TYPES = load_types(os.path.join(os.path.dirname(__file__), "..", "custom_components", "alfie",
+                                "frontend", "screens"))
 
 FACE_PATH = os.path.join(os.path.dirname(__file__), "..", "custom_components", "alfie",
                          "frontend", "alfie-face.json")
@@ -41,15 +46,21 @@ def test_defaults_are_valid_and_stable():
     assert valid(json.loads(json.dumps(cfg))) == cfg   # survives the Store's JSON
 
 
-def test_defaults_rebuild_lukas_house_exactly():
-    built = build(valid(default_config()))
-    assert built.signals == defaults.SIGNALS
+def test_defaults_build_the_starter_signals():
+    assert build(valid(default_config())).signals == defaults.SIGNALS
+    assert all(any(c in e for c in "*?[") for s in defaults.SIGNALS for e in s.entities)
+
+
+def test_lukas_house_rebuilds_exactly():
+    # devenv/house.json is the old seed (and the dev screens): it still is his house.
+    built = build(validate(house.CONFIG, FACE, TYPES))
+    assert built.signals == house.SIGNALS
     for changes in ({}, {"sensor.fineoffset_wh51_0ee63f_moisture": "12"},
                     {"binary_sensor.scarfe_218j_security_status": "on"},
                     {"input_boolean.guest_mode": "on"}):
         states = {**GOOD_HOUSE, **changes}
         assert combine(evaluate_all(built.signals, states), built.mood) == \
-            combine(evaluate_all(defaults.SIGNALS, states))
+            combine(evaluate_all(house.SIGNALS, states), built.mood)
 
 
 def test_key_order_matches_the_defaults():
@@ -67,7 +78,7 @@ def test_missing_sections_take_defaults():
 
 
 def test_a_new_signal_from_the_panel():
-    cfg = valid({"signals": [{"id": "co2", "label": "Stuffy", "entities": "sensor.co2",
+    cfg = valid({"signals": [{"id": "co2", "name": "Stuffy", "entities": "sensor.co2",
                               "op": "above", "value": "1200"}]})
     s = cfg["signals"][0]
     assert s["value"] == 1200.0 and s["entities"] == ["sensor.co2"]
@@ -104,7 +115,7 @@ def test_thresholds_must_be_ordered():
 
 def test_behaviour_names_are_checked():
     errs = errors({"behaviour": {"idle_fidgets": ["squint", "moonwalk"],
-                                 "gaze_map": [{"entity": "binary_sensor.m", "action": "wave"}],
+                                 "motion_sensors": [{"entity": "binary_sensor.m", "action": "wave"}],
                                  "idle_interval": 2}})
     text = "\n".join(errs)
     for want in ("moonwalk", "wave", "between 10"):
@@ -154,3 +165,49 @@ def test_validate_does_not_alias_input():
     cfg = valid(raw)
     cfg["signals"][0]["entities"].append("x.y")
     assert raw == default_config()
+
+
+# ------------------------------------------------------------- version 4 words
+
+def test_v3_store_migrates_to_the_house_json():
+    with open(os.path.join(os.path.dirname(__file__), "house_v3.json")) as f:
+        v3 = json.load(f)
+    cfg = validate(v3, FACE, TYPES)
+    expect = {**house.CONFIG, "overview": cfg["overview"]}   # house.json hides Get started
+    assert cfg == expect
+    assert cfg["version"] == 4
+
+
+def test_migrate_v3_renames_every_key():
+    from alfie.config import migrate
+    old = {"version": 3,
+           "signals": [{"id": "a", "label": "Dry", "entities": ["sensor.a"]}],
+           "stories": [{"id": "s", "mode": "template", "template": {"animation": "nod"}},
+                       {"id": "t", "mode": "steps", "template": {}, "steps": []}],
+           "modes": [{"id": "m1", "presence": "normal"}, {"id": "m2", "presence": "idle"},
+                     {"id": "m3", "presence": "blank"}, {"id": "m4", "presence": "asleep"}],
+           "behaviour": {"gaze_map": [{"entity": "binary_sensor.m", "action": "notice"}]},
+           "look": {"face_color": "#fff"}}
+    new = migrate(copy.deepcopy(old))
+    assert new["signals"][0] == {"id": "a", "name": "Dry", "entities": ["sensor.a"]}
+    assert new["stories"][0] == {"id": "s", "form": "simple", "simple": {"animation": "nod"}}
+    assert new["stories"][1]["form"] == "steps"
+    assert [m["alfie"] for m in new["modes"]] == ["awake", "quiet", "hidden", "asleep"]
+    assert new["behaviour"]["motion_sensors"] == old["behaviour"]["gaze_map"]
+    assert "gaze_map" not in new["behaviour"]
+    assert new["look"] == {"ring_color": "#fff"}
+    assert migrate(copy.deepcopy(new)) == new          # idempotent
+
+
+def test_a_v1_config_ends_in_v4_words():
+    cfg = valid({"version": 1, "behaviour": {"on_wake": "dizzy", "sleep_entity": "switch.zz"}})
+    night = next(m for m in cfg["modes"] if m["id"] == "night")
+    assert night["alfie"] == "asleep" and night["condition"]["entities"] == ["switch.zz"]
+    assert all("form" in st and "simple" in st for st in cfg["stories"])
+
+
+def test_overview_section():
+    assert valid({})["overview"] == {"dismissed": False, "done": []}
+    assert valid({"overview": {"dismissed": True, "done": ["motion", "motion"]}})["overview"] \
+        == {"dismissed": True, "done": ["motion"]}
+    assert errors({"overview": {"done": ["nope"]}})

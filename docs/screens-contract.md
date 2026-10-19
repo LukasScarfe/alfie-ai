@@ -26,7 +26,7 @@ The Python files are under `custom_components/alfie/`, and the frontend ones und
 {"type": "plot", "title": "Plot", "needs": "history",
  "options": [
    {"key": "entities", "kind": "entities", "label": "Series", "required": true, "domain": ["sensor"]},
-   {"key": "hours", "kind": "number", "label": "Span (hours)", "default": 72, "min": 1, "max": 2160},
+   {"key": "hours", "kind": "number", "label": "Span", "unit": "h", "default": 72, "min": 1, "max": 2160},
    {"key": "unit", "kind": "text", "label": "Unit", "default": ""},
    {"key": "style", "kind": "choice", "label": "Line", "default": "solid", "choices": ["solid", "dotted"]},
    {"key": "markers", "kind": "bool", "label": "Markers", "default": true}
@@ -36,6 +36,9 @@ The Python files are under `custom_components/alfie/`, and the frontend ones und
 - `needs` is `null` or one provider kind: `history`, `forecast`, `calendar` or `streets`.
 - Option kinds are `entity`, `entities`, `number`, `text`, `choice`, `bool` and `color`.
 - `domain` optionally limits entity options to some domains.
+- `label` is the option's name only (design.md "Words"). A note goes in `hint` (shown under
+  the field, e.g. "Empty: the sensor's."), and a unit goes in `unit` (shown inside a number
+  field, e.g. "h").
 - Python (`screen_types.py`) validates a screen's `options` against this. It fills defaults,
   checks numbers and choices, and checks that entity options are entity ids. The panel renders a
   form from it.
@@ -156,7 +159,7 @@ calls when it leaves and arrives in "hand over".
 card defaults exactly):
 
 ```json
-"look": {"style": "neon", "face_color": "", "eye_color": "", "background": "",
+"look": {"style": "neon", "ring_color": "", "eye_color": "", "background": "",
          "text_color": "", "accent_color": "", "line_width": 0.035, "screen_line_width": 0.02,
          "glow": null, "eye_fill": false, "padding": 0.08,
          "shapes": {"head": {"type": "circle"}, "eye": {"type": "circle"}}}

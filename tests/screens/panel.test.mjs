@@ -31,30 +31,30 @@ const stepDefaults = {
   animation: { kind: "animation", name: "nod", wait: true },
   screen: { kind: "screen", screen: "@why", seconds: 15, present: "card", transition: "" },
 };
-const steps = P.compileTemplate({ expression: "happy", animation: "", screen: "@wrong", seconds: 8, present: "corner", transition: "", closing: "shake" }, stepDefaults);
-check(JSON.stringify(steps.map((x) => x.name || x.screen)) === '["happy","@wrong","shake"]', "template compiles");
-check(steps[1].seconds === 8 && steps[1].present === "corner" && steps[0].hold === 1, "template fields carried");
+const steps = P.compileSimple({ expression: "happy", animation: "", screen: "@wrong", seconds: 8, present: "corner", transition: "", closing: "shake" }, stepDefaults);
+check(JSON.stringify(steps.map((x) => x.name || x.screen)) === '["happy","@wrong","shake"]', "simple compiles");
+check(steps[1].seconds === 8 && steps[1].present === "corner" && steps[0].hold === 1, "simple fields carried");
 const dr = { triggers: [{ story: "a" }, { story: "b" }], signals: [{ repeat: { story: "a" } }],
   behaviour: { appear_story_bad: "a", appear_story_ok: "b" },
-  stories: [{ template: { screen: "p" }, steps: [{ kind: "screen", screen: "p" }, { kind: "wait" }] }] };
+  stories: [{ simple: { screen: "p" }, steps: [{ kind: "screen", screen: "p" }, { kind: "wait" }] }] };
 P.renameStoryRefs(dr, "a", "c");
 check(dr.triggers[0].story === "c" && dr.signals[0].repeat.story === "c" && P.storyUses(dr, "c") === 1, "story refs");
 check(dr.behaviour.appear_story_bad === "c" && dr.behaviour.appear_story_ok === "b", "appear story refs");
 P.renameScreenRefs(dr, "p", "q");
-check(dr.stories[0].template.screen === "q" && dr.stories[0].steps[0].screen === "q", "story screen rename");
+check(dr.stories[0].simple.screen === "q" && dr.stories[0].steps[0].screen === "q", "story screen rename");
 P.dropScreenRefs(dr, "q");
-check(dr.stories[0].template.screen === "" && dr.stories[0].steps.length === 1, "story screen drop");
+check(dr.stories[0].simple.screen === "" && dr.stories[0].steps.length === 1, "story screen drop");
 const tk = P.changeTriggerKind({ id: "t", kind: "entity", story: "s", priority: 70, entities: ["x"], op: "changes", value: "" },
   { id: "", kind: "wake", story: "", priority: 50, edge: "wakes" });
 check(tk.kind === "wake" && tk.priority === 70 && tk.story === "s" && !("entities" in tk) && tk.edge === "wakes", "trigger kind change");
-check(P.triggerSummary({ kind: "mood", direction: "worse", from: [], to: ["miserable"] }) === "mood gets worse to miserable", "summary");
-check(P.triggerSummary({ kind: "mode", modes: ["away"], edge: "leave" }) === "away ends", "mode trigger summary");
+check(P.triggerSummary({ kind: "mood", direction: "worse", from: [], to: ["miserable"] }) === "The mood gets worse to Miserable", "summary");
+check(P.triggerSummary({ kind: "mode", modes: ["away"], edge: "leave" }) === "Away ends", "mode trigger summary");
 
 // House modes: summary, and ids followed on rename.
-const mode = { condition: { entities: ["zone.home"], match: "any", op: "below", value: 1 }, presence: "idle",
+const mode = { condition: { entities: ["zone.home"], match: "any", op: "below", value: 1 }, alfie: "quiet",
   hold_back: "none", mood_fixed: "", mood_floor: "", personality: "", rotation: "pause", triggers_off: ["a", "b"] };
-check(P.modeSummary(mode) === "zone.home below 1 → idle, rotation paused, 2 triggers off", "mode summary");
-check(P.modeSummary({ ...mode, condition: null, presence: "normal", rotation: "", triggers_off: [] }) === "picked by hand → no changes", "hand mode summary");
+check(P.modeSummary(mode) === "zone.home below 1 → quiet, rotation paused, 2 triggers off", "mode summary");
+check(P.modeSummary({ ...mode, condition: null, alfie: "awake", rotation: "", triggers_off: [] }) === "Picked by hand → no changes", "hand mode summary");
 const md = { modes: [{ ...mode, rotation: "r1" }], triggers: [{ kind: "mode", modes: ["away"] }, { kind: "wake" }] };
 P.renameModeRefs(md, "trigger", "a", "z");
 P.renameModeRefs(md, "rotation", "r1", "r2");

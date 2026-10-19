@@ -1,12 +1,12 @@
 # Settings tidy-up: the contract between backend, panel and card
 
-The interfaces for the settings tidy-up (plan.md step 5½), fixed before the code so agents can
-build in parallel. design.md "Words" is the vocabulary. This doc says how the pieces fit
+The interfaces for the settings tidy-up (plan.md step 5½), fixed before the code so the parts fit
+together. design.md "Words" is the vocabulary. This doc says how the pieces fit
 together. Change it only together with every side that uses it.
 
-## Files and owners
+## Parts and their files
 
-| Owner | Files |
+| Part | Files |
 |---|---|
 | **A, backend** | `config.py`, `defaults.py`, `engine.py`, `modes.py`, `stories.py`, `triggers.py`, `websocket_api.py`, `__init__.py`, `select.py`, `sensor.py`, `strings.json`, `translations/en.json`, `services.yaml`, `devenv/house.json` (new), `devenv/devtool.py`, `dev`, `tests/test_*.py` |
 | **B, panel shell** | `frontend/alfie-panel.js`, `frontend/panel/ui.js` (new), `frontend/panel/overview.js` (new), `frontend/alfie-panel-forms.js`, `tests/screens/panel.test.mjs`, a new `tests/screens/ui.test.mjs` |
@@ -14,8 +14,7 @@ together. Change it only together with every side that uses it.
 | **C2, panel sections** | `frontend/panel/modes.js`, `frontend/panel/screens.js`, `frontend/panel/appearance.js`, `frontend/screens/*.json` (option labels only) |
 | **D, card** | `frontend/alfie-card.js`, `frontend/alfie-card-editor.js`, `frontend/alfie-look.js`, `tests/screens/editor.test.mjs`, `tests/screens/look.test.mjs`, `tests/screens.test.mjs`, `devenv/dashboard.js`, `devenv/harness.html` |
 
-Nobody edits another owner's files. If you need something from another owner, write it down in
-your final report rather than editing their file. The lead restarts dev HA and commits.
+Built in order: A, then B, C1 and C2, then D.
 
 ## Key renames (config v4)
 

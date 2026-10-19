@@ -1,15 +1,15 @@
 {"type": "bars", "title": "Bars", "needs": null,
  "options": [
    {"key": "entities", "kind": "entities", "label": "Entities", "required": true},
-   {"key": "labels", "kind": "text", "label": "Labels (comma separated, blank: entity names)", "default": ""},
+   {"key": "labels", "kind": "text", "label": "Labels", "default": "", "hint": "Comma separated. Empty: the entity names."},
    {"key": "range", "kind": "choice", "label": "Scale", "default": "fixed", "choices": ["fixed", "auto"]},
-   {"key": "min", "kind": "number", "label": "Minimum (fixed scale)", "default": 0, "min": -10000, "max": 10000},
-   {"key": "max", "kind": "number", "label": "Maximum (fixed scale)", "default": 100, "min": -10000, "max": 10000},
+   {"key": "min", "kind": "number", "label": "Minimum", "default": 0, "min": -10000, "max": 10000, "hint": "For a fixed scale."},
+   {"key": "max", "kind": "number", "label": "Maximum", "default": 100, "min": -10000, "max": 10000, "hint": "For a fixed scale."},
    {"key": "direction", "kind": "choice", "label": "Direction", "default": "vertical", "choices": ["vertical", "horizontal"]},
    {"key": "values", "kind": "bool", "label": "Show values", "default": true},
-   {"key": "unit", "kind": "text", "label": "Unit (blank: the first entity's)", "default": ""},
+   {"key": "unit", "kind": "text", "label": "Unit", "default": "", "hint": "Empty: the first entity's."},
    {"key": "decimals", "kind": "number", "label": "Decimals", "default": 0, "min": 0, "max": 3},
-   {"key": "highlight_below", "kind": "text", "label": "Accent bars below (number, blank: off)", "default": ""},
+   {"key": "highlight_below", "kind": "text", "label": "Accent bars below", "default": "", "hint": "A number. Empty: off."},
    {"key": "sort", "kind": "choice", "label": "Sort", "default": "none", "choices": ["none", "ascending", "descending"]},
    {"key": "fill", "kind": "bool", "label": "Shade the bars", "default": false}
  ]}

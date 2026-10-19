@@ -5,8 +5,8 @@ ordered list; the first enabled one whose condition holds is the mode (one
 at a time). A mode with no condition is only ever picked by hand, through
 select.alfie_mode. Each mode overrides:
 
-  presence      normal, asleep (only `wake` severity wakes him), idle (no
-                fidgets or glances, quieter) or blank (cards draw nothing)
+  alfie         awake, asleep (only `wake` severity wakes him), quiet (no
+                fidgets or glances, calmer) or hidden (cards draw nothing)
   bad news      hold back signals at or below a severity; a mood floor or a
                 fixed mood
   personality   a preset, energy bias and fidget rate
@@ -27,16 +27,16 @@ from .signals import OPERATORS, SEVERITIES, Signal, SignalResult, evaluate
 
 NORMAL = "normal"                 # no mode: what Alfie is without one
 AUTO = "auto"                     # select.alfie_mode: follow the conditions
-PRESENCES = ("normal", "asleep", "idle", "blank")
+ALFIE_STATES = ("awake", "asleep", "quiet", "hidden")
 WAKES = ("critical", "major", "never")
 HOLD_BACKS = ("none", "minor", "major")
-IDLE_ENERGY = 0.6                 # idle presence scales his energy by this
+QUIET_ENERGY = 0.6                # quiet scales his energy by this
 PAUSE = "pause"                   # a mode's rotation: hold the card's current step
 
 
 def default_mode() -> dict[str, Any]:
     return {"id": "", "name": "", "enabled": True, "condition": None,
-            "presence": "normal", "wake": "critical", "hold_back": "none",
+            "alfie": "awake", "wake": "critical", "hold_back": "none",
             "mood_floor": "", "mood_fixed": "",
             "personality": "", "energy_bias": None, "fidget_rate": None,
             "rotation": "", "triggers_off": []}
@@ -137,7 +137,7 @@ def validate_modes(raw: Any, ck: Any, presets: Sequence[str],
             "name": str(d["name"] or "").strip() or mid,
             "enabled": bool(d["enabled"]),
             "condition": cond,
-            "presence": ck.choice(f"{where} presence", d["presence"], PRESENCES, "normal"),
+            "alfie": ck.choice(f"{where} alfie", d["alfie"], ALFIE_STATES, "awake"),
             "wake": ck.choice(f"{where} wake", d["wake"], WAKES, "critical"),
             "hold_back": ck.choice(f"{where} hold back", d["hold_back"], HOLD_BACKS, "none"),
             "mood_floor": ck.choice(f"{where} mood floor", d["mood_floor"] or "", ("", *LEVELS), ""),
@@ -159,7 +159,7 @@ def condition_signal(mode: Mapping[str, Any]) -> Signal | None:
     c = mode.get("condition")
     if not c or not c["entities"]:
         return None
-    return Signal(id=f"mode:{mode['id']}", label=mode["name"], entities=tuple(c["entities"]),
+    return Signal(id=f"mode:{mode['id']}", name=mode["name"], entities=tuple(c["entities"]),
                   op=c["op"], value=c["value"], kind="good", severity="minor",
                   match=c["match"])
 

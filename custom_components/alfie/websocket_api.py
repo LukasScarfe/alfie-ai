@@ -12,6 +12,10 @@ stored configuration (config.py). Saves apply live, with no reload.
 on every display, and `alfie/triggers/status` says when each trigger last
 fired and what came of it. Both are admin only.
 
+`alfie/suggest` is Get started's: signals, motion sensors and sleep entities
+the house has and the config doesn't cover yet. Admin only, one pass over the
+states per call.
+
 `alfie/screens` and `alfie/screen_data` feed the cards the user's screens and
 their server-side data. Like subscribe they are open to every logged-in user.
 """
@@ -37,7 +41,7 @@ from .config import _Check
 from .const import DOMAIN
 from .mood import COMBINE_MODES, LEVELS
 from .signals import OPERATORS, SEVERITIES
-from . import modes, stories, triggers
+from . import modes, stories, suggest, triggers
 
 
 @callback
@@ -46,7 +50,7 @@ def async_register(hass: HomeAssistant) -> None:
     if data.get("_ws_registered"):
         return
     for cmd in (ws_subscribe, ws_config_get, ws_config_set, ws_config_reset, ws_config_preview,
-                ws_screens, ws_screen_data, ws_story_play, ws_story_expand, ws_triggers_status):
+                ws_screens, ws_screen_data, ws_story_play, ws_story_expand, ws_triggers_status, ws_suggest):
         websocket_api.async_register_command(hass, cmd)
     data["_ws_registered"] = True
 
@@ -101,7 +105,7 @@ def ws_config_get(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
             "screen_types": engine.types,
             "step_kinds": list(stories.STEP_KINDS),
             "steps": {k: stories.default_step(k) for k in stories.STEP_KINDS},
-            "template": stories.default_template(),
+            "simple": stories.default_simple(),
             "presents": list(stories.PRESENTS),
             "places": [*stories.PLACES, "custom"],
             "trigger_kinds": list(triggers.KINDS),
@@ -114,7 +118,7 @@ def ws_config_get(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
             "mode_edges": list(triggers.MODE_EDGES),
             "mode": modes.default_mode(),
             "condition": modes.default_condition(),
-            "presences": list(modes.PRESENCES),
+            "alfie_states": list(modes.ALFIE_STATES),
             "wakes": list(modes.WAKES),
             "hold_backs": list(modes.HOLD_BACKS),
         },
@@ -150,12 +154,14 @@ def ws_config_reset(hass: HomeAssistant, connection: websocket_api.ActiveConnect
 
 @websocket_api.require_admin
 @websocket_api.websocket_command({vol.Required("type"): "alfie/config/preview",
-                                  vol.Required("config"): dict})
+                                  vol.Required("config"): dict,
+                                  vol.Optional("with_config", default=False): bool})
 @callback
 def ws_config_preview(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
                       msg: dict[str, Any]) -> None:
     """A draft from the panel, unsaved. A draft mid-edit may be invalid: that
-    is a normal answer (the errors), not a failed command."""
+    is a normal answer (the errors), not a failed command. `with_config` also
+    returns the draft as checked and migrated (the panel's import)."""
     if (engine := _engine(hass, connection, msg["id"])) is None:
         return
     try:
@@ -163,7 +169,20 @@ def ws_config_preview(hass: HomeAssistant, connection: websocket_api.ActiveConne
     except ConfigError as e:
         connection.send_result(msg["id"], {"errors": e.errors})
         return
+    if not msg["with_config"]:
+        del result["config"]
     connection.send_result(msg["id"], {"errors": [], **result})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "alfie/suggest"})
+@callback
+def ws_suggest(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+               msg: dict[str, Any]) -> None:
+    if (engine := _engine(hass, connection, msg["id"])) is None:
+        return
+    states = ((st.entity_id, st.state, st.attributes) for st in hass.states.async_all())
+    connection.send_result(msg["id"], suggest.suggest(states, engine.config))
 
 
 @websocket_api.websocket_command({vol.Required("type"): "alfie/screens"})

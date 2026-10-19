@@ -1,0 +1,1002 @@
+{
+ "version": 4,
+ "signals": [
+  {
+   "id": "nas_drive",
+   "name": "The NAS is reporting a drive problem",
+   "entities": [
+    "binary_sensor.scarfe_218j_drive_1_exceeded_max_bad_sectors",
+    "binary_sensor.scarfe_218j_drive_2_exceeded_max_bad_sectors",
+    "binary_sensor.scarfe_218j_drive_1_below_min_remaining_life",
+    "binary_sensor.scarfe_218j_drive_2_below_min_remaining_life",
+    "binary_sensor.scarfe_218j_security_status"
+   ],
+   "op": "is",
+   "value": "on",
+   "kind": "bad",
+   "severity": "critical",
+   "weight": null,
+   "match": "any",
+   "screen": null,
+   "enabled": true,
+   "repeat": {
+    "on_motion": false,
+    "every_hours": 0,
+    "in_rotation": false,
+    "story": "bad_news"
+   }
+  },
+  {
+   "id": "plant_monstera",
+   "name": "The Monstera is dry",
+   "entities": [
+    "sensor.fineoffset_wh51_0ee63f_moisture"
+   ],
+   "op": "below",
+   "value": 25,
+   "kind": "bad",
+   "severity": "major",
+   "weight": null,
+   "match": "any",
+   "screen": "plants",
+   "enabled": true,
+   "repeat": {
+    "on_motion": false,
+    "every_hours": 0,
+    "in_rotation": false,
+    "story": "bad_news"
+   }
+  },
+  {
+   "id": "plant_ficus",
+   "name": "The Ficus is dry",
+   "entities": [
+    "sensor.fineoffset_wh51_0ee64d_moisture"
+   ],
+   "op": "below",
+   "value": 25,
+   "kind": "bad",
+   "severity": "major",
+   "weight": null,
+   "match": "any",
+   "screen": "plants",
+   "enabled": true,
+   "repeat": {
+    "on_motion": false,
+    "every_hours": 0,
+    "in_rotation": false,
+    "story": "bad_news"
+   }
+  },
+  {
+   "id": "motion_battery",
+   "name": "A motion sensor battery is low",
+   "entities": [
+    "binary_sensor.bathroom_motion_sensor_battery_low",
+    "binary_sensor.hallway_motion_sensor_battery_low",
+    "binary_sensor.hallway_closet_motion_sensor_battery_low"
+   ],
+   "op": "is",
+   "value": "on",
+   "kind": "bad",
+   "severity": "major",
+   "weight": null,
+   "match": "any",
+   "screen": null,
+   "enabled": true,
+   "repeat": {
+    "on_motion": false,
+    "every_hours": 0,
+    "in_rotation": false,
+    "story": "bad_news"
+   }
+  },
+  {
+   "id": "guests",
+   "name": "Guests are over",
+   "entities": [
+    "input_boolean.guest_mode"
+   ],
+   "op": "is",
+   "value": "on",
+   "kind": "good",
+   "severity": "major",
+   "weight": null,
+   "match": "any",
+   "screen": null,
+   "enabled": true,
+   "repeat": {
+    "on_motion": false,
+    "every_hours": 0,
+    "in_rotation": false,
+    "story": "bad_news"
+   }
+  }
+ ],
+ "mood": {
+  "combine": "worst",
+  "weights": {
+   "minor": 1.0,
+   "major": 2.0,
+   "critical": 5.0,
+   "good": 1.0
+  },
+  "thresholds": {
+   "bubbly": 1.0,
+   "content": -0.5,
+   "uneasy": -2.0,
+   "sad": -4.0
+  },
+  "count_thresholds": {
+   "bubbly": 1,
+   "content": 0,
+   "uneasy": -1,
+   "sad": -2
+  },
+  "ladder": {
+   "minor": "uneasy",
+   "major": "uneasy",
+   "critical": "miserable"
+  },
+  "expressions": {
+   "bubbly": "happy",
+   "content": "neutral",
+   "uneasy": "skeptical",
+   "sad": "sad",
+   "miserable": "alarmed"
+  },
+  "energy": {
+   "bubbly": 1.2,
+   "content": 0.8,
+   "uneasy": 0.55,
+   "sad": 0.35,
+   "miserable": 0.2
+  }
+ },
+ "behaviour": {
+  "sleep_expression": "closed",
+  "motion_sensors": [
+   {
+    "entity": "binary_sensor.living_room_motion_sensor_occupancy",
+    "action": "notice"
+   },
+   {
+    "entity": "binary_sensor.hallway_motion_sensor_occupancy",
+    "action": "glance_left"
+   },
+   {
+    "entity": "binary_sensor.hallway_closet_motion_sensor_occupancy",
+    "action": "glance_left"
+   },
+   {
+    "entity": "binary_sensor.bathroom_motion_sensor_occupancy",
+    "action": "glance_left"
+   },
+   {
+    "entity": "binary_sensor.bedroom_light_motion_sensor_occupancy",
+    "action": "glance_left"
+   },
+   {
+    "entity": "binary_sensor.dining_room_presence_motion_sensor_presence",
+    "action": "glance_right"
+   }
+  ],
+  "notice": [
+   "glance_left",
+   "glance_right",
+   "look_around",
+   "double_take"
+  ],
+  "idle_fidgets": [
+   "squint",
+   "eye_roll",
+   "scan",
+   "glance_left",
+   "glance_right",
+   "sigh",
+   "look_around"
+  ],
+  "idle_interval": 180.0,
+  "motion_debounce": 20.0,
+  "appear_story_bad": "bad_news",
+  "appear_story_ok": "hello"
+ },
+ "personality": {
+  "preset": "bubbly",
+  "exaggeration": 1.0,
+  "speed": 1.0,
+  "bounce": 1.0,
+  "fidget_rate": 1.0,
+  "energy_bias": 0.0,
+  "blink_rate": 1.0
+ },
+ "look": {
+  "style": "neon",
+  "ring_color": "",
+  "eye_color": "",
+  "background": "",
+  "text_color": "",
+  "accent_color": "",
+  "line_width": 0.035,
+  "screen_line_width": 0.02,
+  "glow": null,
+  "eye_fill": false,
+  "padding": 0.08,
+  "shapes": {
+   "head": {
+    "type": "circle"
+   },
+   "eye": {
+    "type": "circle"
+   }
+  }
+ },
+ "screens": [
+  {
+   "id": "plants",
+   "type": "plot",
+   "title": "Plants",
+   "options": {
+    "entities": [
+     "sensor.fineoffset_wh51_0ee63f_moisture",
+     "sensor.fineoffset_wh51_0ee64d_moisture"
+    ],
+    "title": "",
+    "labels": "",
+    "markers": "ring, diamond, square",
+    "styles": "solid",
+    "hours": 1,
+    "buckets": 30,
+    "range": "auto",
+    "y_min": 0,
+    "y_max": 100,
+    "min_span": 4,
+    "unit": "",
+    "decimals": 0,
+    "axis": true,
+    "ticks": 3,
+    "now": true,
+    "legend": false
+   }
+  },
+  {
+   "id": "weather",
+   "type": "weather",
+   "title": "Weather",
+   "options": {
+    "weather": "weather.dev_weather",
+    "sensor": "",
+    "title": "",
+    "forecast": "hourly",
+    "hours": 24,
+    "days": 5,
+    "rain": "auto",
+    "rain_group": 3,
+    "smooth": 1,
+    "unit": "auto",
+    "suffix": "\u00b0",
+    "decimals": 0,
+    "time_labels": true,
+    "animate": true
+   }
+  },
+  {
+   "id": "weather_days",
+   "type": "weather",
+   "title": "Weather",
+   "options": {
+    "weather": "weather.dev_weather",
+    "sensor": "",
+    "title": "",
+    "forecast": "daily",
+    "hours": 24,
+    "days": 5,
+    "rain": "auto",
+    "rain_group": 3,
+    "smooth": 1,
+    "unit": "auto",
+    "suffix": "\u00b0",
+    "decimals": 0,
+    "time_labels": true,
+    "animate": true
+   }
+  },
+  {
+   "id": "clock",
+   "type": "clock",
+   "title": "Clock",
+   "options": {
+    "inside": "sensor.dev_inside",
+    "outside": "sensor.dev_outside",
+    "style": "analogue",
+    "hours": "24",
+    "seconds": true,
+    "solar_rim": true,
+    "house": true,
+    "smoke": true,
+    "decimals": 0
+   }
+  },
+  {
+   "id": "monstera",
+   "type": "value",
+   "title": "Value",
+   "options": {
+    "entity": "sensor.fineoffset_wh51_0ee63f_moisture",
+    "label": "Monstera",
+    "icon": "auto",
+    "unit": "",
+    "decimals": 1,
+    "below": "35",
+    "above": ""
+   }
+  },
+  {
+   "id": "soil",
+   "type": "bars",
+   "title": "Bars",
+   "options": {
+    "entities": [
+     "sensor.fineoffset_wh51_0ee63f_moisture",
+     "sensor.fineoffset_wh51_0ee64d_moisture"
+    ],
+    "labels": "Monstera, Ficus",
+    "range": "fixed",
+    "min": 0,
+    "max": 100,
+    "direction": "vertical",
+    "values": true,
+    "unit": "",
+    "decimals": 0,
+    "highlight_below": "35",
+    "sort": "none",
+    "fill": false
+   }
+  },
+  {
+   "id": "sky",
+   "type": "sky",
+   "title": "Sky",
+   "options": {
+    "latitude": "",
+    "longitude": "",
+    "labels": false,
+    "times": true,
+    "moon_times": true,
+    "rings": true,
+    "sun_path": true,
+    "moon_path": true,
+    "moon_fill": false,
+    "size": 1.5
+   }
+  },
+  {
+   "id": "stars",
+   "type": "stars",
+   "title": "Stars",
+   "options": {
+    "latitude": "",
+    "longitude": "",
+    "facing": "auto",
+    "fov": 60,
+    "constellations": 23,
+    "star_dots": true,
+    "dot_size": 1,
+    "planets": true,
+    "moon": true,
+    "moon_fill": false,
+    "labels": true,
+    "times": true
+   }
+  },
+  {
+   "id": "map",
+   "type": "map",
+   "title": "Map",
+   "options": {
+    "trackers": [
+     "device_tracker.dev_phone"
+    ],
+    "radius": 0,
+    "labels": true,
+    "show_home": true,
+    "title": "",
+    "allow_network": false,
+    "endpoint": "https://overpass-api.de/api/interpreter"
+   }
+  },
+  {
+   "id": "birthdays",
+   "type": "text",
+   "title": "Text",
+   "options": {
+    "source": "calendar",
+    "calendars": [
+     "calendar.birthdays"
+    ],
+    "days": 1,
+    "events": "all",
+    "entity": "",
+    "attribute": "",
+    "fixed": "",
+    "template": "Happy birthday {name}!",
+    "seconds": 6,
+    "max_lines": 4,
+    "size": 0.3,
+    "empty": "--"
+   }
+  }
+ ],
+ "rotations": [
+  {
+   "id": "demo",
+   "name": "Demo",
+   "transition": "fade",
+   "face_seconds": 0,
+   "steps": [
+    {
+     "screen": "plants",
+     "seconds": 3
+    },
+    {
+     "screen": "weather",
+     "seconds": 3
+    },
+    {
+     "screen": "weather_days",
+     "seconds": 3
+    },
+    {
+     "screen": "clock",
+     "seconds": 3
+    },
+    {
+     "alfie": true,
+     "seconds": 15
+    },
+    {
+     "screen": "monstera",
+     "seconds": 3
+    },
+    {
+     "screen": "soil",
+     "seconds": 3
+    },
+    {
+     "screen": "sky",
+     "seconds": 3
+    },
+    {
+     "screen": "stars",
+     "seconds": 3
+    },
+    {
+     "screen": "map",
+     "seconds": 3
+    },
+    {
+     "screen": "birthdays",
+     "seconds": 3
+    }
+   ]
+  },
+  {
+   "id": "only_plants",
+   "name": "plants",
+   "transition": "fade",
+   "face_seconds": 0,
+   "steps": [
+    {
+     "screen": "plants",
+     "seconds": 3600
+    }
+   ]
+  },
+  {
+   "id": "only_weather",
+   "name": "weather",
+   "transition": "fade",
+   "face_seconds": 0,
+   "steps": [
+    {
+     "screen": "weather",
+     "seconds": 3600
+    }
+   ]
+  },
+  {
+   "id": "only_weather_days",
+   "name": "weather_days",
+   "transition": "fade",
+   "face_seconds": 0,
+   "steps": [
+    {
+     "screen": "weather_days",
+     "seconds": 3600
+    }
+   ]
+  },
+  {
+   "id": "only_clock",
+   "name": "clock",
+   "transition": "fade",
+   "face_seconds": 0,
+   "steps": [
+    {
+     "screen": "clock",
+     "seconds": 3600
+    }
+   ]
+  },
+  {
+   "id": "only_monstera",
+   "name": "monstera",
+   "transition": "fade",
+   "face_seconds": 0,
+   "steps": [
+    {
+     "screen": "monstera",
+     "seconds": 3600
+    }
+   ]
+  },
+  {
+   "id": "only_soil",
+   "name": "soil",
+   "transition": "fade",
+   "face_seconds": 0,
+   "steps": [
+    {
+     "screen": "soil",
+     "seconds": 3600
+    }
+   ]
+  },
+  {
+   "id": "only_sky",
+   "name": "sky",
+   "transition": "fade",
+   "face_seconds": 0,
+   "steps": [
+    {
+     "screen": "sky",
+     "seconds": 3600
+    }
+   ]
+  },
+  {
+   "id": "only_stars",
+   "name": "stars",
+   "transition": "fade",
+   "face_seconds": 0,
+   "steps": [
+    {
+     "screen": "stars",
+     "seconds": 3600
+    }
+   ]
+  },
+  {
+   "id": "only_map",
+   "name": "map",
+   "transition": "fade",
+   "face_seconds": 0,
+   "steps": [
+    {
+     "screen": "map",
+     "seconds": 3600
+    }
+   ]
+  },
+  {
+   "id": "only_birthdays",
+   "name": "birthdays",
+   "transition": "fade",
+   "face_seconds": 0,
+   "steps": [
+    {
+     "screen": "birthdays",
+     "seconds": 3600
+    }
+   ]
+  },
+  {
+   "id": "g_test",
+   "name": "G test",
+   "transition": "fade",
+   "face_seconds": 0,
+   "steps": [
+    {
+     "screen": "clock",
+     "seconds": 5
+    },
+    {
+     "screen": "weather",
+     "seconds": 5
+    },
+    {
+     "screen": "sky",
+     "seconds": 5
+    },
+    {
+     "alfie": true,
+     "seconds": 5
+    }
+   ]
+  }
+ ],
+ "stories": [
+  {
+   "id": "alarm",
+   "name": "Alarm",
+   "form": "steps",
+   "simple": {
+    "expression": "",
+    "animation": "",
+    "screen": "@why",
+    "seconds": 15,
+    "present": "card",
+    "transition": "",
+    "closing": ""
+   },
+   "steps": [
+    {
+     "kind": "animation",
+     "name": "startle",
+     "wait": true
+    },
+    {
+     "kind": "screen",
+     "screen": "@wrong",
+     "seconds": 12,
+     "present": "card",
+     "transition": ""
+    },
+    {
+     "kind": "animation",
+     "name": "shake",
+     "wait": true
+    }
+   ]
+  },
+  {
+   "id": "bad_news",
+   "name": "Bad news",
+   "form": "steps",
+   "simple": {
+    "expression": "",
+    "animation": "",
+    "screen": "@why",
+    "seconds": 15,
+    "present": "card",
+    "transition": "",
+    "closing": ""
+   },
+   "steps": [
+    {
+     "kind": "expression",
+     "name": "@old_mood",
+     "hold": 1,
+     "blend": 0
+    },
+    {
+     "kind": "expression",
+     "name": "@mood",
+     "hold": 1.5,
+     "blend": 1.5
+    },
+    {
+     "kind": "screen",
+     "screen": "@wrong",
+     "seconds": 12,
+     "present": "card",
+     "transition": ""
+    },
+    {
+     "kind": "animation",
+     "name": "shake",
+     "wait": true
+    }
+   ]
+  },
+  {
+   "id": "mood_change",
+   "name": "Mood change",
+   "form": "steps",
+   "simple": {
+    "expression": "",
+    "animation": "",
+    "screen": "@why",
+    "seconds": 15,
+    "present": "card",
+    "transition": "",
+    "closing": ""
+   },
+   "steps": [
+    {
+     "kind": "expression",
+     "name": "@old_mood",
+     "hold": 1,
+     "blend": 0
+    },
+    {
+     "kind": "expression",
+     "name": "@mood",
+     "hold": 1.5,
+     "blend": 1.5
+    },
+    {
+     "kind": "screen",
+     "screen": "@why",
+     "seconds": 12,
+     "present": "card",
+     "transition": ""
+    },
+    {
+     "kind": "animation",
+     "name": "nod",
+     "wait": true
+    }
+   ]
+  },
+  {
+   "id": "celebrate",
+   "name": "Celebrate the fix",
+   "form": "steps",
+   "simple": {
+    "expression": "",
+    "animation": "",
+    "screen": "@why",
+    "seconds": 15,
+    "present": "card",
+    "transition": "",
+    "closing": ""
+   },
+   "steps": [
+    {
+     "kind": "expression",
+     "name": "happy",
+     "hold": 0.5,
+     "blend": 0
+    },
+    {
+     "kind": "animation",
+     "name": "nod",
+     "wait": true
+    },
+    {
+     "kind": "animation",
+     "name": "laugh",
+     "wait": true
+    },
+    {
+     "kind": "wait",
+     "seconds": 1.5
+    }
+   ]
+  },
+  {
+   "id": "wake_up",
+   "name": "Wake up",
+   "form": "simple",
+   "simple": {
+    "expression": "",
+    "animation": "wake_up",
+    "screen": "",
+    "seconds": 15,
+    "present": "card",
+    "transition": "",
+    "closing": ""
+   },
+   "steps": []
+  },
+  {
+   "id": "hello",
+   "name": "Hello",
+   "form": "steps",
+   "simple": {
+    "expression": "",
+    "animation": "",
+    "screen": "@why",
+    "seconds": 15,
+    "present": "card",
+    "transition": "",
+    "closing": ""
+   },
+   "steps": [
+    {
+     "kind": "expression",
+     "name": "@mood",
+     "hold": 1.5,
+     "blend": 0
+    },
+    {
+     "kind": "animation",
+     "name": "nod",
+     "wait": true
+    }
+   ]
+  },
+  {
+   "id": "welcome_home",
+   "name": "Welcome home",
+   "form": "steps",
+   "simple": {
+    "expression": "",
+    "animation": "",
+    "screen": "@why",
+    "seconds": 15,
+    "present": "card",
+    "transition": "",
+    "closing": ""
+   },
+   "steps": [
+    {
+     "kind": "animation",
+     "name": "wake_up",
+     "wait": true
+    },
+    {
+     "kind": "expression",
+     "name": "happy",
+     "hold": 1.5,
+     "blend": 0
+    },
+    {
+     "kind": "animation",
+     "name": "nod",
+     "wait": true
+    }
+   ]
+  }
+ ],
+ "triggers": [
+  {
+   "id": "critical",
+   "name": "Something turns critical",
+   "enabled": true,
+   "kind": "mood",
+   "story": "alarm",
+   "priority": 90,
+   "busy": "auto",
+   "cooldown": 0,
+   "while_asleep": false,
+   "moods": [],
+   "direction": "worse",
+   "from": [],
+   "to": [
+    "miserable"
+   ]
+  },
+  {
+   "id": "mood_worse",
+   "name": "Mood gets worse",
+   "enabled": true,
+   "kind": "mood",
+   "story": "bad_news",
+   "priority": 50,
+   "busy": "auto",
+   "cooldown": 0,
+   "while_asleep": false,
+   "moods": [],
+   "direction": "worse",
+   "from": [],
+   "to": []
+  },
+  {
+   "id": "fixed",
+   "name": "Something bad is fixed",
+   "enabled": true,
+   "kind": "signal",
+   "story": "celebrate",
+   "priority": 45,
+   "busy": "auto",
+   "cooldown": 0,
+   "while_asleep": false,
+   "moods": [],
+   "signals": [],
+   "edge": "recovers"
+  },
+  {
+   "id": "mood_better",
+   "name": "Mood gets better",
+   "enabled": true,
+   "kind": "mood",
+   "story": "mood_change",
+   "priority": 40,
+   "busy": "auto",
+   "cooldown": 0,
+   "while_asleep": false,
+   "moods": [],
+   "direction": "better",
+   "from": [],
+   "to": []
+  },
+  {
+   "id": "wake",
+   "name": "Waking up",
+   "enabled": true,
+   "kind": "wake",
+   "story": "wake_up",
+   "priority": 30,
+   "busy": "auto",
+   "cooldown": 0,
+   "while_asleep": false,
+   "moods": [],
+   "edge": "wakes"
+  },
+  {
+   "id": "welcome",
+   "name": "Welcome home",
+   "enabled": true,
+   "kind": "mode",
+   "story": "welcome_home",
+   "priority": 60,
+   "busy": "auto",
+   "cooldown": 0,
+   "while_asleep": false,
+   "moods": [],
+   "modes": [
+    "away"
+   ],
+   "edge": "leave"
+  }
+ ],
+ "modes": [
+  {
+   "id": "night",
+   "name": "Night",
+   "enabled": true,
+   "condition": {
+    "entities": [
+     "switch.global_sleep_switches"
+    ],
+    "match": "any",
+    "op": "is",
+    "value": "on"
+   },
+   "alfie": "asleep",
+   "wake": "critical",
+   "hold_back": "none",
+   "mood_floor": "",
+   "mood_fixed": "",
+   "personality": "",
+   "energy_bias": null,
+   "fidget_rate": null,
+   "rotation": "",
+   "triggers_off": []
+  },
+  {
+   "id": "away",
+   "name": "Away",
+   "enabled": true,
+   "condition": {
+    "entities": [
+     "zone.home"
+    ],
+    "match": "any",
+    "op": "below",
+    "value": 1
+   },
+   "alfie": "quiet",
+   "wake": "critical",
+   "hold_back": "none",
+   "mood_floor": "",
+   "mood_fixed": "",
+   "personality": "",
+   "energy_bias": null,
+   "fidget_rate": null,
+   "rotation": "",
+   "triggers_off": [
+    "mood_worse",
+    "fixed",
+    "mood_better",
+    "wake"
+   ]
+  }
+ ],
+ "overview": {
+  "dismissed": true,
+  "done": []
+ }
+}

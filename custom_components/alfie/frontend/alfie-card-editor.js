@@ -7,14 +7,15 @@
 // the card's defaults are written, so the YAML stays short.
 
 const V = new URL(import.meta.url).search;
+const { renameOld } = await import(`./alfie-look.js${V}`);
 
 // Mirrors DEFAULTS in alfie-card.js (the card stays the source of truth: a
 // stale entry here only means a redundant key is written, never a wrong card).
 export const DEFAULTS = {
-  style: "neon", face_color: null, eye_color: null, background: "none",
+  style: "neon", ring_color: null, eye_color: null, background: "none",
   line_width: 0.035, glow: null, eye_fill: false, padding: 0.08, aspect: 1,
   fps: 30, liveliness: 1, breathing: true, blinking: true, card: true,
-  shapes: null, personality: null, mode: "companion", rotation: null,
+  shapes: null, personality: null, display: "companion", rotation: null,
   present: "handover", corner: "bottom_right", corner_size: 0.3, transition: null,
   text_color: null, accent_color: null, screen_line_width: 0.02,
   appear_story: "auto", follow_mode: true,
@@ -22,12 +23,13 @@ export const DEFAULTS = {
 
 export const PRESETS = ["bubbly", "stoic", "grumpy", "sleepy", "nervous"];
 // The card-overridable sliders (config.py PERSONALITY; fidget_rate is the engine's).
+// Labels and hints are the panel's (Appearance → Personality), word for word.
 export const SLIDERS = {
-  exaggeration: { min: 0.3, max: 2, def: 1, hint: "size of expressions" },
-  speed: { min: 0.3, max: 2.5, def: 1, hint: "animation and blend rate" },
-  bounce: { min: 0, max: 2, def: 1, hint: "spring overshoot" },
-  blink_rate: { min: 0.2, max: 3, def: 1, hint: "how often he blinks" },
-  energy_bias: { min: -0.5, max: 0.5, def: 0, hint: "added to the mood's energy" },
+  exaggeration: { min: 0.3, max: 2, def: 1, label: "Exaggeration", hint: "How far expressions and animations go." },
+  speed: { min: 0.3, max: 2.5, def: 1, label: "Speed", hint: "How quickly he moves and changes expression." },
+  bounce: { min: 0, max: 2, def: 1, label: "Bounce", hint: "How much he overshoots and wobbles into place." },
+  blink_rate: { min: 0.2, max: 3, def: 1, label: "Blinking", hint: "How often he blinks." },
+  energy_bias: { min: -0.5, max: 0.5, def: 0, label: "Energy", hint: "Added to every mood's energy: perkier or flatter." },
 };
 export const SHAPE_PARAMS = {
   circle: [],
@@ -36,7 +38,11 @@ export const SHAPE_PARAMS = {
   superellipse: [["n", 0.5, 8, 0.1, 4]],
 };
 const SHAPE_COMMON = [["rotation", -180, 180, 5, 0]];
-const SHAPE_PARTS = [["head", "Head"], ["eye", "Eyes"]];
+const SHAPE_PARTS = [["head", "Ring"], ["eye", "Eyes"]];
+const SHAPE_TEXT = { circle: "Circle", polygon: "Polygon", star: "Star", superellipse: "Superellipse" };
+const PARAM_TEXT = { sides: "Sides", roundness: "Roundness", points: "Points", inner: "Inner size", n: "Squareness", rotation: "Rotation" };
+const human = (id) => { const t = String(id).replace(/_/g, " "); return t[0].toUpperCase() + t.slice(1); };
+const FROM_PANEL = "Default (from Alfie's look)";
 
 // A copy of `config` with `key` set, or removed when it equals the default.
 export function applyChange(config, key, value) {
@@ -103,7 +109,11 @@ const STYLE_CSS = `
     background: var(--secondary-background-color); border: 1px solid var(--divider-color); border-radius: 8px; }
   .f > label.chk { justify-content: flex-start; color: var(--primary-text-color); font-size: 1em; }
   .chk { display: flex; align-items: center; gap: 10px; cursor: pointer; }
-  .chk input { width: 18px; height: 18px; accent-color: var(--primary-color); }
+  .chk input { appearance: none; -webkit-appearance: none; flex: none; width: 36px; height: 20px; margin: 0; border-radius: 10px;
+    background: var(--divider-color); position: relative; cursor: pointer; transition: background .15s; }
+  .chk input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: left .15s; }
+  .chk input:checked { background: var(--primary-color); } .chk input:checked::after { left: 18px; }
   .sub { border-left: 3px solid var(--divider-color); padding-left: 12px; display: grid; gap: 12px; }
   .sub > .l { font-weight: 500; color: var(--primary-text-color); }
   button { font: inherit; color: var(--primary-text-color); cursor: pointer; padding: 7px 12px;
@@ -117,6 +127,8 @@ const STYLE_CSS = `
   .unset input[type=range] { opacity: .55; }
   .note { font-size: 0.85em; color: var(--secondary-text-color); }
   .warn { font-size: 0.85em; color: var(--warning-color, #ffa600); }
+  details details { margin: 0; border-radius: 8px; }
+  details details > summary { padding: 10px 12px; }
 `;
 
 if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined") {
@@ -124,7 +136,7 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
     constructor() {
       super();
       this._config = {};
-      this._open = new Set(["look"]);
+      this._open = new Set(["display"]);
       this._screens = null;     // null = not loaded, [] / [{id,...}] loaded
       this._rotations = [];
       this._stories = [];
@@ -136,7 +148,7 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
     setConfig(config) {
       // Our own emit comes straight back through HA: don't rebuild under the user's cursor.
       if (this._emitted && same(config, this._emitted)) { this._config = config; return; }
-      this._config = { ...config };
+      this._config = renameOld(config);   // old YAML keys come out as the new ones on the next edit
       this._render();
     }
 
@@ -182,7 +194,7 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
     _range(label, io, min, max, step, { unset = false, hint = "", after = "" } = {}) {
       const i = this._add({ kind: "range", io });
       const v = io.get();
-      return `<div class="f ${unset ? "unset" : ""}"><label>${esc(label)} <b data-out="${i}">${unset ? "inherit" : v}</b></label>
+      return `<div class="f ${unset ? "unset" : ""}"><label>${esc(label)} <b data-out="${i}">${unset ? "Default" : v}</b></label>
         <div class="row"><input type="range" data-i="${i}" min="${min}" max="${max}" step="${step}" value="${v}">${after}</div>
         ${hint ? `<div class="hint">${esc(hint)}</div>` : ""}</div>`;
     }
@@ -213,20 +225,19 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
     _look() {
       const t = (k) => this._top(k);
       return [
-        this._select("Style", t("style"), [["neon", "Neon"], ["flat", "Flat"], ["crt", "CRT"], ["theme", "Theme colour"]], { hint: "Sets the colour and glow defaults; everything below overrides it." }),
-        this._color("Face colour", "face_color", "from the style"),
-        this._color("Eye colour", "eye_color", "same as the face"),
-        this._color("Background", "background", "none"),
-        this._color("Screen text colour", "text_color", "same as the face"),
-        this._color("Screen accent colour", "accent_color", "same as the face"),
-        this._range("Line width", t("line_width"), 0.005, 0.15, 0.005),
+        this._select("Style", t("style"), [["neon", "Neon"], ["flat", "Flat"], ["crt", "CRT"], ["theme", "Theme colours"]],
+          { hint: "Sets the colour and glow defaults; everything below overrides it." }),
+        this._color("Ring colour", "ring_color", FROM_PANEL),
+        this._color("Eye colour", "eye_color", FROM_PANEL),
+        this._color("Background", "background", FROM_PANEL),
+        this._color("Screen text colour", "text_color", FROM_PANEL),
+        this._color("Screen accent colour", "accent_color", FROM_PANEL),
+        this._range("Ring and eye line width", t("line_width"), 0.005, 0.15, 0.005),
         this._range("Screen line width", t("screen_line_width"), 0.005, 0.1, 0.005, { hint: "Screens draw finer than the face." }),
         this._range("Glow", { get: () => this._config.glow ?? 0.6, set: (v) => this._emit(applyChange(this._config, "glow", v)) }, 0, 2, 0.05,
           { unset: this._config.glow == null, hint: "Left alone, the style decides." }),
         this._bool("Fill the eyes", t("eye_fill")),
-        this._range("Padding", t("padding"), 0, 0.3, 0.01, { hint: "Share of the card kept clear around the ring." }),
-        this._range("Aspect (width / height)", t("aspect"), 0.5, 3, 0.05),
-        this._bool("Card frame", t("card"), "Off drops the card background and border."),
+        this._group("shapes", "Shapes", this._config.shapes ? "This card's own" : "Default", this._shapes()),
       ].join("");
     }
 
@@ -237,7 +248,7 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
       let html;
       if (this._failed || this._screens === null) {
         html = this._text("Rotation id", { get: () => (typeof rot === "string" ? rot : ""), set: (v) => this._emit(applyChange(this._config, "rotation", v.trim())) },
-          "e.g. living_room", this._failed ? "Could not load Alfie's rotations, so type the id." : "Loading rotations...");
+          "living_room", this._failed ? "Could not load Alfie's rotations, so type its ID." : "Loading rotations…");
         return html;
       }
       const val = custom ? "__custom" : rot || "";
@@ -247,8 +258,8 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
           if (v === "__custom") this._emit(applyChange(this._config, "rotation", [{ screen: this._screens[0]?.id || "", seconds: 20 }]));
           else this._emit(applyChange(this._config, "rotation", v));
         },
-      }, [["", "(none)"], ...ids, ["__custom", "Custom list"]], { rerender: true,
-        hint: ids.length ? "" : "No rotations yet: build one in Alfie's panel, or use a custom list." });
+      }, [["", "None"], ...ids, ["__custom", "This card's own list"]], { rerender: true,
+        hint: ids.length ? "" : "No rotations yet: build one in Alfie's panel (Screens → Rotations), or make this card's own list." });
       if (custom) html += this._steps(rot);
       return html;
     }
@@ -260,7 +271,7 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
         const sel = this._add({ kind: "select", io: { get: () => s.screen, set: (v) => set(steps.map((x, j) => (j === n ? { ...x, screen: v } : x))) } });
         const sec = this._add({ kind: "num", io: { get: () => s.seconds, set: (v) => set(steps.map((x, j) => (j === n ? { ...x, seconds: v } : x))) }, min: 3, max: 3600 });
         const del = this._add({ kind: "button", run: () => { set(steps.filter((_, j) => j !== n)); this._render(); } });
-        const pick = s.alfie ? `<span class="alfie">Alfie (plays his story)</span>` : ids.length
+        const pick = s.alfie ? `<span class="alfie">Alfie: plays the most relevant story</span>` : ids.length
           ? `<select data-i="${sel}" aria-label="Screen">${[...ids, ...(ids.some(([id]) => id === s.screen) ? [] : [[s.screen, `${s.screen} (missing)`]])]
             .map(([id, t]) => `<option value="${esc(id)}" ${id === s.screen ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`
           : `<input type="text" data-i="${sel}" value="${esc(s.screen)}" placeholder="screen id" aria-label="Screen">`;
@@ -268,38 +279,38 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
       }).join("");
       const add = this._add({ kind: "button", run: () => { set([...steps, { screen: ids[0]?.[0] || "", seconds: 20 }]); this._render(); } });
       const addAlfie = this._add({ kind: "button", run: () => { set([...steps, { alfie: true, seconds: 15 }]); this._render(); } });
-      return `<div class="sub"><div class="l">Custom list: screen and seconds</div><div class="steps">${rows}</div>
-        <div><button data-b="${add}">Add a screen</button> <button data-b="${addAlfie}">Add Alfie</button></div></div>`;
+      return `<div class="sub"><div class="l">This card's own list: screen and seconds</div><div class="steps">${rows}</div>
+        <div><button data-b="${add}">+ Add step</button> <button data-b="${addAlfie}">+ Add Alfie step</button></div></div>`;
     }
 
     // What Alfie plays on this card when he appears in its rotation.
     _appearField() {
       const cur = this._get("appear_story") ?? "auto";
-      const opts = [["auto", "The most relevant (bad news if something is wrong)"], ["none", "Nothing, he just shows"],
+      const opts = [["auto", "Default (from Alfie's panel: the most relevant)"], ["none", "Nothing: he just shows"],
         ...this._stories.map((s) => [s.id, s.name || s.id])];
       if (!opts.some(([v]) => v === cur)) opts.push([cur, `${cur} (missing)`]);
       return this._select("When Alfie appears", this._top("appear_story"), opts, {
-        hint: "Screens follow screens; Alfie comes on for an Alfie step in the rotation (or between screens, if the rotation asks) and plays this, on this card only." });
+        hint: "Alfie comes on for an Alfie step (or between screens, if the rotation asks) and plays this, on this card only." });
     }
 
     _display() {
       const t = (k) => this._top(k);
       const out = [
-        this._select("Mode", t("mode"), [["companion", "Companion: just Alfie"], ["rotation", "Rotation: cycle through screens"]], { rerender: true,
-          hint: "A companion shows screens only when something asks for one." }),
+        this._select("Display", t("display"), [["companion", "Companion: just Alfie"], ["rotation", "Rotation: screens in turn"]], { rerender: true,
+          hint: "A companion shows a screen only when a story or an action asks for one." }),
       ];
-      if (this._get("mode") === "rotation") {
+      if (this._get("display") === "rotation") {
         out.push(this._rotationField(),
           this._appearField());
       }
-      out.push(this._select("Presenting a screen", t("present"), [["handover", "Handover: Alfie leaves"], ["corner", "Corner: Alfie shrinks aside"]], { rerender: true }));
+      out.push(this._select("Presenting", t("present"), [["handover", "Hand over: Alfie steps aside"], ["corner", "Corner: Alfie shrinks into a corner"]], { rerender: true }));
       if (this._get("present") === "corner") {
         out.push(
           this._select("Corner", t("corner"), [["bottom_right", "Bottom right"], ["bottom_left", "Bottom left"], ["top_right", "Top right"], ["top_left", "Top left"]]),
           this._range("Corner size", t("corner_size"), 0.15, 0.5, 0.01, { hint: "Alfie's size in the corner, as a share of his full size." }));
       }
-      out.push(this._select("Transition", t("transition"), [["", "Rotation's own, else fade"], ...TRANSITIONS.map((s) => [s, s]), ["random", "random"]]),
-        this._bool("Follow house modes", t("follow_mode"), "A house mode may blank this card or swap its rotation; off, the card keeps its own."));
+      out.push(this._select("Transition", t("transition"), [["", "Default (the rotation's, else fade)"], ...TRANSITIONS.map((s) => [s, human(s)]), ["random", "Random: a different one each time"]]),
+        this._bool("Follow house modes", t("follow_mode"), "A house mode may hide Alfie on this card or swap its rotation. Off: the card keeps its own."));
       return out.join("");
     }
 
@@ -312,8 +323,8 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
           // Custom starts empty: unset sliders keep following Alfie's own.
           this._emit(applyChange(this._config, "personality", v === "custom" ? {} : v));
         },
-      }, [["", "Inherit Alfie's"], ...PRESETS.map((n) => [n, n[0].toUpperCase() + n.slice(1)]), ["custom", "Custom sliders"]], { rerender: true,
-        hint: mode === "" ? "This card moves the way the Alfie panel says." : "" })];
+      }, [["", "Default (Alfie's personality)"], ...PRESETS.map((n) => [n, human(n)]), ["custom", "Custom"]], { rerender: true,
+        hint: mode === "" ? "This card moves the way Alfie's panel says (Appearance → Personality)." : "" })];
       if (mode === "custom") {
         const obj = p;
         const setKey = (k, v) => {
@@ -324,20 +335,23 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
         out.push(`<div class="sub"><div class="l">Sliders (untouched ones follow Alfie's)</div>${Object.entries(SLIDERS).map(([k, s]) => {
           const set = obj[k] !== undefined;
           const reset = this._add({ kind: "button", run: () => { setKey(k, undefined); this._render(); } });
-          return this._range(k.replace("_", " "), { get: () => obj[k] ?? s.def, set: (v) => setKey(k, v) }, s.min, s.max, 0.05,
-            { unset: !set, hint: s.hint, after: set ? `<button class="x" data-b="${reset}" title="Back to inherit">reset</button>` : "" });
+          return this._range(s.label, { get: () => obj[k] ?? s.def, set: (v) => setKey(k, v) }, s.min, s.max, 0.05,
+            { unset: !set, hint: s.hint, after: set ? `<button class="x" data-b="${reset}" title="Back to the default">Reset</button>` : "" });
         }).join("")}</div>`);
       }
       return out.join("");
     }
 
-    _motion() {
+    _more() {
       const t = (k) => this._top(k);
       return [
-        this._range("Liveliness", t("liveliness"), 0, 2, 0.05, { hint: "How much energy shows: 0 calm, 2 very." }),
-        this._bool("Breathing", t("breathing")),
-        this._bool("Blinking", t("blinking")),
+        this._range("Liveliness", t("liveliness"), 0, 2, 0.05, { hint: "How much of his energy shows: 0 calm, 2 very." }),
+        this._bool("Alfie breathes", t("breathing")),
+        this._bool("Alfie blinks", t("blinking")),
         this._range("Frame rate cap", t("fps"), 5, 60, 5, { hint: "30 is smooth and kind to a tablet." }),
+        this._range("Padding", t("padding"), 0, 0.3, 0.01, { hint: "Share of the card kept clear around the ring." }),
+        this._range("Aspect", t("aspect"), 0.5, 3, 0.05, { hint: "Width over height." }),
+        this._bool("Card frame", t("card"), "Off drops the card background and border."),
       ].join("");
     }
 
@@ -348,25 +362,25 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
       const out = [this._select("Shapes", {
         get: () => (inherit ? "inherit" : "own"),
         set: (v) => setShapes(v === "own" ? { head: { type: "circle" } } : null),
-      }, [["inherit", "Inherit Alfie's"], ["own", "Override for this card"]], { rerender: true })];
+      }, [["inherit", FROM_PANEL], ["own", "This card's own"]], { rerender: true })];
       if (!inherit) {
         for (const [part, title] of SHAPE_PARTS) {
           const spec = shapes[part];
           const type = spec ? spec.type || "circle" : "";
-          const types = [["", "Inherit"], ...Object.keys(SHAPE_PARAMS).map((n) => [n, n]), ...(type === "path" ? [["path", "path (set in YAML)"]] : [])];
+          const types = [["", FROM_PANEL], ...Object.keys(SHAPE_PARAMS).map((n) => [n, SHAPE_TEXT[n] || human(n)]), ...(type === "path" ? [["path", "Path (set in YAML)"]] : [])];
           let inner = this._select(title, {
             get: () => type,
             set: (v) => setShapes(setShapePart(shapes, part, v ? { type: v } : undefined)),
           }, types, { rerender: true });
           if (spec && SHAPE_PARAMS[type]) {
             for (const [k, min, max, step, def] of [...SHAPE_PARAMS[type], ...SHAPE_COMMON]) {
-              inner += this._range(k, { get: () => spec[k] ?? def, set: (v) => setShapes(setShapePart(shapes, part, setShapeParam(spec, k, v))) }, min, max, step);
+              inner += this._range(PARAM_TEXT[k] || human(k), { get: () => spec[k] ?? def, set: (v) => setShapes(setShapePart(shapes, part, setShapeParam(spec, k, v))) }, min, max, step);
             }
             const sx = spec.stretch?.[0] ?? 1, sy = spec.stretch?.[1] ?? 1;
             const st = (nx, ny) => setShapes(setShapePart(shapes, part, nx === 1 && ny === 1
               ? (({ stretch, ...r }) => r)(spec) : { ...spec, stretch: [nx, ny] }));
-            inner += this._range("stretch x", { get: () => sx, set: (v) => st(v, sy) }, 0.3, 2, 0.05);
-            inner += this._range("stretch y", { get: () => sy, set: (v) => st(sx, v) }, 0.3, 2, 0.05);
+            inner += this._range("Stretch across", { get: () => sx, set: (v) => st(v, sy) }, 0.3, 2, 0.05);
+            inner += this._range("Stretch up", { get: () => sy, set: (v) => st(sx, v) }, 0.3, 2, 0.05);
           } else if (type === "path") {
             inner += `<div class="note">A custom path: edit its points in the YAML editor.</div>`;
           }
@@ -380,13 +394,13 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
     _render() {
       this._fields = [];
       const c = this._config;
-      const personality = c.personality == null ? "inherit" : typeof c.personality === "string" ? c.personality : "custom";
+      const personality = c.personality == null ? "Default" : typeof c.personality === "string" ? human(c.personality) : "Custom";
+      const rot = this._rotations.find((r) => r.id === c.rotation);
       const groups = [
-        this._group("look", "Look", `${c.style || "neon"}`, this._look()),
-        this._group("display", "Display", this._get("mode") === "rotation" ? "rotation" : "companion", this._display()),
+        this._group("display", "Display", this._get("display") === "rotation" ? `Rotation${rot ? `: ${rot.name || rot.id}` : ""}` : "Companion", this._display()),
+        this._group("look", "Look", c.style ? human(c.style) : "Default", this._look()),
         this._group("personality", "Personality", personality, this._personality()),
-        this._group("motion", "Motion", `${this._get("fps")} fps`, this._motion()),
-        this._group("shapes", "Shapes", c.shapes ? "own" : "inherit", this._shapes()),
+        this._group("more", "More options", `${this._get("fps")} fps`, this._more()),
       ];
       this.shadowRoot.innerHTML = `<style>${STYLE_CSS}</style>${groups.join("")}`;
       this._wire();

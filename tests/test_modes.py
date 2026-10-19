@@ -1,3 +1,4 @@
+from alfie.config import validate
 import copy
 
 from alfie import defaults
@@ -5,7 +6,8 @@ from alfie.config import default_config
 from alfie.modes import choose, held_back, mood_level, personality, wakes
 from alfie.triggers import mode_fires
 
-from test_config import errors, valid
+from test_config import FACE, TYPES, errors, valid
+import house
 
 
 def modes_of(cfg):
@@ -16,12 +18,12 @@ def test_default_modes_validate():
     cfg = valid(default_config())
     assert [m["id"] for m in cfg["modes"]] == ["night", "away"]
     assert cfg["modes"] == default_config()["modes"]
-    assert modes_of(cfg)["night"]["presence"] == "asleep"
+    assert modes_of(cfg)["night"]["alfie"] == "asleep"
     assert modes_of(cfg)["away"]["condition"]["value"] == 1
 
 
 def test_choose_first_match_and_manual_pick():
-    ms = valid(default_config())["modes"]
+    ms = validate(house.CONFIG, FACE, TYPES)["modes"]      # Night on Lukas's sleep switch
     night_and_out = {"switch.global_sleep_switches": "on", "zone.home": "0"}
     m, why = choose(ms, night_and_out)
     assert m["id"] == "night" and why.entities == ("switch.global_sleep_switches",)
@@ -55,7 +57,7 @@ def test_mode_checks():
     cfg = default_config()
     cfg["modes"][1]["rotation"] = "ghost"
     cfg["modes"][1]["triggers_off"] = ["nope"]
-    cfg["modes"][0]["condition"]["entities"] = []
+    cfg["modes"][0]["condition"] = {"entities": [], "match": "any", "op": "is", "value": "on"}
     errs = errors(cfg)
     assert any("rotation 'ghost'" in e for e in errs)
     assert any("trigger 'nope'" in e for e in errs)

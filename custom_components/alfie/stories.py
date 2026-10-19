@@ -11,9 +11,8 @@ ordered list of steps that every display performs together:
   resize      spring to a size
   speak       say something (a placeholder until milestone 6, Voice)
 
-A story is written either as a fill-in `template` (react, show a screen,
-close) or as free `steps`; `compile_template` turns the first into the
-second. `expand` resolves the tokens against the moment the story plays and
+A story's form is either `simple` (fill in: react, show a screen, close)
+or free `steps`; `compile_simple` turns the first into the second. `expand` resolves the tokens against the moment the story plays and
 flattens it into timed actions, which the engine walks with one timer per
 action. The config's validator calls `validate_stories` with its collector.
 """
@@ -33,10 +32,10 @@ PLACES = {"centre": (0.0, 0.0), "top_left": (-1.0, 1.0), "top_right": (1.0, 1.0)
           "bottom_left": (-1.0, -1.0), "bottom_right": (1.0, -1.0)}
 SCALE = (0.3, 1.5)
 SCREEN_SECONDS = (3.0, 3600.0)
-MODES = ("template", "steps")
+FORMS = ("simple", "steps")
 
 
-def default_template() -> dict[str, Any]:
+def default_simple() -> dict[str, Any]:
     return {"expression": "", "animation": "", "screen": "@why", "seconds": 15,
             "present": "card", "transition": "", "closing": ""}
 
@@ -55,8 +54,8 @@ def default_step(kind: str) -> dict[str, Any]:
     }[kind]
 
 
-def compile_template(t: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """The steps a (validated) template stands for."""
+def compile_simple(t: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The steps a (validated) simple story stands for."""
     steps: list[dict[str, Any]] = []
     if t.get("expression"):
         steps.append({**default_step("expression"), "name": t["expression"], "hold": 1})
@@ -71,7 +70,7 @@ def compile_template(t: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 
 def steps_of(story: Mapping[str, Any]) -> list[dict[str, Any]]:
-    return compile_template(story["template"]) if story["mode"] == "template" \
+    return compile_simple(story["simple"]) if story["form"] == "simple" \
         else list(story["steps"])
 
 
@@ -135,9 +134,9 @@ def _transition(where: str, v: Any, ck: Any) -> str:
     return v
 
 
-def _template(raw: Any, where: str, ck: Any, expressions: Sequence[str],
+def _simple(raw: Any, where: str, ck: Any, expressions: Sequence[str],
               animations: Sequence[str], screen_ids: set[str]) -> dict[str, Any]:
-    base = default_template()
+    base = default_simple()
     t = {**base, **{k: v for k, v in raw.items() if k in base}} \
         if isinstance(raw, Mapping) else base
     out = {
@@ -187,8 +186,8 @@ def validate_stories(raw: Any, ck: Any, expressions: Sequence[str],
         out.append({
             "id": sid,
             "name": str(s.get("name") or "").strip() or sid,
-            "mode": ck.choice(f"{where} mode", s.get("mode", "steps"), MODES, "steps"),
-            "template": _template(s.get("template"), f"{where} template", ck, expressions,
+            "form": ck.choice(f"{where} form", s.get("form", "steps"), FORMS, "steps"),
+            "simple": _simple(s.get("simple"), f"{where} simple", ck, expressions,
                                   animations, screen_ids),
             "steps": steps,
         })
