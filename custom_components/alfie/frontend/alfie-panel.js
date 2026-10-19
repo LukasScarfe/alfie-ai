@@ -13,13 +13,31 @@
 
 const V = new URL(import.meta.url).search;
 await import(`./alfie-card.js${V}`).catch(() => null); // usually loaded already; the card defines itself
+const Fm = await import(`./alfie-panel-forms.js${V}`);
+let TRANSITIONS = ["cut", "fade"];
+try { TRANSITIONS = [...(await import(`./alfie-intros.js${V}`)).STYLES]; } catch { /* the card's own intros are the truth */ }
 
 const TABS = [
   ["signals", "Signals"],
   ["mood", "Mood"],
   ["behaviour", "Behaviour"],
   ["personality", "Personality"],
+  ["screens", "Screens"],
+  ["look", "Look"],
+  ["playground", "Playground"],
 ];
+const CARD_STYLES = ["neon", "flat", "crt", "theme"];
+const LOOK_DEFAULT = {
+  style: "neon", face_color: "", eye_color: "", background: "", text_color: "", accent_color: "",
+  line_width: 0.035, screen_line_width: 0.02, glow: null, eye_fill: false, padding: 0.08,
+  shapes: { head: { type: "circle" }, eye: { type: "circle" } },
+};
+const LOOK_COLORS = [
+  ["face_color", "Ring colour"], ["eye_color", "Eye colour"], ["background", "Background"],
+  ["text_color", "Screen text colour"], ["accent_color", "Screen accent colour"],
+];
+const LOOK_EXPRESSIONS = ["happy", "sad", "angry", "surprised"];
+const SCREEN_PREVIEW_DELAY = 300;
 const PREVIEW_DELAY = 400;   // ms after the last edit
 const LEVEL_TEXT = {
   bubbly: "Bubbly", content: "Content", uneasy: "Uneasy", sad: "Sad", miserable: "Miserable",
@@ -105,6 +123,7 @@ class AlfiePanel extends HTMLElement {
   disconnectedCallback() {
     window.removeEventListener("beforeunload", this._onUnload);
     clearTimeout(this._previewTimer);
+    this._endPreviews();
     this._unsubScene?.then((u) => u()).catch(() => {});
     this._unsubScene = null;
   }
@@ -117,6 +136,11 @@ class AlfiePanel extends HTMLElement {
       this._choices = r.choices;
       this._saved = clone(r.config);
       this._draft = clone(r.config);
+      if (r.defaults.look) { // older servers have no look section
+        this._saved.look ??= clone(r.defaults.look);
+        this._draft.look ??= clone(r.defaults.look);
+      }
+      this._sdata = new Map();    // screen id -> {data, error} from alfie/screen_data
       this._loadError = null;
     } catch (e) {
       this._loadError = e?.message || String(e);
@@ -173,6 +197,7 @@ class AlfiePanel extends HTMLElement {
       const r = await this._hass.callWS({ type: "alfie/config/set", config: this._draft });
       this._saved = clone(r.config);
       this._draft = clone(r.config);
+      this._sdata = new Map();
       this._flash("Saved. Alfie is using it now.");
     } catch (e) {
       this._saveError = e?.message || String(e);
@@ -210,11 +235,18 @@ class AlfiePanel extends HTMLElement {
   // ------------------------------------------------------------ editing
 
   _onInput(ev) {
+    if (!this._draft) return;
+    const tool = ev.target.closest("[data-shape], [data-pg]");
+    if (tool) return this._onTool(tool, ev);
     const el = ev.target.closest("[data-path]");
-    if (!el || !this._draft) return;
+    if (!el) return;
     const path = el.dataset.path, kind = el.dataset.kind || "text";
     let v;
     if (kind === "bool") v = el.checked;
+    else if (kind === "optnum" || kind === "optent") {
+      // An option left empty is not written, so the type's default applies.
+      v = el.value.trim() === "" ? undefined : kind === "optnum" ? Number(el.value) : el.value.trim();
+    } else if (kind === "opttext") v = el.value;
     else if (kind === "number") {
       if (el.value === "") v = el.dataset.empty === "null" ? null : 0;
       else v = Number(el.value);
@@ -223,7 +255,29 @@ class AlfiePanel extends HTMLElement {
       v = el.value.trim() !== "" && Number.isFinite(Number(el.value)) ? Number(el.value) : el.value;
     } else v = el.value;
     if (/^signals\.\d+\.id$/.test(path) && this._open.delete(getPath(this._draft, path))) this._open.add(v);
-    setPath(this._draft, path, v);
+    if (/^screens\.\d+\.id$/.test(path)) {
+      const old = getPath(this._draft, path);
+      Fm.renameScreenRefs(this._draft, old, v);
+      if (this._open.delete(`s:${old}`)) this._open.add(`s:${v}`);
+      el.closest(".screen")?.querySelector(".spv")?.setAttribute("data-id", v);
+    }
+    if (v === undefined) {
+      const keys = path.split("."), last = keys.pop();
+      delete keys.reduce((o, k) => o[k], this._draft)[last];
+    } else setPath(this._draft, path, v);
+    if (el.type === "range") {
+      const out = el.parentElement.querySelector("output");
+      if (out) out.textContent = this._fmt(v);
+    }
+    if (kind === "opttext" && el.closest(".opt")) {
+      // swatch and text field edit the same colour
+      el.closest(".opt").querySelectorAll(`[data-path="${path}"]`).forEach((o) => {
+        if (o === el) return;
+        o.value = o.type === "color" ? Fm.swatchValue(v) : v;
+      });
+    }
+    if (path.startsWith("screens.")) this._schedScreenPreview(Number(path.split(".")[1]));
+    if (path.startsWith("look.")) this._applyLook();
     if (path.startsWith("personality.") && path !== "personality.preset") {
       this._draft.personality.preset = "custom";
       this.shadowRoot.querySelectorAll(".preset").forEach((b) => b.classList.toggle("on", b.dataset.preset === "custom"));
@@ -232,6 +286,11 @@ class AlfiePanel extends HTMLElement {
       this._livePersonality();
     }
     if (path.startsWith("mood.") && el.closest(".level")) this._drawLevel(el.closest(".level"));
+    if (/^screens\.\d+\.(title|id)$/.test(path)) {
+      const sc = this._draft.screens[Number(path.split(".")[1])];
+      const head = el.closest(".screen")?.querySelector(".label");
+      if (head) head.textContent = sc.title || sc.id;
+    }
     if (path.endsWith(".label")) {
       const head = el.closest(".signal")?.querySelector(".label");
       if (head) head.textContent = v || "(no label)";
@@ -246,7 +305,7 @@ class AlfiePanel extends HTMLElement {
     const a = el.dataset.action, d = this._draft;
     const i = Number(el.dataset.i), sigs = d?.signals;
     switch (a) {
-      case "tab": this._tab = el.dataset.tab; this._render(); return;
+      case "tab": this._endPreviews(); this._tab = el.dataset.tab; this._render(); return;
       case "save": this._save(); return;
       case "revert": this._revert(); return;
       case "reset": this._resetSection(el.dataset.section); return;
@@ -334,6 +393,95 @@ class AlfiePanel extends HTMLElement {
       case "play":
         this.shadowRoot.querySelector("#live")?.playLocal(el.dataset.name);
         return;
+      default: this._onClickMore(a, el, i);
+    }
+  }
+
+  _onClickMore(a, el, i) {
+    const d = this._draft, F = Fm;
+    const screens = d.screens, rots = d.rotations;
+    const key = el.dataset.key, j = Number(el.dataset.j);
+    switch (a) {
+      case "toggle-screen": {
+        const id = screens[i].id;
+        this._open.has(`s:${id}`) ? this._open.delete(`s:${id}`) : this._open.add(`s:${id}`);
+        this._render();
+        return;
+      }
+      case "add-screen": {
+        const type = this.shadowRoot.querySelector("#newtype")?.value;
+        const info = this._choices.screen_types?.[type];
+        if (!info) return;
+        const sc = F.newScreen(info, screens);
+        screens.push(sc);
+        this._open.add(`s:${sc.id}`);
+        this._edited(true);
+        return;
+      }
+      case "dup-screen": {
+        const sc = clone(screens[i]);
+        sc.id = F.uniqueId(screens, `${sc.id}_copy`);
+        sc.title = sc.title ? `${sc.title} (copy)` : sc.title;
+        screens.splice(i + 1, 0, sc);
+        this._open.add(`s:${sc.id}`);
+        this._edited(true);
+        return;
+      }
+      case "del-screen": {
+        const sc = screens[i];
+        const used = rots.reduce((n, r) => n + r.steps.filter((s) => s.screen === sc.id).length, 0);
+        if (!confirm(`Delete screen "${sc.title || sc.id}"?${used ? ` It is also removed from ${used} rotation step${used > 1 ? "s" : ""}.` : ""}`)) return;
+        F.dropScreenRefs(d, sc.id);
+        screens.splice(i, 1);
+        this._edited(true);
+        return;
+      }
+      case "up-screen": case "down-screen":
+        if (F.moveItem(screens, i, a === "up-screen" ? i - 1 : i + 1)) this._edited(true);
+        return;
+      case "add-opt-entity": {
+        const inp = el.parentElement.querySelector("input");
+        const v = inp.value.trim();
+        if (!v) return;
+        const o = (screens[i].options ??= {});
+        if (!Array.isArray(o[key])) o[key] = [];
+        if (!o[key].includes(v)) o[key].push(v);
+        this._edited(true);
+        return;
+      }
+      case "rm-opt-entity":
+        screens[i].options[key].splice(j, 1);
+        this._edited(true);
+        return;
+      case "add-rotation": {
+        const id = F.uniqueId(rots, "rotation");
+        rots.push({ id, name: "", transition: "random", face_seconds: 20, steps: screens.length ? [F.newStep(screens)] : [] });
+        this._edited(true);
+        return;
+      }
+      case "del-rotation":
+        if (!confirm(`Delete rotation "${rots[i].name || rots[i].id}"?`)) return;
+        rots.splice(i, 1);
+        this._edited(true);
+        return;
+      case "add-step":
+        if (!screens.length) return;
+        rots[i].steps.push(F.newStep(screens));
+        this._edited(true);
+        return;
+      case "rm-step":
+        rots[i].steps.splice(j, 1);
+        this._edited(true);
+        return;
+      case "up-step": case "down-step":
+        if (F.moveItem(rots[i].steps, j, a === "up-step" ? j - 1 : j + 1)) this._edited(true);
+        return;
+      case "glow-auto":
+        d.look.glow = el.checked ? null : 0.6;
+        this._edited(true);
+        this._applyLook();
+        return;
+      case "pg": this._pgClick(el); return;
     }
   }
 
@@ -373,7 +521,7 @@ class AlfiePanel extends HTMLElement {
     root.querySelector(".body").addEventListener("change", (e) => this._onInput(e));
     // Enter in the entity box adds it, like pressing Add.
     root.querySelector(".body").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") e.target.closest(".row")?.querySelector('[data-action="add-entity"]')?.click();
+      if (e.key === "Enter") e.target.closest(".row")?.querySelector('[data-action="add-entity"], [data-action="add-opt-entity"]')?.click();
     });
     this._mountFaces();
     this._showStatus();
@@ -405,8 +553,10 @@ class AlfiePanel extends HTMLElement {
   _showPreview() {
     const root = this.shadowRoot;
     const box = root.querySelector(".errors");
-    if (box) box.innerHTML = this._errors.length
-      ? `<div class="error"><b>Fix these before saving:</b><ul>${this._errors.map((e) => `<li>${esc(e)}</li>`).join("")}</ul></div>` : "";
+    // The server's save refusal is shown here too: the status bar truncates it.
+    const errs = this._saveError && !this._errors.includes(this._saveError) ? [...this._errors, this._saveError] : this._errors;
+    if (box) box.innerHTML = errs.length
+      ? `<div class="error"><b>${this._saveError ? "Not saved. Fix these first:" : "Fix these before saving:"}</b><ul>${errs.map((e) => `<li>${esc(e)}</li>`).join("")}</ul></div>` : "";
     const p = this._preview;
     if (!p) return;
     const byId = Object.fromEntries(p.signals.map((s) => [s.id, s]));
@@ -614,11 +764,339 @@ class AlfiePanel extends HTMLElement {
         </div></div>${this._footer("personality")}`;
   }
 
+  _screens() {
+    const d = this._draft, types = this._choices.screen_types || {};
+    this._lists = new Map();
+    const list = (domain) => {
+      const k = (domain || []).join(",");
+      if (!this._lists.has(k)) this._lists.set(k, `ent-${this._lists.size}`);
+      return this._lists.get(k);
+    };
+    const n = d.screens.length;
+    const cards = d.screens.map((sc, i) => this._screenCard(sc, i, n, types, list)).join("");
+    const lists = [...this._lists].map(([k, id]) => `<datalist id="${id}">${Object.keys(this._hass.states).sort()
+      .filter((e) => Fm.inDomains(e, k ? k.split(",") : null)).map((e) => `<option value="${esc(e)}">`).join("")}</datalist>`).join("");
+    const tsel = Object.entries(types).map(([k, t]) => `<option value="${esc(k)}">${esc(t.title || k)}</option>`).join("");
+    return `<p class="intro">Screens are data pages Alfie shows: a plot, the weather, the sky. A card shows them when a
+      signal points at one, from the <code>alfie.show_screen</code> service, or in a rotation (below). Each screen has its own
+      options; defaults are shown greyed.</p>
+      ${cards || `<p class="muted">No screens yet.</p>`}
+      <div class="row"><select id="newtype">${tsel}</select>
+        <button class="add grow" data-action="add-screen">+ Add a screen</button></div>
+      <h3>Rotations</h3>
+      <p class="intro">A rotation cycles through screens on a card: each step shows its screen, then Alfie himself for the
+        face time, then the next step. Point a card at one with <code>mode: rotation</code>.</p>
+      ${d.rotations.map((r, i) => this._rotation(r, i)).join("") || `<p class="muted">No rotations yet.</p>`}
+      <button class="add" data-action="add-rotation">+ Add a rotation</button>
+      <div class="footer row">
+        <button class="flat" data-action="reset" data-section="screens">Reset screens to the house defaults</button>
+        <button class="flat" data-action="reset" data-section="rotations">Reset rotations to the house defaults</button></div>
+      ${lists}`;
+  }
+
+  _screenCard(sc, i, n, types, list) {
+    const open = this._open.has(`s:${sc.id}`), info = types[sc.type];
+    const head = `<div class="row head">
+        <span class="chip">${esc(info?.title || sc.type)}</span>
+        <span class="label" data-action="toggle-screen" data-i="${i}">${esc(sc.title || sc.id)}</span>
+        <span class="muted"><code>${esc(sc.id)}</code></span>
+        <span class="tools">
+          <button class="icon" data-action="up-screen" data-i="${i}" ${i ? "" : "disabled"} title="Move up">▲</button>
+          <button class="icon" data-action="down-screen" data-i="${i}" ${i < n - 1 ? "" : "disabled"} title="Move down">▼</button>
+          <button class="icon" data-action="toggle-screen" data-i="${i}" title="Edit">${open ? "▾" : "▸"}</button>
+        </span></div>`;
+    if (!open) return `<div class="screen card">${head}</div>`;
+    const P = `screens.${i}`;
+    const form = info ? info.options.map((o) => Fm.optionField(o, sc.options?.[o.key], `${P}.options`,
+      { i, type: sc.type, list })).join("") : `<p class="error">Unknown screen type "${esc(sc.type)}".</p>`;
+    const needs = info?.needs;
+    const saved = this._saved.screens.some((x) => x.id === sc.id && x.type === sc.type);
+    const dataNote = !needs ? "" : saved
+      ? `Data comes from the saved options${same(this._saved.screens.find((x) => x.id === sc.id).options, sc.options) ? "" : "; your edits show after saving"}.`
+      : "Save to load data: until then this shows the placeholder.";
+    return `<div class="screen card open">${head}
+      <div class="split2">
+        <div>
+          <div class="grid">
+            <label>Screen name<input data-path="${P}.title" value="${esc(sc.title)}" placeholder="${esc(info?.title || "")}"></label>
+            <label>ID<input data-path="${P}.id" value="${esc(sc.id)}" pattern="[a-z0-9_]+"></label>
+          </div>
+          <div class="grid">${form}</div>
+        </div>
+        <div class="pvbox"><alfie-card class="spv" data-id="${esc(sc.id)}"></alfie-card>
+          <small class="pvnote">${esc(dataNote)}</small></div>
+      </div>
+      <div class="row end">
+        <button class="flat" data-action="dup-screen" data-i="${i}">Duplicate</button>
+        <button class="flat danger" data-action="del-screen" data-i="${i}">Delete</button>
+      </div></div>`;
+  }
+
+  _rotation(r, i) {
+    const P = `rotations.${i}`, screens = this._draft.screens;
+    const sel = (j, v) => `<select data-path="${P}.steps.${j}.screen">${screens.map((s) =>
+      `<option value="${esc(s.id)}" ${s.id === v ? "selected" : ""}>${esc(s.title || s.id)}</option>`).join("")}
+      ${screens.some((s) => s.id === v) ? "" : `<option value="${esc(v)}" selected>${esc(v || "(none)")} (missing)</option>`}</select>`;
+    const steps = r.steps.map((st, j) => `<div class="row">
+        <span class="muted">${j + 1}.</span> ${sel(j, st.screen)}
+        <input type="number" class="secs" data-path="${P}.steps.${j}.seconds" data-kind="number" min="3" max="3600" step="1" value="${esc(st.seconds)}"> s
+        <span class="tools">
+          <button class="icon" data-action="up-step" data-i="${i}" data-j="${j}" ${j ? "" : "disabled"} title="Move up">▲</button>
+          <button class="icon" data-action="down-step" data-i="${i}" data-j="${j}" ${j < r.steps.length - 1 ? "" : "disabled"} title="Move down">▼</button>
+          <button class="icon" data-action="rm-step" data-i="${i}" data-j="${j}" title="Remove">✕</button></span></div>`).join("");
+    return `<div class="card rotation">
+      <div class="grid">
+        <label>Name<input data-path="${P}.name" value="${esc(r.name)}" placeholder="Living room"></label>
+        <label>ID<input data-path="${P}.id" value="${esc(r.id)}" pattern="[a-z0-9_]+"></label>
+        <label>Transition${this._select(`${P}.transition`, r.transition, [...TRANSITIONS, "random"])}
+          <small>How Alfie and a screen swap places. Random picks a different one each time.</small></label>
+        <label>Alfie shows for (seconds)${this._num(`${P}.face_seconds`, r.face_seconds, { min: 0, max: 3600, step: 1 })}
+          <small>Between screens. 0 goes straight on.</small></label>
+      </div>
+      <span class="lbl">Steps</span>
+      ${steps || `<p class="muted">No steps yet.</p>`}
+      <div class="row"><button class="flat" data-action="add-step" data-i="${i}" ${screens.length ? "" : "disabled"}>+ Add a step</button>
+        <span class="grow"></span><button class="flat danger" data-action="del-rotation" data-i="${i}">Delete rotation</button></div>
+    </div>`;
+  }
+
+  _look() {
+    const L = this._draft.look;
+    if (!L) return `<p class="error">This version of Alfie has no look settings.</p>`;
+    const colors = LOOK_COLORS.map(([k, t]) => `<label class="opt">${t}<span class="row">
+        <input type="color" class="swatch" data-path="look.${k}" data-kind="opttext" value="${Fm.swatchValue(L[k])}">
+        <input class="grow" data-path="look.${k}" data-kind="opttext" value="${esc(L[k])}" placeholder="from the style"></span></label>`).join("");
+    const range = (path, v, min, max, step, text) => `<label class="slider"><span>${text}</span>
+        <input type="range" min="${min}" max="${max}" step="${step}" data-path="${path}" data-kind="number" value="${v}">
+        <output>${this._fmt(v)}</output></label>`;
+    const shapes = [["head", "Head"], ["eye", "Eyes"]].map(([part, title]) => this._shapeEditor(part, title, L.shapes?.[part])).join("");
+    const extra = L.shapes && (L.shapes.left_eye || L.shapes.right_eye)
+      ? `<p class="muted">A separate left or right eye shape is kept as it is; edit it in YAML.</p>` : "";
+    return `<p class="intro">How Alfie is drawn, everywhere. A card's own options (set in its editor or YAML) still win over
+      this, key by key, so a card can look different from the rest.</p>
+      <div class="split"><div>
+        <h3>Style and colour</h3>
+        <div class="grid"><label>Style${this._select("look.style", L.style, this._choices.styles || CARD_STYLES)}
+          <small>Sets the default colours and glow.</small></label></div>
+        <div class="grid">${colors}</div>
+        <p class="muted">Empty means the style's own. A colour is <code>#hex</code>, a CSS colour or <code>var(--primary-color)</code>.</p>
+        <h3>Lines</h3>
+        <div class="sliders">${range("look.line_width", L.line_width, 0.005, 0.1, 0.005, "Face line width")}
+          ${range("look.screen_line_width", L.screen_line_width, 0.005, 0.06, 0.005, "Screen line width")}
+          ${range("look.padding", L.padding, 0, 0.3, 0.01, "Padding around the ring")}</div>
+        <div class="glow"><label class="check"><input type="checkbox" data-action="glow-auto" ${L.glow == null ? "checked" : ""}> Glow from the style</label>
+          ${L.glow == null ? "" : range("look.glow", L.glow, 0, 2, 0.05, "Glow")}</div>
+        <label class="check"><input type="checkbox" data-path="look.eye_fill" data-kind="bool" ${L.eye_fill ? "checked" : ""}> Fill the eyes</label>
+        <h3>Shapes</h3>${shapes}${extra}
+      </div>
+      <div class="live card"><alfie-card id="look"></alfie-card>
+        <div class="minis">${LOOK_EXPRESSIONS.map((e) => `<figure><alfie-card class="lookmini" data-expr="${e}"></alfie-card><figcaption>${e}</figcaption></figure>`).join("")}</div>
+        <div class="anims">${LOOK_EXPRESSIONS.map((e) => `<button class="chip pick" data-action="pg" data-pg-kind="look-expr" data-name="${e}">${e}</button>`).join("")}
+          <button class="chip pick on" data-action="pg" data-pg-kind="look-expr" data-name="">follow mood</button></div>
+        <small class="muted">Live Alfie with the look as edited here, before you save.</small>
+      </div></div>${this._footer("look")}`;
+  }
+
+  _shapeEditor(part, title, spec) {
+    spec ||= { type: "circle" };
+    const type = spec.type || "circle";
+    const types = [...Object.keys(Fm.SHAPE_PARAMS), ...(type === "path" ? ["path"] : [])];
+    const params = type === "path" ? [] : [...Fm.SHAPE_PARAMS[type], ...Fm.SHAPE_COMMON];
+    return `<div class="card shape"><label>${title}
+        <select data-shape="${part}" data-param="type">${types.map((t) =>
+          `<option value="${t}" ${t === type ? "selected" : ""}>${t === "path" ? "path (edit in YAML)" : t}</option>`).join("")}</select></label>
+      ${type === "path" ? `<p class="muted">A custom path. Edit its points in YAML (or the later shape editor); it is kept untouched here.</p>` : ""}
+      ${params.map(([k, min, max, step]) => `<label class="slider"><span>${k.replace("_", " ")}</span>
+        <input type="range" min="${min}" max="${max}" step="${step}" data-shape="${part}" data-param="${k}" value="${Fm.shapeParam(spec, k)}">
+        <output>${this._fmt(Fm.shapeParam(spec, k))}</output></label>`).join("")}</div>`;
+  }
+
+  _playground() {
+    const c = this._choices, pg = this._pg ??= { everywhere: false, level: null, expr: "", energy: 0.8 };
+    const chip = (kind, name, text, on) => `<button class="chip pick ${on ? "on" : ""}" data-action="pg" data-pg-kind="${kind}" data-name="${esc(name)}">${esc(text ?? name)}</button>`;
+    return `<p class="intro">Try Alfie out: everything here is a preview on this page only, unless you turn on
+      "play on every display". Nothing here is saved.</p>
+      <div class="split"><div>
+        <h3>Expressions</h3>
+        <div class="anims">${chip("expr", "", "follow mood", pg.expr === "")}${c.expressions.map((e) => chip("expr", e, e, pg.expr === e)).join("")}</div>
+        <h3>Animations</h3>
+        <div class="anims">${c.animations.map((a) => chip("anim", a)).join("")}</div>
+        <h3>A mood level's look</h3>
+        <p class="muted">Holds that level's expression and energy from the Mood tab (your draft), so you can judge them in motion.</p>
+        <div class="anims">${c.levels.map((l) => chip("level", l, LEVEL_TEXT[l], pg.level === l)).join("")}</div>
+        <label class="slider"><span><b>Energy</b><small>How quick, big and bouncy the motion is. Sliding it holds that energy.</small></span>
+          <input type="range" id="pg-energy" min="0.05" max="1.5" step="0.05" data-pg="energy" value="${pg.energy}">
+          <output>${this._fmt(pg.energy)}</output></label>
+        <h3>Personality</h3>
+        <div class="anims">${Object.keys(c.personalities).filter((k) => c.personalities[k]).map((k) => chip("pers", k, k)).join("")}</div>
+        <h3>Where</h3>
+        <label class="check"><input type="checkbox" data-pg="everywhere" ${pg.everywhere ? "checked" : ""}>
+          Play on every display (uses the services: expressions hold for 10 seconds)</label>
+        <div class="row"><button class="flat" data-action="pg" data-pg-kind="reset">Reset everything</button></div>
+      </div>
+      <div class="live card"><alfie-card id="pg"></alfie-card>
+        <small class="muted">Live Alfie, following the house until you pick something.</small></div></div>`;
+  }
+
+  // Playground and Look clicks and sliders. Local previews go to the card on this page;
+  // "everywhere" calls the services instead.
+  _pgClick(el) {
+    const kind = el.dataset.pgKind, name = el.dataset.name, pg = this._pg ??= { everywhere: false, level: null, expr: "", energy: 0.8 };
+    const card = this.shadowRoot.querySelector("#pg") || this.shadowRoot.querySelector("#look");
+    const on = (btns, pick) => btns.forEach((b) => b.classList.toggle("on", pick(b)));
+    const sibs = () => [...el.parentElement.querySelectorAll(`[data-pg-kind="${kind}"]`)];
+    const call = (svc, data) => this._hass.callService("alfie", svc, data).catch((e) => this._flash(e?.message || String(e)));
+    switch (kind) {
+      case "expr": case "look-expr":
+        if (kind === "expr") { pg.expr = name; pg.level = null; this.shadowRoot.querySelectorAll('[data-pg-kind="level"]').forEach((b) => b.classList.remove("on")); }
+        on(sibs(), (b) => b === el);
+        if (pg.everywhere && kind === "expr") call("set_expression", { expression: name || "auto", duration: 10 });
+        else card?.previewExpression?.(name || null);
+        return;
+      case "anim":
+        if (pg.everywhere) call("play_animation", { animation: name });
+        else card?.playLocal?.(name);
+        return;
+      case "level": {
+        const m = this._draft.mood;
+        pg.level = name; pg.expr = m.expressions[name]; pg.energy = Number(m.energy[name]);
+        on(sibs(), (b) => b === el);
+        this.shadowRoot.querySelectorAll('[data-pg-kind="expr"]').forEach((b) => b.classList.toggle("on", b.dataset.name === pg.expr));
+        const sl = this.shadowRoot.querySelector("#pg-energy");
+        if (sl) { sl.value = pg.energy; sl.parentElement.querySelector("output").textContent = this._fmt(pg.energy); }
+        if (pg.everywhere) call("set_expression", { expression: pg.expr, duration: 10 });
+        else { card?.previewExpression?.(pg.expr); card?.previewEnergy?.(pg.energy); }
+        return;
+      }
+      case "pers": {
+        const vals = this._choices.personalities[name];
+        on(sibs(), (b) => b === el);
+        card?.setPersonality?.(vals);
+        return;
+      }
+      case "reset": {
+        this._pg = null;
+        card?.previewExpression?.(null);
+        card?.previewEnergy?.(null);
+        card?.setPersonality?.(null);
+        this._render();
+        return;
+      }
+    }
+  }
+
+  _onTool(el, ev) {
+    const card = this.shadowRoot.querySelector("#pg");
+    if (el.dataset.pg === "energy") {
+      const pg = this._pg ??= { everywhere: false, level: null, expr: "", energy: 0.8 };
+      pg.energy = Number(el.value);
+      el.parentElement.querySelector("output").textContent = this._fmt(pg.energy);
+      card?.previewEnergy?.(pg.energy);
+      return;
+    }
+    if (el.dataset.pg === "everywhere") {
+      (this._pg ??= { everywhere: false, level: null, expr: "", energy: 0.8 }).everywhere = el.checked;
+      if (el.checked) { card?.previewExpression?.(null); card?.previewEnergy?.(null); }
+      return;
+    }
+    if (el.dataset.shape) {
+      const part = el.dataset.shape, L = this._draft.look;
+      L.shapes ??= {};
+      let spec = L.shapes[part] || { type: "circle" };
+      if (el.dataset.param === "type") {
+        if (ev.type !== "change") return;
+        spec = Fm.changeShapeType(spec, el.value);
+        L.shapes[part] = spec;
+        this._edited(true);
+      } else {
+        spec = Fm.setShapeParam(spec, el.dataset.param, Number(el.value));
+        L.shapes[part] = spec;
+        el.parentElement.querySelector("output").textContent = this._fmt(el.value);
+        this._edited();
+      }
+      this._applyLook();
+    }
+  }
+
+  // ------------------------------------------------------------ previews
+
+  _endPreviews() {
+    const root = this.shadowRoot;
+    for (const id of ["#pg", "#look"]) {
+      const c = root?.querySelector(id);
+      c?.previewExpression?.(null);
+      c?.previewEnergy?.(null);
+      c?.previewLook?.(null);
+    }
+    clearTimeout(this._spTimer);
+  }
+
+  _applyLook() {
+    const c = this.shadowRoot.querySelector("#look");
+    if (c?.previewLook) c.previewLook(clone(this._draft.look));
+    this.shadowRoot.querySelectorAll(".lookmini").forEach((m) => this._drawLookMini(m));
+  }
+
+  _drawLookMini(m) {
+    m.previewLook?.(clone(this._draft.look));
+    m.renderStill?.({ expression: m.dataset.expr, energy: 0.9 });
+  }
+
+  _schedScreenPreview() {
+    clearTimeout(this._spTimer);
+    this._spTimer = setTimeout(() => this.shadowRoot.querySelectorAll(".spv").forEach((c) => this._drawScreenPreview(c)), SCREEN_PREVIEW_DELAY);
+  }
+
+  async _drawScreenPreview(card) {
+    const sc = this._draft?.screens.find((x) => x.id === card.dataset.id);
+    const note = card.parentElement.querySelector(".pvnote");
+    if (!sc || !card.setConfig) return;
+    if (!card._configured) { card.setConfig({ card: false, aspect: 1.6, padding: 0.06 }); card._configured = true; }
+    const typeInfo = this._choices.screen_types?.[sc.type];
+    const seq = card._seq = (card._seq || 0) + 1;
+    try {
+      await card.renderScreenStill({
+        type: sc.type, options: sc.options || {}, typeInfo, data: this._sdata.get(sc.id)?.data ?? null,
+        t: Date.now() / 1000, states: this._hass.states, config: this._hass.config, present: "handover", u: 1,
+        title: sc.title,
+      });
+    } catch (e) {
+      if (seq === card._seq && note) note.textContent = `Preview failed: ${e?.message || e}`;
+    }
+    // A saved screen that needs data gets it once; the preview shows the saved data.
+    const saved = this._saved.screens.some((x) => x.id === sc.id && x.type === sc.type);
+    if (typeInfo?.needs && saved && !this._sdata.has(sc.id)) {
+      this._sdata.set(sc.id, {});
+      try {
+        const r = await this._hass.callWS({ type: "alfie/screen_data", screen: sc.id });
+        this._sdata.set(sc.id, r);
+        if (r.error && note) note.textContent = `Data: ${r.error}`;
+      } catch (e) {
+        this._sdata.delete(sc.id);
+        if (note) note.textContent = `Data failed: ${e?.message || e}`;
+        return;
+      }
+      if (card.isConnected && card.dataset.id === sc.id) this._drawScreenPreview(card);
+    }
+  }
+
   // ------------------------------------------------------------ faces
 
   _mountFaces() {
     const root = this.shadowRoot;
     root.querySelectorAll(".level").forEach((el) => this._drawLevel(el));
+    root.querySelectorAll(".spv").forEach((c) => this._drawScreenPreview(c));
+    for (const id of ["#look", "#pg"]) {
+      const c = root.querySelector(id);
+      if (!c?.setConfig) continue;
+      c.setConfig({ card: false });
+      c.hass = this._hass;
+    }
+    if (this._tab === "look") this._applyLook();
+    root.querySelectorAll(".lookmini").forEach((m) => {
+      m.setConfig?.({ card: false, padding: 0.06 });
+      this._drawLookMini(m);
+    });
     const live = root.querySelector("#live");
     if (live?.setConfig) {
       live.setConfig({ card: false, personality: this._personalityValues() });
@@ -728,7 +1206,23 @@ const CSS = `
   .error ul { margin: 4px 0 0; padding-left: 20px; }
   .bad { color: #ffd0cc; } .good { color: #d6ffd8; } .warn { font-weight: 500; }
   .footer { margin: 32px 0 16px; padding-top: 12px; border-top: 1px solid var(--divider-color); }
-  @media (max-width: 700px) { .split { grid-template-columns: 1fr; } .live { position: static; } .status .muted { display: none; } }
+  .req { color: var(--error-color, #db4437); }
+  .note { margin: 4px 0; padding: 6px 10px; border-left: 3px solid var(--warning-color, #ffa600); background: var(--secondary-background-color);
+          color: var(--primary-text-color); font-size: 12px; border-radius: 4px; }
+  .opt .row { margin: 0; }
+  .screen.open { border-color: var(--primary-color); }
+  .split2 { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+  .pvbox { position: sticky; top: 72px; }
+  .pvbox alfie-card, .minis alfie-card, #pg { display: block; background: #000; border-radius: 8px; overflow: hidden; }
+  .pvnote { min-height: 1em; }
+  .secs { width: 80px; }
+  input.swatch { width: 40px; padding: 2px; height: 34px; flex: none; }
+  .minis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0; }
+  .minis figure { margin: 0; text-align: center; font-size: 12px; color: var(--secondary-text-color); }
+  .shape { margin: 8px 0; }
+  .glow { margin: 8px 0; display: flex; flex-direction: column; gap: 8px; }
+  @media (max-width: 700px) { .split2 { grid-template-columns: 1fr; } .pvbox { position: static; }
+    .split { grid-template-columns: 1fr; } .live { position: static; } .status .muted { display: none; } }
 `;
 
 customElements.define("alfie-panel", AlfiePanel);
