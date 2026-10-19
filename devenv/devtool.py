@@ -43,6 +43,7 @@ SEED = {
     "binary_sensor.hallway_closet_motion_sensor_battery_low": "off",
     "input_boolean.guest_mode": "off",
     "switch.global_sleep_switches": "off",
+    "zone.home": ("2", {"friendly_name": "Home"}),   # people home: below 1 is the Away mode
     "binary_sensor.living_room_motion_sensor_occupancy": "off",
     "binary_sensor.hallway_motion_sensor_occupancy": "off",
     "binary_sensor.hallway_closet_motion_sensor_occupancy": "off",

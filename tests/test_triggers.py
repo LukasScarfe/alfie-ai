@@ -39,7 +39,7 @@ def trig(kind="entity", **kw):
 def test_default_triggers_validate_in_order():
     cfg = valid(default_config())
     assert [t["id"] for t in cfg["triggers"]] == ["critical", "mood_worse", "fixed",
-                                                  "mood_better", "wake"]
+                                                  "mood_better", "wake", "welcome"]
     assert json.dumps(cfg["triggers"]) == json.dumps(default_config()["triggers"])
 
 

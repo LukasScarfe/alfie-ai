@@ -89,9 +89,9 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
 - [~] **5. House modes.** Night, away, guests and user-defined modes with overrides. Decided with
       Lukas: one mode at a time (list order wins), away idles and greets on arrival, no guests
       default for now; a mode overrides presence, mood/bad news, personality, rotation, triggers.
-  - [ ] A. Model (pure): `modes.py`, trigger kind `mode`, config v3 (sleep_entity → Night),
+  - [x] A. Model (pure): `modes.py`, trigger kind `mode`, config v3 (sleep_entity → Night),
         defaults Night and Away, Welcome home story and trigger; tests.
-  - [ ] B. Engine: mode resolution and overrides, mode triggers, scene `mode_info`, dynamic
+  - [x] B. Engine: mode resolution and overrides, mode triggers, scene `mode_info`, dynamic
         `select.alfie_mode` options; tests.
   - [ ] C. Card: blank presence (nothing drawn, loop paused), mode rotation or pause,
         `follow_mode` option and editor; checks.

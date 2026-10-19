@@ -42,13 +42,15 @@ from .mood import (
 )
 from .signals import OPERATORS, SEVERITIES, Signal
 from .stories import validate_stories
+from .modes import mode_ids, validate_modes
 from .triggers import validate_triggers
 
 # 2: the behaviour reactions (on_critical, on_recover, on_wake, celebrate)
 # became triggers and stories; migrate_v1 carries them over.
-CONFIG_VERSION = 2
+# 3: house modes; behaviour.sleep_entity became the Night mode (migrate_v2).
+CONFIG_VERSION = 3
 SECTIONS = ("signals", "mood", "behaviour", "personality", "look", "screens", "rotations",
-            "stories", "triggers")
+            "stories", "triggers", "modes")
 STYLES = ("neon", "flat", "crt", "theme")     # the card's render styles
 SHAPE_TYPES = ("circle", "polygon", "star", "superellipse", "path")
 SHAPE_SLOTS = ("head", "eye", "left_eye", "right_eye")
@@ -132,7 +134,6 @@ def default_config() -> dict[str, Any]:
             "energy": dict(DEFAULT_ENERGY),
         },
         "behaviour": {
-            "sleep_entity": defaults.SLEEP_ENTITY,
             "sleep_expression": defaults.SLEEP_EXPRESSION,
             "gaze_map": [{"entity": e, "action": a} for e, a in defaults.GAZE_MAP.items()],
             "notice": list(defaults.NOTICE),
@@ -148,6 +149,7 @@ def default_config() -> dict[str, Any]:
         "rotations": [],
         "stories": copy.deepcopy(list(defaults.STORIES)),
         "triggers": copy.deepcopy(list(defaults.TRIGGERS)),
+        "modes": copy.deepcopy(list(defaults.MODES)),
     }
 
 
@@ -189,7 +191,7 @@ def migrate_v1(raw: Mapping[str, Any]) -> dict[str, Any]:
     if raw.get("version", 1) >= 2 or "triggers" in raw:
         return raw
     base = default_config()
-    raw["version"] = CONFIG_VERSION
+    raw["version"] = 2
     raw["stories"], raw["triggers"] = base["stories"], base["triggers"]
     b = raw.get("behaviour") if isinstance(raw.get("behaviour"), Mapping) else {}
     b = dict(b)
@@ -206,6 +208,34 @@ def migrate_v1(raw: Mapping[str, Any]) -> dict[str, Any]:
     if "celebrate" in b and not b.pop("celebrate"):
         _enable(raw, "fixed", False)
     raw["behaviour"] = b
+    return raw
+
+
+def migrate_v2(raw: dict[str, Any]) -> dict[str, Any]:
+    """A version 2 config as version 3: the sleep entity becomes the Night
+    mode (none: Night is only picked by hand), Away joins it, and the
+    Welcome home story and trigger are added. Anything already v3 passes."""
+    if raw.get("version", 1) >= 3 or "modes" in raw:
+        return raw
+    raw["version"] = CONFIG_VERSION
+    b = raw.get("behaviour")
+    b = dict(b) if isinstance(b, Mapping) else {}
+    entity = str(b.pop("sleep_entity", defaults.SLEEP_ENTITY) or "").strip()
+    raw["behaviour"] = b
+    away = copy.deepcopy(next(m for m in defaults.MODES if m["id"] == "away"))
+    triggers = raw.get("triggers")
+    if isinstance(triggers, list):
+        ids = {t.get("id") for t in triggers if isinstance(t, Mapping)}
+        away["triggers_off"] = [t for t in away["triggers_off"] if t in ids]
+    raw["modes"] = [defaults.night_mode(entity), away]
+    stories = raw.get("stories")
+    if isinstance(stories, list) and not any(
+            isinstance(st, Mapping) and st.get("id") == "welcome_home" for st in stories):
+        raw["stories"] = [*stories, copy.deepcopy(
+            next(st for st in defaults.STORIES if st["id"] == "welcome_home"))]
+    if isinstance(triggers, list) and "welcome" not in ids:
+        raw["triggers"] = [*triggers, copy.deepcopy(
+            next(t for t in defaults.TRIGGERS if t["id"] == "welcome"))]
     return raw
 
 
@@ -396,7 +426,6 @@ def _behaviour(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
         act = ck.choice(f"motion {ent}", g.get("action", NOTICE), (NOTICE, *animations), NOTICE)
         gaze.append({"entity": ent, "action": act})
     return {
-        "sleep_entity": str(b.get("sleep_entity") or "").strip(),
         "sleep_expression": ck.choice("sleep expression", b["sleep_expression"], expressions,
                                       "closed"),
         "gaze_map": gaze,
@@ -617,7 +646,7 @@ def validate(raw: Any, face: Mapping[str, Any],
     problem. Missing sections and keys take the defaults."""
     if not isinstance(raw, Mapping):
         raise ConfigError(["config must be a mapping"])
-    raw = _add_appear(migrate_v1(raw))
+    raw = migrate_v2(_add_appear(migrate_v1(raw)))
     ck = _Check()
     base = default_config()
     expressions = tuple(face.get("expressions") or ())
@@ -635,9 +664,18 @@ def validate(raw: Any, face: Mapping[str, Any],
                                   {s["id"] for s in cfg["screens"]}, ck)
     cfg["stories"] = validate_stories(raw.get("stories", base["stories"]), ck, expressions,
                                       animations, {s["id"] for s in cfg["screens"]})
+    raw_modes = raw.get("modes", base["modes"])
     cfg["triggers"] = validate_triggers(raw.get("triggers", base["triggers"]), ck,
                                         {s["id"] for s in cfg["stories"]},
-                                        {s["id"] for s in cfg["signals"]})
+                                        {s["id"] for s in cfg["signals"]},
+                                        mode_ids(raw_modes))
+    cfg["modes"] = validate_modes(raw_modes, ck, tuple(face.get("personalities") or ()),
+                                  {r["id"] for r in cfg["rotations"]})
+    trigger_ids = {t["id"] for t in cfg["triggers"]}
+    for m in cfg["modes"]:
+        for tid in m["triggers_off"]:
+            if tid not in trigger_ids:
+                ck.bad(f"mode {m['id']} triggers off", f"trigger {tid!r} does not exist")
     story_ids = {s["id"] for s in cfg["stories"]}
     for key in ("appear_story_bad", "appear_story_ok"):
         sid = cfg["behaviour"][key]
