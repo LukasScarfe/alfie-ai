@@ -18,7 +18,8 @@ from typing import Any
 
 from . import Provider, register
 
-MAX_BUCKETS = 60
+MAX_BUCKETS = 240
+DEFAULT_BUCKETS = 96
 STATS_FROM_HOURS = 240        # spans over 10 days use long-term statistics when they exist
 MIN_TTL, MAX_TTL = 900.0, 21600.0
 
@@ -116,7 +117,7 @@ class HistoryProvider(Provider):
     async def get(self, hass: Any, screen: dict) -> dict:
         # Same as the base, but the ttl scales with the span.
         o = screen.get("options") or {}
-        ttl = ttl_for(o.get("hours") or 72, o.get("buckets") or 36)
+        ttl = ttl_for(o.get("hours") or 72, o.get("buckets") or DEFAULT_BUCKETS)
         opts = json.dumps(o, sort_keys=True, default=str)
         key = (screen["id"], hashlib.sha1(opts.encode()).hexdigest()[:12])
         res = await self.cache.get(key, ttl, lambda: self.fetch(hass, screen))
@@ -126,7 +127,7 @@ class HistoryProvider(Provider):
         o = screen.get("options") or {}
         entities = [e for e in (o.get("entities") or []) if isinstance(e, str)][:6]
         hours = max(1.0, float(o.get("hours") or 72))
-        buckets = max(2, min(int(o.get("buckets") or 36), MAX_BUCKETS))
+        buckets = max(2, min(int(o.get("buckets") or DEFAULT_BUCKETS), MAX_BUCKETS))
         combine = o.get("combine") if o.get("combine") in COMBINE else "mean"
         # Hourly statistics have no "last"; the mean stands in for it.
         field = combine if combine in ("max", "min") else "mean"

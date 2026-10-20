@@ -40,6 +40,10 @@ function screens(p) {
       .split2 { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
       .pvbox { position: sticky; top: 120px; padding-top: 12px; }
       .pvnote { min-height: 1em; }
+      .pertable { display: grid; grid-template-columns: minmax(90px, 1.2fr) repeat(var(--per), minmax(110px, 1fr)) auto; gap: 6px 8px; align-items: center; margin: 4px 0 6px; overflow-x: auto; }
+      .pertable > code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .pertable input, .pertable select { min-width: 0; width: 100%; }
+      .iconfield { flex-wrap: nowrap; gap: 6px; } .iconfield ha-icon { flex: none; --mdc-icon-size: 22px; }
       @media (max-width: 760px) { .split2 { grid-template-columns: 1fr; } .pvbox { position: static; } }
     </style>`;
 }
@@ -52,7 +56,7 @@ function screen(p, sc, i, n, types, list) {
       actions: { toggle: "sc-toggle", up: "sc-up", down: "sc-down" } });
   }
   const form = info ? info.options.map((o) => Fm.optionField(o, sc.options?.[o.key], `${P}.options`,
-    { i, type: sc.type, list })).join("") : `<p class="error">Unknown screen type "${U.esc(sc.type)}".</p>`;
+    { i, type: sc.type, list, options: info.options, values: sc.options })).join("") : `<p class="error">Unknown screen type "${U.esc(sc.type)}".</p>`;
   const saved = p.saved.screens.find((x) => x.id === sc.id && x.type === sc.type);
   const dataNote = !info?.needs ? "" : saved
     ? `Data comes from the saved options${U.same(saved.options, sc.options) ? "" : "; your edits show after saving"}.`
@@ -236,7 +240,16 @@ export function click(p, a, el) {
       p.edited(true);
       return true;
     }
-    case "rm-opt-entity": screens[i].options[key].splice(j, 1); p.edited(true); return true;
+    case "rm-opt-entity": {
+      // Options held per entity lose that entity's item too, so the rest keep theirs.
+      const o = screens[i].options;
+      o[key].splice(j, 1);
+      for (const t of p.choices.screen_types?.[screens[i].type]?.options || []) {
+        if (t.per === key && o[t.key] !== undefined) o[t.key] = Fm.perDrop(o[t.key], j) || undefined;
+      }
+      p.edited(true);
+      return true;
+    }
     case "rot-toggle": p.flip(`r:${rots[i].id}`); return true;
     case "rot-add": {
       const rid = Fm.uniqueId(rots, "rotation");

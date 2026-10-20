@@ -15,8 +15,10 @@ function autoIcon(id, st) {
 
 const ICONS = (S) => ({
   leaf: (x, y, s) => S.leaf(x, y, s), drop: (x, y, s) => S.drop(x, y, s), house: (x, y, s) => S.house(x, y, s),
-  sun: (x, y, s) => S.sun(x, y, s * 0.28, 8, 0.7), cloud: (x, y, s) => S.cloud(x, y, s),
+  sun: (x, y, s) => S.sun(x, y, s * 0.28, 8, 0.7), cloud: (x, y, s) => S.cloud(x, y, s), car: (x, y, s) => S.car(x, y, s),
 });
+// Any icon name (mdi:thermometer) draws that icon `s` across, as a marker does.
+const iconOf = (name, S) => (S.isIcon(name) ? (x, y, s) => S.marker(name, x, y, s / S.MARKER_ICON) : ICONS(S)[name]);
 
 export default {
   type: "value",
@@ -32,7 +34,7 @@ export default {
     const hot = raw !== null && ((below !== null && raw < below) || (above !== null && raw > above));
     const role = hot ? "accent" : "text";
     const iconName = o.icon === "auto" ? autoIcon(o.entity, st) : o.icon;
-    const icon = ICONS(S)[iconName];
+    const icon = iconOf(iconName, S);
 
     // Block at unit digit height 1: number [unit], icon, label.
     const bigUnit = unit === "°" || unit === "%";

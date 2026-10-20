@@ -20,11 +20,15 @@ from .config import ConfigError, _Check
 
 _LOGGER = logging.getLogger(__name__)
 
-OPTION_KINDS = ("entity", "entities", "number", "text", "choice", "bool", "color")
+OPTION_KINDS = ("entity", "entities", "number", "text", "choice", "bool", "color", "icon")
+# Kinds that can hold one value per item of an entities option (`"per": key`).
+PER_KINDS = ("text", "choice", "icon")
 NEEDS = (None, "history", "forecast", "calendar", "streets")
 
 _ENTITY = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 _COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
+# An icon name as the card draws it (alfie-screens.js isIcon): mdi:account.
+_ICON = re.compile(r"^[a-z][a-z0-9_-]*:[a-z0-9_-]*[a-z][a-z0-9_-]*$")
 
 
 def _meta_ok(meta: Any) -> str | None:
@@ -41,6 +45,9 @@ def _meta_ok(meta: Any) -> str | None:
             return f"bad option {o!r}"
         if o["kind"] == "choice" and not o.get("choices"):
             return f"choice option {o['key']!r} has no choices"
+        if o.get("per") and (o["kind"] not in PER_KINDS or not any(
+                x.get("key") == o["per"] and x.get("kind") == "entities" for x in opts if isinstance(x, dict))):
+            return f"option {o['key']!r}: per needs a {'/'.join(PER_KINDS)} option and an entities option"
     return None
 
 
@@ -77,6 +84,31 @@ def _entity_ok(v: str, domains: Any) -> str | None:
     return None
 
 
+def _one(o: Mapping[str, Any], v: str, ck: _Check, label: str) -> str:
+    """One text, choice or icon value (stripped), checked; bad ones are reported
+    and become the default."""
+    v = v.strip()
+    if o["kind"] == "choice":
+        return ck.choice(label, v, o["choices"], o.get("default", o["choices"][0]))
+    if o["kind"] == "icon" and v and not _ICON.match(v):
+        if v.lower() not in o.get("presets", []):
+            ck.bad(label, f"must be {', '.join(o.get('presets', []))} or an icon such as mdi:account")
+            return o.get("default", "")
+        v = v.lower()
+    return v
+
+
+def _per(o: Mapping[str, Any], v: Any, ck: _Check, label: str) -> str:
+    """A per-item option: comma separated, one value per entity, each checked.
+    An empty item means that entity's default; trailing empties are dropped."""
+    items = v if isinstance(v, list) else str(v).split(",")
+    out = [_one({**o, "default": ""}, str(x), ck, f"{label} {i + 1}") if str(x).strip() else ""
+           for i, x in enumerate(items)]
+    while out and not out[-1]:
+        out.pop()
+    return ", ".join(out)
+
+
 def _option(o: Mapping[str, Any], v: Any, ck: _Check, where: str) -> Any:
     kind, label = o["kind"], f"{where} {o.get('label') or o['key']}"
     required = bool(o.get("required"))
@@ -91,13 +123,15 @@ def _option(o: Mapping[str, Any], v: Any, ck: _Check, where: str) -> Any:
         return v if isinstance(v, bool) else v in ("true", "on", 1)
     if kind == "number":
         return _num(ck.number(label, v, o.get("min"), o.get("max"), o.get("default", 0)))
-    if kind in ("text", "color", "choice", "entity"):
+    if o.get("per") and isinstance(v, (str, list)):
+        return _per(o, v, ck, label) or o.get("default", "")
+    if kind in ("text", "color", "choice", "entity", "icon"):
         if not isinstance(v, str):
             ck.bad(label, "must be text")
             return o.get("default", "")
         v = v.strip()
-        if kind == "choice":
-            return ck.choice(label, v, o["choices"], o.get("default", o["choices"][0]))
+        if kind in ("choice", "icon"):
+            return _one(o, v, ck, label)
         if kind == "color" and not _COLOR.match(v):
             ck.bad(label, "must be a colour like #ffcc00")
             return o.get("default", "")

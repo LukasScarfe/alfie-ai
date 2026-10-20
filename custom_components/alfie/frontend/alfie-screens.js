@@ -278,9 +278,14 @@ export function axis(x, y0, h, lo, hi, ticks, { unit = "", labelH = 0.075, tick 
   return [stroke(pts, { w: weight }), ...labels];
 }
 
-// An icon name as `kind` draws that icon, MARKER_ICON times the size, outlined;
-// a ring while it loads or if it never does.
+// The built-in marker shapes; any other icon name (mdi:account) draws that
+// icon, MARKER_ICON times the size, outlined; a ring while it loads or if it never does.
+export const MARKER_SHAPES = ["ring", "diamond", "square", "triangle", "star", "cross", "x", "dot", "house", "sun"];
 export const MARKER_ICON = 2.6;
+const around = (cx, cy, r, n, a0 = 0, rs = null) => Array.from({ length: n }, (_, i) => {
+  const a = a0 + (2 * Math.PI * i) / n, q = rs ? rs[i % rs.length] : r;
+  return [cx + q * Math.cos(a), cy + q * Math.sin(a)];
+});
 export function marker(kind, cx, cy, size, { role = "line" } = {}) {
   const r = size / 2;
   const ic = isIcon(kind) && iconSource ? iconSource(kind, { fill: "none" }) : null;
@@ -290,22 +295,19 @@ export function marker(kind, cx, cy, size, { role = "line" } = {}) {
   }
   if (kind === "house") return house(cx, cy + size / 2, size);
   if (kind === "sun") return [sunIcon(cx, cy, r * 0.6, 8, 0.8)];
+  if (kind === "cross" || kind === "x") {
+    const d = kind === "x" ? r * 0.85 : r * 1.1;
+    return kind === "x"
+      ? [stroke([[cx - d, cy - d], [cx + d, cy + d]], { role }), stroke([[cx - d, cy + d], [cx + d, cy - d]], { role })]
+      : [stroke([[cx - d, cy], [cx + d, cy]], { role }), stroke([[cx, cy - d], [cx, cy + d]], { role })];
+  }
   let pts;
   if (kind === "square") pts = [[cx - r, cy - r], [cx + r, cy - r], [cx + r, cy + r], [cx - r, cy + r]];
   else if (kind === "diamond") pts = [[cx, cy - r], [cx + r, cy], [cx, cy + r], [cx - r, cy]];
-  else pts = Array.from({ length: 24 }, (_, i) => [cx + r * Math.cos((2 * Math.PI * i) / 24), cy + r * Math.sin((2 * Math.PI * i) / 24)]);
+  else if (kind === "triangle") pts = around(cx, cy - r * 0.15, r * 1.15, 3, Math.PI / 2);
+  else if (kind === "star") pts = around(cx, cy, r, 10, Math.PI / 2, [r * 1.25, r * 0.5]);
+  else pts = around(cx, cy, kind === "dot" ? r * 0.4 : r, kind === "dot" ? 12 : 24);
   return [stroke(pts, { closed: true, role })];
-}
-
-export function chart2(a, b, x0, y0, w, h, { lo = null, hi = null, markers = ["ring", "diamond"], markerSize = 0.06, dotted = true } = {}) {
-  if (lo === null || hi === null) [lo, hi] = span([a, b], { pad: 0.05 });
-  const out = [];
-  for (const [vals, kind, weight] of [[a, markers[0], 1], [b, markers[1], dotted ? DOTTED : 1]]) {
-    out.push(...curve(vals, x0, y0, w, h, { lo, hi, weight }));
-    const pts = place(vals, x0, y0, w, h, lo, hi);
-    if (pts.length) out.push(...marker(kind, ...pts[pts.length - 1], markerSize));
-  }
-  return out;
 }
 
 export function bars(values, x0, y0, w, h, { lo = 0, hi = 100, fill = 0.6, weight = 1 } = {}) {
@@ -506,10 +508,6 @@ export function car(cx, cy, size) {
     [x0 + L * 0.3, y0 + L * 0.4], [x0 + L * 0.18, y0 + L * 0.24], [x0, y0 + L * 0.22]];
   return [stroke(pts, { closed: true })];
 }
-
-// snake_case aliases, for people porting from xy-bench.
-export const nice_ticks = niceTicks;
-export const weather_icon = weatherIcon;
 
 // ----------------------------------------------------------------- registry
 

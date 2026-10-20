@@ -3,7 +3,7 @@
 // the lines apart: a marker ends each one, and a line may be dotted. The
 // provider ("history") sends bucketed series; everything here is cheap layout
 // that is cached on `memo` until data, options or the box change.
-const MARKERS = ["ring", "diamond", "square", "house", "sun"];
+const DEFAULT_MARKS = ["ring", "diamond", "square"];
 const list = (s) => String(s ?? "").split(",").map((x) => x.trim());
 
 // xy `_labels`: nudge label heights apart so none sit closer than `gap`,
@@ -51,12 +51,12 @@ function build({ w, h, data, options: o, states, S }) {
   });
   const names = rows.map((r, i) => S.title(labels[i] || r.name || r.entity_id || ""));
   const kinds = rows.map((_, i) => {
-    const m = marks[i] || MARKERS[i % 3];
+    const m = marks[i] || DEFAULT_MARKS[i % 3];
     if (S.isIcon(m)) return m;   // an icon such as mdi:account
     const k = m.toLowerCase();
-    return k === "none" ? null : MARKERS.includes(k) ? k : MARKERS[i % 3];
+    return k === "none" ? null : S.MARKER_SHAPES.includes(k) ? k : DEFAULT_MARKS[i % 3];
   });
-  const dotted = rows.map((_, i) => (styles[i] ?? styles[0] ?? "solid").toLowerCase() === "dotted");
+  const dotted = rows.map((_, i) => (styles[i] || "solid").toLowerCase() === "dotted");
   const unit = S.clean(S.unitOf(o.unit, rows.every((r) => r.unit === rows[0].unit) ? rows[0].unit : ""));
 
   // Scale the type with the box's height, so the corner box stays legible.

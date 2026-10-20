@@ -2,7 +2,7 @@
  "options": [
    {"key": "entity", "kind": "entity", "label": "Entity", "required": true},
    {"key": "label", "kind": "text", "label": "Label", "default": "", "hint": "Empty: the entity's name."},
-   {"key": "icon", "kind": "choice", "label": "Icon", "default": "auto", "choices": ["auto", "none", "leaf", "drop", "house", "sun", "cloud"]},
+   {"key": "icon", "kind": "icon", "label": "Icon", "default": "auto", "presets": ["auto", "none", "leaf", "drop", "house", "sun", "cloud", "car"], "hint": "Auto picks from the sensor's kind. Or any icon such as mdi:thermometer."},
    {"key": "unit", "kind": "text", "label": "Unit", "default": "", "hint": "Empty: the entity's. none: no unit."},
    {"key": "decimals", "kind": "number", "label": "Decimals", "default": 1, "min": 0, "max": 3},
    {"key": "below", "kind": "text", "label": "Accent colour below", "default": "", "hint": "A number. Empty: off."},

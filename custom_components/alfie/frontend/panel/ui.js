@@ -23,15 +23,7 @@ export function slugId(list, name, fallback, except = -1) {
   return id;
 }
 
-export const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-
-// "glance_left" -> "Glance left". Tokens (@mood) and empty stay as they are.
-export function human(id) {
-  const s = String(id ?? "");
-  if (!s || s.startsWith("@")) return s;
-  const t = s.replace(/_/g, " ");
-  return t[0].toUpperCase() + t.slice(1);
-}
+export const { esc, human } = await import(`../alfie-panel-forms.js${new URL(import.meta.url).search}`);
 
 const attr = (k, v) => (v === undefined || v === null || v === false ? "" : v === true ? ` ${k}` : ` ${k}="${esc(v)}"`);
 

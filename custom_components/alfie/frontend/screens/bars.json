@@ -1,7 +1,7 @@
 {"type": "bars", "title": "Bars", "needs": null,
  "options": [
    {"key": "entities", "kind": "entities", "label": "Entities", "required": true},
-   {"key": "labels", "kind": "text", "label": "Labels", "default": "", "hint": "Comma separated. Empty: the entity names."},
+   {"key": "labels", "kind": "text", "per": "entities", "label": "Label", "default": "", "hint": "Empty: the entity name."},
    {"key": "range", "kind": "choice", "label": "Scale", "default": "fixed", "choices": ["fixed", "auto"]},
    {"key": "min", "kind": "number", "label": "Minimum", "default": 0, "min": -10000, "max": 10000, "hint": "For a fixed scale."},
    {"key": "max", "kind": "number", "label": "Maximum", "default": 100, "min": -10000, "max": 10000, "hint": "For a fixed scale."},

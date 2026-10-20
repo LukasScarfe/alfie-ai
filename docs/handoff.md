@@ -12,9 +12,31 @@
   Numbat. E (Lukas on the CRT) is open.
 - **5⅝ (Panel style):** A to F done; G (Lukas's review of the screenshots) is open.
 
-Version 0.9.0.
+Version 0.9.1.
 
-**Latest (0.9.0): the panel restyle, and house modes back.** Agreed with Lukas in an interview
+**Latest (0.9.1): icon options, per-series rows, more plot points, dead code out.** Lukas asked
+for dropdowns of common choices that still take any MDI icon, asked why plots had so few points,
+and asked for redundancy cut.
+- New option kind `icon` (`screen_types.py`, `presets` list) and `"per": "<entities key>"` for
+  text/choice/icon options held per entity (still comma strings, so saved screens load as they
+  are). The panel draws per options as columns on each entity's row (`alfie-panel-forms.js`
+  `perControl`, kind `optper` in `_onInput`, `perSet`/`perDrop`); removing an entity drops its
+  item. `panel/icon-picker.js` `suggest` lists `data-presets` first (all of them when the field
+  opens), then MDI matches; previews come from `PRESET_ICONS`.
+- Plot markers, lines and labels and bars labels are per entity. New marker shapes in
+  `S.MARKER_SHAPES`: triangle, star, cross, x, dot. An empty line style is solid now (a lone
+  `dotted` no longer applies to every series; no prod plot relied on it). The value screen's
+  icon is an `icon` option (adds car, and any MDI icon).
+- Points per series: default 96, max 240 (`MAX_BUCKETS`, `DEFAULT_BUCKETS`). Saved screens
+  keep their saved count (prod: plants_moisture 60, plot 36).
+- Removed: `chart2`, the `nice_ticks`/`weather_icon`/`polylineLength` aliases,
+  `triggers.watches_threshold`, and duplicate `esc`/`human`/`swatchValue` (`ui.js` and
+  `icon-picker.js` take them from `alfie-panel-forms.js`). Left: the card editor's own `esc`,
+  and `alfie-card.js` (1450 lines) is still one file.
+- The harness only has the icons in `devenv/icons.json`; any other `mdi:` name never loads there
+  and the frame stays blank. Use one of those for `./dev face`.
+
+**Before that (0.9.0): the panel restyle, and house modes back.** Agreed with Lukas in an interview
 (design.md "Panel style"): native HA look, no gradients or glyphs. `panel/style.js` holds all the
 shell's CSS. The shell has a left menu (a dropdown under 1280px), a header Alfie toggle (a column
 from 1800px, otherwise a floating panel that starts closed each visit), and a bottom save bar

@@ -1,4 +1,5 @@
 // The panel's pure form helpers.
+import fs from "node:fs";
 import * as P from "../../custom_components/alfie/frontend/alfie-panel-forms.js";
 
 let failures = 0;
@@ -10,6 +11,18 @@ check(h.includes("Privacy") && h.includes('data-path="screens.0.options.allow_ne
 check(P.optionField({ key: "x", kind: "number", label: "X", default: 5, min: 1, max: 9 }, undefined, "p", ctx).includes('placeholder="5"'), "default placeholder");
 check(P.optionField({ key: "e", kind: "entity", label: "E", required: true }, "", "p", ctx).includes("req"), "required marker");
 check(P.optionField({ key: "c", kind: "color", label: "C" }, "#abc", "p", ctx).includes('value="#aabbcc"'), "swatch expands short hex");
+
+// Per-entity options: one comma separated item each, edited by position.
+check(P.perSet("", 1, "star") === ", star", "set past the end pads");
+check(P.perSet("ring, star", 1, "") === "ring", "trailing empties dropped");
+check(P.perDrop("ring, star, x", 1) === "ring, x", "an entity's item goes with it");
+const plot = JSON.parse(fs.readFileSync(new URL("../../custom_components/alfie/frontend/screens/plot.json", import.meta.url)));
+const pctx = { i: 0, type: "plot", list: () => "ent-0", options: plot.options, values: { markers: ", mdi:account" } };
+const ents = P.optionField(plot.options[0], ["sensor.a", "sensor.b"], "s.0.options", pctx);
+check(ents.includes('data-kind="optper" data-j="1"') && ents.includes('value="mdi:account"') && ents.includes('placeholder="ring"'), "series rows carry the per options");
+check(ents.includes('icon="mdi:account"') && ents.includes('icon="mdi:circle-outline"'), "marker previews");
+check(plot.options.filter((o) => o.per).every((o) => P.optionField(o, "", "p", pctx) === ""), "per options draw no field of their own");
+check(P.presetIcon("ring") === "mdi:circle-outline" && P.presetIcon("mdi:leaf") === "mdi:leaf", "preset previews");
 
 let s = P.setShapeParam({ type: "polygon" }, "sides", 6);
 check(s.sides === 6, "param set");

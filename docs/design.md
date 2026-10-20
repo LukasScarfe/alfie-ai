@@ -384,8 +384,9 @@ or the `alfie.show_icon` action (with `alfie.clear_icons`), and every display sh
 - **The panel's Icon step** has **Try it**, which plays it on the dock's Alfie only.
 - **Suggestions as you type** (Lukas, 2026-10-19), like HA's icon picker: a list of matching icons
   with previews under every icon field (the simple form, the Icon step) and, while the word being
-  typed starts `mdi:`, under every screen text option (plot markers too), replacing just that
-  word. The list is HA's own `/static/mdi/iconList.json` (names and keywords), fetched once on
+  typed starts `mdi:`, under every screen text option, replacing just that word. An icon option
+  (plot markers, the value screen's icon) is a dropdown: its built-in choices first (all of them
+  when the field opens), then any matching MDI icon. The list is HA's own `/static/mdi/iconList.json` (names and keywords), fetched once on
   the first focus; not HA's `ha-icon-picker`, which a custom panel can't rely on. Typed names
   (custom sets, `hass:`) still go.
 - **Lukas's house** (`devenv/house.json`):
@@ -444,8 +445,11 @@ which the panel turns into a form) and `<type>.js` (a pure draw function returni
 built types:
 
 - **plot**: 1 to 6 series over a span, bucketed server-side from the recorder (long-term
-  statistics for spans over 10 days), with markers, dotted or solid lines, and auto, fixed or
-  "reach" ranges. Each point holds the bucket's mean, max, min or last value (Combine points;
+  statistics for spans over 10 days), and auto, fixed or "reach" ranges. Each series has its own
+  row in the panel (Lukas, 2026-10-20): a marker (ring, diamond, square, triangle, star, cross,
+  x, dot, house, sun, none, or any icon), a solid or dotted line, and a label. Points per series:
+  96 by default, up to 240 (it was 36 of 60, a limit from the oscilloscope, where every point
+  costs beam time; on a card they're cheap, and the history TTL floors at 15 min either way). Each point holds the bucket's mean, max, min or last value (Combine points;
   all but the mean keep a count whole), and the line is straight or steps.
 - Plot, value and bars take the sensor's unit unless the Unit option says otherwise; `none`
   shows no unit (a Plex sensor reports "watching").
@@ -469,8 +473,8 @@ built types:
   lengthens so each title shows once (`extend`, on by default); titles cycle from when it
   came in.
 - **Icons in screen text and markers** (2026-10-19): an icon name typed in any screen text
-  (`mdi:plex Viewers`) is drawn as the icon, and a plot series marker may be one
-  (`mdi:account`).
+  (`mdi:plex Viewers`) is drawn as the icon, and a plot series marker or the value screen's
+  icon may be one (`mdi:account`).
 - **label**: plain text, the reference type.
 - **Text size (decided, 2026-10-19):** every type that draws text has a Text size option
   (`text_size`, a multiplier from 0.5 to 2, default 1), except label and text, whose `size` is
