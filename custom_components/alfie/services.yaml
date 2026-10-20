@@ -136,3 +136,85 @@ show_icon:
           translation_key: icon_fill
           options: [none, soft, solid]
 clear_icons:
+set_mood:
+  fields:
+    level:
+      required: true
+      example: sad
+      selector:
+        text:
+    duration:
+      example: 600
+      selector:
+        number:
+          min: 0
+          max: 604800
+          unit_of_measurement: s
+set_alfie:
+  fields:
+    state:
+      required: true
+      example: asleep
+      selector:
+        text:
+    duration:
+      example: 3600
+      selector:
+        number:
+          min: 0
+          max: 604800
+          unit_of_measurement: s
+show_rotation:
+  fields:
+    rotation:
+      required: true
+      example: living_room
+      selector:
+        text:
+    duration:
+      example: 600
+      selector:
+        number:
+          min: 0
+          max: 604800
+          unit_of_measurement: s
+set_personality:
+  fields:
+    preset:
+      required: true
+      example: grumpy
+      selector:
+        text:
+    duration:
+      example: 3600
+      selector:
+        number:
+          min: 0
+          max: 604800
+          unit_of_measurement: s
+set_mode:
+  fields:
+    mode:
+      required: true
+      example: night
+      selector:
+        text:
+    duration:
+      example: 7200
+      selector:
+        number:
+          min: 0
+          max: 604800
+          unit_of_measurement: s
+set_enabled:
+  fields:
+    item:
+      required: true
+      example: signal.monstera_dry
+      selector:
+        text:
+    enabled:
+      required: true
+      default: false
+      selector:
+        boolean:

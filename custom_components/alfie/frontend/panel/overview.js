@@ -160,6 +160,16 @@ function sleepSuggestions(p) {
 
 // ------------------------------------------------------------ now
 
+// What automations hold (alfie.set_mood and the like), and for how long.
+const HOLD_TEXT = { mood: "mood", alfie: "Alfie", rotation: "rotation", personality: "personality" };
+function holdsText(holds) {
+  const parts = Object.entries(holds || {}).map(([k, h]) => {
+    const left = h.until ? Math.max(1, Math.round((h.until - Date.now() / 1000) / 60)) : null;
+    return `${HOLD_TEXT[k] || k} <b>${U.esc(U.human(h.value))}</b>${left ? ` for ${left} min` : ""}`;
+  });
+  return parts.length ? ` · An automation holds ${parts.join(", ")}` : "";
+}
+
 export function scene(p, s) {
   const root = p.root;
   const mood = root.querySelector(".nowmood");
@@ -167,7 +177,7 @@ export function scene(p, s) {
   mood.innerHTML = `<b>${U.esc(L[s.mood?.level] || s.mood?.level)}</b>${s.asleep ? " and asleep" : ""} · ${U.esc(s.reason)}`;
   const info = s.mode_info;
   root.querySelector(".nowmode").innerHTML = info
-    ? `House mode: <b>${U.esc(info.name)}</b>${s.mode_pick && s.mode_pick !== "auto" ? " (picked by hand)" : ""}` : "";
+    ? `House mode: <b>${U.esc(info.name)}</b>${s.mode_pick && s.mode_pick !== "auto" ? " (picked by hand)" : ""}${holdsText(s.holds)}` : "";
   root.querySelector(".nowsigs").innerHTML = (s.signals || []).map((x) => `<div class="nowsig">
       ${U.chip(x.kind === "bad" ? U.human(x.severity) : "Good", x.kind === "bad" ? x.severity : "good")}
       <button class="link" data-action="go" data-section="mood" data-sub="signals" data-open="sig:${U.esc(x.id)}">${U.esc(x.name)}</button></div>`).join("")

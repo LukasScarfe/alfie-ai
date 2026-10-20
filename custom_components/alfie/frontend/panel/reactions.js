@@ -110,7 +110,7 @@ function trigger(p, t, i, n) {
   const body = `
     ${U.group("Fires when", `
       ${U.field("Name", U.text(`${P}.name`, t.name, { placeholder: "The mood gets worse" }))}
-      ${U.idField(`${P}.id`, t.id, "house modes")}
+      ${U.idField(`${P}.id`, t.id, "house modes and <code>alfie.set_enabled</code>", U.automation.trigger(t.id))}
       ${U.field("Fires when", U.select(`${P}.kind`, t.kind, c.trigger_kinds.map((k) => [k, KIND_TEXT[k] || k]), { rerender: true }))}
       ${own}`)}
     ${U.group("Plays", U.field("Story", U.select(`${P}.story`, t.story, p.storyOptions([], [t.story]), { rerender: true })))}
@@ -143,7 +143,7 @@ function story(p, st, i, n) {
   const summary = `${st.form === "simple" ? "Simple" : "Steps"} · ${count} step${count === 1 ? "" : "s"} · ${uses ? `played by ${uses} trigger${uses > 1 ? "s" : ""}` : "no trigger"}`;
   const body = !open ? "" : `
     <div class="grid">${U.field("Name", U.text(`${P}.name`, st.name, { placeholder: "Bad news" }))}
-      ${U.idField(`${P}.id`, st.id, "triggers and <code>alfie.play_story</code>")}</div>
+      ${U.idField(`${P}.id`, st.id, "triggers and <code>alfie.play_story</code>", U.automation.story(st.id))}</div>
     <div class="row form">${U.seg("st-form", st.form, [["simple", "Simple"], ["steps", "Steps"]], i)}
       ${st.form === "simple" ? `<button class="flat" data-action="st-to-steps" data-i="${i}">Turn into steps</button>` : ""}</div>
     ${st.form === "simple" ? simple(p, st, i) : steps(p, st, i)}`;

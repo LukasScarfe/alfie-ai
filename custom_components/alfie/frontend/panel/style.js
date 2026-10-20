@@ -136,6 +136,8 @@ export const CSS = `
   /* ---------------------------------------------------------- buttons */
   button { font: inherit; cursor: pointer; }
   button:disabled { opacity: .45; cursor: default; }
+  .autosnip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 12px; margin: -6px 0 8px; }
+  .autosnip code { font-size: 12px; } .autosnip .flat { height: 28px; padding: 0 10px; }
   .primary, .flat { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 0 16px;
                     border-radius: 18px; font-weight: 500; font-size: 14px; white-space: nowrap; flex: none; }
   .primary { background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent); }
