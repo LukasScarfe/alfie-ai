@@ -53,6 +53,7 @@ function signal(p, s, i, n) {
   const body = !open ? "" : `
     ${U.group("Watches", `
       ${U.field("Name", U.text(`${P}.name`, s.name, { placeholder: "The Monstera is dry" }))}
+      ${U.idField(`${P}.id`, s.id, "triggers and automations")}
       ${U.wide("Entities", U.entities({ items: s.entities, i, add: "sig-add-ent", rm: "sig-rm-ent" }))}
       ${U.field("Is", U.select(`${P}.op`, s.op, OPS, { rerender: true }))}
       ${U.field("Value", numeric
@@ -63,7 +64,6 @@ function signal(p, s, i, n) {
       ${U.field("Good or bad", U.select(`${P}.kind`, s.kind, [["bad", "Bad: something is wrong"], ["good", "Good: something is right"]], { rerender: true }))}
       ${s.kind === "bad" ? U.field("How bad", U.select(`${P}.severity`, s.severity, p.choices.severities.map((v) => [v, U.human(v)]), { rerender: true })) : ""}`)}
     ${U.more(p, `sig:${s.id}`, `
-      ${U.field("ID", U.text(`${P}.id`, s.id, { attrs: 'pattern="[a-z0-9_]+" data-rerender' }), "Used by triggers and automations.")}
       ${U.field("With several entities", U.select(`${P}.match`, s.match, [["any", "Any one passing is enough"], ["all", "All must pass"]]))}
       ${U.field("Weight", U.num(`${P}.weight`, s.weight, { min: 0, max: 100, empty: "null" }),
         `For the Weighted mood. Empty: the ${s.kind === "bad" ? "severity's" : "good"} weight.`)}
@@ -191,6 +191,7 @@ export function click(p, a, el) {
     case "sig-dup": {
       const s = U.clone(sigs[i]);
       s.id = U.slugId(sigs, `${s.id}_copy`, "signal");
+      p.autoId("sig", s.id);
       s.name = `${s.name} (copy)`;
       sigs.splice(i + 1, 0, s);
       p.open.add(`sig:${s.id}`);

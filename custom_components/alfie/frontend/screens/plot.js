@@ -45,7 +45,7 @@ function build({ w, h, data, options: o, states, S }) {
   const labels = list(o.labels), marks = list(o.markers), styles = list(o.styles);
   const live = liveOf(rows, states, S);
   const vals = rows.map((r, i) => {
-    const v = S.series(r.values, o.buckets);
+    const v = S.series(r.values);
     if (live[i] !== null && v.length) v[v.length - 1] = live[i];
     return v;
   });
@@ -76,7 +76,9 @@ function build({ w, h, data, options: o, states, S }) {
   // Ticks: round values only, and (like xy) a fixed top is always labelled.
   let ticks = [];
   if (o.axis) {
-    ticks = S.niceTicks(lo, hi, o.ticks).filter((t) => t >= lo && t <= hi);
+    // Most ticks: 3, or 4 on a tall plot; 2 when there is little room.
+    const most = Math.max(2, Math.min(4, Math.floor((2 * h - 2 * pad - titleH) / (labelH * 5))));
+    ticks = S.niceTicks(lo, hi, most).filter((t) => t >= lo && t <= hi);
     if (fixedTop && !ticks.includes(yMax) && yMax >= lo && yMax <= hi) {
       ticks = ticks.filter((t) => Math.abs(t - yMax) > (hi - lo) * 0.15).concat([yMax]);
     }

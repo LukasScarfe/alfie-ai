@@ -216,6 +216,14 @@ function iconInput(opt, value, placeholder, attrs) {
     data-presets="${esc((opt.presets || []).join(","))}" data-rerender autocomplete="off"></span>`;
 }
 
+// Whether an option applies to a screen's `values`: its `when` ({key: [values]})
+// holds, each key read with the type's default when unset. A field that doesn't
+// apply is hidden, its value kept.
+export function optionShown(opt, values, options) {
+  return Object.entries(opt.when || {}).every(([k, allowed]) =>
+    allowed.includes(values?.[k] ?? options.find((o) => o.key === k)?.default));
+}
+
 // One entity's control for a per-entity option (`"per": "entities"`): item `j`
 // of the option's comma separated value. Empty: that position's default.
 function perControl(opt, value, j, path) {
@@ -243,9 +251,11 @@ export function optionField(opt, value, P, ctx) {
   const note = OPTION_NOTES[`${ctx.type}.${opt.key}`];
   const noteHtml = `${opt.hint ? `<small>${esc(opt.hint)}</small>` : ""}${note ? `<div class="note">${esc(note)}</div>` : ""}`;
   const dflt = opt.default;
+  // Another option shows or hides with this one: redraw the form when it changes.
+  const re = (ctx.options || []).some((o) => o.when && opt.key in o.when) ? " data-rerender" : "";
   switch (opt.kind) {
     case "bool":
-      return `<div class="wide opt"><label class="check"><input type="checkbox" class="switch" data-path="${path}" data-kind="bool"
+      return `<div class="wide opt"><label class="check"><input type="checkbox" class="switch" data-path="${path}" data-kind="bool"${re}
         ${(value ?? dflt) ? "checked" : ""}> <span><b>${label}</b></span></label>${noteHtml}</div>`;
     case "number": {
       const input = `<input type="number" data-path="${path}" data-kind="optnum"
@@ -257,7 +267,7 @@ export function optionField(opt, value, P, ctx) {
         ${range}${noteHtml}</label>`;
     }
     case "choice":
-      return `<label class="field opt"><span>${label}</span><select data-path="${path}" data-kind="opttext">${(opt.choices || []).map((c) =>
+      return `<label class="field opt"><span>${label}</span><select data-path="${path}" data-kind="opttext"${re}>${(opt.choices || []).map((c) =>
         `<option value="${esc(c)}" ${(value ?? dflt) === c ? "selected" : ""}>${esc(human(c))}${c === dflt ? " (default)" : ""}</option>`).join("")}</select>${noteHtml}</label>`;
     case "color":
       return `<label class="field opt"><span>${label}</span><span class="row"><input type="color" class="swatch" data-path="${path}" data-kind="opttext"

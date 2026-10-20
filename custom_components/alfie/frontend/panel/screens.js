@@ -40,7 +40,7 @@ function screens(p) {
       .split2 { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
       .pvbox { position: sticky; top: 120px; padding-top: 12px; }
       .pvnote { min-height: 1em; }
-      .pertable { display: grid; grid-template-columns: minmax(90px, 1.2fr) repeat(var(--per), minmax(110px, 1fr)) auto; gap: 6px 8px; align-items: center; margin: 4px 0 6px; overflow-x: auto; }
+      .pertable { display: grid; grid-template-columns: minmax(64px, 1fr) repeat(var(--per), minmax(84px, 1fr)) 28px; gap: 6px 8px; align-items: center; margin: 4px 0 6px; overflow-x: auto; }
       .pertable > code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .pertable input, .pertable select { min-width: 0; width: 100%; }
       .iconfield { flex-wrap: nowrap; gap: 6px; } .iconfield ha-icon { flex: none; --mdc-icon-size: 22px; }
@@ -55,18 +55,21 @@ function screen(p, sc, i, n, types, list) {
     return U.item({ key: `s:${sc.id}`, i, n, open, chips, name: sc.title || sc.id, summary: "",
       actions: { toggle: "sc-toggle", up: "sc-up", down: "sc-down" } });
   }
-  const form = info ? info.options.map((o) => Fm.optionField(o, sc.options?.[o.key], `${P}.options`,
-    { i, type: sc.type, list, options: info.options, values: sc.options })).join("") : `<p class="error">Unknown screen type "${U.esc(sc.type)}".</p>`;
+  // Options that don't apply now are hidden; rarely changed ones fold under More options.
+  const fields = (more) => info.options.filter((o) => !!o.more === more && Fm.optionShown(o, sc.options, info.options))
+    .map((o) => Fm.optionField(o, sc.options?.[o.key], `${P}.options`, { i, type: sc.type, list, options: info.options, values: sc.options })).join("");
+  const extra = info ? fields(true) : "";
+  const form = info ? fields(false) + (extra ? U.more(p, `so:${sc.id}`, extra) : "")
+    : `<p class="error">Unknown screen type "${U.esc(sc.type)}".</p>`;
   const saved = p.saved.screens.find((x) => x.id === sc.id && x.type === sc.type);
   const dataNote = !info?.needs ? "" : saved
     ? `Data comes from the saved options${U.same(saved.options, sc.options) ? "" : "; your edits show after saving"}.`
     : "Save to load data: until then this shows a stand-in.";
   const body = `<div class="split2">
       <div>
-        <div class="grid">${U.field("Name", U.text(`${P}.title`, sc.title, { placeholder: info?.title || "" }), "How lists show it.")}</div>
+        <div class="grid">${U.field("Name", U.text(`${P}.title`, sc.title, { placeholder: info?.title || "" }), "How lists show it.")}
+          ${U.idField(`${P}.id`, sc.id, "signals, stories, rotations and <code>alfie.show_screen</code>")}</div>
         ${U.group("Options", form)}
-        ${U.more(p, `s:${sc.id}`, U.field("ID", U.text(`${P}.id`, sc.id, { attrs: 'pattern="[a-z0-9_]+"' }),
-          "Used by signals, stories, rotations and <code>alfie.show_screen</code>."))}
       </div>
       <div class="pvbox"><alfie-card class="spv" data-id="${U.esc(sc.id)}"></alfie-card>
         <small class="pvnote">${U.esc(dataNote)}</small></div>
@@ -149,6 +152,7 @@ function rotation(p, r, i, n) {
         <button class="icon" data-action="rot-step-rm" data-i="${i}" data-j="${j}" title="Remove" aria-label="Remove"><ha-icon icon="mdi:close"></ha-icon></button></span></div>`).join("");
   const body = `
     <div class="grid">${U.field("Name", U.text(`${P}.name`, r.name, { placeholder: "Living room" }))}
+      ${U.idField(`${P}.id`, r.id, "a card's rotation option")}
       ${U.field("Transition", U.select(`${P}.transition`, r.transition, [...U_TRANS()]), "How Alfie and a screen swap places.")}</div>
     <h4>Steps</h4>
     <div class="rsteps">${steps || U.empty("No steps yet.")}</div>
@@ -156,7 +160,6 @@ function rotation(p, r, i, n) {
     <div class="row"><button class="flat" data-action="rot-step-add" data-i="${i}" ${screens.length ? "" : "disabled"}><ha-icon icon="mdi:plus"></ha-icon>Add step</button>
       <button class="flat" data-action="rot-alfie-add" data-i="${i}"><ha-icon icon="mdi:plus"></ha-icon>Add Alfie step</button></div>
     ${U.more(p, `r:${r.id}`, `
-      ${U.field("ID", U.text(`${P}.id`, r.id, { attrs: 'pattern="[a-z0-9_]+"' }), "What a card's rotation option names.")}
       ${U.field("Alfie between screens", U.num(`${P}.face_seconds`, r.face_seconds, { min: 0, max: 3600, step: 1, unit: "s" }),
         "0 (usual): screens follow screens. Add an Alfie step to have him come on.")}`)}`;
   return U.item({ key: `r:${r.id}`, i, n, open, name: r.name || r.id, summary: U.esc(summary),
@@ -169,19 +172,23 @@ const U_TRANS = () => R.transitionOptions("").filter(([v]) => v !== "").map(([v,
 // ------------------------------------------------------------ editing
 
 export function beforeInput(p, path, v) {
-  let m = /^screens\.(\d+)\.id$/.exec(path);
+  let m = /^screens\.(\d+)\.(id|title)$/.exec(path);
   if (m) {
-    const old = p.draft.screens[Number(m[1])].id;
-    Fm.renameScreenRefs(p.draft, old, v);
-    p.renameOpen("s", old, v);
-    p.root.querySelector(`.spv[data-id="${CSS.escape(old)}"]`)?.setAttribute("data-id", v);
+    const screens = p.draft.screens, i = Number(m[1]);
+    const follow = (from, to) => {
+      Fm.renameScreenRefs(p.draft, from, to);
+      p.root.querySelector(`.spv[data-id="${CSS.escape(from)}"]`)?.setAttribute("data-id", to);
+    };
+    if (m[2] === "id") { p.manualId("s", screens[i].id); follow(screens[i].id, v); p.renameOpen("s", screens[i].id, v); }
+    else p.nameToId("s", screens, i, v || screens[i].type, "screen", `screens.${i}.id`, follow);
     return;
   }
-  m = /^rotations\.(\d+)\.id$/.exec(path);
+  m = /^rotations\.(\d+)\.(id|name)$/.exec(path);
   if (m) {
-    const old = p.draft.rotations[Number(m[1])].id;
-    Fm.renameModeRefs(p.draft, "rotation", old, v);
-    p.renameOpen("r", old, v);
+    const rots = p.draft.rotations, i = Number(m[1]);
+    const follow = (from, to) => Fm.renameModeRefs(p.draft, "rotation", from, to);
+    if (m[2] === "id") { p.manualId("r", rots[i].id); follow(rots[i].id, v); p.renameOpen("r", rots[i].id, v); }
+    else p.nameToId("r", rots, i, v, "rotation", `rotations.${i}.id`, follow);
   }
 }
 
@@ -206,6 +213,7 @@ export function click(p, a, el) {
       if (!info) return true;
       const sc = Fm.newScreen(info, screens);
       screens.push(sc);
+      p.autoId("s", sc.id);
       p.open.add(`s:${sc.id}`);
       p.edited(true);
       return true;
@@ -213,6 +221,7 @@ export function click(p, a, el) {
     case "sc-dup": {
       const sc = U.clone(screens[i]);
       sc.id = Fm.uniqueId(screens, `${sc.id}_copy`);
+      p.autoId("s", sc.id);
       sc.title = sc.title ? `${sc.title} (copy)` : sc.title;
       screens.splice(i + 1, 0, sc);
       p.open.add(`s:${sc.id}`);
@@ -253,6 +262,7 @@ export function click(p, a, el) {
     case "rot-toggle": p.flip(`r:${rots[i].id}`); return true;
     case "rot-add": {
       const rid = Fm.uniqueId(rots, "rotation");
+      p.autoId("r", rid);
       rots.push({ id: rid, name: "", transition: "random", face_seconds: 0, steps: screens.length ? [Fm.newStep(screens)] : [] });
       p.open.add(`r:${rid}`);
       p.edited(true);

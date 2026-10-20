@@ -10,6 +10,7 @@ from alfie.config import (
     ConfigError,
     build,
     default_config,
+    migrate,
     migrate_options,
     reset,
     validate,
@@ -175,7 +176,7 @@ def test_v3_store_migrates_to_the_house_json():
     cfg = validate(v3, FACE, TYPES)
     expect = {**house.CONFIG, "overview": cfg["overview"]}   # house.json hides Get started
     assert cfg == expect
-    assert cfg["version"] == 5
+    assert cfg["version"] == 6
 
 
 def test_migrate_v3_renames_every_key():
@@ -211,3 +212,13 @@ def test_overview_section():
     assert valid({"overview": {"dismissed": True, "done": ["motion", "motion"]}})["overview"] \
         == {"dismissed": True, "done": ["motion"]}
     assert errors({"overview": {"done": ["nope"]}})
+
+
+def test_label_and_text_size_becomes_text_size():
+    raw = {"screens": [{"id": "l", "type": "label", "options": {"text": "Hi", "size": 0.6}},
+                       {"id": "t", "type": "text", "options": {"size": 0.3, "text_size": 2}},
+                       {"id": "p", "type": "plot", "options": {"size": 9}}]}
+    out = migrate(raw)
+    assert out["screens"][0]["options"] == {"text": "Hi", "text_size": 2.0}
+    assert out["screens"][1]["options"] == {"text_size": 2}
+    assert out["screens"][2]["options"] == {"size": 9}

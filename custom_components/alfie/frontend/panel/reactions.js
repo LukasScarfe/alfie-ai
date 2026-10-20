@@ -110,11 +110,11 @@ function trigger(p, t, i, n) {
   const body = `
     ${U.group("Fires when", `
       ${U.field("Name", U.text(`${P}.name`, t.name, { placeholder: "The mood gets worse" }))}
+      ${U.idField(`${P}.id`, t.id, "house modes")}
       ${U.field("Fires when", U.select(`${P}.kind`, t.kind, c.trigger_kinds.map((k) => [k, KIND_TEXT[k] || k]), { rerender: true }))}
       ${own}`)}
     ${U.group("Plays", U.field("Story", U.select(`${P}.story`, t.story, p.storyOptions([], [t.story]), { rerender: true })))}
     ${U.more(p, `t:${t.id}`, `
-      ${U.field("ID", U.text(`${P}.id`, t.id, { attrs: 'pattern="[a-z0-9_]+" data-rerender' }))}
       ${U.field("Priority", U.num(`${P}.priority`, t.priority, { min: 0, max: 100, step: 1 }), "0 to 100. Higher wins.")}
       ${U.field("If a story is already playing", U.select(`${P}.busy`, t.busy, BUSY_TEXT))}
       ${U.field("Cooldown", U.num(`${P}.cooldown`, t.cooldown, { min: 0, max: 86400, step: 1, unit: "s" }), "Fires at most this often. 0: any time.")}
@@ -142,12 +142,11 @@ function story(p, st, i, n) {
   const count = st.form === "simple" ? Fm.compileSimple(st.simple, p.choices.steps).length : st.steps.length;
   const summary = `${st.form === "simple" ? "Simple" : "Steps"} · ${count} step${count === 1 ? "" : "s"} · ${uses ? `played by ${uses} trigger${uses > 1 ? "s" : ""}` : "no trigger"}`;
   const body = !open ? "" : `
-    <div class="grid">${U.field("Name", U.text(`${P}.name`, st.name, { placeholder: "Bad news" }))}</div>
+    <div class="grid">${U.field("Name", U.text(`${P}.name`, st.name, { placeholder: "Bad news" }))}
+      ${U.idField(`${P}.id`, st.id, "triggers and <code>alfie.play_story</code>")}</div>
     <div class="row form">${U.seg("st-form", st.form, [["simple", "Simple"], ["steps", "Steps"]], i)}
       ${st.form === "simple" ? `<button class="flat" data-action="st-to-steps" data-i="${i}">Turn into steps</button>` : ""}</div>
-    ${st.form === "simple" ? simple(p, st, i) : steps(p, st, i)}
-    ${U.more(p, `st:${st.id}`, U.field("ID", U.text(`${P}.id`, st.id, { attrs: 'pattern="[a-z0-9_]+" data-rerender' }),
-      "Used by triggers and <code>alfie.play_story</code>."))}`;
+    ${st.form === "simple" ? simple(p, st, i) : steps(p, st, i)}`;
   return U.item({ key: `st:${st.id}`, i, n, open, name: st.name, summary: U.esc(summary),
     actions: { toggle: "st-toggle", up: "st-up", down: "st-down", dup: "st-dup", del: "st-del" }, body,
     footer: `<button class="primary" data-action="st-play" data-i="${i}">Play on every display</button>` });
@@ -309,6 +308,7 @@ export function click(p, a, el) {
     case "trig-dup": {
       const t = U.clone(trs[i]);
       t.id = U.slugId(trs, `${t.id}_copy`, "trigger");
+      p.autoId("t", t.id);
       t.name = t.name ? `${t.name} (copy)` : "";
       trs.splice(i + 1, 0, t);
       p.open.add(`t:${t.id}`);
@@ -350,6 +350,7 @@ export function click(p, a, el) {
     case "st-dup": {
       const st = U.clone(sts[i]);
       st.id = U.slugId(sts, `${st.id}_copy`, "story");
+      p.autoId("st", st.id);
       st.name = st.name ? `${st.name} (copy)` : "";
       sts.splice(i + 1, 0, st);
       p.open.add(`st:${st.id}`);

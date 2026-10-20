@@ -169,11 +169,14 @@ A personality is six sliders plus a named preset. Alfie has one; a card may over
 
 - **Every list item looks the same:**
   - a header with its on switch, chips, name, a one-line summary, a live badge, and ▲ ▼ ▸;
-  - when open, labelled groups of the fields most people need;
-  - a **More options** fold (ID, weights, priority, cooldown, repeats, overrides…);
+  - when open, the Name and its **ID** right under it (Lukas, 2026-10-20: the ID is essential,
+    automations use it), then labelled groups of the fields most people need;
+  - a **More options** fold (weights, priority, cooldown, repeats, overrides…);
   - Duplicate and Delete at the bottom.
 
-  A new item's ID follows its name until it is edited by hand. Renaming an ID follows it into
+  A new or duplicated item's ID follows its name until it is edited by hand (every list:
+  signals, triggers, stories, house modes, screens, rotations). A saved item's ID stays put
+  when the name changes, so automations keep working. Renaming an ID follows it into
   everything that refers to it.
 - **Get started** (on the Overview until hidden) walks a new install through five steps, each
   ticking itself where it can:
@@ -229,8 +232,8 @@ field-by-field list is in [settings-contract.md](settings-contract.md) "Words".
 
   "Mode" alone is never used for anything else: a card's **display** is Companion or Rotation,
   and a story's **form** is Simple or Steps.
-- **Every user-made item has a Name.** Its ID is generated from the name and kept under "More
-  options".
+- **Every user-made item has a Name.** Its ID is generated from the name and shown right under
+  it.
 - **Text:**
   - option text is in Sentence case, with a hint after a colon;
   - every default reads "Default (from …)";
@@ -448,8 +451,13 @@ built types:
   statistics for spans over 10 days), and auto, fixed or "reach" ranges. Each series has its own
   row in the panel (Lukas, 2026-10-20): a marker (ring, diamond, square, triangle, star, cross,
   x, dot, house, sun, none, or any icon), a solid or dotted line, and a label. Points per series:
-  96 by default, up to 240 (it was 36 of 60, a limit from the oscilloscope, where every point
-  costs beam time; on a card they're cheap, and the history TTL floors at 15 min either way). Each point holds the bucket's mean, max, min or last value (Combine points;
+  96, fixed (it was an option, 36 of 60, a limit from the oscilloscope; on a card points are
+  cheap, and the history TTL floors at 15 min either way).
+- **Screen options stay lean (Lukas, 2026-10-20).** A field that doesn't apply is hidden (its
+  `when`: range fields on an auto range, the hourly or daily fields by forecast, a text
+  screen's source fields), rarely changed ones fold under More options (`more`), and drawing
+  internals are not options: plot points and ticks, weather smoothing and hours per rain bar
+  are chosen by the screen. Label and text sizes are Text size (×) like every type. Each point holds the bucket's mean, max, min or last value (Combine points;
   all but the mean keep a count whole), and the line is straight or steps.
 - Plot, value and bars take the sensor's unit unless the Unit option says otherwise; `none`
   shows no unit (a Plex sensor reports "watching").
