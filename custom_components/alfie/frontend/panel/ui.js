@@ -69,34 +69,55 @@ export function check(path, on, label, hint = "") {
   return `<label class="check">${toggle(path, on)}<span><b>${esc(label)}</b>${hintOf(hint)}</span></label>`;
 }
 
-export const group = (title, inner) => `<section class="group">${title ? `<h4>${esc(title)}</h4>` : ""}<div class="grid">${inner}</div></section>`;
+export const group = (title, inner) => `<section class="group">${title ? `<h3>${esc(title)}</h3>` : ""}<div class="grid">${inner}</div></section>`;
+
+// A titled card on a settings page; `cards()` lays several side by side when there is room.
+export const card = (title, inner, cls = "") => `<section class="card ${cls}">${title ? `<h3>${esc(title)}</h3>` : ""}${inner}</section>`;
+export const cards = (inner) => `<div class="cards">${inner}</div>`;
 
 // A fold whose open state survives re-renders (kept in p.open as more:<key>).
 export function more(p, key, inner, summary = "More options") {
   return `<details class="more" data-more="${esc(key)}"${p.open.has(`more:${key}`) ? " open" : ""}><summary>${esc(summary)}</summary><div class="grid">${inner}</div></details>`;
 }
 
-// The one list item every section uses: a header, and when open its body and footer.
+// An mdi icon, drawn by HA's own <ha-icon>.
+export const icon = (name) => `<ha-icon icon="${esc(name)}"></ha-icon>`;
+export const iconButton = (action, mdi, title, { i, disabled, cls = "" } = {}) =>
+  `<button class="icon ${cls}" data-action="${esc(action)}"${attr("data-i", i)}${disabled ? " disabled" : ""} title="${esc(title)}" aria-label="${esc(title)}">${icon(mdi)}</button>`;
+
+// The one list item every section uses. Closed, it is a row: switch, name and
+// summary. Open, it also has its editor (.detail): a header with the name, the
+// badge, move, Duplicate and Delete, then the body and the footer. Inside a
+// list() the shell moves the open editor beside the list (list + detail);
+// anywhere else it opens in place under its row.
 export function item({ key, i, n, open, cls = "", enabledPath, enabled, chips = "", name, summary = "", badge = "",
   actions = {}, body = "", footer = "" }) {
   const a = actions;
-  const head = `<div class="head">
+  const head = `<div class="head${open ? " on" : ""}">
       ${enabledPath ? toggle(enabledPath, enabled, { title: "On" }) : ""}
-      ${chips}
-      <button class="name" data-action="${esc(a.toggle)}" data-i="${i}">${esc(name || "(no name)")}</button>
-      <span class="summary">${summary}</span>
-      ${badge}
-      <span class="tools">
-        ${a.up ? `<button class="icon" data-action="${esc(a.up)}" data-i="${i}" ${i ? "" : "disabled"} title="Move up" aria-label="Move up">▲</button>` : ""}
-        ${a.down ? `<button class="icon" data-action="${esc(a.down)}" data-i="${i}" ${i < n - 1 ? "" : "disabled"} title="Move down" aria-label="Move down">▼</button>` : ""}
-        <button class="icon chev" data-action="${esc(a.toggle)}" data-i="${i}" title="${open ? "Close" : "Edit"}" aria-label="${open ? "Close" : "Edit"}">${open ? "▾" : "▸"}</button>
-      </span></div>`;
+      <button class="name" data-action="${esc(a.toggle)}" data-i="${i}"><b>${esc(name || "(no name)")}</b>${summary ? `<span class="summary">${summary}</span>` : ""}</button>
+      <span class="tags">${chips}${badge}</span>
+      <span class="chev">${icon(open ? "mdi:chevron-down" : "mdi:chevron-right")}</span></div>`;
   if (!open) return `<div class="item ${cls}" data-key="${esc(key)}">${head}</div>`;
-  const foot = `<div class="foot">${footer}<span class="grow"></span>
-      ${a.dup ? `<button class="flat" data-action="${esc(a.dup)}" data-i="${i}">Duplicate</button>` : ""}
-      ${a.del ? `<button class="flat danger" data-action="${esc(a.del)}" data-i="${i}">Delete</button>` : ""}</div>`;
-  return `<div class="item open ${cls}" data-key="${esc(key)}">${head}<div class="body">${body}</div>${foot}</div>`;
+  const tools = `${a.up ? iconButton(a.up, "mdi:arrow-up", "Move up", { i, disabled: !i }) : ""}
+      ${a.down ? iconButton(a.down, "mdi:arrow-down", "Move down", { i, disabled: i >= n - 1 }) : ""}`;
+  const foot = footer || a.dup || a.del ? `<div class="foot">
+      ${a.del ? `<button class="flat danger" data-action="${esc(a.del)}" data-i="${i}">Delete</button>` : ""}
+      <span class="grow"></span>${footer}
+      ${a.dup ? `<button class="flat" data-action="${esc(a.dup)}" data-i="${i}">Duplicate</button>` : ""}</div>` : "";
+  const detail = `<div class="detail">
+      <div class="dhead">
+        <button class="icon back" data-action="${esc(a.toggle)}" data-i="${i}" title="Back to the list" aria-label="Back to the list">${icon("mdi:arrow-left")}</button>
+        <h2>${esc(name || "(no name)")}</h2>${badge}${tools}</div>
+      <div class="body">${body}</div>${foot}</div>`;
+  return `<div class="item open ${cls}" data-key="${esc(key)}">${head}${detail}</div>`;
 }
+
+// A list page: the items, the Add control on top, and the editor of the open
+// one beside them (the shell moves it there after drawing).
+export const list = ({ items, empty: none, add = "", what = "item" }) => `<div class="ld">
+    <div class="ld-list">${add ? `<div class="ld-add">${add}</div>` : ""}<div class="ld-items">${items || `<p class="empty">${esc(none)}</p>`}</div></div>
+    <div class="ld-detail"><p class="ld-none">Pick ${esc(what)} on the left to edit it.</p></div></div>`;
 
 // Toggle chips over `all`, with `chosen` on.
 export function picks(action, i, key, all, chosen, textOf = human) {
@@ -106,17 +127,19 @@ export function picks(action, i, key, all, chosen, textOf = human) {
 // Entity chips with an input and Add (Enter in the input clicks the [data-add] button).
 export function entities({ items, i, add, rm, placeholder = "Pick an entity or type a pattern", list = "entities" }) {
   const chips = items.map((e, j) => `<span class="ent"><code>${esc(e)}</code>
-      <button class="icon" data-action="${esc(rm)}" data-i="${i}" data-j="${j}" title="Remove" aria-label="Remove ${esc(e)}">✕</button></span>`).join("");
+      <button class="icon" data-action="${esc(rm)}" data-i="${i}" data-j="${j}" title="Remove" aria-label="Remove ${esc(e)}">${icon("mdi:close")}</button></span>`).join("");
   return `<div class="chips">${chips || `<span class="muted">None yet</span>`}</div>
-    <div class="row"><input list="${esc(list)}" placeholder="${esc(placeholder)}" class="grow">
+    <div class="row"><input data-list="${esc(list)}" data-entities placeholder="${esc(placeholder)}" class="grow">
       <button class="flat" data-add data-action="${esc(add)}" data-i="${i}">Add</button></div>`;
 }
 
 export const intro = (textHtml, moreHtml = "") => `<div class="intro"><p>${textHtml}</p>${moreHtml
   ? `<details class="learn"><summary>Learn more</summary><div>${moreHtml}</div></details>` : ""}</div>`;
 export const empty = (t) => `<p class="empty">${esc(t)}</p>`;
-export const addButton = (action, t, attrs = "") => `<button class="add" data-action="${esc(action)}" ${attrs}>${esc(t)}</button>`;
-export const addRow = (control, action, t) => `<div class="row addrow">${control}<button class="add" data-action="${esc(action)}">${esc(t)}</button></div>`;
+// "+ Add signal" reads as "Add signal" with a plus icon.
+const addText = (t) => esc(String(t).replace(/^\+\s*/, ""));
+export const addButton = (action, t, attrs = "") => `<button class="primary add" data-action="${esc(action)}" ${attrs}>${icon("mdi:plus")}${addText(t)}</button>`;
+export const addRow = (control, action, t) => `<div class="row addrow">${control}<button class="primary add" data-action="${esc(action)}">${icon("mdi:plus")}${addText(t)}</button></div>`;
 
 // A segmented control: options [[value, text]], the current one on.
 export function seg(action, current, options, i) {

@@ -82,53 +82,67 @@ try {
   TRANSITIONS = [...(await import(`./alfie-intros.js${V}`)).STYLES];
 } catch { /* the card's own intros are the truth; two always exist */ }
 
+// The same look as Alfie's panel (design.md "Panel style"): outlined 40px
+// fields with the label in the border, HA switches, 36px outlined buttons.
+const CHEVRON = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%23888' d='M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z'/%3E%3C/svg%3E\")";
 const STYLE_CSS = `
-  :host { display: block; color: var(--primary-text-color); font: inherit; }
-  details { border: 1px solid var(--divider-color); border-radius: 10px; margin: 0 0 10px;
-    background: var(--card-background-color, transparent); }
-  summary { cursor: pointer; padding: 12px 14px; font-weight: 500; list-style: none; display: flex;
-    justify-content: space-between; align-items: center; }
+  :host { display: block; color: var(--primary-text-color); font: inherit; font-size: 14px;
+    --edge: var(--outline-color, rgba(127,127,127,.45)); --card: var(--card-background-color, #fff); }
+  details { border: 1px solid var(--divider-color); border-radius: var(--ha-card-border-radius, 12px); margin: 0 0 12px; background: var(--card); }
+  summary { cursor: pointer; padding: 0 16px; min-height: 48px; font-weight: 500; list-style: none; display: flex; gap: 12px; align-items: center; }
   summary::-webkit-details-marker { display: none; }
-  summary::after { content: "\\25B8"; color: var(--secondary-text-color); transition: transform .15s; }
-  details[open] > summary::after { transform: rotate(90deg); }
-  summary small { font-weight: 400; color: var(--secondary-text-color); margin-left: 10px; flex: 1; }
-  .body { padding: 2px 14px 12px; display: grid; gap: 12px; }
-  .f { display: grid; gap: 4px; }
-  .f > label, .f > .l { font-size: 0.85em; color: var(--secondary-text-color); display: flex;
+  summary::after { content: ""; width: 7px; height: 7px; border: solid var(--secondary-text-color); border-width: 0 2px 2px 0;
+    transform: rotate(45deg); margin: -4px 4px 0 auto; transition: transform .15s; flex: none; }
+  details[open] > summary::after { transform: rotate(225deg); margin-top: 4px; }
+  summary small { font-weight: 400; color: var(--secondary-text-color); flex: 1; }
+  .body { padding: 4px 16px 16px; display: grid; gap: 16px; }
+  .f { display: grid; gap: 6px; position: relative; }
+  .f > label, .f > .l { font-size: 12px; font-weight: 500; color: var(--secondary-text-color); display: flex;
     justify-content: space-between; gap: 8px; }
   .f > label b { font-weight: 400; color: var(--primary-text-color); font-variant-numeric: tabular-nums; }
-  .hint { font-size: 0.78em; color: var(--secondary-text-color); opacity: .85; margin-top: -2px; }
+  /* the label sits in the border of a single field */
+  .f:has(> select, > input[type=text], > input[type=number]) { padding-top: 7px; gap: 0; }
+  .f:has(> select, > input[type=text], > input[type=number]) > label { position: absolute; top: 0; left: 9px; z-index: 1;
+    padding: 0 4px; line-height: 14px; background: var(--card); pointer-events: none; }
+  .f:focus-within > label { color: var(--primary-color); }
+  .f:has(> select, > input[type=text], > input[type=number]) > .hint { margin-top: 4px; }
+  .hint { font-size: 12px; color: var(--secondary-text-color); line-height: 1.35; }
   input[type=text], input[type=number], select {
-    box-sizing: border-box; width: 100%; padding: 8px 10px; font: inherit; color: var(--primary-text-color);
-    background: var(--secondary-background-color, var(--card-background-color));
-    border: 1px solid var(--divider-color); border-radius: 8px; min-width: 0; }
-  input:focus, select:focus { outline: 2px solid var(--primary-color); outline-offset: -1px; }
+    box-sizing: border-box; width: 100%; height: 40px; padding: 0 12px; font: inherit; color: var(--primary-text-color);
+    background: var(--card); border: 1px solid var(--edge); border-radius: 8px; min-width: 0; }
+  select { appearance: none; -webkit-appearance: none; padding-right: 36px; cursor: pointer;
+    background-image: ${CHEVRON}; background-repeat: no-repeat; background-position: right 8px center; background-size: 22px; }
+  input:hover, select:hover { border-color: var(--primary-text-color); }
+  input:focus, select:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 1px var(--primary-color); }
   input[type=range] { width: 100%; accent-color: var(--primary-color); margin: 4px 0; }
   .row { display: flex; gap: 8px; align-items: center; }
-  .row input[type=color] { width: 44px; height: 36px; padding: 2px; flex: none; cursor: pointer;
-    background: var(--secondary-background-color); border: 1px solid var(--divider-color); border-radius: 8px; }
-  .f > label.chk { justify-content: flex-start; color: var(--primary-text-color); font-size: 1em; }
-  .chk { display: flex; align-items: center; gap: 10px; cursor: pointer; }
-  .chk input { appearance: none; -webkit-appearance: none; flex: none; width: 36px; height: 20px; margin: 0; border-radius: 10px;
-    background: var(--divider-color); position: relative; cursor: pointer; transition: background .15s; }
-  .chk input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
-    background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: left .15s; }
-  .chk input:checked { background: var(--primary-color); } .chk input:checked::after { left: 18px; }
-  .sub { border-left: 3px solid var(--divider-color); padding-left: 12px; display: grid; gap: 12px; }
-  .sub > .l { font-weight: 500; color: var(--primary-text-color); }
-  button { font: inherit; color: var(--primary-text-color); cursor: pointer; padding: 7px 12px;
-    background: var(--secondary-background-color); border: 1px solid var(--divider-color); border-radius: 8px; }
-  button:hover { border-color: var(--primary-color); }
-  button.x { padding: 6px 10px; flex: none; }
+  .row input[type=color] { box-sizing: border-box; width: 44px; height: 40px; padding: 3px; flex: none; cursor: pointer;
+    background: var(--card); border: 1px solid var(--edge); border-radius: 8px; }
+  .f > label.chk { justify-content: space-between; color: var(--primary-text-color); font-size: 14px; font-weight: 400; }
+  .chk { display: flex; align-items: center; gap: 16px; cursor: pointer; min-height: 40px; }
+  .chk input { order: 2; appearance: none; -webkit-appearance: none; flex: none; width: 36px; height: 14px; margin: 0 4px; border-radius: 7px;
+    background: var(--switch-unchecked-track-color, rgba(127,127,127,.5)); position: relative; cursor: pointer; overflow: visible; }
+  .chk input::after { content: ""; position: absolute; top: -3px; left: -4px; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--switch-unchecked-button-color, #fafafa); box-shadow: 0 1px 3px rgba(0,0,0,.4); transition: left .15s; }
+  .chk input:checked { background: var(--switch-checked-track-color, var(--primary-color)); }
+  .chk input:checked::after { left: 20px; background: var(--switch-checked-button-color, var(--primary-color)); }
+  .sub { border-left: 2px solid var(--divider-color); padding-left: 16px; display: grid; gap: 16px; }
+  .sub > .l { font-weight: 500; color: var(--primary-text-color); font-size: 14px; }
+  button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 16px; font: inherit;
+    font-weight: 500; color: var(--primary-text-color); cursor: pointer; background: var(--card);
+    border: 1px solid var(--edge); border-radius: 18px; white-space: nowrap; }
+  button:hover { border-color: var(--primary-color); color: var(--primary-color); }
+  button.x { width: 36px; padding: 0; flex: none; border-color: transparent; border-radius: 50%; color: var(--secondary-text-color); }
+  button.x:hover { background: rgba(127,127,127,.08); border-color: transparent; color: var(--primary-text-color); }
   .steps { display: grid; gap: 8px; }
-  .steps .row input[type=number] { width: 80px; flex: none; }
+  .steps .row input[type=number] { width: 88px; flex: none; }
   .steps .alfie { flex: 1; opacity: 0.8; }
   .steps .row select, .steps .row input[type=text] { flex: 1; }
   .unset input[type=range] { opacity: .55; }
-  .note { font-size: 0.85em; color: var(--secondary-text-color); }
-  .warn { font-size: 0.85em; color: var(--warning-color, #ffa600); }
+  .note { font-size: 12px; color: var(--secondary-text-color); }
+  .warn { font-size: 12px; color: var(--warning-color, #ffa600); }
   details details { margin: 0; border-radius: 8px; }
-  details details > summary { padding: 10px 12px; }
+  details details > summary { min-height: 44px; padding: 0 12px; }
 `;
 
 if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined") {
@@ -275,7 +289,7 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
           ? `<select data-i="${sel}" aria-label="Screen">${[...ids, ...(ids.some(([id]) => id === s.screen) ? [] : [[s.screen, `${s.screen} (missing)`]])]
             .map(([id, t]) => `<option value="${esc(id)}" ${id === s.screen ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`
           : `<input type="text" data-i="${sel}" value="${esc(s.screen)}" placeholder="screen id" aria-label="Screen">`;
-        return `<div class="row">${pick}<input type="number" data-i="${sec}" min="3" max="3600" value="${s.seconds}" aria-label="Seconds"><button class="x" data-b="${del}" title="Remove">x</button></div>`;
+        return `<div class="row">${pick}<input type="number" data-i="${sec}" min="3" max="3600" value="${s.seconds}" aria-label="Seconds"><button class="x" data-b="${del}" title="Remove" aria-label="Remove"><ha-icon icon="mdi:close"></ha-icon></button></div>`;
       }).join("");
       const add = this._add({ kind: "button", run: () => { set([...steps, { screen: ids[0]?.[0] || "", seconds: 20 }]); this._render(); } });
       const addAlfie = this._add({ kind: "button", run: () => { set([...steps, { alfie: true, seconds: 15 }]); this._render(); } });
@@ -337,7 +351,7 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
           const set = obj[k] !== undefined;
           const reset = this._add({ kind: "button", run: () => { setKey(k, undefined); this._render(); } });
           return this._range(s.label, { get: () => obj[k] ?? s.def, set: (v) => setKey(k, v) }, s.min, s.max, 0.05,
-            { unset: !set, hint: s.hint, after: set ? `<button class="x" data-b="${reset}" title="Back to the default">Reset</button>` : "" });
+            { unset: !set, hint: s.hint, after: set ? `<button data-b="${reset}" title="Back to the default">Reset</button>` : "" });
         }).join("")}</div>`);
       }
       return out.join("");
@@ -349,7 +363,7 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
       const reset = this._add({ kind: "button", run: () => { this._emit(applyChange(this._config, "aspect", null)); this._render(); } });
       return this._range("Aspect", { get: () => this._config.aspect ?? 1, set: (v) => this._emit(applyChange(this._config, "aspect", v)) }, 0.5, 3, 0.05,
         { unset: !set, hint: "Width over height. Left alone, Alfie's panel decides (Appearance → Look).",
-          after: set ? `<button class="x" data-b="${reset}" title="Back to the panel's">Reset</button>` : "" });
+          after: set ? `<button data-b="${reset}" title="Back to the panel's">Reset</button>` : "" });
     }
 
     _more() {

@@ -64,8 +64,8 @@ function triggers(p) {
       waits its turn or interrupts it, as its "If a story is already playing" says. Automations can play any story too,
       with the <code>alfie.play_story</code> action.`)}
     <p class="playing muted"></p>
-    ${trs.map((t, i) => trigger(p, t, i, trs.length)).join("") || U.empty("No triggers yet.")}
-    ${U.addRow(kinds, "trig-add", "+ Add trigger")}`;
+    ${U.list({ items: trs.map((t, i) => trigger(p, t, i, trs.length)).join(""), empty: "No triggers yet.",
+      add: U.addRow(kinds, "trig-add", "+ Add trigger"), what: "a trigger" })}`;
 }
 
 function trigger(p, t, i, n) {
@@ -133,8 +133,8 @@ function stories(p) {
       `Fill in the simple form, or switch to steps for a free sequence. <b>@mood</b> is his mood's face now and
       <b>@old_mood</b> the one before the change. <b>@why</b> shows the screens of the signals that changed, and
       <b>@wrong</b> those of everything that is wrong, one after another.`)}
-    ${sts.map((st, i) => story(p, st, i, sts.length)).join("") || U.empty("No stories yet.")}
-    ${U.addButton("st-add", "+ Add story")}`;
+    ${U.list({ items: sts.map((st, i) => story(p, st, i, sts.length)).join(""), empty: "No stories yet.",
+      add: U.addButton("st-add", "+ Add story"), what: "a story" })}`;
 }
 
 function story(p, st, i, n) {
@@ -181,12 +181,12 @@ function steps(p, st, i) {
       <span class="muted n">${j + 1}.</span>${U.chip(STEP_TEXT[s.kind] || s.kind)}
       ${stepFields(p, s, `stories.${i}.steps.${j}`)}
       <span class="tools">
-        <button class="icon" data-action="st-step-up" data-i="${i}" data-j="${j}" ${j ? "" : "disabled"} title="Move up">▲</button>
-        <button class="icon" data-action="st-step-down" data-i="${i}" data-j="${j}" ${j < st.steps.length - 1 ? "" : "disabled"} title="Move down">▼</button>
-        <button class="icon" data-action="st-step-rm" data-i="${i}" data-j="${j}" title="Remove">✕</button></span></div>`).join("");
+        <button class="icon" data-action="st-step-up" data-i="${i}" data-j="${j}" ${j ? "" : "disabled"} title="Move up" aria-label="Move up"><ha-icon icon="mdi:arrow-up"></ha-icon></button>
+        <button class="icon" data-action="st-step-down" data-i="${i}" data-j="${j}" ${j < st.steps.length - 1 ? "" : "disabled"} title="Move down" aria-label="Move down"><ha-icon icon="mdi:arrow-down"></ha-icon></button>
+        <button class="icon" data-action="st-step-rm" data-i="${i}" data-j="${j}" title="Remove" aria-label="Remove"><ha-icon icon="mdi:close"></ha-icon></button></span></div>`).join("");
   const kinds = U.select("", "expression", p.choices.step_kinds.map((k) => [k, STEP_TEXT[k] || k]), { attrs: 'aria-label="Step"' });
   return `<div class="steps">${rows || U.empty("No steps yet.")}</div>
-    <div class="row addrow">${kinds}<button class="add" data-action="st-step-add" data-i="${i}">+ Add step</button></div>
+    <div class="row addrow">${kinds}<button class="flat" data-action="st-step-add" data-i="${i}"><ha-icon icon="mdi:plus"></ha-icon>Add step</button></div>
     <style>.steps .step { padding: 6px 0; border-bottom: 1px solid var(--line); } .steps .n { width: 22px; }
       .steps .secs { width: 84px; } .row.form { margin: 8px 0 4px; }
       .steps .step { flex-wrap: wrap; } .steps .stepmore { flex-basis: 100%; padding-left: 22px; }
@@ -244,21 +244,19 @@ function iconFields(p, s, P, secs) {
 function motion(p) {
   const b = p.draft.behaviour, anims = p.choices.animations;
   const rows = b.motion_sensors.map((g, i) => `<div class="row sensor">
-      <input list="entities" class="grow" data-path="behaviour.motion_sensors.${i}.entity" value="${U.esc(g.entity)}" placeholder="binary_sensor.hall_motion">
+      <input data-list="entities" data-entities class="grow" data-path="behaviour.motion_sensors.${i}.entity" value="${U.esc(g.entity)}" placeholder="binary_sensor.hall_motion">
       ${U.select(`behaviour.motion_sensors.${i}.action`, g.action, [["notice", "Notice you: one of the set below"], ...anims.map((a) => [a, U.human(a)])])}
-      <button class="icon" data-action="mo-rm" data-i="${i}" title="Remove" aria-label="Remove">✕</button></div>`).join("");
+      <button class="icon" data-action="mo-rm" data-i="${i}" title="Remove" aria-label="Remove"><ha-icon icon="mdi:close"></ha-icon></button></div>`).join("");
   return `${U.intro("When a motion sensor turns on, Alfie glances that way or notices you. When nothing happens for a while, he fidgets.")}
-    <h3>Motion sensors</h3>
-    ${rows || U.empty("No motion sensors yet. Get started on the Overview can find them for you.")}
-    ${U.addButton("mo-add", "+ Add motion sensor")}
-    ${U.group("", U.field("Debounce", U.num("behaviour.motion_debounce", b.motion_debounce, { min: 0, max: 600, step: 1, unit: "s" }),
-      "A run of motion within this is one reaction."))}
-    <h4>"Notice you" picks one of</h4>${U.picks("mo-set", undefined, "notice", anims, b.notice)}
-    <h3>Idle</h3>
-    ${U.group("", U.field("Between fidgets", U.num("behaviour.idle_interval", b.idle_interval, { min: 10, max: 3600, step: 5, unit: "s" }),
-      "When content. Lively moods fidget more often and sad ones less; Personality scales it too."))}
-    <h4>Fidgets</h4>${U.picks("mo-set", undefined, "idle_fidgets", anims, b.idle_fidgets)}
-    <style>.sensor select { max-width: 260px; }</style>`;
+    ${U.card("Motion sensors", `<div class="sensors">${rows || U.empty("No motion sensors yet. Get started on the Overview can find them for you.")}</div>
+      <div class="row"><button class="flat" data-action="mo-add"><ha-icon icon="mdi:plus"></ha-icon>Add motion sensor</button></div>
+      <div class="grid">${U.field("Debounce", U.num("behaviour.motion_debounce", b.motion_debounce, { min: 0, max: 600, step: 1, unit: "s" }),
+        "A run of motion within this is one reaction.")}</div>
+      <h4>"Notice you" picks one of</h4>${U.picks("mo-set", undefined, "notice", anims, b.notice)}`)}
+    ${U.card("Idle", `<div class="grid">${U.field("Between fidgets", U.num("behaviour.idle_interval", b.idle_interval, { min: 10, max: 3600, step: 5, unit: "s" }),
+        "When content. Lively moods fidget more often and sad ones less; Personality scales it too.")}</div>
+      <h4>Fidgets</h4>${U.picks("mo-set", undefined, "idle_fidgets", anims, b.idle_fidgets)}`)}
+    <style>.sensor select { max-width: 280px; } .sensors { margin: 0 0 8px; } .sensors .sensor { margin: 0 0 8px; flex-wrap: nowrap; }</style>`;
 }
 
 // ------------------------------------------------------------ editing

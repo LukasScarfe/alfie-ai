@@ -2,7 +2,7 @@
 // zenika/alpine-chrome:124-with-puppeteer image (see ./dev), never on the host.
 //
 //   node shot.js URL OUT.png [--auth tokens.json] [--size WxH] [--wait ms]
-//                            [--selector css] [--eval js]
+//                            [--selector css] [--eval js] [--light]
 //
 // --auth logs into HA by planting the frontend's own saved-token entry
 // (localStorage.hassTokens) before the page loads, so no login form is driven.
@@ -38,10 +38,10 @@ function arg(name, def) {
       expires_in: 1800, expires: Date.now() + 1800 * 1000,
       hassUrl: t.url, clientId: t.client_id,
     });
-    await page.evaluateOnNewDocument((v) => {
+    await page.evaluateOnNewDocument((v, light) => {
       localStorage.setItem("hassTokens", v);
-      localStorage.setItem("selectedTheme", JSON.stringify({ dark: true }));
-    }, tokens);
+      localStorage.setItem("selectedTheme", JSON.stringify({ dark: !light }));
+    }, tokens, process.argv.includes("--light"));
   }
 
   // A busy page (many live cards) may never go network-idle; settle for a

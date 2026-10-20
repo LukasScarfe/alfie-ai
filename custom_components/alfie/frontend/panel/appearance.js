@@ -46,9 +46,9 @@ export function render(p, sub) {
 
 function look(p) {
   const Lk = p.draft.look;
-  const colors = LOOK_COLORS.map(([k, t]) => U.field(t, `<span class="row">
+  const colors = LOOK_COLORS.map(([k, t]) => U.field(t, `<span class="row colour">
       <input type="color" class="swatch" data-path="look.${k}" data-kind="opttext" value="${Fm.swatchValue(Lk[k])}" aria-label="${t}">
-      <input class="grow" data-path="look.${k}" data-kind="opttext" value="${U.esc(Lk[k])}" placeholder="Default (from the style)"></span>`)).join("");
+      <input data-path="look.${k}" data-kind="opttext" value="${U.esc(Lk[k])}" placeholder="From the style"></span>`)).join("");
   const range = (path, v, min, max, step, text) => `<label class="slider"><span>${text}</span>
       <input type="range" min="${min}" max="${max}" step="${step}" data-path="${path}" data-kind="number" value="${v}">
       <output>${p.fmt(v)}</output></label>`;
@@ -56,24 +56,17 @@ function look(p) {
   const extra = Lk.shapes && (Lk.shapes.left_eye || Lk.shapes.right_eye)
     ? `<p class="muted">A separate left or right eye shape is kept as it is; edit it in YAML.</p>` : "";
   return `${U.intro("How Alfie is drawn on every card. A card's own options (in its editor) still win over these, one by one.")}
-    <div>
-      <h3>Style and colour</h3>
-      ${U.group("", `${U.field("Style", U.select("look.style", Lk.style, (p.choices.styles || CARD_STYLES).map((s) => [s, STYLE_TEXT[s] || U.human(s)])),
-        "Sets the default colours and glow.")}${colors}`)}
-      <p class="muted">Empty: the style's own. A colour is <code>#hex</code>, a CSS colour or <code>var(--primary-color)</code>.</p>
-      <h3>Lines</h3>
-      <div class="sliders">${range("look.line_width", Lk.line_width, 0.005, 0.1, 0.005, "Ring and eye line width")}
+    ${U.card("Style and colour", `<div class="grid">${U.field("Style", U.select("look.style", Lk.style, (p.choices.styles || CARD_STYLES).map((s) => [s, STYLE_TEXT[s] || U.human(s)])),
+        "Sets the default colours and glow.")}${colors}</div>
+      <small>Empty: the style's own. A colour is <code>#hex</code>, a CSS colour or <code>var(--primary-color)</code>.</small>`)}
+    ${U.cards(`${U.card("Lines and size", `<div class="sliders">${range("look.line_width", Lk.line_width, 0.005, 0.1, 0.005, "Ring and eye line width")}
         ${range("look.screen_line_width", Lk.screen_line_width, 0.005, 0.06, 0.005, "Screen line width")}
         ${range("look.padding", Lk.padding, 0, 0.3, 0.01, "Padding around the ring")}
-        ${range("look.aspect", Lk.aspect ?? 1, 0.5, 3, 0.05, "Card aspect (width over height)")}
-        <label class="check">${U.toggle(null, Lk.glow == null, { action: "look-glow" })}<span><b>Glow from the style</b></span></label>
-        ${Lk.glow == null ? "" : range("look.glow", Lk.glow, 0, 2, 0.05, "Glow")}
-        ${U.check("look.eye_fill", Lk.eye_fill, "Fill the eyes")}</div>
-      <h3>Shapes</h3>${shapes}${extra}
-    </div>
-    <style>
-      .shape { margin: 8px 0; display: grid; gap: 10px; }
-    </style>`;
+        ${range("look.aspect", Lk.aspect ?? 1, 0.5, 3, 0.05, "Card aspect (width over height)")}</div>`)}
+      ${U.card("Glow and fill", `<label class="check">${U.toggle(null, Lk.glow == null, { action: "look-glow" })}<span><b>Glow from the style</b></span></label>
+        ${Lk.glow == null ? "" : `<div class="sliders">${range("look.glow", Lk.glow, 0, 2, 0.05, "Glow")}</div>`}
+        ${U.check("look.eye_fill", Lk.eye_fill, "Fill the eyes")}`)}`)}
+    <h3 class="cards-title">Shapes</h3>${U.cards(shapes)}${extra}`;
 }
 
 // Under the dock face: Look's four stills and expression picks, and
@@ -98,12 +91,12 @@ function shapeEditor(p, part, t, spec) {
   const type = spec.type || "circle";
   const types = [...Object.keys(Fm.SHAPE_PARAMS), ...(type === "path" ? ["path"] : [])];
   const params = type === "path" ? [] : [...Fm.SHAPE_PARAMS[type], ...Fm.SHAPE_COMMON];
-  return `<div class="card shape">${U.field(t, `<select data-shape="${part}" data-param="type">${types.map((x) =>
+  return `<section class="card shape"><h3>${U.esc(t)}</h3>${U.field("Shape", `<select data-shape="${part}" data-param="type">${types.map((x) =>
       `<option value="${x}" ${x === type ? "selected" : ""}>${SHAPE_TEXT[x]}</option>`).join("")}</select>`)}
     ${type === "path" ? `<p class="muted">A custom path. Edit its points in YAML; it is kept untouched here.</p>` : ""}
     ${params.map(([k, min, max, step]) => `<label class="slider"><span>${PARAM_TEXT[k] || U.human(k)}</span>
       <input type="range" min="${min}" max="${max}" step="${step}" data-shape="${part}" data-param="${k}" value="${Fm.shapeParam(spec, k)}">
-      <output>${p.fmt(Fm.shapeParam(spec, k))}</output></label>`).join("")}</div>`;
+      <output>${p.fmt(Fm.shapeParam(spec, k))}</output></label>`).join("")}</section>`;
 }
 
 // ------------------------------------------------------------ personality
@@ -111,19 +104,14 @@ function shapeEditor(p, part, t, spec) {
 function personality(p) {
   const pr = p.draft.personality, c = p.choices;
   const presets = Object.keys(c.personalities).map((k) =>
-    `<button class="card preset ${pr.preset === k ? "on" : ""}" data-action="preset" data-name="${k}">${U.esc(U.human(k))}</button>`).join("");
+    `<button class="preset ${pr.preset === k ? "on" : ""}" data-action="preset" data-name="${k}">${U.esc(U.human(k))}</button>`).join("");
   const sliders = Object.entries(c.sliders).map(([k, s]) => `<label class="slider">
       <span><b>${SLIDER_TEXT[k][0]}</b><small>${SLIDER_TEXT[k][1]}</small></span>
       <input type="range" min="${s.min}" max="${s.max}" step="0.05" data-path="personality.${k}" data-kind="number" value="${pr[k]}">
       <output>${p.fmt(pr[k])}</output></label>`).join("");
   return `${U.intro("A personality shapes how all his motion feels, in every mood. Pick a preset, or move the sliders for your own.")}
-    <div class="presets">${presets}</div>
-    <div class="sliders">${sliders}</div>
-    <style>
-      .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-      .preset { margin: 0; padding: 10px 18px; color: var(--primary-text-color); font-weight: 500; }
-      .preset.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-    </style>`;
+    ${U.card("Preset", `<div class="seg presets">${presets}</div>`)}
+    ${U.card("Fine tuning", `<div class="sliders">${sliders}</div>`)}`;
 }
 
 // ------------------------------------------------------------ playground
@@ -132,24 +120,17 @@ function playground(p) {
   const c = p.choices, pg = pgState(p);
   const chip = (kind, name, t, on) => `<button class="chip pick ${on ? "on" : ""}" data-action="pg" data-pg-kind="${kind}" data-name="${U.esc(name)}">${U.esc(t ?? U.human(name))}</button>`;
   return `${U.intro("Try Alfie out. Everything here plays on this page only, unless you turn on \"Play on every display\". Nothing here is saved.")}
-    <div>
-      <h3>Expressions</h3>
-      <div class="chips">${chip("expr", "", "Follow mood", pg.expr === "")}${c.expressions.map((e) => chip("expr", e, null, pg.expr === e)).join("")}</div>
-      <h3>Animations</h3>
-      <div class="chips">${c.animations.map((a) => chip("anim", a)).join("")}</div>
-      <h3>A mood level's look</h3>
-      <p class="muted">Holds that level's expression and energy from Mood → Levels (your draft), so you can judge them in motion.</p>
-      <div class="chips">${c.levels.map((l) => chip("level", l, L[l], pg.level === l)).join("")}</div>
-      <label class="slider"><span><b>Energy</b><small>How quick, big and bouncy the motion is. Sliding it holds that energy.</small></span>
-        <input type="range" id="pg-energy" min="0.05" max="1.5" step="0.05" data-pg="energy" value="${pg.energy}">
-        <output>${p.fmt(pg.energy)}</output></label>
-      <h3>Personality</h3>
-      <div class="chips">${Object.keys(c.personalities).filter((k) => c.personalities[k]).map((k) => chip("pers", k)).join("")}</div>
-      <h3>Where</h3>
-      <label class="check"><input type="checkbox" class="switch" data-pg="everywhere" ${pg.everywhere ? "checked" : ""}>
+    ${U.cards(`${U.card("Expressions", `<div class="chips">${chip("expr", "", "Follow mood", pg.expr === "")}${c.expressions.map((e) => chip("expr", e, null, pg.expr === e)).join("")}</div>`)}
+      ${U.card("Animations", `<div class="chips">${c.animations.map((a) => chip("anim", a)).join("")}</div>`)}
+      ${U.card("A mood level's look", `<small>Holds that level's expression and energy from Mood → Levels (your draft), so you can judge them in motion.</small>
+        <div class="chips">${c.levels.map((l) => chip("level", l, L[l], pg.level === l)).join("")}</div>
+        <div class="sliders"><label class="slider"><span><b>Energy</b><small>How quick, big and bouncy the motion is. Sliding it holds that energy.</small></span>
+          <input type="range" id="pg-energy" min="0.05" max="1.5" step="0.05" data-pg="energy" value="${pg.energy}">
+          <output>${p.fmt(pg.energy)}</output></label></div>`)}
+      ${U.card("Personality", `<div class="chips">${Object.keys(c.personalities).filter((k) => c.personalities[k]).map((k) => chip("pers", k)).join("")}</div>`)}`)}
+    ${U.card("Where", `<label class="check"><input type="checkbox" class="switch" data-pg="everywhere" ${pg.everywhere ? "checked" : ""}>
         <span><b>Play on every display</b><small>Uses the actions: expressions hold for 10 seconds.</small></span></label>
-      <div class="row"><button class="flat" data-action="pg" data-pg-kind="reset">Reset everything</button></div>
-    </div>`;
+      <div class="row"><button class="flat" data-action="pg" data-pg-kind="reset">Reset everything</button></div>`)}`;
 }
 
 // Playground and Look clicks. Local previews go to the dock face, which then

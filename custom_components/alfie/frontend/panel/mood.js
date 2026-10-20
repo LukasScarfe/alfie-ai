@@ -32,8 +32,8 @@ function signals(p) {
       so one signal covers every battery in the house. It is active when any of them (or all, under More options)
       passes its test.`)}
     <div class="draft-mood"></div>
-    ${sigs.map((s, i) => signal(p, s, i, sigs.length)).join("") || U.empty("No signals yet.")}
-    ${U.addButton("sig-add", "+ Add signal")}`;
+    ${U.list({ items: sigs.map((s, i) => signal(p, s, i, sigs.length)).join(""), empty: "No signals yet.",
+      add: U.addButton("sig-add", "+ Add signal"), what: "a signal" })}`;
 }
 
 function signalSummary(s) {

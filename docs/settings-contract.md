@@ -172,21 +172,31 @@ text(path, value, { placeholder, kind, attrs, list })      // list: datalist id
 toggle(path, on, { title, action, i })                     // switch; path -> data-kind=bool, or action -> data-action
 field(label, control, hint)        // one labelled control in a grid cell
 wide(label, control, hint)         // same, spanning the grid
-check(path, on, label, hint)       // a switch with its label on one line
-group(title, inner)                // a titled block of fields: <section class="group"><h4>…</h4><div class="grid">…</div></section>
+check(path, on, label, hint)       // a switch row: words left, switch right
+group(title, inner)                // a titled block of fields: <section class="group"><h3>…</h3><div class="grid">…</div></section>
+                                   // (a card on a settings page, a plain block inside an editor)
+card(title, inner), cards(inner)   // a titled card on a settings page; cards() lays several side by side
+icon(mdi), iconButton(action, mdi, title, { i, disabled })   // <ha-icon>; a 36px round icon button
 more(p, key, inner, summary = "More options")   // <details class="more" data-more="key">; open state kept in p.open as more:key
 item({ key, i, n, open, cls, enabledPath, enabled, chips, name, summary, badge,
-       actions: { toggle, up, down, dup, del }, body })
-                                   // the uniform list item: header [switch][chips][name][summary][badge][▲▼▸],
-                                   // and when open: body, then a footer with Duplicate / Delete
+       actions: { toggle, up, down, dup, del }, body, footer })
+                                   // the uniform list item: a row [switch][name / summary][chips, badge],
+                                   // and when open its editor (.detail): a header [back][name][badge][up][down],
+                                   // the body, and a footer [Delete] … [footer][Duplicate]
+list({ items, empty, add, what })  // a list + detail page: the items with `add` on top; the shell moves the
+                                   // open item's editor beside them, keeps one open, opens the first when wide
 picks(action, i, key, all, chosen, textOf)    // toggle chips: data-action, data-i, data-key, data-name
-entities({ items, i, add, rm, placeholder, list = "entities" })   // entity chips + input + Add (the add button gets data-add)
+entities({ items, i, add, rm, placeholder, list = "entities" })   // entity chips + a picker input + Add (the add button gets data-add)
 intro(text, more)                  // one-sentence intro; `more` (html) goes in a "Learn more" fold
 empty(text)                        // the empty state of a list
-addButton(action, text, attrs)     // "+ Add signal" full-width dashed button
+addButton(action, text, attrs)     // "+ Add signal": the list's solid Add button, a plus icon for the "+"
 addRow(controlHtml, action, text)  // a select + add button
 seg(action, current, options)      // a segmented control (e.g. a story's form: Simple | Steps)
 ```
+
+Entity inputs carry `data-entities` and `data-list="<datalist id>"` (the choices); the shell's
+`panel/entity-picker.js` turns them into a searchable list. Styles are `panel/style.js`, to the
+rules in design.md "Panel style"; a section adds only small layout rules of its own.
 
 `p.screenSelect(path, value, extra, attrs)` and `p.storyOptions(extra)` (story id/name pairs,
 with missing ids kept visible) stay on the panel, because they read the draft.
@@ -207,7 +217,7 @@ with missing ids kept visible) stay on the panel, because they read the draft.
   - "Duplicate" and "Delete" (no noun);
   - "Play on every display".
 - **Empty states:** "No signals yet.", "No triggers yet." and so on.
-- **Reset:** a "Reset this section" button. Its confirm reads: "Put <Sub-tab title> back to
+- **Reset:** a "Reset to defaults" button by the page title. Its confirm reads: "Put <Sub-tab title> back to
   Alfie's defaults? You can still revert before saving."
 - **Presenting:** "Hand over: Alfie steps aside" and "Corner: Alfie shrinks into a corner". In
   a story the default is "Default (the card's)".

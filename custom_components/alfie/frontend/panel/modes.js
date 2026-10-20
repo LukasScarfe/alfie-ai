@@ -25,8 +25,8 @@ export function render(p) {
       <div class="grow"><h4>Now</h4><span class="modenow"></span></div>
       ${U.field("House mode", U.select("", p.scene?.mode_pick || "auto", pick, { attrs: 'id="modepick"' }))}
     </div>
-    ${ms.map((m, i) => mode(p, m, i, ms.length)).join("") || U.empty("No house modes: Alfie is always himself.")}
-    ${U.addButton("mode-add", "+ Add house mode")}
+    ${U.list({ items: ms.map((m, i) => mode(p, m, i, ms.length)).join(""), empty: "No house modes: Alfie is always himself.",
+      add: U.addButton("mode-add", "+ Add house mode"), what: "a house mode" })}
     <h3>Asleep</h3>
     ${U.group("", U.field("Asleep, Alfie looks", U.select("behaviour.sleep_expression", b.sleep_expression, p.choices.expressions.map((e) => [e, U.human(e)]))))}
     <style>.card.now { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; } .card.now .field { min-width: 240px; }</style>`;

@@ -134,7 +134,7 @@ function signalSuggestions(p) {
   const rows = !f ? `<p class="muted">Looking around the house…</p>` : f.signals.length
     ? f.signals.map((s, k) => `<div class="sugg"><span class="grow"><b>${U.esc(s.name)}</b> <code>${U.esc(s.entities[0])}</code>
         <small>${U.esc(U.human(s.why))}: ${s.op === "below" ? `below ${s.value}` : "is on"}, ${s.severity}.</small></span>
-        <button class="flat" data-action="ov-add-signal" data-i="${k}">+ Add</button></div>`).join("")
+        <button class="flat" data-action="ov-add-signal" data-i="${k}"><ha-icon icon="mdi:plus"></ha-icon>Add</button></div>`).join("")
     : `<p class="muted">Nothing else to suggest.</p>`;
   return `<p class="muted small">Watching now (with how many entities match):</p><div class="chips">${have || "none"}</div>
     <h4 style="margin-top:12px">Suggestions</h4>${rows}`;
@@ -145,8 +145,8 @@ function motionSuggestions(p) {
   if (!f) return `<p class="muted">Looking around the house…</p>`;
   if (!f.motion.length) return `<p class="muted">No motion, occupancy or presence sensors found. You can add any entity on Motion &amp; idle.</p>`;
   return `${f.motion.map((m, k) => `<div class="sugg"><span class="grow"><b>${U.esc(m.name)}</b> <code>${U.esc(m.entity)}</code></span>
-      <button class="flat" data-action="ov-add-motion" data-i="${k}">+ Add</button></div>`).join("")}
-    ${f.motion.length > 1 ? `<div class="row"><button class="flat" data-action="ov-add-motion-all">+ Add all ${f.motion.length}</button></div>` : ""}`;
+      <button class="flat" data-action="ov-add-motion" data-i="${k}"><ha-icon icon="mdi:plus"></ha-icon>Add</button></div>`).join("")}
+    ${f.motion.length > 1 ? `<div class="row"><button class="flat" data-action="ov-add-motion-all"><ha-icon icon="mdi:plus"></ha-icon>Add all ${f.motion.length}</button></div>` : ""}`;
 }
 
 function sleepSuggestions(p) {
@@ -154,7 +154,7 @@ function sleepSuggestions(p) {
   if (!nightMode(p)) return `<p class="muted">There is no Night mode. Add one on House modes, with Alfie: Asleep.</p>`;
   const rows = !f ? "" : f.sleep.map((s) => `<div class="sugg"><span class="grow"><b>${U.esc(s.name)}</b> <code>${U.esc(s.entity)}</code></span>
       <button class="flat" data-action="ov-sleep" data-name="${U.esc(s.entity)}">Use this</button></div>`).join("");
-  return `${rows}<div class="row"><input list="entities" class="grow" placeholder="Or pick any entity that is on at night">
+  return `${rows}<div class="row"><input data-list="entities" data-entities class="grow" placeholder="Or pick any entity that is on at night">
     <button class="flat" data-add data-action="ov-sleep">Use</button></div>`;
 }
 

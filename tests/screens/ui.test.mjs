@@ -20,7 +20,7 @@ const p = { open: new Set(["more:k"]) };
 check(U.more(p, "k", "x").includes(" open") && !U.more(p, "j", "x").includes(" open"), "more remembers open");
 
 const closed = U.item({ key: "sig:a", i: 0, n: 2, open: false, name: "Dry", actions: { toggle: "t", up: "u", down: "d", dup: "c", del: "x" } });
-check(closed.includes('data-action="t"') && !closed.includes("Duplicate") && /data-action="u"[^>]*disabled/.test(closed), "closed item");
+check(closed.includes('data-action="t"') && !closed.includes("Duplicate") && !closed.includes('data-action="u"') && !closed.includes("detail"), "closed item");
 const open = U.item({ key: "sig:a", i: 1, n: 2, open: true, name: "<Dry>", enabledPath: "signals.1.enabled", enabled: true,
   actions: { toggle: "t", up: "u", down: "d", dup: "c", del: "x" }, body: "BODY" });
 check(open.includes("BODY") && open.includes("Duplicate") && open.includes("Delete") && open.includes("&#60;Dry&#62;")
@@ -29,6 +29,9 @@ check(open.includes("BODY") && open.includes("Duplicate") && open.includes("Dele
 const ents = U.entities({ items: ["sensor.a"], i: 3, add: "add", rm: "rm" });
 check(ents.includes("data-add") && ents.includes('data-j="0"') && ents.includes('data-i="3"'), "entities");
 check(U.picks("pk", 0, "moods", ["sad", "bubbly"], ["sad"]).match(/chip pick on/g).length === 1, "picks");
+const L = U.list({ items: open, empty: "None", add: U.addButton("a", "+ Add thing"), what: "a thing" });
+check(L.includes('class="ld"') && L.includes("ld-detail") && L.includes(">Add thing<") && L.includes("mdi:plus"), "list");
+check(U.list({ items: "", empty: "Nothing <here>" }).includes("Nothing &#60;here&#62;"), "empty list");
 check(U.seg("f", "steps", [["simple", "Simple"], ["steps", "Steps"]], 2).includes('class="on" data-action="f" data-i="2" data-name="steps"'), "seg");
 
 if (failures) process.exit(1);
