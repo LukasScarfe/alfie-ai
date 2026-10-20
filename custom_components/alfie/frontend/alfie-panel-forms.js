@@ -221,8 +221,9 @@ export function optionField(opt, value, P, ctx) {
           <button class="flat" data-add data-action="add-opt-entity" data-i="${ctx.i}" data-key="${esc(opt.key)}">Add</button></div>${noteHtml}</div>`;
     }
     default: // text
+      // Any screen text may hold an icon word (mdi:plex Viewers): suggest those.
       return `<label class="field opt"><span>${label}</span><input data-path="${path}" data-kind="opttext" value="${esc(value ?? "")}"
-        placeholder="${esc(dflt ?? "")}">${noteHtml}</label>`;
+        placeholder="${esc(dflt ?? "")}" data-icons="word" autocomplete="off">${noteHtml}</label>`;
   }
 }
 

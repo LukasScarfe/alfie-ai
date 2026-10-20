@@ -20,6 +20,7 @@
 const V = new URL(import.meta.url).search;
 await import(`./alfie-card.js${V}`).catch(() => null); // usually loaded already; the card defines itself
 const U = await import(`./panel/ui.js${V}`);
+const IconPick = await import(`./panel/icon-picker.js${V}`);
 // House modes ("modes") are switched off for now: the engine still runs them, the panel hides them.
 const SECTIONS = await Promise.all(["overview", "mood", "reactions", /* "modes", */ "screens", "appearance"]
   .map((n) => import(`./panel/${n}.js${V}`)));
@@ -403,6 +404,7 @@ class AlfiePanel extends HTMLElement {
     const b = root.querySelector(".page > .body");
     b.addEventListener("input", (e) => this._onInput(e));
     b.addEventListener("change", (e) => this._onInput(e));
+    IconPick.attach(root, b);   // icon names suggested as they are typed
     // Enter in an entity box adds it, like pressing Add.
     b.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && e.target.matches("input:not([type])")) e.target.closest(".row")?.querySelector("[data-add]")?.click();
