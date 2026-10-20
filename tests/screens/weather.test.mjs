@@ -1,7 +1,7 @@
 // The weather screen: pure helpers, then draw() on invented data.
 import fs from "node:fs";
 import * as S from "../../custom_components/alfie/frontend/alfie-screens.js";
-import W, { group, smooth, convert, rainMode, isNight, nowTemp, nowCondition } from "../../custom_components/alfie/frontend/screens/weather.js";
+import W, { smooth, convert, rainMode, isNight, nowTemp, nowCondition } from "../../custom_components/alfie/frontend/screens/weather.js";
 
 let failures = 0, checks = 0;
 function check(ok, what) { checks++; if (!ok) { failures++; console.error(`FAIL ${what}`); } }
@@ -10,8 +10,6 @@ const info = JSON.parse(fs.readFileSync(new URL("../../custom_components/alfie/f
 const defaults = Object.fromEntries(info.options.filter((o) => "default" in o).map((o) => [o.key, o.default]));
 const opts = (o = {}) => ({ ...defaults, weather: "weather.home", ...o });
 
-check(group([1, 5, 2, null, null, null, 4], 3).join() === "5,,4", "group max, gap stays a gap");
-check(group([1, 2, 3, 4], 2, "sum").join() === "3,7", "group sum");
 check(smooth([1, 5, 1]).join() === "1,3,1" && smooth([1, null, 1]).join() === "1,,1", "smooth keeps ends and gaps");
 check(smooth([0, 4, 0, 4, 0], 0).join() === "0,4,0,4,0", "zero passes is identity");
 check(convert(0, "°C", "fahrenheit") === 32 && convert(212, "°F", "celsius") === 100 && convert(5, "°C", "auto") === 5 && convert(null, "°C", "celsius") === null, "unit conversion");

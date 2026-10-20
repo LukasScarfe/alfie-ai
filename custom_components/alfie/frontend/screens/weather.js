@@ -1,21 +1,9 @@
 // Weather: the temperature now beside a condition icon, then the forecast as
-// a temperature curve with rain bars (hourly), or days as columns (daily).
+// a temperature curve (hourly) or days as columns (daily), with rain as a
+// dotted line against its own axis.
 // Ported from xy-bench figures._weather. Laid out in a frame `f` units tall
 // per 0.72 of half-height, stretched to the box's width.
-const RAIN_WEIGHT = 0.17;           // sparse on purpose: the bars read as drops
 const ELEVATION_NIGHT = -0.833;     // sun.sun elevation below which it is night
-
-const sum = (a) => a.reduce((s, x) => s + x, 0);
-
-// Every k values reduced by `how`; null where all are missing.
-export function group(vals, k, how = "max") {
-  const out = [];
-  for (let i = 0; i < vals.length; i += k) {
-    const got = vals.slice(i, i + k).filter((v) => v !== null);
-    out.push(got.length ? (how === "sum" ? sum(got) : Math.max(...got)) : null);
-  }
-  return out;
-}
 
 // A 1-2-1 moving average, ends kept, gaps kept as gaps.
 export function smooth(vals, passes = 1) {
@@ -163,19 +151,18 @@ function hourly({ w, f, ts, cur, data, options, config, memo, S, conv, suffix, k
   const x0 = -w * 0.97 + padL, x1 = w * 0.97 - padR, pw = x1 - x0;
   const y0 = -0.6 * f, ph = 0.7 * f, y1 = y0 + ph;
 
-  // Rain, against the right axis.
+  // Rain, a dotted line against the right axis, on the temperature's hours
+  // (the first hour's value stands for now).
   if (mode) {
-    const k = nH <= 12 ? 1 : 3;   // hours per rain bar
-    let vals = S.series(data[mode]).slice(0, nH);
+    const vals = S.series(data[mode]).slice(0, nH);
     while (vals.length < nH) vals.push(null);
-    let slots = group(vals, k, mode === "pop" ? "max" : "sum");
     let hi = 100, ticks = [0, 50, 100], unit = "%";
     if (mode === "precip") {
-      const m = Math.max(0, ...slots.filter((v) => v !== null));
+      const m = Math.max(0, ...vals.filter((v) => v !== null));
       hi = Math.max(2, Math.ceil(m / 2) * 2);
       ticks = [0, hi / 2, hi]; unit = "";
     }
-    out.push(...S.bars(slots, x0, y0, pw, ph, { lo: 0, hi, fill: 0.5, weight: RAIN_WEIGHT }));
+    out.push(...S.curve(smooth([vals[0], ...vals]), x0, y0, pw, ph, { lo: 0, hi, weight: S.DOTTED }));
     out.push(...S.axis(x1 + 0.04 * f, y0, ph, 0, hi, ticks, { unit, labelH: lh, weight: 0.25, side: "right", unlabelled: [0] }));
     out.push(...S.drop(x1 + 0.04 * f, y1 + 0.12 * f, 0.11 * f));
   }
@@ -233,13 +220,15 @@ function daily({ w, f, ts, data, options, config, memo, S, conv, suffix, key }) 
       out.push(...S.text(sl, fitH(S, sl, 0.07 * f * ts, room), cx, (-0.28 - 0.13 * (ts - 1)) * f, { role: "dim" }));
     }
   }
-  // Rain per day: bars aligned with the columns, over a 0..100 (or 0..max) strip.
+  // Rain per day: a dotted line through the columns, over a 0..100 (or 0..max)
+  // strip on the baseline.
+  out.push(...S.baseline(x0, -0.62 * f, cw * n));
   const mode = rainMode(options.rain, data);
-  if (mode) {
+  if (mode && n > 1) {
     const vals = S.series(data[mode]).slice(0, n);
     let top = 100;
     if (mode === "precip") top = Math.max(5, Math.ceil(Math.max(0, ...vals.filter((v) => v !== null)) / 5) * 5);
-    out.push(...S.bars(vals, x0, -0.62 * f, cw * n, (0.22 - 0.1 * Math.max(0, ts - 1)) * f, { lo: 0, hi: top, fill: 0.4, weight: RAIN_WEIGHT }));
-  } else out.push(...S.baseline(x0, -0.62 * f, cw * n));
+    out.push(...S.curve(vals, x0 + cw / 2, -0.62 * f, cw * (n - 1), (0.22 - 0.1 * Math.max(0, ts - 1)) * f, { lo: 0, hi: top, weight: S.DOTTED }));
+  }
   return out;
 }
