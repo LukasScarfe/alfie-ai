@@ -3,12 +3,12 @@
    {"key": "inside", "kind": "entity", "label": "Inside temperature", "domain": ["sensor", "climate", "weather", "input_number"]},
    {"key": "outside", "kind": "entity", "label": "Outside temperature", "domain": ["sensor", "climate", "weather", "input_number"]},
    {"key": "style", "kind": "choice", "label": "Clock", "default": "analogue", "choices": ["analogue", "digital"]},
-   {"key": "hours", "kind": "choice", "label": "Hours", "default": "24", "choices": ["24", "12"], "hint": "On the digital clock."},
+   {"key": "hours", "kind": "choice", "label": "Hours", "default": "24", "choices": ["24", "12"], "when": {"style": ["digital"]}},
    {"key": "seconds", "kind": "bool", "label": "Seconds", "default": true},
-   {"key": "joined", "kind": "bool", "label": "Minute hand reaches the rim", "default": false, "hint": "The rim and both hands are then one line, which an oscilloscope draws without jumps."},
+   {"key": "joined", "kind": "bool", "label": "Minute hand reaches the rim", "default": false, "hint": "The rim and both hands are then one line, which an oscilloscope draws without jumps.", "more": true},
    {"key": "solar_rim", "kind": "bool", "label": "Day and night on the rim", "default": true},
    {"key": "house", "kind": "bool", "label": "House icon by the inside temperature", "default": true},
-   {"key": "smoke", "kind": "bool", "label": "Smoke from the house chimney", "default": true},
+   {"key": "smoke", "kind": "bool", "label": "Smoke from the house chimney", "default": true, "when": {"house": [true]}},
    {"key": "decimals", "kind": "number", "label": "Temperature decimals", "default": 0, "min": 0, "max": 2},
    {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the temperatures, and a digital clock up to the room it has."}
  ]}

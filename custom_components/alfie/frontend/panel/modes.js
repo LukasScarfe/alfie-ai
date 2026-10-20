@@ -53,6 +53,7 @@ function mode(p, m, i, n) {
   const body = `
     ${U.group("When", `
       ${U.field("Name", U.text(`${P}.name`, m.name, { placeholder: "Night" }))}
+      ${U.idField(`${P}.id`, m.id, "triggers and <code>select.alfie_mode</code>")}
       <label class="check wide">${U.toggle(null, !!cond, { action: "mode-cond", i })}<span><b>Has a condition</b>
         <small>Off: only when picked by hand.</small></span></label>
       ${when}`)}
@@ -63,7 +64,6 @@ function mode(p, m, i, n) {
         "Held-back signals don't touch his mood or play stories in this mode.")}
       ${U.field("Rotation cards show", U.select(`${P}.rotation`, m.rotation, rots))}`)}
     ${U.more(p, `m:${m.id}`, `
-      ${U.field("ID", U.text(`${P}.id`, m.id, { attrs: 'pattern="[a-z0-9_]+" data-rerender' }))}
       ${U.field("Mood at least", U.select(`${P}.mood_floor`, m.mood_floor, levels))}
       ${U.field("Mood fixed at", U.select(`${P}.mood_fixed`, m.mood_fixed, levels))}
       ${U.field("Personality", U.select(`${P}.personality`, m.personality, [["", "Default (Alfie's personality)"], ...presets.map((x) => [x, U.human(x)])]))}
@@ -125,6 +125,7 @@ export function click(p, a, el) {
     case "mode-dup": {
       const m = U.clone(ms[i]);
       m.id = U.slugId(ms, `${m.id}_copy`, "mode");
+      p.autoId("m", m.id);
       m.name = m.name ? `${m.name} (copy)` : "";
       ms.splice(i + 1, 0, m);
       p.open.add(`m:${m.id}`);

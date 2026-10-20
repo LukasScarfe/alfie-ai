@@ -207,8 +207,8 @@ with missing ids kept visible) stay on the panel, because they read the draft.
   wakes him".
 - **Defaults** read "Default (from …)". Examples: "Default (the card's)", "Default (Alfie's
   personality)", "Default (as the signals say)".
-- **Names:** every item has a **Name** field, first. The **ID** is inside More options; a new
-  item's ID follows its name until the ID is edited by hand.
+- **Names:** every item has a **Name** field, first, and its **ID** (`U.idField`) right under
+  it; a new or duplicated item's ID follows its name until the ID is edited by hand.
 - **Units** go in the field suffix, never in the label: write "Cooldown" with the unit `s`, not
   "Cooldown (seconds)".
 - **Buttons:**

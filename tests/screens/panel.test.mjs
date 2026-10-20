@@ -22,6 +22,9 @@ const ents = P.optionField(plot.options[0], ["sensor.a", "sensor.b"], "s.0.optio
 check(ents.includes('data-kind="optper" data-j="1"') && ents.includes('value="mdi:account"') && ents.includes('placeholder="ring"'), "series rows carry the per options");
 check(ents.includes('icon="mdi:account"') && ents.includes('icon="mdi:circle-outline"'), "marker previews");
 check(plot.options.filter((o) => o.per).every((o) => P.optionField(o, "", "p", pctx) === ""), "per options draw no field of their own");
+const yMin = plot.options.find((o) => o.key === "y_min");
+check(!P.optionShown(yMin, {}, plot.options) && P.optionShown(yMin, { range: "fixed" }, plot.options), "range fields show for a fixed range only");
+check(P.optionField(plot.options.find((o) => o.key === "range"), "auto", "p", pctx).includes("data-rerender"), "a field others depend on redraws the form");
 check(P.presetIcon("ring") === "mdi:circle-outline" && P.presetIcon("mdi:leaf") === "mdi:leaf", "preset previews");
 
 let s = P.setShapeParam({ type: "polygon" }, "sides", 6);

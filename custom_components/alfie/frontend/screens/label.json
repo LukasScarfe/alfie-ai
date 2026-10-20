@@ -1,5 +1,5 @@
 {"type": "label", "title": "Label", "needs": null,
  "options": [
    {"key": "text", "kind": "text", "label": "Text", "required": true},
-   {"key": "size", "kind": "number", "label": "Text size", "default": 0.3, "min": 0.05, "max": 1}
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.2, "max": 3, "unit": "×", "hint": "The largest the text gets; it shrinks to fit."}
  ]}

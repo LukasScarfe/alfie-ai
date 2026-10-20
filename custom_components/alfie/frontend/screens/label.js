@@ -1,5 +1,5 @@
 // A placeholder screen type that proves the pipeline: centred, word-wrapped
-// text. `size` is the text's cap height in face units (the ring has radius 1);
+// text, its cap height 0.3 face units (the ring has radius 1) times Text size;
 // it shrinks to fit the box.
 const PITCH = 1.6;   // line to line, in cap heights
 
@@ -7,7 +7,7 @@ export default {
   type: "label",
   draw({ w, h, options, S }) {
     const words = S.title(options.text ?? "") || "Alfie";
-    let ht = Math.max(0.02, Number(options.size) || 0.3);
+    let ht = Math.max(0.02, 0.3 * (Number(options.text_size) || 1));
     const fits = (hh) => {
       const lines = S.wrap(words, (2 * w * 0.92) / hh);
       const single = lines.some((l) => !l.includes(" ") && S.width(l, hh) > 2 * w * 0.92);

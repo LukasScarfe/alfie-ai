@@ -55,6 +55,11 @@ const hintOf = (hint) => (hint ? `<small>${hint}</small>` : "");
 
 // One labelled control. `hint` is HTML (callers escape what they interpolate).
 export const field = (label, control, hint = "") => `<label class="field"><span>${esc(label)}</span>${control}${hintOf(hint)}</label>`;
+
+// An item's ID, beside its name: made from the name while the item is new (the
+// shell's autoId / nameToId), then kept, since automations and other items use it.
+export const idField = (path, id, uses) => field("ID", text(path, id, { attrs: 'pattern="[a-z0-9_]+" data-rerender' }),
+  `Made from the name until you change it. Used by ${uses}.`);
 export const wide = (label, control, hint = "") => `<div class="field wide"><span>${esc(label)}</span>${control}${hintOf(hint)}</div>`;
 
 export function check(path, on, label, hint = "") {

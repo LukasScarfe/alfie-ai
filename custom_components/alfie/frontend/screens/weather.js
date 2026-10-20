@@ -165,7 +165,7 @@ function hourly({ w, f, ts, cur, data, options, config, memo, S, conv, suffix, k
 
   // Rain, against the right axis.
   if (mode) {
-    const k = Math.max(1, Math.round(options.rain_group));
+    const k = nH <= 12 ? 1 : 3;   // hours per rain bar
     let vals = S.series(data[mode]).slice(0, nH);
     while (vals.length < nH) vals.push(null);
     let slots = group(vals, k, mode === "pop" ? "max" : "sum");
@@ -191,7 +191,7 @@ function hourly({ w, f, ts, cur, data, options, config, memo, S, conv, suffix, k
     const ticks = [...new Set([Math.round(Math.min(...known)), Math.round(Math.max(...known))])].filter((v) => v >= lo && v <= hi);
     out.push(...S.axis(x0 - 0.04 * f, y0, ph, lo, hi, ticks, { unit: suffix, labelH: lh, weight: 0.25 }));
   }
-  out.push(...S.curve(smooth(series, options.smooth), x0, y0, pw, ph, { lo, hi }));
+  out.push(...S.curve(smooth(series), x0, y0, pw, ph, { lo, hi }));
 
   // Time under the baseline: a tick and an hour every few hours.
   const step = nH <= 12 ? 3 : nH <= 24 ? 6 : 12;

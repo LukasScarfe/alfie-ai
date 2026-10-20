@@ -68,10 +68,10 @@ export default {
     const list = shownTitles(options, data, states, S);
     const secs = Math.max(1, Number(options.seconds) || 6);
     const shown = list.length ? list[Math.floor(since / secs) % list.length] : S.title(options.empty) || "--";
-    const key = [shown, w.toFixed(3), h.toFixed(3), options.size, options.max_lines, S.iconStamp()].join("|");
+    const key = [shown, w.toFixed(3), h.toFixed(3), options.text_size, options.max_lines, S.iconStamp()].join("|");
     if (memo.key !== key) {
       memo.key = key;
-      const f = fit(S, shown, w * 0.92, h * 0.88, Math.max(0.05, Number(options.size) || 0.3), Math.max(1, options.max_lines | 0 || 4));
+      const f = fit(S, shown, w * 0.92, h * 0.88, Math.max(0.05, 0.3 * (Number(options.text_size) || 1)), Math.max(1, options.max_lines | 0 || 4));
       const top = ((f.lines.length - 1) * PITCH * f.h) / 2;
       memo.strokes = f.lines.flatMap((line, i) => S.text(line, f.h, 0, top - i * PITCH * f.h));
     }

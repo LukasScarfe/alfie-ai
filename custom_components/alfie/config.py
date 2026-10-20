@@ -52,7 +52,8 @@ from .triggers import validate_triggers
 # became triggers and stories; migrate_v1 carries them over.
 # 3: house modes; behaviour.sleep_entity became the Night mode (migrate_v2).
 # 4: keys follow design.md "Words" (migrate_v3), and the overview section.
-CONFIG_VERSION = 5
+# 6: label and text screens' size became text_size, a multiplier (migrate_v5).
+CONFIG_VERSION = 6
 SECTIONS = ("signals", "mood", "behaviour", "personality", "look", "screens", "rotations",
             "stories", "triggers", "modes", "overview")
 GUIDE_STEPS = ("signals", "motion", "sleep", "dashboard", "screens")   # Get started
@@ -296,9 +297,22 @@ def migrate_v4(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def migrate_v5(raw: dict[str, Any]) -> dict[str, Any]:
+    """Label and text screens' `size` (a cap height, 0.3 by default) becomes
+    `text_size`, the 1x multiplier every other screen type has."""
+    for sc in raw.get("screens") or []:
+        o = sc.get("options") if isinstance(sc, dict) and sc.get("type") in ("label", "text") else None
+        if isinstance(o, dict) and "size" in o:
+            size = o.pop("size")
+            if isinstance(size, (int, float)) and not isinstance(size, bool):
+                o.setdefault("text_size", round(size / 0.3, 2))
+    raw["version"] = CONFIG_VERSION
+    return raw
+
+
 def migrate(raw: Mapping[str, Any]) -> dict[str, Any]:
     """Any stored or imported config, in the current version's keys."""
-    return migrate_v4(migrate_v3(migrate_v2(_add_appear(migrate_v1(raw)))))
+    return migrate_v5(migrate_v4(migrate_v3(migrate_v2(_add_appear(migrate_v1(raw))))))
 
 
 def _add_appear(raw: dict[str, Any]) -> dict[str, Any]:

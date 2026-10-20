@@ -1,5 +1,5 @@
 {
- "version": 5,
+ "version": 6,
  "signals": [
   {
    "id": "nas_drive",
@@ -247,7 +247,6 @@
     "markers": "ring, diamond, square",
     "styles": "solid",
     "hours": 1,
-    "buckets": 30,
     "combine": "mean",
     "shape": "straight",
     "range": "auto",
@@ -257,7 +256,6 @@
     "unit": "",
     "decimals": 0,
     "axis": true,
-    "ticks": 3,
     "now": true,
     "legend": false,
     "text_size": 1
@@ -275,8 +273,6 @@
     "hours": 24,
     "days": 5,
     "rain": "auto",
-    "rain_group": 3,
-    "smooth": 1,
     "unit": "auto",
     "suffix": "°",
     "decimals": 0,
@@ -297,8 +293,6 @@
     "hours": 24,
     "days": 5,
     "rain": "auto",
-    "rain_group": 3,
-    "smooth": 1,
     "unit": "auto",
     "suffix": "°",
     "decimals": 0,
@@ -438,8 +432,8 @@
     "template": "Happy birthday {name}!",
     "seconds": 6,
     "max_lines": 4,
-    "size": 0.3,
-    "empty": "--"
+    "empty": "--",
+    "text_size": 1.0
    }
   }
  ],
