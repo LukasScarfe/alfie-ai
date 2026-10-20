@@ -558,8 +558,9 @@ keeps the DAC, the planner, the wiring correction, music and its own screens.
   screenshots with. It loads the card from HA's own `/alfie_static/` at HA's origin, so it's
   always the installed version. The card gets a small `hass` shim (connection, states, config),
   icons resolve from bundled mdi paths, and frames go to xy-bench as `PUT /api/strokes`. The
-  latest frame wins. The connection, aspect and fps are in `.env` (`scope/.env.example`). It
-  reloads when HA reconnects (a deploy).
+  latest frame wins. The connection and fps are in `.env` (`scope/.env.example`). The aspect
+  is Alfie's own Look aspect, like any card's (Lukas's call: the integration is set up for the
+  scope, so the tube's shape goes there). It reloads when HA reconnects (a deploy).
 - **The scope's settings page** (Lukas's pick: a page on Numbat, not the Alfie panel). The
   sidecar serves it on `SETTINGS_PORT` (8642), with HTTP basic auth when `SETTINGS_PASSWORD`
   is set. It hosts Alfie's own card editor (`alfie-card-editor.js`, fetched from HA through the
@@ -572,7 +573,8 @@ keeps the DAC, the planner, the wiring correction, music and its own screens.
 - **xy-bench's side** (built by the xy-scope session):
   - `PUT /api/strokes` with `{strokes, ordered, aspect, t}` and the push token. It allows up to
     600 strokes and 20000 points, and a body up to 512 KB.
-  - x is scaled by aspect, then the frame to 0.95.
+  - x is scaled by aspect, then the frame to 0.95. A frame wider than xy-bench's own aspect
+    setting is shrunk to fit, never squashed, so set that to the tube's shape too.
   - After 3 s without a frame it shows a struck-through ring.
   - `GET /api/status` reports `alfie {age, strokes}`.
   - Keep `ordered` true: a re-solved tour costs about 125 ms a frame. xy-bench then only picks

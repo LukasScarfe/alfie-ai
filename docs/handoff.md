@@ -13,7 +13,13 @@
 
 Version 0.8.12.
 
-**Latest (0.8.12): icon suggestions as you type.** Lukas wanted HA's icon dropdown wherever an
+**Latest (scope only): the sidecar takes Alfie's own aspect.** Lukas will set the integration up for
+the scope, so the sidecar no longer forces `ASPECT` from `.env` (gone): the card falls back to the
+Look aspect like any card, and frames carry it. The viewport is 640 x 1280 so any aspect down to
+0.5 fits on screen. xy-bench shrinks a frame wider than its own aspect setting to fit, so that
+setting should be the tube's shape too. The settings page shows the aspect of the last frame.
+
+**Before that (0.8.12): icon suggestions as you type.** Lukas wanted HA's icon dropdown wherever an
 icon is typed. `panel/icon-picker.js` (attached once in `alfie-panel.js` `_frame`) suggests from
 HA's `/static/mdi/iconList.json` for inputs with `data-icons`: `one` (the simple form's icon, the
 Icon step; whole value) and `word` (every text-kind screen option, while the word at the caret

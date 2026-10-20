@@ -11,7 +11,6 @@ scope. xy-bench shows them as its `alfie` screen.
 2. `cp .env.example .env` and fill in:
    - `HA_URL` and `HA_TOKEN`;
    - `XYBENCH_TOKEN` (xy-bench's push token);
-   - `ASPECT`, to match xy-bench's aspect setting;
    - `SETTINGS_PASSWORD`, for the settings page (below). Left empty, anyone on the network can
      change the card;
    - optionally `ALFIE_CARD`, the card options to start with, as JSON, until the settings page
@@ -31,8 +30,9 @@ Open `http://<this box>:8642/` and log in with any user name and `SETTINGS_PASSW
 Alfie's own card editor (every option of the dashboard card: display, rotation, presenting,
 transitions, look, personality), plus the scope's own beam order and condense, and a live view
 of the frame on the tube. Changes save as you make them and the scope takes them at once.
-They're kept in the `data` volume, so they survive a rebuild. Aspect and fps stay in `.env`,
-because they must match xy-bench.
+They're kept in the `data` volume, so they survive a rebuild. The aspect is Alfie's own, set in
+the integration (Appearance → Look); set it to the tube's shape. The fps stays in `.env`,
+because it must match xy-bench.
 
 ## Develop
 
