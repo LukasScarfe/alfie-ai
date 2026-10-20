@@ -52,7 +52,7 @@ check(run(two, { now: false }).length < s2.length, "readouts off draws less");
 // Dotted, per series.
 const dot = run(two, { styles: "solid, dotted" });
 check(dot.filter((s) => s.w === S.DOTTED).length === 1, "one dotted series");
-check(run(two, { styles: "dotted" }).filter((s) => s.w === S.DOTTED).length === 2, "a lone style applies to all");
+check(run(two, { styles: "dotted" }).filter((s) => s.w === S.DOTTED).length === 1, "a missing style is solid, as each series is set on its own");
 
 // Six series, a missing series, gaps, all-null.
 const six = { series: Array.from({ length: 6 }, (_, i) => row("s" + i, ramp(10 * i, 10 * i + 8))) };
@@ -90,6 +90,15 @@ check(plot.draw({ w: 1.6, h: 1, data: two, options: o(), memo, S }) !== a, "redr
 const tiny = run(two, {}, { w: 0.5, h: 0.3 });
 const [tx0, tx1, ty0, ty1] = bounds(tiny);
 check(valid(tiny) && tx0 >= -0.5 && tx1 <= 0.5 && ty0 >= -0.3 && ty1 <= 0.3, "corner box fits");
+
+// Every built-in marker shape (and none) draws, any of them on any series.
+const sixS = { series: ["a", "b", "c", "d", "e", "f"].map((k, i) => row(k, ramp(10 * i, 10 * i + 5))) };
+for (let k = 0; k < S.MARKER_SHAPES.length; k += 5) {
+  const marks = [...S.MARKER_SHAPES.slice(k, k + 5), "none"].join(", ");
+  let out = [];
+  try { out = run(sixS, { markers: marks, styles: "dotted, solid" }); } catch (e) { check(false, `markers ${marks} threw ${e}`); }
+  check(out.length && valid(out), `markers ${marks} draw`);
+}
 
 if (failures) { console.error(`${failures} plot check(s) failed`); process.exit(1); }
 console.log("plot checks ok");

@@ -4,6 +4,36 @@
 
 export const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
+// "glance_left" -> "Glance left". Tokens (@mood) and empty stay as they are.
+export function human(id) {
+  const s = String(id ?? "");
+  if (!s || s.startsWith("@")) return s;
+  const t = s.replace(/_/g, " ");
+  return t[0].toUpperCase() + t.slice(1);
+}
+
+// How the panel previews an icon option's built-in choices (plot markers, the
+// value screen's icons): the nearest MDI icon. An icon name previews as itself.
+export const PRESET_ICONS = {
+  ring: "mdi:circle-outline", diamond: "mdi:rhombus-outline", square: "mdi:square-outline",
+  triangle: "mdi:triangle-outline", star: "mdi:star-outline", cross: "mdi:plus", x: "mdi:close",
+  dot: "mdi:circle-small", house: "mdi:home-outline", sun: "mdi:white-balance-sunny", none: "mdi:cancel",
+  auto: "mdi:auto-fix", leaf: "mdi:leaf", drop: "mdi:water-outline", cloud: "mdi:cloud-outline", car: "mdi:car",
+};
+export const presetIcon = (v) => (String(v).includes(":") ? v : PRESET_ICONS[v] || "mdi:shape-outline");
+
+// A per-entity option's value (comma separated) as a list, and back.
+export const perList = (v) => String(v ?? "").split(",").map((x) => x.trim());
+export function perSet(v, j, item) {
+  const out = perList(v);
+  while (out.length <= j) out.push("");
+  out[j] = String(item ?? "").trim();
+  while (out.length && !out[out.length - 1]) out.pop();
+  return out.join(", ");
+}
+// The same list with item `j` removed, for when its entity goes.
+export const perDrop = (v, j) => perList(v).filter((_, k) => k !== j).join(", ").replace(/(,\s*)+$/, "");
+
 // Words that must sit next to an option, because the label alone undersells it.
 export const OPTION_NOTES = {
   "map.allow_network": "Privacy: when on, Alfie sends Overpass (a public map service, by default overpass-api.de) "
@@ -177,13 +207,38 @@ export const inDomains = (id, domain) => !domain?.length || domain.some((d) => i
 // A state with a usable position, for options marked `located` (map trackers).
 export const located = (st) => Number.isFinite(Number(st?.attributes?.latitude)) && Number.isFinite(Number(st?.attributes?.longitude));
 
+// An icon option's input: a preview, then the name, with the built-in choices
+// (`presets`) offered first by the icon picker and any MDI icon after them.
+function iconInput(opt, value, placeholder, attrs) {
+  const v = value || placeholder;
+  return `<span class="row iconfield"><ha-icon icon="${esc(v ? presetIcon(v) : "mdi:shape-outline")}"></ha-icon><input class="grow"
+    ${attrs} value="${esc(value ?? "")}" placeholder="${esc(placeholder)}" data-icons="one"
+    data-presets="${esc((opt.presets || []).join(","))}" data-rerender autocomplete="off"></span>`;
+}
+
+// One entity's control for a per-entity option (`"per": "entities"`): item `j`
+// of the option's comma separated value. Empty: that position's default.
+function perControl(opt, value, j, path) {
+  const item = perList(value)[j] ?? "", defs = perList(opt.default);
+  const dflt = defs[j % defs.length] || "";
+  const attrs = `data-path="${path}" data-kind="optper" data-j="${j}" aria-label="${esc(opt.label || opt.key)} ${j + 1}"`;
+  if (opt.kind === "icon") return iconInput(opt, item, dflt, attrs);
+  if (opt.kind === "choice") {
+    return `<select ${attrs}>${opt.choices.map((c) => `<option value="${esc(c)}" ${(item || dflt) === c ? "selected" : ""}>${esc(human(c))}</option>`).join("")}</select>`;
+  }
+  return `<input ${attrs} value="${esc(item)}" placeholder="${esc(dflt || "Its name")}" data-icons="word" autocomplete="off">`;
+}
+
 // One option's form control, as HTML. `P` is the data-path prefix of the
-// screen's options ("screens.3.options"). ctx = {i, type, list(opt) -> datalist id}.
-// Value handling lives in the panel's _onInput (kinds optnum, opttext, optent, bool).
+// screen's options ("screens.3.options"). ctx = {i, type, list(opt) -> datalist
+// id, options: the type's options, values: the screen's options}. An option
+// held per entity draws nothing itself: its entities option shows it, a column
+// on each entity's row. Value handling lives in the panel's _onInput (kinds
+// optnum, opttext, optent, optper, bool).
 export function optionField(opt, value, P, ctx) {
+  if (opt.per) return "";
   const path = `${P}.${opt.key}`;
   const req = opt.required ? ` <b class="req" title="Required">*</b>` : "";
-  const human = (c) => cap(words(c));
   const label = `${esc(opt.label || opt.key)}${req}`;
   const note = OPTION_NOTES[`${ctx.type}.${opt.key}`];
   const noteHtml = `${opt.hint ? `<small>${esc(opt.hint)}</small>` : ""}${note ? `<div class="note">${esc(note)}</div>` : ""}`;
@@ -211,12 +266,20 @@ export function optionField(opt, value, P, ctx) {
     case "entity":
       return `<label class="field opt"><span>${label}</span><input data-list="${ctx.list(opt)}" data-entities data-path="${path}" data-kind="optent"
         value="${esc(value ?? "")}" placeholder="${esc(opt.domain?.length ? `${opt.domain[0]}.…` : "entity id")}">${noteHtml}</label>`;
+    case "icon":
+      return `<label class="field opt"><span>${label}</span>${iconInput(opt, value, dflt ?? "", `data-path="${path}" data-kind="opttext"`)}${noteHtml}</label>`;
     case "entities": {
       const vals = Array.isArray(value) ? value : [];
+      const per = (ctx.options || []).filter((o) => o.per === opt.key);
+      const rm = (j) => `<button class="icon" data-action="rm-opt-entity" data-i="${ctx.i}" data-key="${esc(opt.key)}" data-j="${j}" title="Remove" aria-label="Remove"><ha-icon icon="mdi:close"></ha-icon></button>`;
+      const chips = per.length && vals.length
+        ? `<div class="pertable" style="--per:${per.length}"><span></span>${per.map((o) => `<small>${esc(o.label || o.key)}</small>`).join("")}<span></span>
+          ${vals.map((e, j) => `<code title="${esc(e)}">${esc(e)}</code>${per.map((o) => perControl(o, ctx.values?.[o.key], j, `${P}.${o.key}`)).join("")}${rm(j)}`).join("")}</div>
+          ${per.filter((o) => o.hint).map((o) => `<small><b>${esc(o.label || o.key)}:</b> ${esc(o.hint)}</small>`).join("")}`
+        : `<div class="chips">${vals.map((e, j) => `<span class="ent"><code>${esc(e)}</code>${rm(j)}</span>`).join("")
+          || `<span class="muted">None yet</span>`}</div>`;
       return `<div class="field wide opt"><span>${label}</span>
-        <div class="chips">${vals.map((e, j) => `<span class="ent"><code>${esc(e)}</code>
-          <button class="icon" data-action="rm-opt-entity" data-i="${ctx.i}" data-key="${esc(opt.key)}" data-j="${j}" title="Remove" aria-label="Remove"><ha-icon icon="mdi:close"></ha-icon></button></span>`).join("")
-          || `<span class="muted">None yet</span>`}</div>
+        ${chips}
         <div class="row"><input data-list="${ctx.list(opt)}" data-entities class="grow" placeholder="${esc(opt.domain?.length ? `${opt.domain.join(", ")}…` : opt.located ? "Anything with a position…" : "Pick an entity")}">
           <button class="flat" data-add data-action="add-opt-entity" data-i="${ctx.i}" data-key="${esc(opt.key)}">Add</button></div>${noteHtml}</div>`;
     }

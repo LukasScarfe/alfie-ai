@@ -23,6 +23,7 @@ const V = new URL(import.meta.url).search;
 await import(`./alfie-card.js${V}`).catch(() => null); // usually loaded already; the card defines itself
 const U = await import(`./panel/ui.js${V}`);
 const IconPick = await import(`./panel/icon-picker.js${V}`);
+const { swatchValue, perSet } = await import(`./alfie-panel-forms.js${V}`);
 const EntPick = await import(`./panel/entity-picker.js${V}`);
 const { CSS } = await import(`./panel/style.js${V}`);
 const SECTIONS = await Promise.all(["overview", "mood", "reactions", "modes", "screens", "appearance"]
@@ -300,6 +301,10 @@ class AlfiePanel extends HTMLElement {
       // An option left empty is not written, so the type's default applies.
       v = el.value.trim() === "" ? undefined : kind === "optnum" ? Number(el.value) : el.value.trim();
     } else if (kind === "opttext") v = el.value;
+    else if (kind === "optper") {
+      // One entity's item of a per-entity option (comma separated); all empty is unset.
+      v = perSet(path.split(".").reduce((o, k) => o?.[k], this.draft), Number(el.dataset.j), el.value) || undefined;
+    }
     else if (kind === "number") {
       if (el.value === "") v = el.dataset.empty === "null" ? null : 0;
       else v = Number(el.value);
@@ -707,8 +712,6 @@ const CSS_ESCAPE = (v) => (globalThis.CSS?.escape ? globalThis.CSS.escape(v) : S
 const SECTION_ICONS = { overview: "mdi:view-dashboard-outline", mood: "mdi:emoticon-outline", reactions: "mdi:lightning-bolt-outline",
   modes: "mdi:home-switch-outline", screens: "mdi:monitor-dashboard", appearance: "mdi:palette-outline" };
 
-const swatchValue = (v) => (/^#[0-9a-f]{6}$/i.test(v) ? v : /^#[0-9a-f]{3}$/i.test(v)
-  ? "#" + [...v.slice(1)].map((c) => c + c).join("") : "#000000");
 
 
 if (!customElements.get("alfie-panel")) customElements.define("alfie-panel", AlfiePanel);

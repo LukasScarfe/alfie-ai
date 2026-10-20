@@ -36,5 +36,13 @@ eq(P.replaceWord("ring, mdi:acc", 13, "mdi:account"), { text: "ring, mdi:account
 eq(P.replaceWord("mdi:pl Viewers", 6, "mdi:plex"), { text: "mdi:plex Viewers", caret: 8 }, "text keeps the rest");
 eq(P.replaceWord("a|mdi:le|b", 8, "mdi:leaf"), { text: "a|mdi:leaf|b", caret: 10 }, "fixed texts split by |");
 
+// Presets (an icon option's built-in choices) come first, all of them on opening.
+const PRE = ["ring", "diamond", "leaf", "none"];
+eq(P.suggest(LIST, "", PRE, false), PRE, "opening empty: every preset");
+eq(P.suggest(LIST, "ring", PRE, false), PRE, "opening on a preset: every preset");
+eq(P.suggest(LIST, "lea", PRE), ["leaf", "mdi:leaf"], "typing: matching presets, then icons");
+eq(P.suggest(LIST, "mdi:acc", PRE), ["mdi:account", "mdi:account-group"], "an icon name: icons only");
+eq(P.suggest(LIST, "acc"), ["mdi:account", "mdi:account-group"], "no presets: icons as before");
+
 console.log(`iconpick: ${checks - failures}/${checks} ok`);
 if (failures) process.exit(1);

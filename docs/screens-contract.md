@@ -34,7 +34,13 @@ The Python files are under `custom_components/alfie/`, and the frontend ones und
 ```
 
 - `needs` is `null` or one provider kind: `history`, `forecast`, `calendar` or `streets`.
-- Option kinds are `entity`, `entities`, `number`, `text`, `choice`, `bool` and `color`.
+- Option kinds are `entity`, `entities`, `number`, `text`, `choice`, `bool`, `color` and `icon`.
+  An `icon` option takes one of its `presets` (the type's built-in drawings, e.g. `ring`) or any
+  icon name (`mdi:account`); the panel offers the presets first, then MDI icons.
+- `"per": "<entities key>"` makes a `text`, `choice` or `icon` option hold one value per entity
+  of that entities option, stored comma separated (`"star, , mdi:flower"`). An empty item is that
+  position's default (the default list, cycled). The panel shows it as a column on each
+  entity's row, and removing an entity removes its item.
 - `domain` optionally limits entity options to some domains.
 - `label` is the option's name only (design.md "Words"). A note goes in `hint` (shown under
   the field, e.g. "Empty: the sensor's."), and a unit goes in `unit` (shown inside a number

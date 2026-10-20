@@ -15,7 +15,7 @@ const ring = (r, n = 40) => Array.from({ length: n }, (_, i) => [r * Math.cos((2
 const face = [{ pts: ring(0.9), closed: true, w: 1, role: "line", fill: false },
   { pts: ring(0.1, 12).map(([x, y]) => [x - 0.3, y + 0.1]), closed: true, w: 1, role: "accent", fill: false },
   { pts: ring(0.1, 12).map(([x, y]) => [x + 0.3, y + 0.1]), closed: true, w: 1, role: "accent", fill: false }];
-const len = (strokes) => strokes.reduce((a, s) => a + I.polylineLength(s.pts, s.closed), 0);
+const len = (strokes) => strokes.reduce((a, s) => a + I.pathLength(s.pts, s.closed), 0);
 const finite = (strokes) => strokes.every((s) => s.pts.every((q) => Number.isFinite(q[0]) && Number.isFinite(q[1])) && Number.isFinite(s.w));
 const same = (a, b) => a.length === b.length && a.every((s, i) => s === b[i] || (s.pts.length === b[i].pts.length && s.pts.every((q, j) => near(q[0], b[i].pts[j][0]) && near(q[1], b[i].pts[j][1]))));
 
@@ -81,7 +81,7 @@ for (const st of I.STYLES) {
   check(good, "zoom grows monotonically");
   // draw at half has half of every long stroke
   const half = I.apply("draw", 0.5, false, [S.stroke([[0, 0], [1, 0], [1, 1]])], box).strokes[0];
-  check(near(I.polylineLength(half.pts), 1, 1e-6), "draw p=.5 is half the length");
+  check(near(I.pathLength(half.pts), 1, 1e-6), "draw p=.5 is half the length");
   // stagger: the last stroke has not started at small p
   check(I.apply("stagger", 0.1, false, label, box).strokes.length < label.length, "stagger leaves later strokes out");
 }
@@ -99,18 +99,18 @@ for (const st of I.STYLES) {
 // the resampler
 {
   const pl = [[0, 0], [1, 0], [1, 1], [3, 1]];
-  const L = I.polylineLength(pl);
+  const L = I.pathLength(pl);
   for (const n of [2, 3, 7, 50, 200]) {
     const r = I.resample(pl, n);
     check(r.length === n && near(r[0][0], 0) && near(r[0][1], 0) && near(r[n - 1][0], 3) && near(r[n - 1][1], 1), `resample ${n} keeps endpoints`);
-    check(near(I.polylineLength(r), L, n < 8 ? L : 0.05) && I.polylineLength(r) <= L + 1e-9, `resample ${n} length`);
+    check(near(I.pathLength(r), L, n < 8 ? L : 0.05) && I.pathLength(r) <= L + 1e-9, `resample ${n} length`);
   }
   const r = I.resample(pl, 41);
   const d = r.slice(1).map((q, i) => Math.hypot(q[0] - r[i][0], q[1] - r[i][1]));
   check(Math.max(...d) - Math.min(...d) < 0.06, "resample spacing is even");
   check(I.resample([[2, 3]], 4).every((q) => q[0] === 2 && q[1] === 3), "resample of a point repeats it");
   const c = I.resample(ring(1, 64), 30, true);
-  check(near(c[0][0], c[29][0]) && near(I.polylineLength(c), I.polylineLength(ring(1, 64), true), 0.1), "closed resample returns to its start");
+  check(near(c[0][0], c[29][0]) && near(I.pathLength(c), I.pathLength(ring(1, 64), true), 0.1), "closed resample returns to its start");
 }
 
 // morph reaches both ends and moves between them

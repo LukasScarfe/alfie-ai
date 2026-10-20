@@ -89,13 +89,12 @@ const mapStrokes = (strokes, f, wmul = null) => strokes.map((s) => {
   return o;
 });
 
-function pathLength(pts, closed) {
+export function pathLength(pts, closed = false) {
   let L = 0;
   for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
   if (closed && pts.length > 1) L += Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]);
   return L;
 }
-export const polylineLength = (pts, closed = false) => pathLength(pts, closed);
 
 // The parts of `strokes` with lo <= x <= hi, in order. A cut loop becomes open runs.
 function clipX(strokes, lo, hi) {

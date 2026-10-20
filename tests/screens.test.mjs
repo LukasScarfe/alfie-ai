@@ -75,8 +75,8 @@ function validStroke(s) {
 const all = {
   text: S.text("Hi 5", 0.3), readout: S.readout(21.46, 0.4, 0, 0, { unit: "°", decimals: 1 }),
   curve: S.curve([1, 3, null, 2], 0, 0, 1, 1, { marks: [1] }), baseline: S.baseline(0, 0, 1, { ticks: 4 }),
-  axis: S.axis(0, 0, 1, 0, 40, [0, 20, 40], { unit: "°" }), marker: ["ring", "square", "diamond", "house", "sun"].flatMap((k) => S.marker(k, 0, 0, 0.1)),
-  chart2: S.chart2([1, 2, 3], [3, 2, 1], 0, 0, 1, 1), bars: S.bars([10, null, 80], 0, 0, 1, 1),
+  axis: S.axis(0, 0, 1, 0, 40, [0, 20, 40], { unit: "°" }), marker: S.MARKER_SHAPES.flatMap((k) => S.marker(k, 0, 0, 0.1)),
+  bars: S.bars([10, null, 80], 0, 0, 1, 1),
   icons: [...S.house(0, 0, 1, 0.3), ...S.leaf(0, 0, 1), ...S.drop(0, 0, 1), ...S.car(0, 0, 1), ...S.sun(0, 0, 1), ...S.cloud(0, 0, 1)],
   weather: ["sunny", "clear-night", "partlycloudy", "cloudy", "rainy", "pouring", "snowy", "fog", "lightning", "windy"]
     .flatMap((c) => [...S.weatherIcon(c, 0, 0, 1), ...S.weatherIcon(c, 0, 0, 1, true)]),
@@ -84,7 +84,6 @@ const all = {
 for (const [k, v] of Object.entries(all)) check(v.length > 0 && v.every(validStroke), `${k}: valid non-empty strokes`);
 check(S.weatherIcon("nonsense", 0, 0, 1).length === 0, "unknown condition draws nothing");
 check(S.curve([], 0, 0, 1, 1).length === 0, "empty series draws no curve");
-check(S.chart2([1, 2], [2, 1], 0, 0, 1, 1)[2].w === S.DOTTED, "chart2's second line is dotted");
 check(near(S.curve([0, 10], 0, 0, 2, 1, { lo: 0, hi: 10 })[0].pts[1][1], 1), "curve maps hi to the box top");
 
 // --------------------------------------------------------------- helpers
@@ -92,7 +91,6 @@ check(S.niceTicks(0, 40).join() === "0,20,40", "nice_ticks 0..40");
 check(S.niceTicks(3, 17).join() === "5,10,15", "nice_ticks 3..17");
 check(S.niceTicks(0, 1).join() === "0,1", "nice_ticks 0..1");
 check(S.niceTicks(-10, 10).join() === "-10,0,10", "nice_ticks -10..10");
-check(S.nice_ticks === S.niceTicks, "snake_case alias");
 check(S.fmt(-0.04) === "0" && S.fmt(null) === "--" && S.fmt("x") === "--" && S.fmt(21.456, 1) === "21.5", "fmt");
 check(S.number(true) === null && S.number("3.5") === 3.5 && S.number(NaN) === null && S.number("") === null, "number");
 check(S.series("nope").length === 0, "series: not a list");

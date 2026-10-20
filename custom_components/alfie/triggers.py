@@ -192,10 +192,6 @@ def watches(trigger: Mapping[str, Any], entity_id: str) -> bool:
                for p in trigger["entities"])
 
 
-def watches_threshold(trigger: Mapping[str, Any], entity_id: str) -> bool:
-    return bool(trigger["enabled"]) and threshold_entity(trigger) == entity_id
-
-
 def entity_fires(trigger: Mapping[str, Any], old: str | None, new: str | None,
                  limit: Any = None, old_limit: Any = None) -> bool:
     """An entity or motion trigger on one state change (states as strings,

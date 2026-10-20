@@ -8,8 +8,12 @@
 //   "one"   the whole value is an icon name (a story's icon, an icon step)
 //   "word"  free text where a word starting mdi: is drawn as an icon (screen
 //           text, plot markers): only that word is suggested for and replaced
+// and may add data-presets="ring,diamond,…": an icon option's built-in
+// choices, listed first (all of them when the field opens), like a dropdown.
 // Picking writes the value and fires input and change, so the panel stores it
 // exactly as if it had been typed. Anything typed by hand still goes.
+
+const { esc, presetIcon } = await import(`../alfie-panel-forms.js${new URL(import.meta.url).search}`);
 
 const LIST_URL = "/static/mdi/iconList.json";
 const SHOWN = 30;
@@ -35,6 +39,16 @@ export function matchIcons(list, query, n = SHOWN) {
   return [...starts, ...within, ...keyed].slice(0, n).map((x) => `mdi:${x}`);
 }
 
+// What the picker offers. Without presets: the icon matches. With them: every
+// preset while the field just opened empty or holding one (not `typed`), else
+// the presets starting with the query, then the icon matches.
+export function suggest(list, query, presets = [], typed = true) {
+  const q = String(query ?? "").trim().toLowerCase();
+  if (!presets.length) return matchIcons(list, q);
+  if (!typed && (!q || presets.includes(q))) return [...presets];
+  return [...presets.filter((p) => q && p.startsWith(q)), ...matchIcons(list, q)];
+}
+
 // The word around `caret` in free text: words end at spaces, commas and |.
 export function wordAt(text, caret) {
   let start = caret, end = caret;
@@ -52,8 +66,6 @@ export function replaceWord(text, caret, name) {
 let icons = null;   // the list, or the promise of it
 const load = () => (icons ??= fetch(LIST_URL).then((r) => (r.ok ? r.json() : []))
   .catch(() => []).then((l) => (icons = Array.isArray(l) ? l : [])));
-
-const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 // Suggestions for the icon inputs under `body`, drawn in shadow root `root`.
 export function attach(root, body) {
@@ -93,19 +105,22 @@ export function attach(root, body) {
 
   const show = () => {
     box.innerHTML = names.map((n, i) => `<div class="opt${i === active ? " on" : ""}" role="option" data-i="${i}">
-      <ha-icon icon="${esc(n)}"></ha-icon><span>${esc(n)}</span></div>`).join("");
+      <ha-icon icon="${esc(presetIcon(n))}"></ha-icon><span>${esc(n)}</span></div>`).join("");
     box.hidden = false;
     place();
     box.querySelector(".on")?.scrollIntoView({ block: "nearest" });
   };
 
-  const update = async () => {
+  const presets = () => (input.dataset.presets ? input.dataset.presets.split(",") : []);
+
+  // `typed`: the query came from typing, not from opening the field.
+  const update = async (typed = false) => {
     if (!input?.isConnected) return close();
     const q = query();
-    if (q === null || !q.trim()) return close();
-    const list = Array.isArray(icons) ? icons : await load();
+    if (q === null || (!q.trim() && !presets().length)) return close();
+    const list = Array.isArray(icons) ? icons : !typed && presets().length ? [] : await load();
     if (!input?.isConnected || query() !== q) return;   // typed on, or gone, while loading
-    names = matchIcons(list, q);
+    names = suggest(list, q, presets(), typed);
     active = -1;
     if (!names.length || (names.length === 1 && names[0] === q.trim())) return close();
     show();
@@ -132,8 +147,8 @@ export function attach(root, body) {
     update();
   });
   body.addEventListener("focusout", (e) => { if (e.target === input) close(); });
-  body.addEventListener("input", (e) => { if (e.target === input && !quiet) update(); });
-  body.addEventListener("click", (e) => { if (e.target === input && input.dataset.icons === "word") update(); });
+  body.addEventListener("input", (e) => { if (e.target === input && !quiet) update(true); });
+  body.addEventListener("click", (e) => { if (e.target === input && (input.dataset.icons === "word" || input.dataset.presets) && box.hidden) update(); });
   // Capture, so Enter picks here before the panel's own Enter (which presses Add).
   body.addEventListener("keydown", (e) => {
     if (e.target !== input || box.hidden) return;

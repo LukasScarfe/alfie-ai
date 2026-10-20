@@ -4,6 +4,7 @@ import json
 import pytest
 
 from alfie.config import SECTIONS, ConfigError, default_config, reset, validate
+from alfie import screen_types as ST
 from alfie.screen_types import load_types, validate_options
 
 from test_config import FACE
@@ -161,3 +162,37 @@ def test_map_trackers_take_anything_located():
     opts = {"trackers": ["person.lukas", "sensor.lukas_last_car_location"]}
     out = validate_options(TYPES["map"], opts)
     assert out["trackers"] == opts["trackers"]
+
+
+ICONISH = {"type": "plot", "options": [
+    {"key": "entities", "kind": "entities", "label": "Series"},
+    {"key": "markers", "kind": "icon", "per": "entities", "label": "Marker", "default": "ring, diamond",
+     "presets": ["ring", "diamond", "none"]},
+    {"key": "styles", "kind": "choice", "per": "entities", "label": "Line", "default": "solid",
+     "choices": ["solid", "dotted"]},
+    {"key": "icon", "kind": "icon", "label": "Icon", "default": "auto", "presets": ["auto", "leaf"]},
+]}
+
+
+def test_icon_kind_takes_presets_and_icon_names():
+    o = ST.validate_options(ICONISH, {"icon": "Leaf"})
+    assert o["icon"] == "leaf" and o["markers"] == "ring, diamond" and o["styles"] == "solid"
+    assert ST.validate_options(ICONISH, {"icon": "mdi:thermometer"})["icon"] == "mdi:thermometer"
+    with pytest.raises(ConfigError):
+        ST.validate_options(ICONISH, {"icon": "kettle"})
+
+
+def test_per_entity_options_check_each_item():
+    o = ST.validate_options(ICONISH, {"markers": ", mdi:account, none, ", "styles": "dotted,,"})
+    assert o["markers"] == ", mdi:account, none" and o["styles"] == "dotted"
+    assert ST.validate_options(ICONISH, {"markers": ["ring", "mdi:leaf"]})["markers"] == "ring, mdi:leaf"
+    with pytest.raises(ConfigError):
+        ST.validate_options(ICONISH, {"markers": "ring, blob"})
+    with pytest.raises(ConfigError):
+        ST.validate_options(ICONISH, {"styles": "wavy"})
+
+
+def test_per_needs_an_entities_option():
+    assert ST._meta_ok({"type": "x", "options": [{"key": "m", "kind": "icon", "per": "entities"}]})
+    assert ST._meta_ok({"type": "x", "options": [{"key": "e", "kind": "entities"},
+                                                 {"key": "m", "kind": "number", "per": "e"}]})
