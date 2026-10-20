@@ -10,10 +10,27 @@
   waiting on his review.
 - **5⅞ (Oscilloscope):** A to D and F (the settings page) are done; the sidecar runs on
   Numbat. E (Lukas on the CRT) is open.
+- **5⅝ (Panel style):** A to F done; G (Lukas's review of the screenshots) is open.
 
-Version 0.8.12.
+Version 0.9.0.
 
-**Latest (scope only): the sidecar takes Alfie's own aspect.** Lukas will set the integration up for
+**Latest (0.9.0): the panel restyle, and house modes back.** Agreed with Lukas in an interview
+(design.md "Panel style"): native HA look, no gradients or glyphs. `panel/style.js` holds all the
+shell's CSS. The shell has a left menu (a dropdown under 1280px), a header Alfie toggle (a column
+from 1800px, otherwise a floating panel that starts closed each visit), and a bottom save bar
+(Unsaved changes · Discard · Save, centred under the body by `_placeBar`). List pages are
+`U.list` + `U.item`: the shell's `_placeDetails` moves the open item's `.detail` into the
+`.ld-detail` column, keeps one open per list (the last opened) and opens the first when wide;
+when the body is under 760px (`STACK`, and the `main` container query) the list and editor take
+turns, with a back arrow. Settings pages are `U.card` / `U.cards`. Entity inputs are
+`data-entities` + `data-list`, served by `panel/entity-picker.js` (tests/entpick.test.mjs). The
+card editor has the same field, switch and button style. House modes (hidden in d9c273b) are back:
+panel section, mode trigger kind, card editor toggle, Overview line, `select.alfie_house_mode`.
+- Screenshot tips: `./dev shot` hard-codes `--wait 3000` (a later `--wait` is ignored), so an
+  `--eval` must act within ~2.5 s. `--light` gives HA's light theme. The dev HA loses its fake
+  entities on restart: `./dev seed` before shooting the entity picker.
+
+**Before that (scope only): the sidecar takes Alfie's own aspect.** Lukas will set the integration up for
 the scope, so the sidecar no longer forces `ASPECT` from `.env` (gone): the card falls back to the
 Look aspect like any card, and frames carry it. The viewport is 640 x 1280 so any aspect down to
 0.5 fits on screen. xy-bench shrinks a frame wider than its own aspect setting to fit, so that

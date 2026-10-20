@@ -34,8 +34,7 @@ function screens(p) {
   return `${U.intro("Screens are data pages Alfie presents on a card: a plot, the weather, the sky, a clock.",
       `A card shows a screen when a story asks for it (a signal's screen, through @why and @wrong), when the
       <code>alfie.show_screen</code> action asks, or in a rotation. Each screen type has its own options; empty ones show their default greyed.`)}
-    ${cards || U.empty("No screens yet.")}
-    ${U.addRow(tsel, "sc-add", "+ Add screen")}
+    ${U.list({ items: cards, empty: "No screens yet.", add: U.addRow(tsel, "sc-add", "+ Add screen"), what: "a screen" })}
     ${datalists}
     <style>
       .split2 { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
@@ -119,8 +118,8 @@ function rotations(p) {
   return `${U.intro("A rotation shows screens in turn on a card. Point a card at one in its editor (Display: Rotation).",
       `Screens follow screens with Alfie kept away, or in his corner. He comes on for an Alfie step, or between screens
       when the rotation asks, and plays the most relevant story on that card: the one below.`)}
-    ${d.rotations.map((r, i) => rotation(p, r, i, d.rotations.length)).join("") || U.empty("No rotations yet.")}
-    ${U.addButton("rot-add", "+ Add rotation", d.screens.length ? "" : "disabled")}
+    ${U.list({ items: d.rotations.map((r, i) => rotation(p, r, i, d.rotations.length)).join(""), empty: "No rotations yet.",
+      add: U.addButton("rot-add", "+ Add rotation", d.screens.length ? "" : "disabled"), what: "a rotation" })}
     ${d.screens.length ? "" : `<p class="muted">Build a screen first (Screens).</p>`}
     <h3>When Alfie appears in a rotation</h3>
     ${U.group("", `
@@ -141,17 +140,17 @@ function rotation(p, r, i, n) {
       <span class="muted n">${j + 1}.</span>${st.alfie ? `<span class="alfie-step"><b>Alfie</b> <span class="muted">plays the most relevant story</span></span>` : sel(j, st.screen)}
       <span class="secs">${U.num(`${P}.steps.${j}.seconds`, st.seconds, { min: 3, max: 3600, step: 1, unit: "s" })}</span>
       <span class="tools">
-        <button class="icon" data-action="rot-step-up" data-i="${i}" data-j="${j}" ${j ? "" : "disabled"} title="Move up">▲</button>
-        <button class="icon" data-action="rot-step-down" data-i="${i}" data-j="${j}" ${j < r.steps.length - 1 ? "" : "disabled"} title="Move down">▼</button>
-        <button class="icon" data-action="rot-step-rm" data-i="${i}" data-j="${j}" title="Remove">✕</button></span></div>`).join("");
+        <button class="icon" data-action="rot-step-up" data-i="${i}" data-j="${j}" ${j ? "" : "disabled"} title="Move up" aria-label="Move up"><ha-icon icon="mdi:arrow-up"></ha-icon></button>
+        <button class="icon" data-action="rot-step-down" data-i="${i}" data-j="${j}" ${j < r.steps.length - 1 ? "" : "disabled"} title="Move down" aria-label="Move down"><ha-icon icon="mdi:arrow-down"></ha-icon></button>
+        <button class="icon" data-action="rot-step-rm" data-i="${i}" data-j="${j}" title="Remove" aria-label="Remove"><ha-icon icon="mdi:close"></ha-icon></button></span></div>`).join("");
   const body = `
     <div class="grid">${U.field("Name", U.text(`${P}.name`, r.name, { placeholder: "Living room" }))}
       ${U.field("Transition", U.select(`${P}.transition`, r.transition, [...U_TRANS()]), "How Alfie and a screen swap places.")}</div>
     <h4>Steps</h4>
     <div class="rsteps">${steps || U.empty("No steps yet.")}</div>
     ${r.steps.length && r.steps.every((st) => st.alfie) ? `<p class="muted">Only Alfie steps: add a screen for the rotation to show.</p>` : ""}
-    <div class="row"><button class="flat" data-action="rot-step-add" data-i="${i}" ${screens.length ? "" : "disabled"}>+ Add step</button>
-      <button class="flat" data-action="rot-alfie-add" data-i="${i}">+ Add Alfie step</button></div>
+    <div class="row"><button class="flat" data-action="rot-step-add" data-i="${i}" ${screens.length ? "" : "disabled"}><ha-icon icon="mdi:plus"></ha-icon>Add step</button>
+      <button class="flat" data-action="rot-alfie-add" data-i="${i}"><ha-icon icon="mdi:plus"></ha-icon>Add Alfie step</button></div>
     ${U.more(p, `r:${r.id}`, `
       ${U.field("ID", U.text(`${P}.id`, r.id, { attrs: 'pattern="[a-z0-9_]+"' }), "What a card's rotation option names.")}
       ${U.field("Alfie between screens", U.num(`${P}.face_seconds`, r.face_seconds, { min: 0, max: 3600, step: 1, unit: "s" }),

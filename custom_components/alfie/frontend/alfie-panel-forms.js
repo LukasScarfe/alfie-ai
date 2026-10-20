@@ -209,15 +209,15 @@ export function optionField(opt, value, P, ctx) {
         value="${swatchValue(value ?? dflt ?? "")}"><input class="grow" data-path="${path}" data-kind="opttext"
         value="${esc(value ?? "")}" placeholder="${esc(dflt || "Default (from Look)")}"></span>${noteHtml}</label>`;
     case "entity":
-      return `<label class="field opt"><span>${label}</span><input list="${ctx.list(opt)}" data-path="${path}" data-kind="optent"
+      return `<label class="field opt"><span>${label}</span><input data-list="${ctx.list(opt)}" data-entities data-path="${path}" data-kind="optent"
         value="${esc(value ?? "")}" placeholder="${esc(opt.domain?.length ? `${opt.domain[0]}.…` : "entity id")}">${noteHtml}</label>`;
     case "entities": {
       const vals = Array.isArray(value) ? value : [];
       return `<div class="field wide opt"><span>${label}</span>
         <div class="chips">${vals.map((e, j) => `<span class="ent"><code>${esc(e)}</code>
-          <button class="icon" data-action="rm-opt-entity" data-i="${ctx.i}" data-key="${esc(opt.key)}" data-j="${j}" title="Remove">✕</button></span>`).join("")
+          <button class="icon" data-action="rm-opt-entity" data-i="${ctx.i}" data-key="${esc(opt.key)}" data-j="${j}" title="Remove" aria-label="Remove"><ha-icon icon="mdi:close"></ha-icon></button></span>`).join("")
           || `<span class="muted">None yet</span>`}</div>
-        <div class="row"><input list="${ctx.list(opt)}" class="grow" placeholder="${esc(opt.domain?.length ? `${opt.domain.join(", ")}…` : opt.located ? "Anything with a position…" : "Pick an entity")}">
+        <div class="row"><input data-list="${ctx.list(opt)}" data-entities class="grow" placeholder="${esc(opt.domain?.length ? `${opt.domain.join(", ")}…` : opt.located ? "Anything with a position…" : "Pick an entity")}">
           <button class="flat" data-add data-action="add-opt-entity" data-i="${ctx.i}" data-key="${esc(opt.key)}">Add</button></div>${noteHtml}</div>`;
     }
     default: // text

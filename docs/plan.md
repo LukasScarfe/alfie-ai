@@ -140,15 +140,15 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
       2026-10-20; design.md "Panel style".
   - [x] A. House modes back: panel section, mode trigger kind, card editor toggle, Overview line,
         `select.alfie_mode`; 0.8.13.
-  - [ ] B. Foundation: `panel/style.js` and the `panel/ui.js` builders (fields, buttons, switch
+  - [x] B. Foundation: `panel/style.js` and the `panel/ui.js` builders (fields, buttons, switch
         rows, titled cards, list + detail); tests.
-  - [ ] C. Shell: left menu, Alfie toggle (column or floating), save bar and leave guard, narrow
+  - [x] C. Shell: left menu, Alfie toggle (column or floating), save bar and leave guard, narrow
         widths, item in the URL hash.
-  - [ ] D. Entity picker (`panel/entity-picker.js`, the icon-picker pattern); test.
-  - [ ] E. Sections onto list + detail / titled cards: mood, reactions, modes, screens,
+  - [x] D. Entity picker (`panel/entity-picker.js`, the icon-picker pattern); test.
+  - [x] E. Sections onto list + detail / titled cards: mood, reactions, modes, screens,
         appearance, overview, `alfie-panel-forms.js`.
-  - [ ] F. Card editor in the same style.
-  - [ ] G. Screenshots (light/dark, wide/narrow) to Lukas; his review and fixes.
+  - [x] F. Card editor in the same style.
+  - [ ] G. Lukas's review of the screenshots (light/dark, wide/narrow) and the panel; fixes.
 - [ ] **6. Voice.** React to all `assist_satellite` states, the what's-wrong LLM tool and intent,
       optional persona, mood-aware replies, TTS announcement step.
 - [ ] **7. Editors and polish.** Shape (freehand path), expression and animation editors,
