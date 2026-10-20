@@ -247,6 +247,31 @@ field-by-field list is in [settings-contract.md](settings-contract.md) "Words".
 
   Old card YAML keys are still read.
 
+## Panel style (agreed 2026-10-20)
+
+The admin panel looks like part of Home Assistant, follows its light/dark theme, and is uniform
+everywhere. No gradients, no decorative glyphs or emoji: icons are mdi.
+
+- **Colours** only from HA theme variables. One radius (`--ha-card-border-radius`), one spacing
+  scale (4/8/12/16/24), one type scale (page title 22, card title 16, body 14, hint 12).
+- **Buttons** are 36px: one solid accent button for an area's main action, the rest outlined
+  with a clear 1px border, destructive ones outlined red, icon buttons with a tooltip. Never two
+  solid buttons side by side.
+- **Fields** (text, number, dropdown, entity) are one outlined style, 40px, with the label in
+  the border, the hint under it and errors in red under it, in a 2-column grid that goes to one
+  column when narrow. Entity fields are a searchable picker (icon, friendly name, id) that also
+  takes a pattern. Switches are settings rows: title and hint left, switch right.
+- **Navigation** is a left menu of the sections with their sub-pages nested (a dropdown when
+  narrow).
+- **List pages** (signals, triggers, stories, house modes, screens, rotations) are list + detail:
+  the list on the left (status, name, one-line summary, enabled switch, the selected one marked),
+  the selected item's editor on the right with move, duplicate and delete in its header. Narrow:
+  the editor is its own view with a back arrow. Other pages are titled cards.
+- **Saving:** edits are a draft; a save bar (Unsaved changes, Discard, Save) appears only while
+  the draft differs, with any problems, and leaving with unsaved changes asks first.
+- **Alfie's preview** is a header toggle: a right column on wide screens, a floating panel
+  otherwise.
+
 ## Display (per card)
 
 The card's shape is its **aspect** (width over height). The panel's Look sets it for every card
@@ -373,11 +398,6 @@ or the `alfie.show_icon` action (with `alfie.clear_icons`), and every display sh
 
 Built in M5: `modes.py` (pure), the engine's mode choice, the card's hiding and rotation
 handling, and the panel's **House modes** section.
-
-**Hidden for now** (Lukas, 2026-10-19: he doesn't want them and they clutter the options). The
-engine still runs modes from config, but the panel's House modes tab, the "A house mode starts or
-ends" trigger kind, the card editor's Follow house modes toggle, the Overview's house mode line
-and `select.alfie_mode` are commented out. Search for "hidden for now" to bring them back.
 
 - **One mode at a time.** Modes are an ordered list (config `modes`). The mode is the first
   enabled one whose condition holds, otherwise Normal (no mode).

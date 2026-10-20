@@ -135,6 +135,20 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] F. Settings page on the sidecar (`scope/settings.html`, port 8642): the card editor,
         beam order and condense, a live preview, saved to a volume and applied live.
   - [ ] E. On the CRT: Lukas looks; tune fps, weights and aspect.
+- [~] **5⅝. Panel style.** House modes back in the UI, and a cleaning pass over the panel: native
+      HA look, left menu, list + detail, outlined fields, entity picker, save bar. Agreed with Lukas
+      2026-10-20; design.md "Panel style".
+  - [x] A. House modes back: panel section, mode trigger kind, card editor toggle, Overview line,
+        `select.alfie_mode`; 0.8.13.
+  - [ ] B. Foundation: `panel/style.js` and the `panel/ui.js` builders (fields, buttons, switch
+        rows, titled cards, list + detail); tests.
+  - [ ] C. Shell: left menu, Alfie toggle (column or floating), save bar and leave guard, narrow
+        widths, item in the URL hash.
+  - [ ] D. Entity picker (`panel/entity-picker.js`, the icon-picker pattern); test.
+  - [ ] E. Sections onto list + detail / titled cards: mood, reactions, modes, screens,
+        appearance, overview, `alfie-panel-forms.js`.
+  - [ ] F. Card editor in the same style.
+  - [ ] G. Screenshots (light/dark, wide/narrow) to Lukas; his review and fixes.
 - [ ] **6. Voice.** React to all `assist_satellite` states, the what's-wrong LLM tool and intent,
       optional persona, mood-aware replies, TTS announcement step.
 - [ ] **7. Editors and polish.** Shape (freehand path), expression and animation editors,

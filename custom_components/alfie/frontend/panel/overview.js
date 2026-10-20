@@ -76,7 +76,7 @@ function steps(p) {
       go: ["reactions", "motion"], content: motionSuggestions },
     { id: "sleep", title: "When is it night?", done: !!night?.condition || done.includes("sleep"),
       text: "While it is on, Alfie sleeps (only something critical wakes him). Pick what tells him: a sleep mode, a bedtime switch.",
-      /* go: ["modes", ""], (house modes are hidden for now) */ content: sleepSuggestions },
+      go: ["modes", ""], content: sleepSuggestions },
     { id: "dashboard", title: "Put Alfie on a dashboard", done: done.includes("dashboard"),
       text: "Add a card to any dashboard (Edit dashboard → Add card → Manual), with this:",
       content: () => `<pre class="yaml"><code>${CARD_YAML}</code></pre>
@@ -151,7 +151,7 @@ function motionSuggestions(p) {
 
 function sleepSuggestions(p) {
   const f = fresh(p);
-  if (!nightMode(p)) return `<p class="muted">There is no Night mode.</p>`;
+  if (!nightMode(p)) return `<p class="muted">There is no Night mode. Add one on House modes, with Alfie: Asleep.</p>`;
   const rows = !f ? "" : f.sleep.map((s) => `<div class="sugg"><span class="grow"><b>${U.esc(s.name)}</b> <code>${U.esc(s.entity)}</code></span>
       <button class="flat" data-action="ov-sleep" data-name="${U.esc(s.entity)}">Use this</button></div>`).join("");
   return `${rows}<div class="row"><input list="entities" class="grow" placeholder="Or pick any entity that is on at night">
@@ -165,10 +165,9 @@ export function scene(p, s) {
   const mood = root.querySelector(".nowmood");
   if (!mood || !s) return;
   mood.innerHTML = `<b>${U.esc(L[s.mood?.level] || s.mood?.level)}</b>${s.asleep ? " and asleep" : ""} · ${U.esc(s.reason)}`;
-  // const info = s.mode_info;
-  // House modes are hidden for now.
-  // root.querySelector(".nowmode").innerHTML = info
-  //   ? `House mode: <b>${U.esc(info.name)}</b>${s.mode_pick && s.mode_pick !== "auto" ? " (picked by hand)" : ""}` : "";
+  const info = s.mode_info;
+  root.querySelector(".nowmode").innerHTML = info
+    ? `House mode: <b>${U.esc(info.name)}</b>${s.mode_pick && s.mode_pick !== "auto" ? " (picked by hand)" : ""}` : "";
   root.querySelector(".nowsigs").innerHTML = (s.signals || []).map((x) => `<div class="nowsig">
       ${U.chip(x.kind === "bad" ? U.human(x.severity) : "Good", x.kind === "bad" ? x.severity : "good")}
       <button class="link" data-action="go" data-section="mood" data-sub="signals" data-open="sig:${U.esc(x.id)}">${U.esc(x.name)}</button></div>`).join("")
