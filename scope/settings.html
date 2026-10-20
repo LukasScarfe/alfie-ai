@@ -66,7 +66,7 @@
         </select>
       </div>
       <div class="fixed"><span>Aspect <b id="aspect">-</b></span><span>Frame rate <b id="fps">-</b></span></div>
-      <div class="hint">These two must match xy-bench, so they stay in the scope's .env (ASPECT, FPS).</div>
+      <div class="hint">The aspect is Alfie's own (the integration's Appearance → Look); set it to the tube's shape. The frame rate must match xy-bench, so it stays in the scope's .env (FPS).</div>
     </section>
   </div>
   <aside id="side" class="panel">
@@ -91,7 +91,7 @@
 
   const start = await api("/api/card");
   let card = start.card || {};
-  $("aspect").textContent = start.aspect;
+  $("aspect").textContent = start.aspect ? Number(start.aspect).toFixed(2) : "-";
   $("fps").textContent = start.fps;
 
   // Saving: whole card, debounced, so a dragged slider is one write.

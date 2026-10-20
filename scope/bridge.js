@@ -20,7 +20,6 @@ const HA_TOKEN = env("HA_TOKEN", "");
 const XYBENCH_URL = env("XYBENCH_URL", "").replace(/\/+$/, "");
 const XYBENCH_TOKEN = env("XYBENCH_TOKEN", "");
 const FPS = Number(env("FPS", "60"));   // match xy-bench (XYBENCH_MIN_FPS=60 holds it there)
-const ASPECT = Number(env("ASPECT", "1"));
 const ORDERED = env("ORDERED", "true") !== "false";
 // The card's options: the settings page's saved ones (DATA/card.json) or, before
 // anything is saved there, ALFIE_CARD.
@@ -34,6 +33,9 @@ const DUMP = env("DUMP", "");   // a file to write the newest frame to on each s
 const RECORD = env("RECORD", "");   // a file to append every frame to, one JSON line each (debugging)
 const STATS = Number(env("STATS", "60"));   // seconds between status lines
 const WIDTH = 640;   // canvas pixels; strokes leave in [-1, 1], so only rounding sees this
+// The card's shape is Alfie's Look aspect (Appearance -> Look), down to 0.5: a
+// viewport twice as tall as wide holds the whole card, so it never counts as off screen.
+const HEIGHT = 2 * WIDTH;
 
 if (!HA_URL || !HA_TOKEN) {
   console.error("alfie-scope: HA_URL and HA_TOKEN are required");
@@ -102,7 +104,7 @@ let lastAt = 0, worstGap = 0, late = 0;
 async function open() {
   if (page) await page.close().catch(() => {});
   page = await browser.newPage();
-  await page.setViewport({ width: WIDTH, height: Math.max(1, Math.round(WIDTH / ASPECT)), deviceScaleFactor: 1 });
+  await page.setViewport({ width: WIDTH, height: HEIGHT, deviceScaleFactor: 1 });
   page.on("console", (m) => console.log(`[page ${m.type()}] ${m.text()}`));
   page.on("pageerror", (e) => console.error(`[page error] ${e.message}`));
   page.on("response", (r) => { if (r.status() >= 400) console.error(`[page] HTTP ${r.status()} ${r.url()}`); });
@@ -120,7 +122,7 @@ async function open() {
     offer(f);
   });
   await page.evaluateOnNewDocument((s) => { window.SCOPE = s; },
-    { token: HA_TOKEN, aspect: ASPECT, fps: FPS, card: CARD });
+    { token: HA_TOKEN, fps: FPS, card: CARD });
   await page.setRequestInterception(true);
   page.on("request", (r) => {
     const u = new URL(r.url());
@@ -193,7 +195,7 @@ function serveSettings() {
         return send(res, up.status, up.headers.get("content-type") || "text/plain", Buffer.from(await up.arrayBuffer()));
       }
       if (u.pathname === "/api/card" && req.method === "GET") {
-        return json(res, 200, { card: CARD, aspect: ASPECT, fps: FPS, status });
+        return json(res, 200, { card: CARD, aspect: newest?.aspect ?? null, fps: FPS, status });
       }
       if (u.pathname === "/api/card" && req.method === "PUT") {
         return json(res, 200, { card: await saveCard(await body(req)) });
@@ -234,7 +236,7 @@ async function reopen() {
   browser.on("disconnected", () => { console.error("alfie-scope: Chromium exited"); process.exit(1); });
   await open();
   if (SETTINGS_PORT) serveSettings();
-  console.log(`alfie-scope: ${HA_URL} -> ${XYBENCH_URL || "(dry run)"}, aspect ${ASPECT}, ${FPS} fps`);
+  console.log(`alfie-scope: ${HA_URL} -> ${XYBENCH_URL || "(dry run)"}, ${FPS} fps`);
 
   // A status line every STATS seconds. Frames stop on their own while a
   // house mode hides Alfie; a page that stops answering is opened afresh.

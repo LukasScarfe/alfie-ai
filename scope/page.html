@@ -57,7 +57,7 @@
   await customElements.whenDefined("alfie-card");
   const el = document.createElement("alfie-card");
   // The card's own cap is lifted: the timer above sets the pace.
-  const forced = { card: false, vector_out: true, paint: false, aspect: S.aspect, fps: 120 };
+  const forced = { card: false, vector_out: true, paint: false, fps: 120 };
   el.setConfig({ ...S.card, ...forced });
   // For the settings page (bridge.js): a new card config, live, and its few WebSocket asks.
   window.SCOPE_SET = (card) => el.setConfig({ ...card, ...forced });
@@ -76,5 +76,5 @@
   for (let i = 0; i < 100 && !hass.config; i++) await new Promise((r) => setTimeout(r, 100));
   el.hass = { ...hass };
   document.body.appendChild(el);
-  console.log(`alfie-scope: card up, aspect ${S.aspect}, ${S.fps} fps`);
+  console.log(`alfie-scope: card up, ${S.fps} fps`);
 </script>
