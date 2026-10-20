@@ -13,7 +13,17 @@
 
 Version 0.8.11.
 
-**Latest (0.8.11): map trackers can be any located entity.** Lukas wants his parked-car sensors
+**Scope animations at the full 60 (xy-bench side, no Alfie change).** Lukas found animations on
+the tube very laggy. The card and sidecar sent a steady 60 fps, but xy-bench drew "the latest
+pushed frame" while its pump renders in bursts of ~4 frames per aplay period (3000 samples), so
+each Alfie picture showed for 3 to 4 frames: 40 distinct pictures in 360 frames. xy-bench's
+`figures._Feed` now queues pushed frames (up to `ALFIE_QUEUE` = 8) and the pump takes one per
+frame drawn (`ALFIE.step()` in `server.py` `_pump`): 271 of 275 pictures held one frame during
+look_around and nod_off. Edited in place on Numbat (`~/xy-bench`, uncommitted with Lukas's other
+work there; he commits it), test added, restarted. Open: the beam still runs ~0.6 s behind the
+card (pipe ~340 ms plus aplay's 12000-sample buffer); shrinking those was not done.
+
+**Before that (0.8.11): map trackers can be any located entity.** Lukas wants his parked-car sensors
 (`sensor.lukas_last_car_location`, `sensor.michelle_last_car_location`: a timestamp state with
 `latitude`/`longitude` attributes) on the map. The drawing and the streets provider already read
 those attributes from any entity; only the option's `domain` (device_tracker, person) stood in
