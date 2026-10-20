@@ -165,7 +165,7 @@ function simple(p, st, i) {
       ${U.field("Expression", U.select(`${P}.expression`, t.expression, exprOptions(p, "None")))}
       ${U.field("Animation", U.select(`${P}.animation`, t.animation, animOptions(p, "None")))}`)}
     ${U.group("Icon", `
-      ${U.field("Icon", `<span class="row">${iconPreview(t.icon)}${U.text(`${P}.icon`, t.icon, { placeholder: "None, or mdi:lightbulb-on", attrs: "data-rerender" })}</span>`,
+      ${U.field("Icon", `<span class="row">${iconPreview(t.icon)}${U.text(`${P}.icon`, t.icon, { placeholder: "None, or mdi:lightbulb-on", attrs: 'data-rerender data-icons="one" autocomplete="off"' })}</span>`,
         "Any icon Home Assistant can show.")}
       ${U.field("Style", U.select(`${P}.icon_style`, t.icon_style, iconOptions(p, "styles")))}`)}
     ${U.group("Show", `
@@ -228,7 +228,7 @@ function iconFields(p, s, P, secs) {
   const own = s.style === "transform" ? "" : U.field("Transition", U.select(`${P}.transition`, s.transition,
     transitionOptions(s.style === "beside" ? "Default (the card's)" : "Default (zoom)")));
   const key = `icon:${P}`;
-  return `${iconPreview(s.icon)}<input class="iconname" data-path="${P}.icon" value="${U.esc(s.icon)}" placeholder="mdi:lightbulb-on" data-rerender>
+  return `${iconPreview(s.icon)}<input class="iconname" data-path="${P}.icon" value="${U.esc(s.icon)}" placeholder="mdi:lightbulb-on" data-rerender data-icons="one" autocomplete="off">
     ${sel("style", "styles", { rerender: true })} ${how} for ${secs("seconds", 1, 3600)}
     ${s.style === "overlay" ? `<label class="check">${U.toggle(`${P}.wait`, s.wait)}<span>Wait for it</span></label>` : ""}
     <button class="flat" data-action="st-step-try" data-path="${P}" title="Show it on the Alfie beside this page">Try it</button>

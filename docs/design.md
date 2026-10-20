@@ -357,6 +357,12 @@ or the `alfie.show_icon` action (with `alfie.clear_icons`), and every display sh
 - **Per card:** `icons: false` leaves icons out on that display.
 - **In screen text and plot markers** too: see Screens.
 - **The panel's Icon step** has **Try it**, which plays it on the dock's Alfie only.
+- **Suggestions as you type** (Lukas, 2026-10-19), like HA's icon picker: a list of matching icons
+  with previews under every icon field (the simple form, the Icon step) and, while the word being
+  typed starts `mdi:`, under every screen text option (plot markers too), replacing just that
+  word. The list is HA's own `/static/mdi/iconList.json` (names and keywords), fetched once on
+  the first focus; not HA's `ha-icon-picker`, which a custom panel can't rely on. Typed names
+  (custom sets, `hass:`) still go.
 - **Lukas's house** (`devenv/house.json`):
   - **Bright living room** fires when `sensor.living_room_motion_sensor_illuminance` goes above
     `input_number.living_room_lights_on_lux`.

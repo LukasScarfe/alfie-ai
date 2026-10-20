@@ -11,17 +11,26 @@
 - **5⅞ (Oscilloscope):** A to D and F (the settings page) are done; the sidecar runs on
   Numbat. E (Lukas on the CRT) is open.
 
-Version 0.8.11.
+Version 0.8.12.
 
-**Scope animations at the full 60 (xy-bench side, no Alfie change).** Lukas found animations on
+**Latest (0.8.12): icon suggestions as you type.** Lukas wanted HA's icon dropdown wherever an
+icon is typed. `panel/icon-picker.js` (attached once in `alfie-panel.js` `_frame`) suggests from
+HA's `/static/mdi/iconList.json` for inputs with `data-icons`: `one` (the simple form's icon, the
+Icon step; whole value) and `word` (every text-kind screen option, while the word at the caret
+starts `mdi:`; just that word). Picking fires input and change, so the draft and the preview
+icon update as if typed. Checked in dev HA: keyboard and click picks land in the draft.
+`tests/iconpick.test.mjs` pins ranking and word replacement.
+
+**Before that: scope animations at the full 60 (xy-bench side, no Alfie change).** Lukas found animations on
 the tube very laggy. The card and sidecar sent a steady 60 fps, but xy-bench drew "the latest
 pushed frame" while its pump renders in bursts of ~4 frames per aplay period (3000 samples), so
 each Alfie picture showed for 3 to 4 frames: 40 distinct pictures in 360 frames. xy-bench's
 `figures._Feed` now queues pushed frames (up to `ALFIE_QUEUE` = 8) and the pump takes one per
 frame drawn (`ALFIE.step()` in `server.py` `_pump`): 271 of 275 pictures held one frame during
-look_around and nod_off. Edited in place on Numbat (`~/xy-bench`, uncommitted with Lukas's other
-work there; he commits it), test added, restarted. Open: the beam still runs ~0.6 s behind the
-card (pipe ~340 ms plus aplay's 12000-sample buffer); shrinking those was not done.
+look_around and nod_off. Then, at Lukas's ask, the output buffer shrank: aplay 100 ms
+(`XYBENCH_BUFFER_MS`), one-frame periods, the pipe to aplay a page, so the beam runs ~0.14 s
+behind the card instead of ~0.6 s; no underruns over a story. Committed in xy-bench on Numbat
+(`042a8ad`, `809e343`); that repo has no remote, so nothing is pushed from it.
 
 **Before that (0.8.11): map trackers can be any located entity.** Lukas wants his parked-car sensors
 (`sensor.lukas_last_car_location`, `sensor.michelle_last_car_location`: a timestamp state with
