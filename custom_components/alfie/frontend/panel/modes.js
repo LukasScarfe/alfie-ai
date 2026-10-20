@@ -53,7 +53,7 @@ function mode(p, m, i, n) {
   const body = `
     ${U.group("When", `
       ${U.field("Name", U.text(`${P}.name`, m.name, { placeholder: "Night" }))}
-      ${U.idField(`${P}.id`, m.id, "triggers and <code>select.alfie_mode</code>")}
+      ${U.idField(`${P}.id`, m.id, "triggers, <code>select.alfie_mode</code> and <code>alfie.set_mode</code>", U.automation.mode(m.id))}
       <label class="check wide">${U.toggle(null, !!cond, { action: "mode-cond", i })}<span><b>Has a condition</b>
         <small>Off: only when picked by hand.</small></span></label>
       ${when}`)}

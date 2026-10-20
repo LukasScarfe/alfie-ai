@@ -342,6 +342,11 @@ class AlfiePanel extends HTMLElement {
       case "sub": this.go(this.sec, el.dataset.name); return;
       case "go": this.go(el.dataset.section, el.dataset.sub || "", el.dataset.open || null); return;
       case "save": this._save(); return;
+      case "copy": navigator.clipboard?.writeText(el.dataset.text).then(() => {
+        const old = el.lastChild.textContent;
+        el.lastChild.textContent = "Copied";
+        setTimeout(() => { el.lastChild.textContent = old; }, 1200);
+      }, () => {}); return;
       case "revert": this._revert(); return;
       case "reset": this._reset(); return;
       case "dock-hide": this._setDock(true); return;

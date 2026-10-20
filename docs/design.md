@@ -31,7 +31,7 @@ good defaults, not fixed behaviour.
     tunnel. The card animates the face and draws the screens locally at full frame rate.
   - **Real HA entities and services**, for example `sensor.alfie_mood` (with the active signals as
     attributes), `select.alfie_mode`, and the services `alfie.play_story`, `alfie.show_screen` and
-    `alfie.set_expression`, so HA automations can drive and observe him.
+    `alfie.set_expression`, so HA automations can drive and observe him (see "Automations").
 - **Pattern to copy:** `~/Documents/ha-sun-beams` (Lukas's own repo: an integration with a bundled
   card, a sidebar panel, a WS API and a throwaway dev HA container on raccoon:8124). The card and
   panel are vanilla JS with no build step, unless there's a strong case for one.
@@ -654,6 +654,27 @@ keeps the DAC, the planner, the wiring correction, music and its own screens.
 - **Pacing in the status line:** frames over 1.5 frame times late, and the longest gap. Measured
   on raccoon after the first pass through a rotation, slide, condense and materialise show 0 or
   1 late frames per 5 s. Before these changes, condense stalled up to 230 ms.
+
+## Automations (decided, 2026-10-20)
+
+Lukas: everything Alfie can do should be callable from an automation.
+
+- **Actions:** `set_expression`, `play_animation`, `show_screen`, `play_story`, `stop_story`,
+  `show_icon`, `clear_icons`, and for the house mode's overrides `set_mood`, `set_alfie`
+  (awake, asleep, quiet, hidden), `show_rotation` (or pause), `set_personality`, plus
+  `set_mode` (the select, with a duration that then goes back to what was picked) and
+  `set_enabled` (a signal or trigger on or off, saved).
+- **Holds:** the four override actions hold a value for a duration (or until changed, `auto`
+  lets go) laid over the house mode (`modes.with_holds`), so they beat it. They don't survive a
+  restart, as an expression override doesn't. The Overview says what is held and for how long.
+- **Dropdowns:** the automation editor lists your own screens, stories, rotations, modes,
+  signals, triggers, expressions, animations and personalities by name. `automation.py` builds
+  them from the config and `services.async_describe` lays them over services.yaml after every
+  config change. Typed values and templates still go.
+- **Events to trigger on:** `alfie_signal` (a signal goes `bad`, `good` or `clear`, with
+  `was`), `alfie_story`, `alfie_animation`, `alfie_icon`; and the entities.
+- **In the panel:** under every ID, the action (or for a signal, the trigger) that uses it, with
+  Copy.
 
 ## Non-goals (for now)
 

@@ -58,8 +58,21 @@ export const field = (label, control, hint = "") => `<label class="field"><span>
 
 // An item's ID, beside its name: made from the name while the item is new (the
 // shell's autoId / nameToId), then kept, since automations and other items use it.
-export const idField = (path, id, uses) => field("ID", text(path, id, { attrs: 'pattern="[a-z0-9_]+" data-rerender' }),
-  `Made from the name until you change it. Used by ${uses}.`);
+// `auto` ([kind, yaml]) adds the automation that uses it, with a Copy button.
+export const idField = (path, id, uses, auto = null) => field("ID", text(path, id, { attrs: 'pattern="[a-z0-9_]+" data-rerender' }),
+  `Made from the name until you change it. Used by ${uses}.`) + (auto ? `<div class="wide autosnip">
+    <span class="muted">In an automation (${esc(auto[0])}):</span> <code>${esc(auto[1].replace(/\n\s*/g, " "))}</code>
+    <button class="flat" data-action="copy" data-text="${esc(auto[1])}" title="Copy the YAML"><ha-icon icon="mdi:content-copy"></ha-icon>Copy</button></div>` : "");
+
+// The YAML an automation uses for an item: [kind, yaml] for idField.
+export const automation = {
+  screen: (id) => ["action", `action: alfie.show_screen\ndata:\n  screen: ${id}`],
+  story: (id) => ["action", `action: alfie.play_story\ndata:\n  story: ${id}`],
+  rotation: (id) => ["action", `action: alfie.show_rotation\ndata:\n  rotation: ${id}`],
+  mode: (id) => ["action", `action: alfie.set_mode\ndata:\n  mode: ${id}`],
+  trigger: (id) => ["action", `action: alfie.set_enabled\ndata:\n  item: trigger.${id}\n  enabled: false`],
+  signal: (id) => ["trigger", `trigger: event\nevent_type: alfie_signal\nevent_data:\n  signal: ${id}\n  state: bad`],
+};
 export const wide = (label, control, hint = "") => `<div class="field wide"><span>${esc(label)}</span>${control}${hintOf(hint)}</div>`;
 
 export function check(path, on, label, hint = "") {

@@ -68,7 +68,7 @@ function screen(p, sc, i, n, types, list) {
   const body = `<div class="split2">
       <div>
         <div class="grid">${U.field("Name", U.text(`${P}.title`, sc.title, { placeholder: info?.title || "" }), "How lists show it.")}
-          ${U.idField(`${P}.id`, sc.id, "signals, stories, rotations and <code>alfie.show_screen</code>")}</div>
+          ${U.idField(`${P}.id`, sc.id, "signals, stories, rotations and <code>alfie.show_screen</code>", U.automation.screen(sc.id))}</div>
         ${U.group("Options", form)}
       </div>
       <div class="pvbox"><alfie-card class="spv" data-id="${U.esc(sc.id)}"></alfie-card>
@@ -152,7 +152,7 @@ function rotation(p, r, i, n) {
         <button class="icon" data-action="rot-step-rm" data-i="${i}" data-j="${j}" title="Remove" aria-label="Remove"><ha-icon icon="mdi:close"></ha-icon></button></span></div>`).join("");
   const body = `
     <div class="grid">${U.field("Name", U.text(`${P}.name`, r.name, { placeholder: "Living room" }))}
-      ${U.idField(`${P}.id`, r.id, "a card's rotation option")}
+      ${U.idField(`${P}.id`, r.id, "a card's rotation option and <code>alfie.show_rotation</code>", U.automation.rotation(r.id))}
       ${U.field("Transition", U.select(`${P}.transition`, r.transition, [...U_TRANS()]), "How Alfie and a screen swap places.")}</div>
     <h4>Steps</h4>
     <div class="rsteps">${steps || U.empty("No steps yet.")}</div>

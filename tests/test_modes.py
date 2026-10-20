@@ -3,6 +3,7 @@ import copy
 
 from alfie import defaults
 from alfie.config import default_config
+from alfie import modes as md
 from alfie.modes import choose, held_back, mood_level, personality, wakes
 from alfie.triggers import mode_fires
 
@@ -95,3 +96,34 @@ def test_mode_trigger_fires():
     assert mode_fires({"modes": [], "edge": "enter"}, "normal", "night")
     assert not mode_fires({"modes": [], "edge": "enter"}, "night", "normal")
     assert not mode_fires(t, "away", "away")
+
+
+# ------------------------------------------------------------------- holds
+
+def test_holds_lay_over_the_mode():
+    night = {**md.default_mode(), "id": "night", "alfie": "asleep", "rotation": "pause", "mood_floor": "content"}
+    assert md.with_holds(night, {}) is night
+    held = md.with_holds(night, {"alfie": "awake", "mood": "sad"})
+    assert held["alfie"] == "awake" and held["rotation"] == "pause" and held["id"] == "night"
+    assert md.mood_level(held, "bubbly") == "sad"            # a held mood beats the floor
+    assert night["alfie"] == "asleep"                        # the config's mode is untouched
+    plain = md.with_holds(None, {"rotation": "kitchen"})
+    assert plain["rotation"] == "kitchen" and plain["alfie"] == "awake" and plain["hold_back"] == "none"
+
+
+def test_automation_choices_list_the_config_by_name():
+    from alfie.automation import choices
+    cfg = {"screens": [{"id": "weather", "title": "Weather"}], "stories": [{"id": "hi", "name": "Hello"}],
+           "modes": [{"id": "night", "name": "Night"}], "rotations": [{"id": "hall", "name": ""}],
+           "signals": [{"id": "fern", "name": "Fern dry"}], "triggers": [{"id": "t1", "name": "Bad news"}]}
+    face = {"expressions": {"happy": {}, "sad": {}}, "animations": {"nod": {}}, "personalities": {"grumpy": {}}}
+    c = choices(cfg, face)
+    opts = lambda svc, f: [o["value"] for o in c[svc][f]["select"]["options"]]   # noqa: E731
+    assert c["show_screen"]["screen"]["select"]["options"] == [{"value": "weather", "label": "Weather (weather)"}]
+    assert c["show_screen"]["screen"]["select"]["custom_value"] is True
+    assert opts("set_mode", "mode") == ["auto", "normal", "night"]
+    assert opts("show_rotation", "rotation") == ["auto", "pause", "hall"]
+    assert opts("set_enabled", "item") == ["signal.fern", "trigger.t1"]
+    assert opts("set_mood", "level")[0] == "auto" and opts("set_mood", "level")[1] == "bubbly"
+    assert opts("set_personality", "preset") == ["auto", "grumpy"]
+    assert opts("set_expression", "expression") == ["auto", "happy", "sad"]

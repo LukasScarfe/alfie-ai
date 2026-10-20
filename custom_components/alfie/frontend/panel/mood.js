@@ -53,7 +53,7 @@ function signal(p, s, i, n) {
   const body = !open ? "" : `
     ${U.group("Watches", `
       ${U.field("Name", U.text(`${P}.name`, s.name, { placeholder: "The Monstera is dry" }))}
-      ${U.idField(`${P}.id`, s.id, "triggers and automations")}
+      ${U.idField(`${P}.id`, s.id, "triggers and the <code>alfie_signal</code> event", U.automation.signal(s.id))}
       ${U.wide("Entities", U.entities({ items: s.entities, i, add: "sig-add-ent", rm: "sig-rm-ent" }))}
       ${U.field("Is", U.select(`${P}.op`, s.op, OPS, { rerender: true }))}
       ${U.field("Value", numeric

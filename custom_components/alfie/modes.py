@@ -15,6 +15,10 @@ select.alfie_mode. Each mode overrides:
 
 A condition is a signals.Signal underneath, so it takes patterns, match
 any/all and the same operators as signals.
+
+Holds (alfie.set_mood, set_alfie, show_rotation, set_personality) are a
+mode's overrides set by an automation for a while; `with_holds` lays them
+over the mode, so everything downstream reads one mode.
 """
 
 from __future__ import annotations
@@ -40,6 +44,22 @@ def default_mode() -> dict[str, Any]:
             "mood_floor": "", "mood_fixed": "",
             "personality": "", "energy_bias": None, "fidget_rate": None,
             "rotation": "", "triggers_off": []}
+
+
+# What an automation can hold, and the mode key each one overrides.
+HOLDS = {"mood": "mood_fixed", "alfie": "alfie", "rotation": "rotation", "personality": "personality"}
+
+
+def with_holds(mode: Mapping[str, Any] | None,
+               holds: Mapping[str, str]) -> Mapping[str, Any] | None:
+    """`mode` with the held values over it (no mode: a plain one under them).
+    No holds: `mode` itself."""
+    if not holds:
+        return mode
+    out = dict(mode) if mode else default_mode()
+    for kind, value in holds.items():
+        out[HOLDS[kind]] = value
+    return out
 
 
 def default_condition() -> dict[str, Any]:

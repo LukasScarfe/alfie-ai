@@ -12,9 +12,18 @@
   Numbat. E (Lukas on the CRT) is open.
 - **5⅝ (Panel style):** A to F done; G (Lukas's review of the screenshots) is open.
 
-Version 0.9.3.
+Version 0.10.0.
 
-**Latest (0.9.3): weather rain is a dotted line, not bars** (Lukas). Hourly: every hour, on the
+**Latest (0.10.0): automation hooks** (design.md "Automations"). Services moved to
+`services.py` (a table of handlers and schemas); `automation.py` (pure) builds the dropdowns,
+set at runtime with `async_set_service_schema` on start and through `engine.config_hooks`
+after each config change. Engine: `holds` / `hold()` / `_release` laid over the mode as
+`self.effective` (`modes.with_holds`), which everything that read `self.active`'s overrides now
+reads; `set_mode(mode, duration)`; `set_enabled`; `_signal_events` fires `alfie_signal` per
+edge. Checked in dev HA through REST and a stdlib WS listener: holds, durations, bad values
+refused with the choices, the dropdowns in `/api/services`, one event per edge.
+
+**Before that (0.9.3): weather rain is a dotted line, not bars** (Lukas). Hourly: every hour, on the
 temperature's x positions, against the right axis; daily: through the column centres. `group`
 and `RAIN_WEIGHT` are gone. PNGs sent.
 

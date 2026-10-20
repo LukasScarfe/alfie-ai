@@ -165,6 +165,90 @@
     "clear_icons": {
       "name": "Clear icons",
       "description": "Take every icon off the displays."
+    },
+    "set_mood": {
+      "name": "Set mood",
+      "description": "Hold Alfie's mood at a level for a while, over what his signals and the house mode say. Auto lets go.",
+      "fields": {
+        "level": {
+          "name": "Mood",
+          "description": "A mood level, or auto."
+        },
+        "duration": {
+          "name": "Duration",
+          "description": "Seconds to hold it, then it lets go. 0 or empty: until changed."
+        }
+      }
+    },
+    "set_alfie": {
+      "name": "Set Alfie awake or asleep",
+      "description": "Hold Alfie awake, asleep, quiet or hidden for a while, as a house mode's \"Alfie is\" does. Auto lets go.",
+      "fields": {
+        "state": {
+          "name": "Alfie is",
+          "description": "awake, asleep, quiet, hidden, or auto."
+        },
+        "duration": {
+          "name": "Duration",
+          "description": "Seconds to hold it, then it lets go. 0 or empty: until changed."
+        }
+      }
+    },
+    "show_rotation": {
+      "name": "Show rotation",
+      "description": "Switch every rotation card that follows house modes to a rotation, or pause it. Auto gives the cards back their own.",
+      "fields": {
+        "rotation": {
+          "name": "Rotation",
+          "description": "A rotation from the Alfie panel, pause, or auto."
+        },
+        "duration": {
+          "name": "Duration",
+          "description": "Seconds to show it, then it lets go. 0 or empty: until changed."
+        }
+      }
+    },
+    "set_personality": {
+      "name": "Set personality",
+      "description": "Swap Alfie's personality preset for a while. Auto lets go.",
+      "fields": {
+        "preset": {
+          "name": "Personality",
+          "description": "A personality preset, or auto."
+        },
+        "duration": {
+          "name": "Duration",
+          "description": "Seconds to keep it, then it lets go. 0 or empty: until changed."
+        }
+      }
+    },
+    "set_mode": {
+      "name": "Set house mode",
+      "description": "Pick a house mode, like select.alfie_mode, optionally for a while: afterwards it goes back to what was picked before.",
+      "fields": {
+        "mode": {
+          "name": "House mode",
+          "description": "A house mode, normal (none), or auto (follow the conditions)."
+        },
+        "duration": {
+          "name": "Duration",
+          "description": "Seconds in the mode, then it lets go. 0 or empty: until changed."
+        }
+      }
+    },
+    "set_enabled": {
+      "name": "Turn a signal or trigger on or off",
+      "description": "Turns one of Alfie's signals or triggers on or off, saved, as its switch in the panel does.",
+      "fields": {
+        "item": {
+          "name": "Signal or trigger",
+          "description": "signal.<id> or trigger.<id>."
+        },
+        "enabled": {
+          "name": "On",
+          "description": "On or off."
+        }
+      }
     }
   },
   "selector": {

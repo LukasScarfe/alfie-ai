@@ -31,11 +31,12 @@ from .const import (
     DEFAULT_NAME,
     EVENT_ANIMATION,
     EVENT_ICON,
+    EVENT_SIGNAL,
     EVENT_STORY,
     FACE_FILE,
     SCENE_VERSION,
 )
-from .mood import Mood, MoodSettings, combine
+from .mood import LEVELS, Mood, MoodSettings, combine
 from .providers import provider_for
 from .screen_types import load_types
 from .signals import Signal, SignalResult, evaluate, evaluate_all, is_pattern, matching, watches
@@ -98,6 +99,15 @@ class AlfieEngine:
         self.animations: set[str] = set()
         self.mode = md.AUTO                 # select.alfie_mode: auto, normal or a mode id
         self.active: dict[str, Any] | None = None   # the house mode now (None: normal)
+        # Held by automations (alfie.set_mood, ...): kind -> value, laid over
+        # the mode (modes.with_holds); `effective` is that mode, what he follows.
+        self.holds: dict[str, str] = {}
+        self.hold_until: dict[str, float | None] = {}   # kind -> epoch s, None: until changed
+        self._hold_unsubs: dict[str, CALLBACK_TYPE] = {}
+        self._mode_unsub: CALLBACK_TYPE | None = None   # set_mode's duration
+        self.effective: dict[str, Any] | None = None
+        self._effective_key: Any = None
+        self.config_hooks: list[Callable[[], None]] = []   # after each config change
         self.mode_why: SignalResult | None = None   # the condition that chose it
         self.mood: Mood | None = None
         self.asleep = False
@@ -157,9 +167,12 @@ class AlfieEngine:
             unsub()
         self._unsubs.clear()
         for u in (self._idle_unsub, self._override_unsub, self._screen_unsub,
-                  self._story_unsub, self._repeat_unsub):
+                  self._story_unsub, self._repeat_unsub, self._mode_unsub,
+                  *self._hold_unsubs.values()):
             if u:
                 u()
+        self._hold_unsubs.clear()
+        self._mode_unsub = None
         self._idle_unsub = self._override_unsub = self._screen_unsub = None
         self._story_unsub = self._repeat_unsub = None
         for u in self._overlay_unsubs.values():
@@ -184,6 +197,7 @@ class AlfieEngine:
     def _apply(self, cfg: dict[str, Any]) -> None:
         built = build(cfg)
         self.config = cfg
+        self._effective_key = None    # the modes may have changed: _recompute rebuilds
         self.screens_rev = hashlib.sha1(json.dumps(
             [cfg["screens"], cfg["rotations"]], sort_keys=True).encode()).hexdigest()[:10]
         if self.screen and not self.screen.get("icon") \
@@ -193,7 +207,7 @@ class AlfieEngine:
         self.settings = built.mood
         self.behaviour = built.behaviour
         self._base_personality = built.personality
-        self.personality = md.personality(self.active, built.personality,
+        self.personality = md.personality(self.effective, built.personality,
                                           self.face.get("personalities") or {})
         self.motion_sensors = {g["entity"]: g["action"] for g in self.behaviour["motion_sensors"]}
         self._mode_signals = tuple(sig for m in cfg["modes"]
@@ -214,6 +228,12 @@ class AlfieEngine:
                                  if self._is_signal_entity(st.entity_id)}
         self._signal_entities |= {p for sig in (*self.signals, *self._mode_signals)
                                   for p in sig.entities if not is_pattern(p)}
+        # A held rotation that was deleted lets go.
+        rot = self.holds.get("rotation")
+        if rot and rot != md.PAUSE and rot not in {r["id"] for r in cfg["rotations"]}:
+            self._release("rotation")
+        for hook in list(self.config_hooks):
+            hook()
 
     @callback
     def apply_config(self, raw: Any) -> dict[str, Any]:
@@ -337,7 +357,7 @@ class AlfieEngine:
     @property
     def alfie_state(self) -> str:
         """What the house mode makes Alfie: awake, asleep, quiet or hidden."""
-        return self.active["alfie"] if self.active else "awake"
+        return self.effective["alfie"] if self.effective else "awake"
 
     @property
     def quiet(self) -> bool:
@@ -353,12 +373,15 @@ class AlfieEngine:
         old, old_mode = self.mood, self.mode_id
         states = self._signal_states()
         mode, self.mode_why = md.choose(self.config["modes"], states, self.mode)
-        if mode is not self.active:
-            self.active = mode
+        key = (mode["id"] if mode else None, tuple(sorted(self.holds.items())))
+        if key != self._effective_key:
+            self.active, self._effective_key = mode, key
+            self.effective = mode = md.with_holds(mode, self.holds)
             self.personality = md.personality(mode, self._base_personality,
                                               self.face.get("personalities") or {})
             if self.config.get("modes") is not None and self._unsubs:
                 self._schedule_idle()      # the mode may change the fidget rate
+        mode = self.effective
         # A mode may hold back lesser bad news, and set a floor or a fixed mood.
         results = [SignalResult(r.signal, False) if r.active and r.signal.kind == "bad"
                    and md.held_back(mode, r.signal.severity) else r
@@ -378,6 +401,8 @@ class AlfieEngine:
         self.mood, self.asleep = mood, asleep
         if not changed:
             return []
+        if old is not None:
+            self._signal_events(old, mood)
         _LOGGER.debug("mode %s, mood %s (%s) asleep=%s: %s", self.mode_id, mood.level, mood.score,
                       asleep, mood.reason)
         now = time.monotonic()
@@ -509,12 +534,106 @@ class AlfieEngine:
         self._push()
 
     @callback
-    def set_mode(self, mode: str) -> None:
+    def set_mode(self, mode: str, duration: float | None = None) -> None:
+        """select.alfie_mode, or alfie.set_mode: for `duration` seconds, then
+        back to what was picked before."""
+        if self._mode_unsub:
+            self._mode_unsub()
+            self._mode_unsub = None
+        before = self.mode
         self.mode = mode
+        if duration:
+            @callback
+            def back(_now: Any) -> None:
+                self._mode_unsub = None
+                self.set_mode(before if before != mode else md.AUTO)
+            self._mode_unsub = async_call_later(self.hass, duration, back)
+        self._react()
+
+    @callback
+    def _react(self) -> None:
         fired = self._recompute(react=True)
         if fired:
             self._fire(fired)
         self._push()
+
+    def hold_choices(self, kind: str) -> list[str]:
+        """What `kind` may be held at (besides auto, which lets go)."""
+        if kind == "mood":
+            return list(LEVELS)
+        if kind == "alfie":
+            return list(md.ALFIE_STATES)
+        if kind == "rotation":
+            return [md.PAUSE, *(r["id"] for r in self.config.get("rotations", []))]
+        return list((self.face.get("personalities") or {}).keys())
+
+    @callback
+    def hold(self, kind: str, value: str, duration: float | None = None) -> None:
+        """An automation holds one of the mode's overrides (modes.HOLDS) for
+        `duration` seconds, or until changed; `auto` lets go. Raises ValueError."""
+        if value == md.AUTO:
+            self._release(kind)
+            self._react()
+            return
+        if value not in self.hold_choices(kind):
+            raise ValueError(f"{kind} can't be {value!r}: one of auto, {', '.join(self.hold_choices(kind))}")
+        if (u := self._hold_unsubs.pop(kind, None)) is not None:
+            u()
+        self.holds[kind] = value
+        self.hold_until[kind] = time.time() + duration if duration else None
+        if duration:
+            @callback
+            def done(_now: Any) -> None:
+                self._hold_unsubs.pop(kind, None)
+                self._release(kind)
+                self._react()
+            self._hold_unsubs[kind] = async_call_later(self.hass, duration, done)
+        self._react()
+
+    def _release(self, kind: str) -> None:
+        if (u := self._hold_unsubs.pop(kind, None)) is not None:
+            u()
+        self.holds.pop(kind, None)
+        self.hold_until.pop(kind, None)
+
+    def switchable(self) -> list[tuple[str, str]]:
+        """[(item, name)] that alfie.set_enabled can turn on and off:
+        signal.<id> and trigger.<id>."""
+        return [(f"{k}.{x['id']}", f"{'Signal' if k == 'signal' else 'Trigger'}: {x.get('name') or x['id']}")
+                for k, sec in (("signal", "signals"), ("trigger", "triggers"))
+                for x in self.config.get(sec, [])]
+
+    @callback
+    def set_enabled(self, item: str, enabled: bool) -> None:
+        """Turn a signal or trigger on or off, saved, as the panel's switch
+        does. `item` is signal.<id> or trigger.<id>, or a bare id that only
+        one of them has. Raises ValueError."""
+        kind, _, iid = item.partition(".") if "." in item else ("", "", item)
+        found = [(sec, x) for k, sec in (("signal", "signals"), ("trigger", "triggers"))
+                 if kind in ("", k) for x in self.config.get(sec, []) if x["id"] == iid]
+        if len(found) != 1:
+            raise ValueError(f"no single signal or trigger {item!r}" if found
+                             else f"no signal or trigger {item!r}")
+        sec, x = found[0]
+        if x["enabled"] == enabled:
+            return
+        cfg = json.loads(json.dumps(self.config))
+        next(y for y in cfg[sec] if y["id"] == iid)["enabled"] = enabled
+        self.apply_config(cfg)
+
+    def _signal_events(self, old: Mood, new: Mood) -> None:
+        """alfie_signal for each signal whose state changed: bad, good or clear."""
+        def states(m: Mood) -> dict[str, tuple[Signal, str]]:
+            return {**{r.signal.id: (r.signal, "good") for r in m.good},
+                    **{r.signal.id: (r.signal, "bad") for r in m.bad}}
+        then, now = states(old), states(new)
+        for sid in sorted(then.keys() | now.keys()):
+            was, st = then.get(sid, (None, "clear"))[1], now.get(sid, (None, "clear"))[1]
+            if was == st:
+                continue
+            sig = (now.get(sid) or then[sid])[0]
+            self.hass.bus.async_fire(EVENT_SIGNAL, {"signal": sid, "name": sig.name, "kind": sig.kind,
+                                                    "severity": sig.severity, "state": st, "was": was})
 
     # ------------------------------------------------------------ stories
 
@@ -545,7 +664,7 @@ class AlfieEngine:
         old_expression, self._old_expression = self._old_expression, None
         now = time.monotonic()
         ok = []
-        off = set(self.active["triggers_off"]) if self.active else set()
+        off = set(self.effective["triggers_off"]) if self.effective else set()
         for t, why in fired:
             if t["id"] in off or not trig.allowed(t, level, self.asleep):
                 continue
@@ -900,17 +1019,19 @@ class AlfieEngine:
             "mode_pick": self.mode,
             "mode_info": {"name": self.active["name"] if self.active else "Normal",
                           "alfie": self.alfie_state,
-                          "rotation": self.active["rotation"] if self.active else "",
+                          "rotation": self.effective["rotation"] if self.effective else "",
                           "why": list(self.mode_why.entities) if self.mode_why else []},
             "personality": {"preset": self.config.get("personality", {}).get("preset"),
                             **self.personality},
             "look": self.config.get("look") or {},
             "signals": signals,
-            "reason": "Asleep." if self.asleep else (m.reason if m else ""),
+            "reason": "Asleep." if self.asleep else "An automation holds his mood." if "mood" in self.holds
+                      else (m.reason if m else ""),
             "story": self._story_scene(),
             "screen": self.screen,
             "icons": self.overlays,
             "screens_rev": self.screens_rev,
+            "holds": {k: {"value": v, "until": self.hold_until.get(k)} for k, v in self.holds.items()},
             "now": time.time(),
         }
 
