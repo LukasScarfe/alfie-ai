@@ -12,15 +12,19 @@
   Numbat. E (Lukas on the CRT) is open.
 - **5⅝ (Panel style):** A to F done; G (Lukas's review of the screenshots) is open.
 
-Version 0.9.2.
+Version 0.9.3.
 
-**Latest (0.9.2): leaner screen options, IDs beside names.** Lukas reviewed every screen option
+**Latest (0.9.3): weather rain is a dotted line, not bars** (Lukas). Hourly: every hour, on the
+temperature's x positions, against the right axis; daily: through the column centres. `group`
+and `RAIN_WEIGHT` are gone. PNGs sent.
+
+**Before that (0.9.2): leaner screen options, IDs beside names.** Lukas reviewed every screen option
 (design.md "Screen options stay lean") and asked for IDs to be visible and made from names.
 - Screen type JSON gained `when` (shown only while other options hold some values) and `more`
   (folded). `Fm.optionShown`; a field others depend on gets `data-rerender`. screens.js draws
   the fold as `U.more(p, so:<id>)`.
 - Gone as options: plot `buckets` (96, `DEFAULT_BUCKETS`) and `ticks` (3, from the height),
-  weather `smooth` (1 pass) and `rain_group` (1 h up to 12 h, else 3). Saved values drop out.
+  weather `smooth` (1 pass) and `rain_group`. Saved values drop out.
 - Label and text `size` became `text_size` (×, of 0.3): `migrate_v5`, CONFIG_VERSION 6.
 - `U.idField` puts the ID under the Name in every list. Screens and rotations now use
   `autoId`/`nameToId` too, and duplicates are automatic again. Saved items' IDs never follow.

@@ -456,15 +456,16 @@ built types:
 - **Screen options stay lean (Lukas, 2026-10-20).** A field that doesn't apply is hidden (its
   `when`: range fields on an auto range, the hourly or daily fields by forecast, a text
   screen's source fields), rarely changed ones fold under More options (`more`), and drawing
-  internals are not options: plot points and ticks, weather smoothing and hours per rain bar
+  internals are not options: plot points and ticks, and weather smoothing
   are chosen by the screen. Label and text sizes are Text size (×) like every type. Each point holds the bucket's mean, max, min or last value (Combine points;
   all but the mean keep a count whole), and the line is straight or steps.
 - Plot, value and bars take the sensor's unit unless the Unit option says otherwise; `none`
   shows no unit (a Plex sensor reports "watching").
 - **value**: one big readout with an icon (auto by device class) and threshold colouring.
 - **bars**: several entities as bars, e.g. soil moisture, with a highlight below a threshold.
-- **weather**: the condition icon and temperature now, an hourly curve with rain bars, or daily
-  columns, from `weather.get_forecasts`.
+- **weather**: the condition icon and temperature now, an hourly curve or daily columns, from
+  `weather.get_forecasts`. Rain is a dotted line (Lukas, 2026-10-20; xy-bench drew bars): hourly
+  against its own right axis, daily through the columns.
 - **clock**: analogue or digital, a solar day/night rim from `sun.sun`, in and out temperatures,
   and a house with smoke.
 - **sky** (a top-down disc with sun, moon, paths and rise/set times) and **stars** (stick-figure
