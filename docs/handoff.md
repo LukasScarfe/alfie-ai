@@ -12,10 +12,10 @@
   - F: the PNGs are sent (voice sheet, dev dashboard listening, the Voice panel pages).
   - Lukas asked for it all on (2026-10-20). Done on production: persona, mood_aware, assist_tool
     and intent; "is anything wrong" on HA's own agent answers from Alfie.
-  - Still open in F: ticking the Alfie API on the Gemini agent (Settings → Voice assistants →
-    Google AI Conversation options → "Control Home Assistant": Alfie). The auto-mode classifier
-    refused Claude touching that agent's config, so Lukas does it in the UI. Then try it on the
-    S7+ (`assist_satellite.s7_assist_satellite`).
+  - Lukas ticked the Alfie API on the Gemini agent. Asked "Is anything wrong at home?" through
+    `conversation/process`, Gemini answered in his persona and mood ("…I'm feeling quite
+    content. There's nothing at all that needs your attention right now.").
+  - Still open: Lukas tries the whole loop by voice on the S7+.
   - G: Lukas's review.
 
 Version 0.11.0.
