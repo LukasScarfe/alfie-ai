@@ -164,7 +164,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         persona + mood prompt), Assist's tool (`assist_tool`), intent `AlfieWhatsWrong` and its
         sentences (`intent`), `problems` on `sensor.alfie_mood`, `alfie.say`, WS
         `alfie/voice/status` and `alfie/voice/say`. All opt-in, off by default.
-  - [ ] D. Card: `voice` option (all / chosen / none), phase looks interrupt the rotation, the
+  - [x] D. Card: `voice` option (all / chosen / none), phase looks interrupt the rotation, the
         four speaking styles, harness `sheet=voice`; checks.
   - [ ] E. Panel: Voice section, `voice` trigger kind, speak step fields, card editor row.
   - [ ] F. Dev HA PNGs to Lukas; prod deploy against the S7+ (Lukas's OK before ticking the
