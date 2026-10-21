@@ -79,7 +79,37 @@ const STYLES = {
   flat: { color: "var(--primary-text-color, #e1e1e1)", glow: 0 },
   crt: { color: "#7dff8a", glow: 1.0 },
   theme: { color: "var(--primary-color, #03a9f4)", glow: 0 },
+  // Their own paper too (`bg`, unless a background is set), and effects:
+  // `grid` lines behind, a `rough` hand-drawn line, `soft` fill, `lw` thicker or finer.
+  blueprint: { color: "#eaf4ff", glow: 0.15, bg: "#0e3a63", grid: true, lw: 0.75, accent: "#ffd166" },
+  chalk: { color: "#f4f1e8", glow: 0, bg: "#26342b", rough: true, accent: "#ffc2d4" },
+  ink: { color: "#1c1c1c", glow: 0, bg: "#f4efe2", lw: 1.45, accent: "#b03a2e" },
+  pastel: { color: "#f49ac2", eye: "#7fb7e6", text: "#6b5b73", accent: "#69c9a0", glow: 0.25, bg: "#fff4f8", soft: 0.18 },
 };
+const backgroundOf = (c) => (c.background && c.background !== "none" ? c.background : (STYLES[c.style] || STYLES.neon).bg || null);
+
+// A hand-drawn line (the chalk style): points every few pixels, each nudged by
+// a slow wobble of the distance along the line, so straight edges wobble too,
+// and a point keeps its nudge from frame to frame (no shimmer). `seed` makes a
+// second, different pass.
+function roughen(pts, amp, seed = 0, closed = true) {
+  const out = [], step = Math.max(2, amp * 4);
+  let s = 0;
+  const nudge = ([x, y], d) => [x + amp * Math.sin(d * 0.23 / amp + seed * 4.1) * Math.cos(d * 0.071 / amp + seed),
+    y + amp * Math.sin(d * 0.19 / amp + seed * 2.7 + 1) * Math.cos(d * 0.053 / amp + seed * 1.3)];
+  const n = pts.length, last = closed ? n : n - 1;
+  for (let i = 0; i < last; i++) {
+    const a = pts[i], b = pts[(i + 1) % n];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]), k = Math.max(1, Math.ceil(len / step));
+    for (let j = 0; j < k; j++) {
+      const f = j / k;
+      out.push(nudge([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f], s + len * f));
+    }
+    s += len;
+  }
+  if (!closed && n) out.push(nudge(pts[n - 1], s));
+  return out;
+}
 
 const DEFAULTS = {
   style: "neon",
@@ -108,6 +138,7 @@ const DEFAULTS = {
   appear_story: "auto",   // rotation: the story Alfie plays here when he appears in it; auto: the most relevant (mood-led), none, or a story id
   text_color: null,       // screen text; null takes the face colour
   accent_color: null,     // screen accents; null takes the face colour
+  line_color: null,       // screen lines (plots, bars, pictures); null takes the style's, then the face colour
   screen_line_width: 0.02, // ring radii: screens draw finer than the face
   icons: true,            // false: this card ignores icons (alfie.show_icon, a story's icon steps)
   voice: "all",           // which voice satellites bring Alfie on here: all, chosen (voice_satellites) or none
@@ -486,7 +517,7 @@ class AlfieCard extends HTMLElement {
     if (key === this._lookKey) return false;
     this._lookKey = key;
     // The background and the aspect live in the built CSS.
-    const css = (c) => `${c.background && c.background !== "none" ? c.background : ""}|${Number(c.aspect) || 1}`;
+    const css = (c) => `${backgroundOf(c) || ""}|${Number(c.aspect) || 1}`;
     const before = css(this._config);
     this._config = L.effectiveConfig(DEFAULTS, look, this._user);
     this._colors = null;
@@ -565,7 +596,7 @@ class AlfieCard extends HTMLElement {
   _build() {
     if (!this.shadowRoot) return;
     const c = this._config;
-    const bg = c.background && c.background !== "none" ? c.background : null;
+    const bg = backgroundOf(c);
     this.shadowRoot.innerHTML = `
       <style>
         :host { display: block; }
@@ -616,9 +647,11 @@ class AlfieCard extends HTMLElement {
       return out;
     };
     const face = probe(c.ring_color || st.color);
+    const role = (own, styled) => (own ? probe(own) : styled ? probe(styled) : face);
     this._colors = {
-      face, eye: c.eye_color ? probe(c.eye_color) : face, glow: c.glow ?? st.glow,
-      text: c.text_color ? probe(c.text_color) : face, accent: c.accent_color ? probe(c.accent_color) : face,
+      face, eye: role(c.eye_color, st.eye), glow: c.glow ?? st.glow,
+      text: role(c.text_color, st.text), accent: role(c.accent_color, st.accent), line: role(c.line_color, st.line),
+      grid: !!st.grid, rough: !!st.rough, soft: st.soft || 0, lw: st.lw || 1,
     };
   }
 
@@ -744,6 +777,7 @@ class AlfieCard extends HTMLElement {
     const ctx = c.paint === false ? NO_PAINT : cv.getContext("2d");
     const w = cv.width, h = cv.height;
     ctx.clearRect(0, 0, w, h);
+    if (col.grid && ctx !== NO_PAINT) this._grid(ctx, w, h);
     this._vec = c.vector_out ? { w, h, strokes: [] } : null;
     const R = (Math.min(w, h) / 2) * (1 - clamp(Number(c.padding), 0, 0.45));
     const L = scr ? this._layout(scr, w, h, R) : null;
@@ -752,7 +786,7 @@ class AlfieCard extends HTMLElement {
       ? G.placeAt(this._place, w, h, R) : null;
     const fs = P ? P.s : L ? L.face.s : 1;
     const Rf = R * fs;
-    const lw = Math.max(1, Number(c.line_width) * Rf);
+    const lw = Math.max(1, Number(c.line_width) * Rf * col.lw);
     const cx = P ? P.cx : L ? L.face.cx : w / 2, cy = P ? P.cy : L ? L.face.cy : h / 2;
     const X = (x) => cx + x * Rf, Y = (y) => cy - y * Rf;
     const faceAlpha = scr ? scr.faceAlpha : 1;
@@ -784,22 +818,17 @@ class AlfieCard extends HTMLElement {
       const hs = (Rf - lw / 2) / Rf;
       const [hx, hy] = shapes.ring;
       if (!scr?.noHead) {
-        ctx.strokeStyle = ctx.shadowColor = col.face;
+        ctx.strokeStyle = ctx.fillStyle = ctx.shadowColor = col.face;
         const head = shapes.head.map(([x, y]) => [X(hx + (x - hx) * hs), Y(hy + (y - hy) * hs)]);
-        ctx.beginPath();
-        trace(ctx, head);
-        ctx.stroke();
+        this._line(ctx, head, true, lw, col.soft);
         this._tap(head, true, faceAlpha);
       }
 
       ctx.strokeStyle = ctx.fillStyle = ctx.shadowColor = col.eye;
       for (const eye of [shapes.left, shapes.right]) {
         const pts = eye.map(([x, y]) => [X(x), Y(y)]);
-        ctx.beginPath();
-        trace(ctx, pts);
+        this._line(ctx, pts, true, lw, c.eye_fill ? 1 : col.soft);
         this._tap(pts, true, faceAlpha);
-        if (c.eye_fill) ctx.fill();
-        ctx.stroke();
       }
       ctx.globalAlpha = 1;
     }
@@ -822,6 +851,48 @@ class AlfieCard extends HTMLElement {
       if (strokes.length || !scr) this.dispatchEvent(new CustomEvent("alfie-vector", {
         detail: { strokes, aspect: w / h, t: this._now() } }));
     }
+  }
+
+  // One closed or open line of the face in the style: rough (chalk) adds a
+  // fainter second pass; `fill` is the share of colour inside (soft, or eye fill).
+  _line(ctx, pts, closed, lw, fill = 0) {
+    if (ctx === NO_PAINT) return;
+    const rough = this._colors.rough;
+    ctx.beginPath();
+    trace(ctx, rough ? roughen(pts, lw * 0.35, 0, closed) : pts, closed);
+    if (fill > 0) {
+      const a = ctx.globalAlpha;
+      ctx.globalAlpha = a * fill;
+      ctx.fill();
+      ctx.globalAlpha = a;
+    }
+    ctx.stroke();
+    if (rough) {
+      const a = ctx.globalAlpha, w = ctx.lineWidth;
+      ctx.globalAlpha = a * 0.4;
+      ctx.lineWidth = w * 0.6;
+      ctx.beginPath();
+      trace(ctx, roughen(pts, lw * 0.7, 1, closed), closed);
+      ctx.stroke();
+      ctx.globalAlpha = a;
+      ctx.lineWidth = w;
+    }
+  }
+
+  // Blueprint paper: faint squares, every fourth line a little stronger.
+  _grid(ctx, w, h) {
+    const step = Math.max(8, Math.min(w, h) / 16);
+    ctx.save();
+    ctx.strokeStyle = this._colors.face;
+    ctx.lineWidth = 1;
+    for (const [every, alpha] of [[1, 0.07], [4, 0.14]]) {
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      for (let x = (w / 2) % (step * every); x < w; x += step * every) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+      for (let y = (h / 2) % (step * every); y < h; y += step * every) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   // Record a painted stroke (canvas pixels) for the vector feed.
@@ -859,9 +930,9 @@ class AlfieCard extends HTMLElement {
   // `face` (optional) draws the face this way instead: its line width, its colours.
   _drawStrokes(ctx, strokes, bx, by, R, alpha, face = null) {
     const c = this._config, col = this._colors;
-    const lw = face ? face.lw : Math.max(1.25, Number(c.screen_line_width) * R);
+    const lw = face ? face.lw : Math.max(1.25, Number(c.screen_line_width) * R * col.lw);
     const X = (x) => bx + x * R, Y = (y) => by - y * R;
-    const color = face ? face.palette : { line: col.face, text: col.text, accent: col.accent, dim: col.face };
+    const color = face ? face.palette : { line: col.line, text: col.text, accent: col.accent, dim: col.line };
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     // A filled icon: each group's closed strokes as one shape, under its outlines.
@@ -905,7 +976,8 @@ class AlfieCard extends HTMLElement {
       }
       ctx.setLineDash(dashed ? [sw * 1.2, sw * 2.6] : []);
       ctx.beginPath();
-      trace(ctx, pts.map(([x, y]) => [X(x), Y(y)]), !!st.closed);
+      const at = pts.map(([x, y]) => [X(x), Y(y)]);
+      trace(ctx, col.rough && !dashed ? roughen(at, sw * 0.35, 0, !!st.closed) : at, !!st.closed);
       if (st.fill) { ctx.globalAlpha = alpha * 0.3; ctx.fill(); ctx.globalAlpha = alpha * (dim ? 0.5 : 1); }
       ctx.stroke();
     }

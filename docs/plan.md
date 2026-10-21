@@ -188,7 +188,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         everywhere names are checked, sent to the cards; Appearance → Expressions.
   - [x] D. Animation editor (0.11.4): config `animations` (keyframes: seconds, channels, easing),
         Appearance → Animations with play and scrub.
-  - [ ] E. Render styles and themes: new styles, a plot line colour role, named palettes.
+  - [x] E. Render styles and themes (0.11.5): new styles, a plot line colour role, named palettes.
   - [ ] F. Why panel on tap, and standard tap / hold / double-tap actions in the card editor.
   - [ ] G. Tests, PNGs to Lukas, prod deploy, design.md, 0.12.0.
   - [ ] H. Lukas's review.

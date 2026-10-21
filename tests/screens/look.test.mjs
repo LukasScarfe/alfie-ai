@@ -1,5 +1,5 @@
 // The card's look precedence: own config > scene look (empty skipped) > defaults.
-import { effectiveConfig, lookKey, renameOld } from "../../custom_components/alfie/frontend/alfie-look.js";
+import { effectiveConfig, lookKey, renameOld, THEMES, THEME_KEYS, themeOf, STYLE_TEXT } from "../../custom_components/alfie/frontend/alfie-look.js";
 
 let failures = 0;
 const check = (ok, what) => { if (!ok) { failures++; console.error(`FAIL ${what}`); } };
@@ -26,6 +26,15 @@ check(lookKey(look) === lookKey({ ...look }) && lookKey(null) === "" && lookKey(
 const old = renameOld({ mode: "rotation", face_color: "#f00", style: "flat" });
 check(old.display === "rotation" && old.ring_color === "#f00" && !("mode" in old) && !("face_color" in old) && old.style === "flat", "old keys renamed");
 check(renameOld({ mode: "rotation", display: "companion" }).display === "companion", "a new key wins over its old name");
+
+// Themes: each names a known style and every themed key; a look wearing one is recognised,
+// and one changed colour (or none of a theme's) is its own.
+for (const [k, t] of Object.entries(THEMES)) {
+  check(t.style in STYLE_TEXT && THEME_KEYS.every((x) => x in t), `theme ${k} complete`);
+  check(themeOf({ ...t, padding: 0.1 }) === k, `theme ${k} recognised`);
+}
+check(themeOf({ ...THEMES.ocean, ring_color: "#123456" }) === "", "a changed colour is its own");
+check(themeOf({ style: "neon", ring_color: "", background: "none" }) === "classic", "an untouched look is classic");
 
 if (failures) process.exit(1);
 console.log("look ok");

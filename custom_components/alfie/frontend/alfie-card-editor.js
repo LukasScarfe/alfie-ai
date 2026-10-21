@@ -7,7 +7,7 @@
 // the card's defaults are written, so the YAML stays short.
 
 const V = new URL(import.meta.url).search;
-const { renameOld } = await import(`./alfie-look.js${V}`);
+const { renameOld, STYLE_TEXT, THEMES, THEME_KEYS, themeOf } = await import(`./alfie-look.js${V}`);
 
 // Mirrors DEFAULTS in alfie-card.js (the card stays the source of truth: a
 // stale entry here only means a redundant key is written, never a wrong card).
@@ -17,7 +17,7 @@ export const DEFAULTS = {
   fps: 30, liveliness: 1, breathing: true, blinking: true, card: true,
   shapes: null, personality: null, display: "companion", rotation: null,
   present: "handover", corner: "bottom_right", corner_size: 0.3, transition: null,
-  text_color: null, accent_color: null, screen_line_width: 0.02,
+  text_color: null, accent_color: null, line_color: null, screen_line_width: 0.02,
   appear_story: "auto", follow_mode: true, icons: true,
   voice: "all", voice_satellites: null, speak_style: null,
 };
@@ -240,13 +240,25 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
     _look() {
       const t = (k) => this._top(k);
       return [
-        this._select("Style", t("style"), [["neon", "Neon"], ["flat", "Flat"], ["crt", "CRT"], ["theme", "Theme colours"]],
+        this._select("Theme", {
+          get: () => themeOf(this._config),
+          set: (v) => {
+            if (!THEMES[v]) return;
+            let cfg = this._config;
+            // "" is kept, not dropped: the style's own colour here, whatever Alfie's look says.
+            for (const k of THEME_KEYS) cfg = { ...cfg, [k]: THEMES[v][k] };
+            this._emit(cfg);
+          },
+        }, [["", "Its own colours"], ...Object.entries(THEMES).map(([k, x]) => [k, x.text])],
+          { hint: "A style and its colours in one go; change any of them below." }),
+        this._select("Style", t("style"), Object.entries(STYLE_TEXT),
           { hint: "Sets the colour and glow defaults; everything below overrides it." }),
         this._color("Ring colour", "ring_color", FROM_PANEL),
         this._color("Eye colour", "eye_color", FROM_PANEL),
         this._color("Background", "background", FROM_PANEL),
         this._color("Screen text colour", "text_color", FROM_PANEL),
         this._color("Screen accent colour", "accent_color", FROM_PANEL),
+        this._color("Screen line colour", "line_color", FROM_PANEL),
         this._range("Ring and eye line width", t("line_width"), 0.005, 0.15, 0.005),
         this._range("Screen line width", t("screen_line_width"), 0.005, 0.1, 0.005, { hint: "Screens draw finer than the face." }),
         this._range("Glow", { get: () => this._config.glow ?? 0.6, set: (v) => this._emit(applyChange(this._config, "glow", v)) }, 0, 2, 0.05,

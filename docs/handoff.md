@@ -6,19 +6,34 @@
 - **A. Pictures: done** (0.11.1).
 - **B. Shape editor: done** (0.11.2).
 - **C. Expression editor: done** (0.11.3).
-- **D. Animation editor: done** (0.11.4, below).
-- **Next: E, render styles and themes.**
-  - The card's `STYLES` (alfie-card.js, near `layFace`) and `config.STYLES` hold neon, flat,
-    crt and theme.
-  - New styles to add, with names to settle with Lukas from PNGs: blueprint (grid background),
-    chalk (rough line), ink (thick, no glow), pastel (soft fill).
-  - A plot line colour role.
-  - Named themes, colour palettes that fill the roles, in Look and per card (card editor).
-- Then F (why panel and tap actions), G (finish, 0.12.0), H (Lukas's review).
+- **D. Animation editor: done** (0.11.4).
+- **E. Styles and themes: done** (0.11.5, below). The style names are open for Lukas to
+  rename from the PNG.
+- **Next: F, the why panel and tap actions.**
+  - The card has no tap handling yet. Planned: tap opens a why panel over the card (mood and
+    reason, active signals with values, what's on screen and why, house mode).
+  - Standard HA `tap_action` / `hold_action` / `double_tap_action`, in the card editor. The
+    default tap is the why panel; HA's own actions are fired as `hass-action` events.
+  - The scene already has `reason`, `signals`, `mode_info`, `story` and `screen`.
+- Then G (finish, 0.12.0) and H (Lukas's review).
 
-Version 0.11.4.
+Version 0.11.5.
 
-**Latest (0.11.4): the animation editor** (design.md "The character" → Editors 3).
+**Latest (0.11.5): styles and themes** (design.md "Card").
+- **Card:**
+  - `STYLES` gained blueprint, chalk, ink and pastel; `backgroundOf` gives a style's paper.
+  - `roughen` makes the chalk line, `_line` draws a face line in the style (rough, soft fill),
+    and `_grid` draws the blueprint paper.
+  - `_colors` gained `line` and the effect flags, and screen strokes use `line`.
+- **Shared:** `alfie-look.js` gained `STYLE_TEXT`, `THEMES`, `THEME_KEYS`, `themeOf`, and
+  `line_color` in `LOOK_KEYS`.
+- **Panel:** Look gained Theme chips (`look-theme`) and Screen line colour.
+- **Card editor:** a Theme select, every style, and Screen line colour.
+- **Config:** `STYLES` has eight; `look.line_color`.
+- `./dev face sheet=styles` renders every theme with a Picture screen and Alfie in the corner
+  (`devenv/out/m7/styles.png`).
+
+**Before that (0.11.4): the animation editor** (design.md "The character" → Editors 3).
 - **Config and engine:** `config._animations` checks the section, and `face_extras` now carries
   animations too. `validate` adds the names, and the engine's `self.animations` includes them.
 - **Card:** a scrub (`FaceState.scrub`) holds one moment, through

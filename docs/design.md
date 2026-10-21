@@ -659,8 +659,28 @@ Built in M6. Config section `voice`; the panel's Voice section (Assistants, Agen
 
 ## Card
 
-- Render styles: **flat vector, neon glow, CRT phosphor, follow HA theme**, and more. Lots of
-  options. Colours are per role: face, eyes, plot lines, text, accents, background.
+- **Render styles** (eight): neon, flat, CRT, theme colours, and (2026-10-21) four with an
+  effect and a paper of their own:
+  - blueprint: a grid on deep blue, finer lines;
+  - chalk: a hand-drawn wobble on a green board. The wobble follows distance along the line,
+    so it never shimmers;
+  - ink: thick dark lines on paper;
+  - pastel: soft-filled pink with blue eyes.
+
+  A style's paper shows unless a background is set. Styles are data in alfie-card.js `STYLES`
+  (`color`, `eye`, `text`, `accent`, `line`, `glow`, `bg`, `grid`, `rough`, `soft`, `lw`).
+- **Colours are per role:**
+  - ring and eyes;
+  - screen lines (`line_color`: plots, bars, pictures);
+  - screen text and screen accents;
+  - background.
+
+  An empty role takes the style's, then the ring's.
+- **Themes** (alfie-look.js `THEMES`): Classic, Amber CRT, Ocean, Sunset, Mono, Blueprint,
+  Chalkboard, Paper and Candy. A theme is a preset that writes a style and its colours in one
+  go, like personality presets. It's chips in Look and a select in the card editor; on a card
+  its empty colours are kept, so they mean the style's own. `themeOf` names the theme a look
+  still wears.
 - Tap: a **why panel** (current mood, active signals, why he's showing what he's showing), plus
   standard HA tap, hold and double-tap action config.
 - Gotchas from an earlier custom card (xy-scope-card):

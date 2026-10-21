@@ -68,7 +68,7 @@ EASES = ("ease", "spring", "cut", "linear")
 KEY_SECONDS = (0.02, 10.0)
 MAX_KEYS = 60
 GUIDE_STEPS = ("signals", "motion", "sleep", "dashboard", "screens")   # Get started
-STYLES = ("neon", "flat", "crt", "theme")     # the card's render styles
+STYLES = ("neon", "flat", "crt", "theme", "blueprint", "chalk", "ink", "pastel")   # the card's render styles
 SPEAK_STYLES = ("pulse", "eyes", "both", "wave")   # how he shows speaking (no mouth)
 SHAPE_TYPES = ("circle", "polygon", "star", "superellipse", "path")
 SHAPE_SLOTS = ("head", "eye", "left_eye", "right_eye")
@@ -133,7 +133,7 @@ def personality_values(name: str, face: Mapping[str, Any] | None = None) -> dict
 def default_look() -> dict[str, Any]:
     """The card's own defaults, so an untouched look changes nothing."""
     return {"style": "neon", "ring_color": "", "eye_color": "", "background": "",
-            "text_color": "", "accent_color": "", "line_width": 0.035,
+            "text_color": "", "accent_color": "", "line_color": "", "line_width": 0.035,
             "screen_line_width": 0.02, "glow": None, "eye_fill": False, "padding": 0.08,
             "aspect": 1.0,
             "shapes": {"head": {"type": "circle"}, "eye": {"type": "circle"}}}
@@ -717,6 +717,7 @@ def _look(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str,
         "background": "" if bg == "none" else _colour("look background", bg, ck),
         "text_color": _colour("look text colour", lk.get("text_color"), ck),
         "accent_color": _colour("look accent colour", lk.get("accent_color"), ck),
+        "line_color": _colour("look screen line colour", lk.get("line_color"), ck),
         "line_width": ck.number("look line width", lk.get("line_width"), 0.005, 0.2,
                                 base["line_width"]),
         "screen_line_width": ck.number("look screen line width", lk.get("screen_line_width"),
