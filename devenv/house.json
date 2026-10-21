@@ -217,6 +217,7 @@
   "background": "",
   "text_color": "",
   "accent_color": "",
+  "line_color": "",
   "line_width": 0.035,
   "screen_line_width": 0.02,
   "glow": null,

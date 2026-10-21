@@ -21,11 +21,11 @@ export const resets = { look: ["look"], expressions: ["expressions"], animations
 const FACE = await fetch(new URL(`../alfie-face.json${V}`, import.meta.url)).then((r) => r.json());
 
 const L = U.LEVEL_TEXT;
-const CARD_STYLES = ["neon", "flat", "crt", "theme"];
-const STYLE_TEXT = { neon: "Neon", flat: "Flat", crt: "CRT", theme: "Theme colours" };
+const Lm = await import(`../alfie-look.js${V}`);
+const STYLE_TEXT = Lm.STYLE_TEXT, CARD_STYLES = Object.keys(STYLE_TEXT);
 const LOOK_COLORS = [
   ["ring_color", "Ring colour"], ["eye_color", "Eye colour"], ["background", "Background"],
-  ["text_color", "Screen text colour"], ["accent_color", "Screen accent colour"],
+  ["text_color", "Screen text colour"], ["accent_color", "Screen accent colour"], ["line_color", "Screen line colour"],
 ];
 const LOOK_EXPRESSIONS = ["happy", "sad", "angry", "surprised"];
 // Shared with the card editor and house modes (design.md "Words").
@@ -68,6 +68,9 @@ function look(p) {
   const extra = `<label class="check">${U.toggle(null, apart, { action: "eyes-apart" })}<span><b>Shape the left and right eyes apart</b>
       <small>Off: the right eye is the left one in a mirror.</small></span></label>`;
   return `${U.intro("How Alfie is drawn on every card. A card's own options (in its editor) still win over these, one by one.")}
+    ${U.card("Theme", `<div class="chips">${Object.entries(Lm.THEMES).map(([k, t]) =>
+        `<button class="chip pick ${Lm.themeOf(Lk) === k ? "on" : ""}" data-action="look-theme" data-name="${k}">${U.esc(t.text)}</button>`).join("")}</div>
+      <small>A style and its colours in one go. Change any of them after.</small>`)}
     ${U.card("Style and colour", `<div class="grid">${U.field("Style", U.select("look.style", Lk.style, (p.choices.styles || CARD_STYLES).map((s) => [s, STYLE_TEXT[s] || U.human(s)])),
         "Sets the default colours and glow.")}${colors}</div>
       <small>Empty: the style's own. A colour is <code>#hex</code>, a CSS colour or <code>var(--primary-color)</code>.</small>`)}
@@ -731,6 +734,14 @@ export function click(p, a, el) {
       return true;
     }
     case "path-from": pathFrom(p, el.dataset.part, el.closest(".pathfrom")); return true;
+    case "look-theme": {
+      const t = Lm.THEMES[el.dataset.name];
+      if (!t) return true;
+      for (const k of Lm.THEME_KEYS) p.draft.look[k] = t[k];
+      p.edited(true);
+      applyLook(p);
+      return true;
+    }
     case "look-glow":
       p.draft.look.glow = el.checked ? null : 0.6;
       p.edited(true);
