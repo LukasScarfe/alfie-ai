@@ -149,8 +149,25 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         appearance, overview, `alfie-panel-forms.js`.
   - [x] F. Card editor in the same style.
   - [ ] G. Lukas's review of the screenshots (light/dark, wide/narrow) and the panel; fixes.
-- [ ] **6. Voice.** React to all `assist_satellite` states, the what's-wrong LLM tool and intent,
-      optional persona, mood-aware replies, TTS announcement step.
+- [~] **6. Voice.** React to all `assist_satellite` states, the what's-wrong LLM tool and intent,
+      optional persona, mood-aware replies, TTS announcement step. Agreed with Lukas 2026-10-20:
+      speaking looks are options (ring pulse default, eye rhythm, both, waveform ring); each card
+      follows all, chosen or no satellites; an "Alfie" LLM API (whats_wrong tool, optional persona
+      and mood prompt) plus a plain intent; default speakers and TTS engine in Voice settings, a
+      speak step can override them.
+  - [ ] A. Model (pure): config v7 `voice` section + `migrate_v6`, trigger kind `voice`
+        (satellites, phase), speak step targets / engine / fill-ins; tests.
+  - [ ] B. Engine: satellites in the one filtered listener, `voice` in the scene (no state
+        writes), voice triggers, the `after` reaction, speak via `tts.speak` /
+        `assist_satellite.announce`, `alfie_voice` events.
+  - [ ] C. Agents (`voice.py`): the Alfie LLM API (`alfie_whats_wrong`, persona + mood prompt),
+        intent `AlfieWhatsWrong`, `problems` attribute on `sensor.alfie_mood`.
+  - [ ] D. Card: `voice` option (all / chosen / none), phase looks interrupt the rotation, the
+        four speaking styles, harness `sheet=voice`; checks.
+  - [ ] E. Panel: Voice section, `voice` trigger kind, speak step fields, card editor row.
+  - [ ] F. Dev HA PNGs to Lukas; prod deploy against the S7+ (Lukas's OK before ticking the
+        API on the Gemini agent); design.md; 0.11.0.
+  - [ ] G. Lukas's review.
 - [ ] **7. Editors and polish.** Shape (freehand path), expression and animation editors,
       building on M3's Look tab and Playground; card render styles and
       themes; the why panel; standard tap actions. The shape editor covers the head and the eyes,
