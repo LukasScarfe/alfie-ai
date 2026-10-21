@@ -404,7 +404,7 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
         for (const [part, title] of SHAPE_PARTS) {
           const spec = shapes[part];
           const type = spec ? spec.type || "circle" : "";
-          const types = [["", FROM_PANEL], ...Object.keys(SHAPE_PARAMS).map((n) => [n, SHAPE_TEXT[n] || human(n)]), ...(type === "path" ? [["path", "Path (set in YAML)"]] : [])];
+          const types = [["", FROM_PANEL], ...Object.keys(SHAPE_PARAMS).map((n) => [n, SHAPE_TEXT[n] || human(n)]), ...(type === "path" ? [["path", "Drawn (edit in Alfie's panel)"]] : [])];
           let inner = this._select(title, {
             get: () => type,
             set: (v) => setShapes(setShapePart(shapes, part, v ? { type: v } : undefined)),

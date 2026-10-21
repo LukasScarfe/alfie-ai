@@ -1,6 +1,7 @@
 // Pictures as strokes (alfie-svg.js): the XML reader, transforms, the basic
 // shapes, paint, and fitting to a box. Run by ./dev test under node.
 import * as P from "../custom_components/alfie/frontend/alfie-svg.js";
+import * as F from "../custom_components/alfie/frontend/alfie-face.js";
 
 let failures = 0, checks = 0;
 function ok(v, what) { checks++; if (!v) { failures++; console.error(`FAIL ${what}`); } }
@@ -77,6 +78,32 @@ function near(a, b, what, tol = 1e-6) {
   const big = P.pictureContours(`<svg viewBox="0 0 100 100">${Array.from({ length: 50 }, (_, i) => `<circle cx="${i * 2}" cy="50" r="${i < 5 ? 0.1 : 20}"/>`).join("")}</svg>`, 2);
   const under = P.fitContours(big, 1, 1, { budget: 1000 });
   ok(under.reduce((n, k) => n + k.pts.length, 0) <= 1100, "point budget kept");
+}
+
+// A picture's biggest outline as face-shape points: centred, y up, CCW, in
+// [-1, 1], and within the point limit; a circle with a hole gives the circle.
+{
+  const pic = P.pictureContours(`<svg viewBox="0 0 100 100"><path d="M50 0A50 50 0 1 1 49.9 0ZM50 30A20 20 0 1 0 50.1 30Z"/><rect x="0" y="0" width="5" height="5"/></svg>`, 2);
+  const pts = P.outlinePoints(pic.contours, 24);
+  ok(pts && pts.length <= 24 && pts.length >= 8, `outline points within the limit (${pts?.length})`);
+  const m = Math.max(...pts.map(([x, y]) => Math.max(Math.abs(x), Math.abs(y))));
+  near(m, 1, "fits [-1, 1]", 0.01);
+  const area = pts.reduce((s, [x, y], i) => { const [u, w] = pts[(i + 1) % pts.length]; return s + x * w - u * y; }, 0);
+  ok(area > 0, "counter-clockwise");
+  ok(Math.abs(pts.reduce((s, [x]) => s + x, 0) / pts.length) < 0.1, "centred");
+  // A triangle stays three corners, the right way up (apex at the top in y-up).
+  const tri = P.outlinePoints([{ pts: [[0, 0], [10, 0], [5, -10]], closed: true }], 64);
+  ok(tri.length === 3 && tri.some(([, y]) => y === -1) && tri.some(([, y]) => y === 1), "triangle kept");
+  ok(P.outlinePoints([], 10) === null, "nothing: null");
+}
+
+// A drawn (path) shape keeps its hollows: a crescent's inner edge is not
+// filled in by sampling by angle.
+{
+  const crescent = { type: "path", points: [[0, 1], [-1, 0], [0, -1], [-0.4, 0]] };
+  const o = F.outline(crescent, 120);
+  ok(o.length === 120, "path outline length");
+  ok(o.some(([x, y]) => Math.abs(y) < 0.05 && x > -0.5 && x < 0.2), "crescent's inner corner is there");
 }
 
 console.log(`svg: ${checks - failures}/${checks} checks passed`);
