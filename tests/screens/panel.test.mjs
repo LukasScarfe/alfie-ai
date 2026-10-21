@@ -31,6 +31,19 @@ check(P.optionField({ key: "c", kind: "color", label: "C" }, "#abc", "p", ctx).i
   check(P.changeShapeType({ type: "circle" }, "path").points.length === 3, "path default triangle");
 }
 
+// Renaming an expression or animation follows it everywhere it is named.
+{
+  const d = { mood: { expressions: { content: "smug", fine: "happy" } }, behaviour: { sleep_expression: "smug", notice: ["nod", "wiggle"],
+    idle_fidgets: ["wiggle"], motion_sensors: [{ entity: "x", action: "wiggle" }] }, voice: { listening_expression: "smug", after: "wiggle" },
+    stories: [{ steps: [{ kind: "expression", name: "smug" }, { kind: "animation", name: "wiggle" }] }] };
+  P.renameFaceRefs(d, "expressions", "smug", "proud");
+  P.renameFaceRefs(d, "animations", "wiggle", "jiggle");
+  check(d.mood.expressions.content === "proud" && d.behaviour.sleep_expression === "proud" && d.voice.listening_expression === "proud"
+    && d.stories[0].steps[0].name === "proud", "expression refs follow");
+  check(d.behaviour.notice.join() === "nod,jiggle" && d.behaviour.motion_sensors[0].action === "jiggle" && d.voice.after === "jiggle"
+    && d.stories[0].steps[1].name === "jiggle" && d.mood.expressions.fine === "happy", "animation refs follow");
+}
+
 // Per-entity options: one comma separated item each, edited by position.
 check(P.perSet("", 1, "star") === ", star", "set past the end pads");
 check(P.perSet("ring, star", 1, "") === "ring", "trailing empties dropped");

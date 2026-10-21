@@ -54,8 +54,12 @@ from .triggers import validate_triggers
 # 4: keys follow design.md "Words" (migrate_v3), and the overview section.
 # 6: label and text screens' size became text_size, a multiplier (migrate_v5).
 CONFIG_VERSION = 6
-SECTIONS = ("signals", "mood", "behaviour", "personality", "look", "screens", "rotations",
-            "stories", "triggers", "modes", "voice", "overview")
+SECTIONS = ("signals", "mood", "behaviour", "personality", "look", "expressions", "screens",
+            "rotations", "stories", "triggers", "modes", "voice", "overview")
+# An expression's numbers: lids [height, slant] in eye radii, size, and look.
+LID_RANGE = (-1.5, 1.5)
+SIZE_RANGE = (0.3, 2.0)
+LOOK_RANGE = (-0.4, 0.4)
 GUIDE_STEPS = ("signals", "motion", "sleep", "dashboard", "screens")   # Get started
 STYLES = ("neon", "flat", "crt", "theme")     # the card's render styles
 SPEAK_STYLES = ("pulse", "eyes", "both", "wave")   # how he shows speaking (no mouth)
@@ -169,6 +173,7 @@ def default_config() -> dict[str, Any]:
         },
         "personality": {"preset": "bubbly", **personality_values("bubbly")},
         "look": default_look(),
+        "expressions": [],    # his own faces, and the built-ins changed (design.md "The character")
         "screens": [],        # Alfie ships none: the user builds them
         "rotations": [],
         "stories": copy.deepcopy(list(defaults.STORIES)),
@@ -806,6 +811,63 @@ def _rotations(raw: Any, screen_ids: set[str], ck: _Check) -> list[dict[str, Any
     return out
 
 
+def _expressions(raw: Any, ck: _Check) -> list[dict[str, Any]]:
+    """Custom expressions, and built-ins changed (an id that is a built-in's
+    name replaces it): [{id, name, left, right, size, look, shapes?}]."""
+    if not isinstance(raw, list):
+        ck.bad("expressions", "must be a list")
+        return []
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for i, e in enumerate(raw):
+        where = f"expression {i + 1}"
+        if not isinstance(e, Mapping):
+            ck.bad(where, "must be a mapping")
+            continue
+        eid = str(e.get("id") or "").strip()
+        if not _ID.match(eid):
+            ck.bad(where, "id must be lower-case letters, digits and _")
+            continue
+        where = f"expression {eid}"
+        if eid in seen:
+            ck.bad(where, "id is used twice")
+            continue
+        seen.add(eid)
+
+        def lids(key: str, fallback: Any) -> list[int | float]:
+            v = e.get(key, fallback)
+            if not (isinstance(v, (list, tuple)) and len(v) == 4):
+                ck.bad(f"{where} {key}", "must be 4 numbers: upper lid height, slant, lower lid height, slant")
+                return [1, 0, -1, 0]
+            return [_num(ck.number(f"{where} {key}", x, *LID_RANGE, 0.0)) for x in v]
+
+        left = lids("left", [1, 0, -1, 0])
+        look = e.get("look", [0, 0])
+        if not (isinstance(look, (list, tuple)) and len(look) == 2):
+            ck.bad(f"{where} look", "must be [x, y]")
+            look = [0, 0]
+        item = {"id": eid, "name": str(e.get("name") or "").strip() or eid,
+                "left": left, "right": lids("right", left),
+                "size": _num(ck.number(f"{where} size", e.get("size", 1), *SIZE_RANGE, 1.0)),
+                "look": [_num(ck.number(f"{where} look", x, *LOOK_RANGE, 0.0)) for x in look]}
+        shapes = e.get("shapes")
+        if isinstance(shapes, Mapping) and shapes:
+            item["shapes"] = {}
+            for slot, spec in shapes.items():
+                if slot not in ("eye", "left_eye", "right_eye"):
+                    ck.bad(f"{where} shapes", f"unknown shape {slot!r} (eye, left_eye, right_eye)")
+                    continue
+                item["shapes"][slot] = _shape(f"{where} shape {slot}", spec, ck)
+        out.append(item)
+    return out
+
+
+def face_extras(cfg: Mapping[str, Any]) -> dict[str, Any]:
+    """The config's own expressions as the card reads them, by id."""
+    return {"expressions": {e["id"]: {k: v for k, v in e.items() if k not in ("id", "name")}
+                            for e in cfg.get("expressions", [])}}
+
+
 def validate(raw: Any, face: Mapping[str, Any],
              types: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """A complete, checked config from `raw`, or ConfigError listing every
@@ -815,7 +877,9 @@ def validate(raw: Any, face: Mapping[str, Any],
     raw = migrate(raw)
     ck = _Check()
     base = default_config()
+    custom = _expressions(raw.get("expressions", base["expressions"]), ck)
     expressions = tuple(face.get("expressions") or ())
+    expressions += tuple(e["id"] for e in custom if e["id"] not in expressions)
     animations = tuple(face.get("animations") or ())
     cfg = {
         "version": CONFIG_VERSION,
@@ -824,6 +888,7 @@ def validate(raw: Any, face: Mapping[str, Any],
         "behaviour": _behaviour(raw, base["behaviour"], expressions, animations, ck),
         "personality": _personality(raw, face, ck),
         "look": _look(raw, base["look"], ck),
+        "expressions": custom,
     }
     cfg["screens"] = _screens(raw.get("screens", base["screens"]), types or {}, ck)
     cfg["rotations"] = _rotations(raw.get("rotations", base["rotations"]),

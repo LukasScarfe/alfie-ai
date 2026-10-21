@@ -25,7 +25,7 @@ from homeassistant.helpers.event import async_call_later
 
 from . import modes as md
 from . import triggers as trig
-from .config import NOTICE, build, reset, validate
+from .config import NOTICE, build, face_extras, reset, validate
 from .const import (
     CONF_NAME,
     DEFAULT_NAME,
@@ -91,6 +91,7 @@ class AlfieEngine:
         self.types: dict[str, dict[str, Any]] = {}
         self.screens_rev = ""
         self.pictures_rev = ""
+        self.face_rev = ""          # his own expressions (and animations): cards refetch on change
         self.signals: tuple[Signal, ...] = ()
         self.settings = MoodSettings()
         self.behaviour: dict[str, Any] = {}
@@ -208,6 +209,9 @@ class AlfieEngine:
         self.config = cfg
         self._effective_key = None    # the modes may have changed: _recompute rebuilds
         self._set_screens_rev()
+        extras = face_extras(cfg)
+        self.face_rev = hashlib.sha1(json.dumps(extras, sort_keys=True).encode()).hexdigest()[:10]
+        self.expressions = set(self.face["expressions"]) | set(extras["expressions"])
         if self.screen and not self.screen.get("icon") \
                 and self.screen["id"] not in {s["id"] for s in cfg["screens"]}:
             self._clear_screen(None)   # the screen being shown was deleted
@@ -1137,6 +1141,7 @@ class AlfieEngine:
             "screen": self.screen,
             "icons": self.overlays,
             "screens_rev": self.screens_rev,
+            "face_rev": self.face_rev,
             "holds": {k: {"value": v, "until": self.hold_until.get(k)} for k, v in self.holds.items()},
             "now": time.time(),
         }
