@@ -213,8 +213,14 @@ class FaceState {
     return true;
   }
 
-  // The animation channels at `t`, scaled by energy, or {}.
+  // The animation channels at `t`, scaled by energy, or {}. A scrub (the
+  // panel's animation editor) holds one moment of an animation instead.
   channels(t) {
+    if (this.scrub) {
+      const c = this.scrub.anim.script(this.scrub.u);
+      for (const k of MOTION) if (c[k]) c[k] *= this.amp;
+      return c;
+    }
     if (this.playing && (t - this.playing.began) * this.playing.rate >= this.playing.anim.length) {
       this.playing = null;
     }
@@ -1426,6 +1432,15 @@ class AlfieCard extends HTMLElement {
   async previewLook(look) {
     this._lookPreview = look && typeof look === "object" ? look : null;
     if (this._applyLook()) await this._replay();
+  }
+
+  // previewAnimationAt(name, seconds): hold that moment of an animation (the
+  // editor's scrub); null lets go.
+  async previewAnimationAt(name, u = 0) {
+    const face = await loadFace();
+    const anim = name ? face.compiled[name] : null;
+    this._face.scrub = anim ? { anim, u: Math.max(0, Math.min(anim.length, Number(u) || 0)) } : null;
+    this._wake?.();
   }
 
   async previewExpression(name) {

@@ -121,9 +121,25 @@ card is off screen, and sizes its canvas to the device pixel ratio once per resi
      - **Cards:** the scene carries `face_rev`. On a change each card fetches `alfie/face` (open
        to every user) and lays it over the shipped face data. The panel previews the draft's on
        its own cards before saving.
-  3. **Animation editor**: keyframe timelines with easing. The built-ins are the 20 current
-     animations: wink_left/right, look_around, glance_left/right, nod, shake, eye_roll, startle,
-     double_take, laugh, sigh, squint, flinch, scan, processing, glitch, dizzy, nod_off, wake_up.
+  3. **Animation editor** (Appearance → Animations, built 2026-10-21). Keyframe timelines with
+     easing. The built-ins are the 20 current animations: wink_left/right, look_around,
+     glance_left/right, nod, shake, eye_roll, startle, double_take, laugh, sigh, squint, flinch,
+     scan, processing, glitch, dizzy, nod_off, wake_up.
+     - **Config:** the `animations` section is a list of `{id, name, keys}`. A key is
+       `[seconds, {channel: value}, ease]`.
+       - Channels are as in `alfie-face.js` `animated`: dx, dy, lx, ly, rx, ry, fx, fy (moves),
+         size, and open, shut, shut_l, shut_r, droop (0 to 1).
+       - Eases are ease, spring, cut and linear.
+       - Built-ins are changed by id, as expressions are. The three drawn by code (eye_roll,
+         glitch, dizzy) become keys, a sample every 0.1 s, when first changed or duplicated.
+     - **Editor:**
+       - A bar of the keys and Play (on the dock).
+       - "Hold a moment", a scrub that freezes the dock at any time (`previewAnimationAt`).
+       - Each key's length, easing and channel sliders, with "+ Move something…" to add a
+         channel.
+       - Keys can be added (a copy of the last), moved and removed. Setting a value holds the
+         moment that key ends.
+     - **Cards:** they get them with the expressions (`face_rev`, `alfie/face`).
   4. **Personality presets**: decided, see "Personality (decided)" below.
 - **Very lively.** He is over-exaggerated and bubbly when nothing is wrong, and gets more sluggish
   and sadder as things get worse. Mood drives both the baseline expression and the energy of all

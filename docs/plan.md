@@ -186,7 +186,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         eyes apart, "From picture" (an SVG or icon outline as a path).
   - [x] C. Expression editor (0.11.3): config `expressions` (custom and overridden built-ins), merged
         everywhere names are checked, sent to the cards; Appearance → Expressions.
-  - [ ] D. Animation editor: config `animations` (keyframes: seconds, channels, easing),
+  - [x] D. Animation editor (0.11.4): config `animations` (keyframes: seconds, channels, easing),
         Appearance → Animations with play and scrub.
   - [ ] E. Render styles and themes: new styles, a plot line colour role, named palettes.
   - [ ] F. Why panel on tap, and standard tap / hold / double-tap actions in the card editor.

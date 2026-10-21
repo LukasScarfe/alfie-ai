@@ -5,22 +5,31 @@
 **M7 (Editors and polish), in progress.** The steps are in plan.md M7 (A to H):
 - **A. Pictures: done** (0.11.1).
 - **B. Shape editor: done** (0.11.2).
-- **C. Expression editor: done** (0.11.3, below).
-- **Next: D, the animation editor.** The plumbing is ready:
-  - `config.face_extras` already returns a dict for the card, and `layFace` in alfie-card.js
-    already lays `animations` (compiled with `F.compileAnimation`).
-  - The panel's `faceExtras` and the `choices.animations` getter already read
-    `draft.animations`.
-  - Still needed: the config section `animations` (validate keyframes:
-    `[[seconds, {channel: value}, ease]]`, channels as in `alfie-face.js` `animated`), its
-    names in `validate` (`animations` tuple) and in engine `self.animations`, and an
-    Appearance → Animations sub-tab with a timeline, play and scrub on the dock.
-    `Fm.renameFaceRefs(draft, "animations", …)` exists.
-- Then E (styles and themes), F (why panel and tap actions), G (finish, 0.12.0), H (review).
+- **C. Expression editor: done** (0.11.3).
+- **D. Animation editor: done** (0.11.4, below).
+- **Next: E, render styles and themes.**
+  - The card's `STYLES` (alfie-card.js, near `layFace`) and `config.STYLES` hold neon, flat,
+    crt and theme.
+  - New styles to add, with names to settle with Lukas from PNGs: blueprint (grid background),
+    chalk (rough line), ink (thick, no glow), pastel (soft fill).
+  - A plot line colour role.
+  - Named themes, colour palettes that fill the roles, in Look and per card (card editor).
+- Then F (why panel and tap actions), G (finish, 0.12.0), H (Lukas's review).
 
-Version 0.11.3.
+Version 0.11.4.
 
-**Latest (0.11.3): the expression editor** (design.md "The character" → Editors 2).
+**Latest (0.11.4): the animation editor** (design.md "The character" → Editors 3).
+- **Config and engine:** `config._animations` checks the section, and `face_extras` now carries
+  animations too. `validate` adds the names, and the engine's `self.animations` includes them.
+- **Card:** a scrub (`FaceState.scrub`) holds one moment, through
+  `previewAnimationAt(name, seconds)`.
+- **Panel:** Appearance → Animations (`animList`, `keysOf` samples the code-drawn built-ins,
+  `ownAnim`, `animInput`, `animClick`, `keysView`). A rename follows the animation through
+  `renameFaceRefs`.
+- **Checked in dev HA:** "Wiggle" was made by script (`devenv/out/m7/anim.js`) and saved, and
+  Dizzy opened as 20 sampled keys. `anim2.js` holds Wiggle at 0.25 s on the floating preview.
+
+**Before that (0.11.3): the expression editor** (design.md "The character" → Editors 2).
 - **Config:** `config._expressions` checks the section; `face_extras` builds the card's form.
   `validate` adds the custom ids to the expression names.
 - **Engine:** `face_rev` sits in the scene, `self.expressions` includes the custom ids, and WS
