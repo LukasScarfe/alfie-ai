@@ -94,6 +94,10 @@ const DEFAULTS = {
   accent_color: null,     // screen accents; null takes the face colour
   screen_line_width: 0.02, // ring radii: screens draw finer than the face
   icons: true,            // false: this card ignores icons (alfie.show_icon, a story's icon steps)
+  voice: "all",           // which voice satellites bring Alfie on here: all, chosen (voice_satellites) or none
+  voice_satellites: null, // for voice: chosen, a list of assist_satellite entity ids
+  speak_style: null,      // pulse | eyes | both | wave while a satellite answers; null takes Alfie's Voice setting
+  speak_strength: null,   // how much speaking shows, 0.2..3; null takes Alfie's
   vector_out: false,      // true: each frame's strokes go out as an "alfie-vector" event (the oscilloscope feed)
   paint: true,            // false: draw nothing on the canvas (a headless vector feed skips the cost)
   vector_order: "tour",   // tour: the feed's strokes in the order with the shortest beam jumps; drawn: as painted
@@ -259,6 +263,7 @@ class AlfieCard extends HTMLElement {
     this._energyPreview = null;
     this._lastAnimId = null;
     this._heldAnim = null;     // a trigger story animation waiting for Alfie to be back
+    this._voicePhase = null;   // the followed satellite's phase here: listening, processing, responding
     this._visible = true;
     this._running = false;
     this._still = false;
@@ -419,8 +424,18 @@ class AlfieCard extends HTMLElement {
     this._face.setEnergy(Math.max(0.05, this._energyPreview ?? energy) * this._config.liveliness, t);
     if (scene.story) this._endLocal(false);   // a trigger's story beats this card's own
     this._faceDoc = face;
-    this._applyExpression(face, this._exprPreview ?? this._local?.expression ?? scene.expression, t,
+    // A satellite he follows here: he takes the face role (design.md "Voice").
+    const voice = this._voice(), phase = voice?.state ?? null;
+    if (phase && !this._voicePhase) this._endLocal(false);
+    const vlook = voice?.look || {};
+    const attentive = (phase === "listening" || phase === "processing") && !scene.story
+      ? vlook.listening_expression || null : null;
+    this._applyExpression(face, this._exprPreview ?? attentive ?? this._local?.expression ?? scene.expression, t,
       scene.story?.blend || this._local?.blend || 0);
+    if (phase !== this._voicePhase) {
+      this._voicePhase = phase;
+      if (phase === "listening" && face.compiled[vlook.listening_animation]) this._face.play(face.compiled[vlook.listening_animation]);
+    }
     const a = scene.animation;
     if (a && a.id !== this._lastAnimId) {
       const first = this._lastAnimId === null;
@@ -569,7 +584,30 @@ class AlfieCard extends HTMLElement {
   // The house mode wants this card blank (a story still brings Alfie on).
   _blank() {
     const s = this._scene;
-    return !this._still && this._config?.follow_mode !== false && s?.mode_info?.alfie === "hidden" && !s.story;
+    return !this._still && this._config?.follow_mode !== false && s?.mode_info?.alfie === "hidden" && !s.story
+      && !this._voice();
+  }
+
+  // The satellite that has Alfie's face role on this card now ({state, since,
+  // name, look}), or null: the latest of those the card follows.
+  _voice() {
+    const v = this._scene?.voice, mode = this._config?.voice ?? "all";
+    if (!v || mode === "none" || this._still) return null;
+    const chosen = mode === "chosen" ? [].concat(this._config.voice_satellites || []) : null;
+    let best = null;
+    for (const [entity, sat] of Object.entries(v.satellites || {})) {
+      if (chosen && !chosen.includes(entity)) continue;
+      if (!best || sat.since > best.since) best = { ...sat, entity };
+    }
+    return best && { ...best, look: v.look || {} };
+  }
+
+  // How he speaks here: the card's style and strength over Alfie's Voice ones.
+  _speaking() {
+    const look = this._scene?.voice?.look || {}, c = this._config;
+    const style = c.speak_style ?? look.speak_style ?? "pulse";
+    return { style: F.SPEAK_STYLES.includes(style) ? style : "pulse",
+      strength: clamp(Number(c.speak_strength ?? look.speak_strength ?? 1) || 1, 0, 3) };
   }
 
   // The house mode's rotation for this card: "" (the card's own), "pause", or a rotation id.
@@ -587,6 +625,11 @@ class AlfieCard extends HTMLElement {
         const t = this._now();
         this._face.tick(t, dt);
         if (this._local) this._stepLocal(t);
+        // Thinking: the voice look's animation, again each time it ends.
+        if (this._voicePhase === "processing" && !this._face.playing && !this._face.queue.length) {
+          const a = this._faceDoc?.compiled[this._scene?.voice?.look?.processing_animation];
+          if (a) this._face.play(a);
+        }
         this._place = G.placeToward(this._place, this._scene?.story?.place ?? this._local?.place ?? null, dt);
         this._draw(this._frame(t), this._presentation(t, dt));
         if (this._heldAnim && !this._returning()) this._playHeld();
@@ -608,6 +651,9 @@ class AlfieCard extends HTMLElement {
       ch.droop = Math.max(ch.droop || 0, 0.35 * sag);
       ch.dy = (ch.dy || 0) - 0.035 * sag;
     }
+    // Answering: no mouth, so the ring and / or the eyes keep a talking rhythm.
+    const sp = opts.speaking ?? (this._voicePhase === "responding" ? this._speaking() : null);
+    if (sp) for (const [k, v] of Object.entries(F.speakingChannels(sp.style, sp.strength, t))) ch[k] = (ch[k] || 0) + v;
     if (c.breathing && !opts.noBreath) {
       const period = 3.6 / (0.6 + 0.6 * e);
       ch.fy = (ch.fy || 0) + (0.006 + 0.012 * e) * Math.sin((2 * Math.PI * t) / period);
@@ -619,7 +665,9 @@ class AlfieCard extends HTMLElement {
       const slot = (F.GEOMETRY.blink_slot * slow) / clamp(f.personality.blink_rate, 0.2, 3);
       p = F.blinked(p, F.blink(t, Math.max(slot, 1.6), F.GEOMETRY.blink * slow));
     }
-    return F.faceShapes(p, shape.eyes, shape.face, F.GEOMETRY, parts);
+    const out = F.faceShapes(p, shape.eyes, shape.face, F.GEOMETRY, parts);
+    if (sp) out.head = F.speakingHead(out.head, out.ring, sp.style, sp.strength, t);
+    return out;
   }
 
   // `scr` is null (Alfie alone, exactly as ever) or what `_presentation` built:
@@ -914,6 +962,10 @@ class AlfieCard extends HTMLElement {
     if (this._scene?.story) {
       this._override = "story";
       return { id: null, next: null };    // a story has Alfie himself on show; the rotation waits
+    }
+    if (this._voice()) {
+      this._override = "voice";
+      return { id: null, next: null };    // a voice assistant has him on: the rotation waits
     }
     this._override = this._local?.screen ? "local" : null;
     if (this._rot === null || this._rot.stale) {
@@ -1345,8 +1397,9 @@ class AlfieCard extends HTMLElement {
   }
 
   // For tests and the dev harness: draw one still frame, no clock, no HA.
-  // {expression, animation, u (seconds in), energy, blink (0..1)}
-  async renderStill({ expression = "neutral", animation = null, u = 0, energy = 0.8, blink = 0 } = {}) {
+  // {expression, animation, u (seconds in), energy, blink (0..1), speak
+  // ({style, strength}: answering, at speech time t)}
+  async renderStill({ expression = "neutral", animation = null, u = 0, energy = 0.8, blink = 0, speak = null, t = 0 } = {}) {
     const face = await loadFace();
     this._still = true;
     this._running = false;
@@ -1359,7 +1412,7 @@ class AlfieCard extends HTMLElement {
     if (anim) for (const k of MOTION) if (channels[k]) channels[k] *= this._face.amp;
     const pose = F.blinked(this._face.target, blink);
     const parts = this._face.targetParts;
-    this._stillFrame = this._frame(0, { pose, parts, channels, noBreath: true, noBlink: true });
+    this._stillFrame = this._frame(t, { pose, parts, channels, noBreath: true, noBlink: true, speaking: speak });
     this._resize();
     this._draw(this._stillFrame);
   }

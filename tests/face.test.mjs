@@ -148,5 +148,27 @@ for (const [name, p] of Object.entries(face.personalities)) {
   check(Object.keys(p).sort().join() === Object.keys(F.PERSONALITY).sort().join(), `${name} has every slider`);
 }
 
+// Speaking (no mouth): a 0..1 rhythm that rests and peaks, the eye styles
+// move the eyes only, and the ring styles keep the ring's centre.
+{
+  const lv = Array.from({ length: 2000 }, (_, i) => F.speechLevel(i / 100));
+  check(lv.every((v) => v >= 0 && v <= 1), "speech level stays in 0..1");
+  check(lv.some((v) => v === 0) && Math.max(...lv) > 0.85, "speech rests and peaks");
+  check(Object.keys(F.speakingChannels("pulse", 1, 0.3)).length === 0, "pulse leaves the eyes be");
+  const peak = lv.indexOf(Math.max(...lv)) / 100;
+  check(F.speakingChannels("eyes", 1, peak).size > 0.1 && F.speakingChannels("both", 1, peak).size
+    < F.speakingChannels("eyes", 1, peak).size, "eyes grow on a syllable, less when shared");
+  const ring = F.faceShapes(F.poseOf(face.expressions.neutral)).head;
+  check(F.speakingHead(ring, [0, 0], "eyes", 1, peak) === ring, "eyes leave the ring be");
+  for (const style of ["pulse", "both", "wave"]) {
+    const out = F.speakingHead(ring, [0, 0], style, 1, peak);
+    const r = out.map(([x, y]) => Math.hypot(x, y));
+    check(out.length === ring.length && Math.max(...r) <= 1.05 && Math.min(...r) >= 0.95
+      && Math.max(...r) > 1.005, `${style} moves the ring a little`);
+  }
+  check(F.speakingHead(ring, [0, 0], "pulse", 0, peak).every(([x, y], i) => x === ring[i][0] && y === ring[i][1]),
+    "strength 0 is still");
+}
+
 console.log(`face maths: ${checks - failures}/${checks} checks pass (xy-bench golden + shapes + personality)`);
 process.exit(failures ? 1 : 0);

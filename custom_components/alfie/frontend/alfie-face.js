@@ -547,3 +547,41 @@ export function faceShapes(pose, eyes = [[0, 0], [0, 0]], face = [0, 0], g = GEO
     right: place(eyeOutline(pose.slice(4, 8), -1, parts.right).lap, g.eye_x, eyes[1]),
   };
 }
+
+// ------------------------------------------------------------ speaking
+// He has no mouth, so speaking shows in the ring, the eyes, or both
+// (design.md "Voice"). `speechLevel` is a syllable-like rhythm, 0..1, from
+// a few incommensurate sines, so it never visibly repeats.
+
+export const SPEAK_STYLES = ["pulse", "eyes", "both", "wave"];
+
+export function speechLevel(t) {
+  const s = Math.sin(2 * Math.PI * 4.1 * t) * 0.55 + Math.sin(2 * Math.PI * 6.7 * t + 1.3) * 0.3
+    + Math.sin(2 * Math.PI * 1.3 * t + 0.4) * 0.35;
+  const phrase = 0.55 + 0.45 * Math.sin(2 * Math.PI * 0.37 * t + 2.1);   // pauses between phrases
+  return Math.max(0, Math.min(1, (s * 0.5 + 0.45) * phrase));
+}
+
+// Channels added to the face for the eye styles (eyes, both): the eyes grow
+// and lift a little on each syllable.
+export function speakingChannels(style, strength, t) {
+  if (style !== "eyes" && style !== "both") return {};
+  const v = speechLevel(t) * strength * (style === "both" ? 0.7 : 1);
+  return { size: 0.16 * v, dy: 0.04 * v };
+}
+
+// The head outline while speaking (pulse, both, wave): `pts` around `centre`,
+// breathed out on each syllable, or rippled like a sound wave.
+export function speakingHead(pts, centre, style, strength, t) {
+  if (style === "eyes" || !SPEAK_STYLES.includes(style)) return pts;
+  const v = speechLevel(t) * strength;
+  const [cx, cy] = centre;
+  if (style === "wave") {
+    return pts.map(([x, y]) => {
+      const k = 1 + 0.028 * v * Math.sin(7 * Math.atan2(y - cy, x - cx) + 2 * Math.PI * 1.6 * t);
+      return [cx + (x - cx) * k, cy + (y - cy) * k];
+    });
+  }
+  const k = 1 + 0.045 * v * (style === "both" ? 0.7 : 1);
+  return pts.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k]);
+}
