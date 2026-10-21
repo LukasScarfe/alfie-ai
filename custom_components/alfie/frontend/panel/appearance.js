@@ -14,8 +14,8 @@ const Scr = await import(`./screens.js${V}`);
 
 export const id = "appearance";
 export const title = "Appearance";
-export const subs = [["look", "Look"], ["expressions", "Expressions"], ["personality", "Personality"], ["playground", "Playground"]];
-export const resets = { look: ["look"], expressions: ["expressions"], personality: ["personality"] };
+export const subs = [["look", "Look"], ["expressions", "Expressions"], ["animations", "Animations"], ["personality", "Personality"], ["playground", "Playground"]];
+export const resets = { look: ["look"], expressions: ["expressions"], animations: ["animations"], personality: ["personality"] };
 
 // The shipped expressions (and animations), which the draft's own replace by id.
 const FACE = await fetch(new URL(`../alfie-face.json${V}`, import.meta.url)).then((r) => r.json());
@@ -48,6 +48,7 @@ export function render(p, sub) {
   if (sub === "personality") return personality(p);
   if (sub === "playground") return playground(p);
   if (sub === "expressions") return expressions(p);
+  if (sub === "animations") return animations(p);
   return look(p);
 }
 
@@ -305,6 +306,188 @@ function exprClick(p, a, el) {
   return false;
 }
 
+// ------------------------------------------------------------ animations
+
+// Channels (alfie-face.js `animated`): [text, min, max], as config.CHANNELS.
+const CHANNELS = {
+  dx: ["Look across", -0.5, 0.5], dy: ["Look up", -0.5, 0.5], lx: ["Left eye across", -0.5, 0.5], ly: ["Left eye up", -0.5, 0.5],
+  rx: ["Right eye across", -0.5, 0.5], ry: ["Right eye up", -0.5, 0.5], fx: ["Whole face across", -0.5, 0.5], fy: ["Whole face up", -0.5, 0.5],
+  size: ["Eye size", -0.5, 1], open: ["Eyes wide open", 0, 1], shut: ["Close both eyes", 0, 1], shut_l: ["Close the left eye", 0, 1],
+  shut_r: ["Close the right eye", 0, 1], droop: ["Droop the lids", 0, 1],
+};
+const EASE_TEXT = { ease: "Ease", spring: "Spring (overshoots)", cut: "Cut (jump)", linear: "Linear" };
+const SAMPLE = 0.1;   // seconds between keys when a drawn-by-code animation becomes keys
+
+function animList(p) {
+  const own = p.draft.animations || [];
+  return [
+    ...Object.keys(FACE.animations).map((id) => {
+      const o = own.find((a) => a.id === id);
+      return { id, name: o?.name || U.human(id), builtin: true, changed: !!o, def: o || FACE.animations[id] };
+    }),
+    ...own.filter((a) => !(a.id in FACE.animations)).map((a) => ({ id: a.id, name: a.name || a.id, builtin: false, def: a })),
+  ];
+}
+
+// Keys for any animation: its own, or a drawn-by-code one sampled every SAMPLE s.
+function keysOf(def) {
+  if (def.keys) return U.clone(def.keys);
+  const a = Face.compileAnimation(def), out = [];
+  const r = (v) => Math.round(v * 1000) / 1000;
+  for (let t = SAMPLE; t <= a.length + 1e-9; t += SAMPLE) {
+    const c = a.script(Math.min(t, a.length));
+    out.push([SAMPLE, Object.fromEntries(Object.entries(c).filter(([k, v]) => k in CHANNELS && Math.abs(v) > 1e-4).map(([k, v]) => [k, r(v)])), "linear"]);
+  }
+  return out;
+}
+
+function ownAnim(p, id) {
+  const own = (p.draft.animations ??= []);
+  let a = own.find((x) => x.id === id);
+  if (!a && FACE.animations[id]) {
+    a = { id, name: U.human(id), keys: keysOf(FACE.animations[id]) };
+    own.push(a);
+  }
+  return a;
+}
+
+const anOpen = (p) => animList(p).find((x) => p.open.has(`n:${x.id}`)) || null;
+const lengthOf = (keys) => keys.reduce((t, k) => t + Number(k[0]), 0);
+
+function animations(p) {
+  const all = animList(p);
+  return `${U.intro("How he moves: the twenty animations he ships with, which you can change, and new ones of your own.",
+      `An animation is keys in a row: each moves his eyes, lids and face to its values over its time, with an easing.
+      After the last key he springs back to his expression. Your own can be used anywhere an animation is picked:
+      stories, motion sensors, fidgets, voice. The open one plays on the live preview.`)}
+    ${U.list({ items: all.map((x, i) => animItem(p, x, i, all.length)).join(""), add: U.addButton("an-add", "+ New animation"), what: "an animation" })}
+    <style>.ankey { border: 1px solid var(--edge); border-radius: 10px; padding: 8px 12px; margin: 8px 0; }
+      .ankey .row { gap: 8px; flex-wrap: wrap; align-items: center; } .ankey .n { font-weight: 600; min-width: 1.5em; }
+      .ankey .unit { flex: none; width: 120px; } .ankey .unit input { width: 100%; } .ankey .tools { margin-left: auto; }
+      .ankey select { flex: 1 1 140px; } .anch { display: flex; align-items: end; gap: 4px; } .anch .slider { flex: 1; }
+      .anbar { display: flex; height: 18px; border-radius: 6px; overflow: hidden; margin: 6px 0 2px; background: var(--secondary-background-color); }
+      .anbar span { border-right: 1px solid var(--card-background-color, #222); background: color-mix(in srgb, var(--primary-color) 40%, transparent); }
+      .anbar span.empty { background: color-mix(in srgb, var(--primary-color) 12%, transparent); }</style>`;
+}
+
+function animItem(p, x, i, n) {
+  const key = `n:${x.id}`, open = p.open.has(key);
+  const coded = !x.def.keys;
+  const chips = U.chip(x.builtin ? (x.changed ? "Changed" : coded ? "Built in, by code" : "Built in") : "Yours");
+  const len = coded ? Number(x.def.length) : lengthOf(x.def.keys);
+  const summary = `${U.esc(x.id)} · ${p.fmt(Math.round(len * 100) / 100)} s`;
+  if (!open) return U.item({ key, i, n, open, chips, name: x.name, summary, actions: { toggle: "an-toggle" } });
+  const own = (p.draft.animations || []).findIndex((a) => a.id === x.id);
+  const names = x.builtin ? `<p class="muted">Built in. A change here replaces it everywhere he uses it.${coded
+      ? " This one is drawn by code: changing it turns it into keys, a sample every 0.1 s." : ""}</p>`
+    : `<div class="grid">${U.field("Name", U.text(`animations.${own}.name`, x.def.name, { placeholder: "Wiggle" }))}
+        ${U.idField(`animations.${own}.id`, x.id, "stories, motion sensors, fidgets and <code>alfie.play_animation</code>")}</div>`;
+  const keys = keysOf(x.def);
+  const total = lengthOf(keys) || 1;
+  const bar = `<div class="anbar">${keys.map((k) => `<span class="${Object.keys(k[1]).length ? "" : "empty"}" style="flex:${k[0]}"></span>`).join("")}</div>`;
+  const play = `<div class="row"><button class="primary" data-action="an-play" data-name="${U.esc(x.id)}">${U.icon("mdi:play")}Play</button>
+      <label class="slider grow"><span>Hold a moment</span><input type="range" class="an-scrub" data-name="${U.esc(x.id)}" min="0" max="${total}" step="0.01" value="0">
+      <output>0</output></label></div>`;
+  const id = U.esc(x.id);
+  const keyHtml = coded && !x.changed ? `<p class="muted">Change a key below to make it your own.</p>` + keysView(p, id, keys) : keysView(p, id, keys);
+  const body = `${names}${bar}${play}<h4>Keys</h4>${keyHtml}
+    <button class="flat" data-action="an-key-add" data-name="${id}">${U.icon("mdi:plus")}Add a key</button>`;
+  const footer = x.changed ? `<button class="flat" data-action="an-reset" data-name="${id}">Back to built in</button>` : "";
+  return U.item({ key, i, n, open, chips, name: x.name, summary, body, footer,
+    actions: { toggle: "an-toggle", dup: "an-dup", ...(x.builtin ? {} : { del: "an-del" }) } });
+}
+
+function keysView(p, id, keys) {
+  return keys.map(([secs, ch, ease], j) => {
+    const chans = Object.entries(ch).map(([c, v]) => {
+      const [t, lo, hi] = CHANNELS[c] || [c, -1, 1];
+      return `<div class="anch"><label class="slider"><span>${U.esc(t)}</span>
+        <input type="range" min="${lo}" max="${hi}" step="0.01" data-an="${id}" data-k="${j}.ch.${c}" value="${v}"><output>${p.fmt(v)}</output></label>
+        <button class="icon" data-action="an-ch-rm" data-name="${id}" data-j="${j}" data-key="${c}" title="Remove" aria-label="Remove ${U.esc(t)}">${U.icon("mdi:close")}</button></div>`;
+    }).join("");
+    const free = Object.keys(CHANNELS).filter((c) => !(c in ch));
+    return `<div class="ankey"><div class="row"><span class="n">${j + 1}.</span>
+        ${U.num("", secs, { min: 0.02, max: 10, step: 0.01, unit: "s" }).replace("<input", `<input data-an="${id}" data-k="${j}.secs"`)}
+        <select data-an="${id}" data-k="${j}.ease" aria-label="Easing">${Object.entries(EASE_TEXT).map(([e, t]) => `<option value="${e}" ${e === ease ? "selected" : ""}>${t}</option>`).join("")}</select>
+        <span class="tools">
+          ${U.iconButton("an-key-up", "mdi:arrow-up", "Move up", { i: j, disabled: !j }).replace("data-action", `data-name="${id}" data-action`)}
+          ${U.iconButton("an-key-down", "mdi:arrow-down", "Move down", { i: j, disabled: j >= keys.length - 1 }).replace("data-action", `data-name="${id}" data-action`)}
+          ${U.iconButton("an-key-rm", "mdi:close", "Remove key", { i: j, disabled: keys.length < 2 }).replace("data-action", `data-name="${id}" data-action`)}</span></div>
+      ${chans || `<p class="muted">Empty: back to his expression.</p>`}
+      ${free.length ? `<select data-an="${id}" data-k="${j}.add" aria-label="Add a channel"><option value="">+ Move something…</option>
+        ${free.map((c) => `<option value="${c}">${U.esc(CHANNELS[c][0])}</option>`).join("")}</select>` : ""}</div>`;
+  }).join("");
+}
+
+function animInput(p, el, ev) {
+  const id = el.dataset.an, [js, what, ch] = el.dataset.k.split(".");
+  const j = Number(js);
+  if (!(p.draft.animations || []).some((a) => a.id === id)) p.anNew = true;
+  const a = ownAnim(p, id);
+  if (!a || !a.keys[j]) return;
+  const k = a.keys[j];
+  if (what === "add") {
+    if (ev.type !== "change" || !el.value) return;
+    k[1][el.value] = 0;
+    p.edited(true);
+    return;
+  }
+  if (what === "ease") { if (ev.type === "change") { k[2] = el.value; p.edited(true); } return; }
+  const v = Number(el.value);
+  if (!Number.isFinite(v)) return;
+  if (what === "secs") k[0] = Math.max(0.02, Math.min(10, v));
+  else k[1][ch] = v;
+  const out = el.parentElement.querySelector("output");
+  if (out) out.textContent = p.fmt(v);
+  const redraw = (ev.type === "change" && p.anNew) || (what === "secs" && ev.type === "change");
+  if (redraw) p.anNew = false;
+  p.edited(redraw);
+  // Show the key just set: hold the moment it ends.
+  if (what !== "secs") setTimeout(() => p.face?.previewAnimationAt?.(id, lengthOf(a.keys.slice(0, j + 1))), 0);
+}
+
+function animClick(p, a, el) {
+  const own = (p.draft.animations ??= []);
+  const all = animList(p);
+  const x = all[Number(el.dataset.i)], id = el.dataset.name, j = Number(el.dataset.i);
+  const edit = (fn) => { const an = ownAnim(p, id); if (an) { fn(an); p.edited(true); } return true; };
+  switch (a) {
+    case "an-toggle": p.face?.previewAnimationAt?.(null); p.flip(`n:${x.id}`); return true;
+    case "an-add": case "an-dup": {
+      const name = a === "an-dup" ? `${x.name} (copy)` : "New animation";
+      const nid = U.slugId([...all, ...own], name, "animation");
+      const keys = a === "an-dup" ? keysOf(x.def) : [[0.25, { dy: 0.08 }, "spring"], [0.3, {}, "spring"]];
+      own.push({ id: nid, name, keys });
+      p.autoId("n", nid);
+      for (const k of [...p.open]) if (k.startsWith("n:")) p.open.delete(k);
+      p.open.add(`n:${nid}`);
+      p.edited(true);
+      return true;
+    }
+    case "an-del":
+      if (!confirm(`Delete the animation "${x.name}"? Anything that uses it will need another.`)) return true;
+      p.draft.animations = own.filter((n) => n.id !== x.id);
+      p.edited(true);
+      return true;
+    case "an-reset":
+      p.draft.animations = own.filter((n) => n.id !== id);
+      p.edited(true);
+      return true;
+    case "an-play":
+      p.face?.previewAnimationAt?.(null);
+      p.root.querySelectorAll(".an-scrub").forEach((s) => { s.value = 0; s.parentElement.querySelector("output").textContent = "0"; });
+      // After the shell has laid the draft's animations on the cards.
+      setTimeout(() => p.face?.playLocal?.(id), 0);
+      return true;
+    case "an-key-add": return edit((an) => an.keys.push(U.clone(an.keys[an.keys.length - 1] || [0.3, {}, "spring"])));
+    case "an-key-rm": return edit((an) => { if (an.keys.length > 1) an.keys.splice(j, 1); });
+    case "an-key-up": case "an-key-down":
+      return edit((an) => Fm.moveItem(an.keys, j, a === "an-key-up" ? j - 1 : j + 1));
+    case "an-ch-rm": return edit((an) => { delete an.keys[Number(el.dataset.j)][1][el.dataset.key]; });
+  }
+  return false;
+}
+
 // ------------------------------------------------------------ personality
 
 function personality(p) {
@@ -429,6 +612,7 @@ function pathHooks(p, part) {
 // so here only the picks are forgotten, to match.
 export function leave(p) {
   p.face?.previewExpression?.(null);
+  p.face?.previewAnimationAt?.(null);
   if (p.pg) Object.assign(p.pg, { level: null, expr: "", lookExpr: "", energy: 0.8 });
 }
 
@@ -436,9 +620,16 @@ export function leave(p) {
 
 // Sliders and switches that are not a draft path: the playground's, and the shape editor.
 export function tool(p, ev) {
-  const el = ev.target.closest("[data-shape], [data-pg], [data-ex]");
+  if (ev.target.matches?.(".an-scrub")) {
+    const u = Number(ev.target.value);
+    ev.target.parentElement.querySelector("output").textContent = p.fmt(u);
+    p.face?.previewAnimationAt?.(ev.target.dataset.name, u);
+    return true;
+  }
+  const el = ev.target.closest("[data-shape], [data-pg], [data-ex], [data-an]");
   if (!el) return false;
   if (el.dataset.ex) { exprInput(p, el, ev); return true; }
+  if (el.dataset.an) { animInput(p, el, ev); return true; }
   const card = p.face;
   if (el.dataset.pg === "energy") {
     const pg = pgState(p);
@@ -478,6 +669,20 @@ export function afterInput(p, path) {
 }
 
 export function beforeInput(p, path, v) {
+  const an = /^animations\.(\d+)\.(id|name)$/.exec(path);
+  if (an) {
+    const list = p.draft.animations, i = Number(an[1]);
+    const follow = (from, to) => {
+      Fm.renameFaceRefs(p.draft, "animations", from, to);
+      p.root.querySelectorAll(`[data-an="${CSS.escape(from)}"], [data-name="${CSS.escape(from)}"]`).forEach((el) => {
+        if (el.dataset.an) el.dataset.an = to; else el.dataset.name = to;
+      });
+    };
+    if (an[2] === "id") { p.manualId("n", list[i].id); follow(list[i].id, v); p.renameOpen("n", list[i].id, v); }
+    else p.nameToId("n", [...list, ...Object.keys(FACE.animations).filter((k) => !list.some((a) => a.id === k)).map((id) => ({ id }))],
+      i, v, "animation", `animations.${i}.id`, follow);
+    return;
+  }
   const m = /^expressions\.(\d+)\.(id|name)$/.exec(path);
   if (!m) return;
   const list = p.draft.expressions, i = Number(m[1]);
@@ -496,6 +701,7 @@ export function beforeInput(p, path, v) {
 
 export function click(p, a, el) {
   if (a.startsWith("ex-")) return exprClick(p, a, el);
+  if (a.startsWith("an-")) return animClick(p, a, el);
   switch (a) {
     case "pg": pgClick(p, el); return true;
     case "play": p.face?.playLocal?.(el.dataset.name); return true;

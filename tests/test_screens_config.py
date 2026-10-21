@@ -92,7 +92,7 @@ ROTS = [{"id": "living", "name": "", "transition": "random",
 
 
 def test_sections_and_defaults(types):
-    assert SECTIONS[6:8] == ("screens", "rotations")
+    assert SECTIONS[7:9] == ("screens", "rotations")
     d = default_config()
     assert d["screens"] == [] and d["rotations"] == []
     assert reset(cfg_with(screens=SCREENS), "screens")["screens"] == []

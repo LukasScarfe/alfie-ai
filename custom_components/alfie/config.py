@@ -54,12 +54,19 @@ from .triggers import validate_triggers
 # 4: keys follow design.md "Words" (migrate_v3), and the overview section.
 # 6: label and text screens' size became text_size, a multiplier (migrate_v5).
 CONFIG_VERSION = 6
-SECTIONS = ("signals", "mood", "behaviour", "personality", "look", "expressions", "screens",
-            "rotations", "stories", "triggers", "modes", "voice", "overview")
+SECTIONS = ("signals", "mood", "behaviour", "personality", "look", "expressions", "animations",
+            "screens", "rotations", "stories", "triggers", "modes", "voice", "overview")
 # An expression's numbers: lids [height, slant] in eye radii, size, and look.
 LID_RANGE = (-1.5, 1.5)
 SIZE_RANGE = (0.3, 2.0)
 LOOK_RANGE = (-0.4, 0.4)
+# Animation channels (alfie-face.js `animated`), each with its range: moves in
+# ring radii, size as a share, and lid channels from 0 (as the expression) to 1.
+CHANNELS = {**{k: (-0.5, 0.5) for k in ("dx", "dy", "lx", "ly", "rx", "ry", "fx", "fy")},
+            "size": (-0.5, 1.0), **{k: (0.0, 1.0) for k in ("open", "shut", "shut_l", "shut_r", "droop")}}
+EASES = ("ease", "spring", "cut", "linear")
+KEY_SECONDS = (0.02, 10.0)
+MAX_KEYS = 60
 GUIDE_STEPS = ("signals", "motion", "sleep", "dashboard", "screens")   # Get started
 STYLES = ("neon", "flat", "crt", "theme")     # the card's render styles
 SPEAK_STYLES = ("pulse", "eyes", "both", "wave")   # how he shows speaking (no mouth)
@@ -174,6 +181,7 @@ def default_config() -> dict[str, Any]:
         "personality": {"preset": "bubbly", **personality_values("bubbly")},
         "look": default_look(),
         "expressions": [],    # his own faces, and the built-ins changed (design.md "The character")
+        "animations": [],     # his own keyframe animations, and the built-ins changed
         "screens": [],        # Alfie ships none: the user builds them
         "rotations": [],
         "stories": copy.deepcopy(list(defaults.STORIES)),
@@ -862,10 +870,56 @@ def _expressions(raw: Any, ck: _Check) -> list[dict[str, Any]]:
     return out
 
 
+def _animations(raw: Any, ck: _Check) -> list[dict[str, Any]]:
+    """Custom keyframe animations, and built-ins changed (by id):
+    [{id, name, keys: [[seconds, {channel: value}, ease], ...]}]."""
+    if not isinstance(raw, list):
+        ck.bad("animations", "must be a list")
+        return []
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for i, a in enumerate(raw):
+        where = f"animation {i + 1}"
+        if not isinstance(a, Mapping):
+            ck.bad(where, "must be a mapping")
+            continue
+        aid = str(a.get("id") or "").strip()
+        if not _ID.match(aid):
+            ck.bad(where, "id must be lower-case letters, digits and _")
+            continue
+        where = f"animation {aid}"
+        if aid in seen:
+            ck.bad(where, "id is used twice")
+            continue
+        seen.add(aid)
+        keys_in = a.get("keys")
+        if not isinstance(keys_in, list) or not 1 <= len(keys_in) <= MAX_KEYS:
+            ck.bad(f"{where} keys", f"needs 1 to {MAX_KEYS} keys")
+            continue
+        keys = []
+        for j, k in enumerate(keys_in):
+            kw = f"{where} key {j + 1}"
+            if not (isinstance(k, (list, tuple)) and len(k) in (2, 3) and isinstance(k[1], Mapping)):
+                ck.bad(kw, "must be [seconds, {channel: value}, ease]")
+                continue
+            ch = {}
+            for name, v in k[1].items():
+                if name not in CHANNELS:
+                    ck.bad(kw, f"unknown channel {name!r}")
+                    continue
+                ch[name] = _num(ck.number(f"{kw} {name}", v, *CHANNELS[name], 0.0))
+            keys.append([_num(ck.number(f"{kw} seconds", k[0], *KEY_SECONDS, 0.2)), ch,
+                         ck.choice(f"{kw} ease", k[2] if len(k) == 3 else "ease", EASES, "ease")])
+        out.append({"id": aid, "name": str(a.get("name") or "").strip() or aid, "keys": keys})
+    return out
+
+
 def face_extras(cfg: Mapping[str, Any]) -> dict[str, Any]:
-    """The config's own expressions as the card reads them, by id."""
-    return {"expressions": {e["id"]: {k: v for k, v in e.items() if k not in ("id", "name")}
-                            for e in cfg.get("expressions", [])}}
+    """The config's own expressions and animations as the card reads them, by id."""
+    def strip(x: Mapping[str, Any]) -> dict[str, Any]:
+        return {k: v for k, v in x.items() if k not in ("id", "name")}
+    return {"expressions": {e["id"]: strip(e) for e in cfg.get("expressions", [])},
+            "animations": {a["id"]: strip(a) for a in cfg.get("animations", [])}}
 
 
 def validate(raw: Any, face: Mapping[str, Any],
@@ -880,7 +934,9 @@ def validate(raw: Any, face: Mapping[str, Any],
     custom = _expressions(raw.get("expressions", base["expressions"]), ck)
     expressions = tuple(face.get("expressions") or ())
     expressions += tuple(e["id"] for e in custom if e["id"] not in expressions)
+    own_anims = _animations(raw.get("animations", base["animations"]), ck)
     animations = tuple(face.get("animations") or ())
+    animations += tuple(a["id"] for a in own_anims if a["id"] not in animations)
     cfg = {
         "version": CONFIG_VERSION,
         "signals": _signals(raw.get("signals", base["signals"]), ck),
@@ -889,6 +945,7 @@ def validate(raw: Any, face: Mapping[str, Any],
         "personality": _personality(raw, face, ck),
         "look": _look(raw, base["look"], ck),
         "expressions": custom,
+        "animations": own_anims,
     }
     cfg["screens"] = _screens(raw.get("screens", base["screens"]), types or {}, ck)
     cfg["rotations"] = _rotations(raw.get("rotations", base["rotations"]),

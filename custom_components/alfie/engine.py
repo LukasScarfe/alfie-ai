@@ -212,6 +212,7 @@ class AlfieEngine:
         extras = face_extras(cfg)
         self.face_rev = hashlib.sha1(json.dumps(extras, sort_keys=True).encode()).hexdigest()[:10]
         self.expressions = set(self.face["expressions"]) | set(extras["expressions"])
+        self.animations = set(self.face["animations"]) | set(extras["animations"])
         if self.screen and not self.screen.get("icon") \
                 and self.screen["id"] not in {s["id"] for s in cfg["screens"]}:
             self._clear_screen(None)   # the screen being shown was deleted

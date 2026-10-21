@@ -48,3 +48,26 @@ def test_unknown_expression_still_refused():
     cfg = default_config()
     cfg["behaviour"]["sleep_expression"] = "nope"
     assert any("sleep expression" in e for e in errors(cfg))
+
+
+# ------------------------------------------------------------- animations
+
+def test_custom_animation_is_checked_and_usable():
+    cfg = default_config()
+    cfg["animations"] = [{"id": "wiggle", "name": "Wiggle",
+                          "keys": [[0.2, {"dx": 0.1, "shut_l": 0.5}, "spring"], ["0.3", {}]]}]
+    cfg["behaviour"]["idle_fidgets"] = ["wiggle", "nod"]
+    out = valid(cfg)
+    assert out["animations"][0]["keys"] == [[0.2, {"dx": 0.1, "shut_l": 0.5}, "spring"], [0.3, {}, "ease"]]
+    assert out["behaviour"]["idle_fidgets"] == ["wiggle", "nod"]
+    assert face_extras(out)["animations"] == {"wiggle": {"keys": out["animations"][0]["keys"]}}
+
+
+def test_bad_animations_are_reported():
+    cfg = default_config()
+    cfg["animations"] = [{"id": "a", "keys": []}, {"id": "b", "keys": [[0.2, {"spin": 1}]]},
+                         {"id": "c", "keys": [[99, {"dx": 3}, "bouncy"]]}, {"id": "d"}]
+    errs = " | ".join(errors(cfg))
+    for want in ("animation a keys", "unknown channel 'spin'", "animation c key 1 seconds",
+                 "animation c key 1 dx", "animation c key 1 ease", "animation d keys"):
+        assert want in errs, want
