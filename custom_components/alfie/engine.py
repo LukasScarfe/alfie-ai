@@ -38,7 +38,8 @@ from .const import (
     SCENE_VERSION,
 )
 from .mood import LEVELS, Mood, MoodSettings, combine
-from .providers import provider_for
+from .providers import FetchCache, provider_for
+from .providers.picture import store_for as picture_store
 from .screen_types import load_types
 from .signals import Signal, SignalResult, evaluate, evaluate_all, is_pattern, matching, watches
 from .stories import (
@@ -89,6 +90,7 @@ class AlfieEngine:
         self.config: dict[str, Any] = {}
         self.types: dict[str, dict[str, Any]] = {}
         self.screens_rev = ""
+        self.pictures_rev = ""
         self.signals: tuple[Signal, ...] = ()
         self.settings = MoodSettings()
         self.behaviour: dict[str, Any] = {}
@@ -161,6 +163,7 @@ class AlfieEngine:
         self.expressions = set(self.face["expressions"])
         self.animations = set(self.face["animations"])
         self.types = await self.hass.async_add_executor_job(_load_types)
+        self.pictures_rev = await self.hass.async_add_executor_job(picture_store(self.hass).rev)
         self._apply(await self.store.async_load(self.face, self.entry.options, self.types))
         self._unsubs.append(self.hass.bus.async_listen(
             EVENT_STATE_CHANGED, self._on_state, event_filter=self._relevant))
@@ -204,8 +207,7 @@ class AlfieEngine:
         built = build(cfg)
         self.config = cfg
         self._effective_key = None    # the modes may have changed: _recompute rebuilds
-        self.screens_rev = hashlib.sha1(json.dumps(
-            [cfg["screens"], cfg["rotations"]], sort_keys=True).encode()).hexdigest()[:10]
+        self._set_screens_rev()
         if self.screen and not self.screen.get("icon") \
                 and self.screen["id"] not in {s["id"] for s in cfg["screens"]}:
             self._clear_screen(None)   # the screen being shown was deleted
@@ -1001,6 +1003,22 @@ class AlfieEngine:
         self.screen = None
         if seq is not None:
             self._push()
+
+    def _set_screens_rev(self) -> None:
+        """Cards refetch screens (and their data) when this changes: the
+        screens, the rotations, or any picture."""
+        self.screens_rev = hashlib.sha1(json.dumps(
+            [self.config["screens"], self.config["rotations"], self.pictures_rev],
+            sort_keys=True).encode()).hexdigest()[:10]
+
+    async def pictures_changed(self) -> None:
+        """A picture was uploaded, replaced, renamed or deleted: drop the cached
+        SVGs and tell the cards, which fetch them again."""
+        self.pictures_rev = await self.hass.async_add_executor_job(picture_store(self.hass).rev)
+        if (prov := provider_for("picture")) is not None:
+            prov.cache = FetchCache()
+        self._set_screens_rev()
+        self._push()
 
     async def screen_data(self, screen_id: str) -> dict[str, Any]:
         """The cached provider answer for a screen, fetching if it is stale.

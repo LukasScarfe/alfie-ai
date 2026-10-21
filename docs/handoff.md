@@ -1,26 +1,46 @@
 # Alfie: handoff
 
-**Milestones 1 to 3 are done.** Waiting on Lukas:
-- **M4 (Triggers and stories):** approved by Lukas from the screenshots. Tablet check F is still
-  open.
-- **M5 (House modes):** built and checked in dev HA. Tablet check F is still open.
-- **5½ (Settings tidy-up):** PNGs A to E sent. F is waiting on his review.
-- **5¾ (Icons):** PNGs A to E sent. F is waiting on his review.
-- **5⅞ (Oscilloscope):** A to D and F are done. E (Lukas on the CRT) is open.
-- **5⅝ (Panel style):** A to F done. G (his review of the screenshots) is open.
-- **M6 (Voice), in progress:** A to E are done and deployed to production (0.11.0).
-  - F: the PNGs are sent (voice sheet, dev dashboard listening, the Voice panel pages).
-  - Lukas asked for it all on (2026-10-20). Done on production: persona, mood_aware, assist_tool
-    and intent; "is anything wrong" on HA's own agent answers from Alfie.
-  - Lukas ticked the Alfie API on the Gemini agent. Asked "Is anything wrong at home?" through
-    `conversation/process`, Gemini answered in his persona and mood ("…I'm feeling quite
-    content. There's nothing at all that needs your attention right now.").
-  - Still open: Lukas tries the whole loop by voice on the S7+.
-  - G: Lukas's review.
+**Milestones 1 to 6 are done.** Lukas approved everything up to M6 on 2026-10-20.
 
-Version 0.11.0.
+**M7 (Editors and polish), in progress.** The steps are in plan.md M7 (A to H):
+- **A. Pictures: done** (0.11.1, below).
+- **Next: B, the shape editor.** A `path` point editor on Look (drag, add, delete, roundness),
+  left and right eyes apart, and "From picture" (`alfie-svg.js` `pictureContours` gives an
+  uploaded SVG's outline to turn into a path).
+- Then C (expressions), D (animations), E (styles and themes), F (why panel and tap actions),
+  G (finish, 0.12.0) and H (Lukas's review).
 
-**Latest (0.11.0): Voice** (design.md "Voice"; plan.md M6 for the steps).
+Version 0.11.1.
+
+**Latest (0.11.1): Pictures** (design.md "Screens" → picture; screens-contract.md).
+- **Server:**
+  - `pictures.py` (pure): `sanitise` keeps the drawable SVG subset and `PictureStore` handles
+    `<config>/alfie/pictures/<id>.svg` plus `index.json`.
+  - `providers/picture.py` serves `needs: "picture"`.
+  - WS commands `alfie/pictures/list|get|upload|rename|delete`. All are admin-only except `get`.
+  - `engine.pictures_changed()` clears the provider cache and folds `pictures_rev` into
+    `screens_rev`.
+- **Card:**
+  - The `picture` screen type (`screens/picture.{json,js}`), with `alfie-svg.js` as its XML
+    reader and flattener (it reuses `alfie-icons.js` `flatten`).
+  - Strokes may carry `color` and `rule`. Fill groups paint in order.
+  - A type with `refresh: false` is fetched once.
+- **Panel:**
+  - Screens → **Pictures**: drop or pick files, thumbnails, rename, replace, delete, "Make a
+    screen", and "used by".
+  - The `picture` option kind is a select with an Upload… button. Screen previews show the
+    draft's picture before saving.
+- **Checked in dev HA:**
+  - Three SVGs were uploaded and drawn on the dev dashboard: a stroked floor plan, a filled
+    logo with an even-odd hole and own colours, and a tree with nested transforms in solid fill.
+    The tree matches Chrome's own render.
+  - Test SVGs and the scratch WS helper were made in the session's scratchpad. To redo it, post
+    `alfie/pictures/upload` with `{name, svg}`.
+- Tests: `tests/test_pictures.py`, `tests/svg.test.mjs`, picture field cases in
+  `tests/screens/panel.test.mjs`.
+- Shots: `./dev shot alfie-dev/0` is the dev dashboard (`lovelace/0` is HA's loading page).
+
+**Before that (0.11.0): Voice** (design.md "Voice"; plan.md M6 for the steps).
 - **Model:**
   - Config section `voice` (missing → defaults, so no version bump).
   - Trigger kind `voice` (`satellites`, `phase`; `triggers.voice_phase` / `voice_fires`).

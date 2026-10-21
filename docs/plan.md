@@ -177,10 +177,11 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
       with every shape type in design.md ("Shapes are swappable data"), plus a freehand `path`
       (true rounded corners are already done). Lukas (2026-10-20) added uploaded SVGs
       as screens. New config sections default when missing (no version bump).
-  - [ ] A. SVG uploads and the `svg` (Picture) screen type: `<config>/alfie/svg/`, admin WS
-        upload / list / delete and `alfie/svg/get`, sanitised; `alfie-svg.js` flattens basic
-        shapes, transforms and viewBox to strokes (fill as outline, stroke-only as the line);
-        options file, colour, fit, scale, rotation, caption; Screens → Pictures sub-tab.
+  - [x] A. SVG uploads and the `picture` screen type: `<config>/alfie/pictures/`, admin WS
+        `alfie/pictures/upload|list|rename|delete` and `alfie/pictures/get`, sanitised;
+        `alfie-svg.js` flattens basic shapes, transforms and viewBox to strokes (fill as outline,
+        stroke-only as the line); options picture, colour, fill, fit, size, caption; Screens →
+        Pictures sub-tab. 0.11.1.
   - [ ] B. Shape editor: a `path` point editor (drag, add, delete, roundness), left and right
         eyes apart, "From picture" (an SVG or icon outline as a path).
   - [ ] C. Expression editor: config `expressions` (custom and overridden built-ins), merged

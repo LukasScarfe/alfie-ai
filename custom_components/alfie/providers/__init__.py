@@ -138,4 +138,5 @@ def provider_for(kind: str) -> Provider | None:
 from . import calendar  # noqa: E402,F401
 from . import forecast  # noqa: E402,F401
 from . import history  # noqa: E402,F401
+from . import picture  # noqa: E402,F401
 from . import streets  # noqa: E402,F401

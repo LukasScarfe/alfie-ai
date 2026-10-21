@@ -488,6 +488,27 @@ built types:
   (`mdi:plex Viewers`) is drawn as the icon, and a plot series marker or the value screen's
   icon may be one (`mdi:account`).
 - **label**: plain text, the reference type.
+- **picture** (Lukas, 2026-10-20): an uploaded SVG (a floor plan, a logo, a drawing). Drawn in
+  Alfie's line style: filled shapes as their outlines (closed, as icons are), stroke-only shapes as
+  their lines.
+  - Options:
+    - colour: line, accent, text, or the SVG's own;
+    - fill: none, soft or solid; in solid with its own colours it looks like the SVG;
+    - fit (contain or stretch), size and a caption with Text size;
+    - under More options: rotation, line weight, detail, and a point budget. Tiny shapes are
+      dropped first, then lines thinned.
+  - Uploads (**Screens → Pictures**, or the Upload button on the field):
+    - Each file is up to 2 MB. The server sanitises it (`pictures.py`): only `svg`, `g`, `a`,
+      `switch`, the basic shapes and paths, transforms and paint are kept; `<style>` class rules
+      are folded in, and a DOCTYPE is refused.
+    - Stored in `<config>/alfie/pictures/` with `index.json` for the names. That's part of HA's
+      own backups.
+    - Uploads save at once, outside the draft. Replacing or deleting one refreshes every card
+      (`screens_rev`).
+  - Text in an SVG is not drawn; it has to be turned into paths first. `<use>`, gradients and
+    clip paths are dropped.
+  - The card parses the SVG once (`alfie-svg.js`, a small XML reader, no DOMParser) and fits
+    it to the box only when the box changes.
 - **Text size (decided, 2026-10-19):** every type that draws text has a Text size option
   (`text_size`, a multiplier from 0.5 to 2, default 1), except label and text, whose `size` is
   already a height. It scales the heights of text before layout, so margins and rows make room.
