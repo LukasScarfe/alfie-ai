@@ -41,6 +41,7 @@ from .config import (
     SECTIONS,
     ConfigError,
     default_config,
+    face_extras,
 )
 from .config import _Check
 from .const import DOMAIN
@@ -59,7 +60,7 @@ def async_register(hass: HomeAssistant) -> None:
     for cmd in (ws_subscribe, ws_config_get, ws_config_set, ws_config_reset, ws_config_preview,
                 ws_screens, ws_screen_data, ws_story_play, ws_story_expand, ws_triggers_status, ws_suggest,
                 ws_voice_status, ws_voice_say, ws_pictures_list, ws_picture_get,
-                ws_picture_upload, ws_picture_rename, ws_picture_delete):
+                ws_picture_upload, ws_picture_rename, ws_picture_delete, ws_face):
         websocket_api.async_register_command(hass, cmd)
     data["_ws_registered"] = True
 
@@ -214,6 +215,17 @@ def ws_screens(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
         "types": engine.types,
         "stories": [{"id": st["id"], "name": st["name"]} for st in engine.config["stories"]],
     })
+
+
+@websocket_api.websocket_command({vol.Required("type"): "alfie/face"})
+@callback
+def ws_face(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+            msg: dict[str, Any]) -> None:
+    """His own expressions (and animations), laid over alfie-face.json by the
+    card. Open to every user, like alfie/screens: the wall tablet needs them."""
+    if (engine := _engine(hass, connection, msg["id"])) is None:
+        return
+    connection.send_result(msg["id"], {"rev": engine.face_rev, **face_extras(engine.config)})
 
 
 @websocket_api.websocket_command({vol.Required("type"): "alfie/screen_data",

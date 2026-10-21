@@ -102,9 +102,25 @@ card is off screen, and sizes its canvas to the device pixel ratio once per resi
        as a crescent's stay.
      - "Shape the left and right eyes apart" copies the eye into `left_eye` and a mirrored
        `right_eye`. Turning it off keeps the left as `eye`.
-  2. **Expression editor**: pose the shapes into named expressions. Presets are the 12 current
-     moods: neutral, angry, sad, bored, skeptical, happy, surprised, alarmed, suspicious, sleepy,
-     confused, closed.
+  2. **Expression editor** (Appearance → Expressions, built 2026-10-21). Pose the shapes into
+     named expressions. Presets are the 12 current moods: neutral, angry, sad, bored, skeptical,
+     happy, surprised, alarmed, suspicious, sleepy, confused, closed.
+     - **Config:** the `expressions` section is a list of `{id, name, left, right, size, look,
+       shapes?}`.
+       - Lids are `[height, tilt, lower height, lower tilt]`, as in `alfie-face.json`.
+       - An id that is a built-in's name changes that built-in ("Changed", with Back to built
+         in). Any other id is a new one ("Yours").
+       - Its names join every expression check: mood levels, stories, modes, voice and
+         `alfie.set_expression`. The services' pickers take typed names.
+     - **Editor:**
+       - Sliders for each lid (with "Same for both eyes"), eye size, and look across and up.
+       - An optional eye shape of its own, any type, or Drawn from an icon's outline. It beats
+         the look's separate eyes, so heart eyes go on both.
+       - A still of it, and the open one held on the dock.
+       - Renaming an ID follows it everywhere it is used (`renameFaceRefs`).
+     - **Cards:** the scene carries `face_rev`. On a change each card fetches `alfie/face` (open
+       to every user) and lays it over the shipped face data. The panel previews the draft's on
+       its own cards before saving.
   3. **Animation editor**: keyframe timelines with easing. The built-ins are the 20 current
      animations: wink_left/right, look_around, glance_left/right, nod, shake, eye_roll, startle,
      double_take, laugh, sigh, squint, flinch, scan, processing, glitch, dizzy, nod_off, wake_up.

@@ -339,3 +339,22 @@ export function newScreen(typeInfo, screens) {
 
 // A new rotation step for the first screen.
 export const newStep = (screens, seconds = 20) => ({ screen: screens[0]?.id || "", seconds });
+
+// Rename an expression or animation (`kind`) everywhere the draft names it:
+// mood levels, sleeping, voice, story steps, motion sensors, notice and fidgets.
+export function renameFaceRefs(draft, kind, from, to) {
+  if (from === to) return;
+  const swap = (v) => (v === from ? to : v);
+  const b = draft.behaviour || {}, v = draft.voice || {};
+  for (const st of draft.stories || []) for (const s of st.steps || []) if (s.kind === kind.slice(0, -1) && s.name === from) s.name = to;
+  if (kind === "expressions") {
+    const m = draft.mood?.expressions || {};
+    for (const k of Object.keys(m)) m[k] = swap(m[k]);
+    b.sleep_expression = swap(b.sleep_expression);
+    v.listening_expression = swap(v.listening_expression);
+  } else {
+    for (const key of ["notice", "idle_fidgets"]) if (Array.isArray(b[key])) b[key] = b[key].map(swap);
+    for (const ms of b.motion_sensors || []) ms.action = swap(ms.action);
+    for (const key of ["listening_animation", "processing_animation", "after"]) v[key] = swap(v[key]);
+  }
+}

@@ -184,7 +184,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         Pictures sub-tab. 0.11.1.
   - [x] B. Shape editor (0.11.2): a `path` point editor (drag, add, delete, roundness), left and right
         eyes apart, "From picture" (an SVG or icon outline as a path).
-  - [ ] C. Expression editor: config `expressions` (custom and overridden built-ins), merged
+  - [x] C. Expression editor (0.11.3): config `expressions` (custom and overridden built-ins), merged
         everywhere names are checked, sent to the cards; Appearance → Expressions.
   - [ ] D. Animation editor: config `animations` (keyframes: seconds, channels, easing),
         Appearance → Animations with play and scrub.

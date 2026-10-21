@@ -48,6 +48,13 @@ function setPath(obj, path, value) {
   parent[last] = value;
 }
 
+// The draft's own expressions and animations as the card lays them (config.face_extras).
+const strip = (x) => Object.fromEntries(Object.entries(x).filter(([k]) => k !== "id" && k !== "name"));
+const faceExtras = (d) => ({
+  expressions: Object.fromEntries((d.expressions || []).map((e) => [e.id, strip(e)])),
+  animations: Object.fromEntries((d.animations || []).map((a) => [a.id, strip(a)])),
+});
+
 class AlfiePanel extends HTMLElement {
   constructor() {
     super();
@@ -131,6 +138,13 @@ class AlfiePanel extends HTMLElement {
       this.name = r.name;
       this.defaults = r.defaults;
       this.choices = r.choices;
+      // Expression (and animation) names: the shipped ones, then the draft's own.
+      for (const kind of ["expressions", "animations"]) {
+        const builtin = r.choices[kind];
+        this.choices[`builtin_${kind}`] = builtin;
+        Object.defineProperty(this.choices, kind, { configurable: true, get: () =>
+          [...builtin, ...(this.draft?.[kind] || []).map((x) => x.id).filter((id) => !builtin.includes(id))] });
+      }
       this.saved = clone(r.config);
       this.draft = clone(r.config);
       this.sdata = new Map();     // screen id -> {data, error} from alfie/screen_data
@@ -534,6 +548,7 @@ class AlfiePanel extends HTMLElement {
       apply(value);
     };
     put("look", d.look, (v) => f.previewLook(clone(v)));
+    put("face", faceExtras(d), (v) => f.previewFace?.(v));
     put("pers", Object.fromEntries(Object.keys(this.choices?.sliders || {}).map((s) => [s, d.personality[s]])),
       (v) => f.setPersonality(v));
     this._dockNote();

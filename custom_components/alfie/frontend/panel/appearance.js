@@ -14,8 +14,11 @@ const Scr = await import(`./screens.js${V}`);
 
 export const id = "appearance";
 export const title = "Appearance";
-export const subs = [["look", "Look"], ["personality", "Personality"], ["playground", "Playground"]];
-export const resets = { look: ["look"], personality: ["personality"] };
+export const subs = [["look", "Look"], ["expressions", "Expressions"], ["personality", "Personality"], ["playground", "Playground"]];
+export const resets = { look: ["look"], expressions: ["expressions"], personality: ["personality"] };
+
+// The shipped expressions (and animations), which the draft's own replace by id.
+const FACE = await fetch(new URL(`../alfie-face.json${V}`, import.meta.url)).then((r) => r.json());
 
 const L = U.LEVEL_TEXT;
 const CARD_STYLES = ["neon", "flat", "crt", "theme"];
@@ -44,6 +47,7 @@ const pgState = (p) => (p.pg ??= { everywhere: false, level: null, expr: "", ene
 export function render(p, sub) {
   if (sub === "personality") return personality(p);
   if (sub === "playground") return playground(p);
+  if (sub === "expressions") return expressions(p);
   return look(p);
 }
 
@@ -117,6 +121,188 @@ function shapeEditor(p, part, t, spec) {
     ${params.map(([k, min, max, step]) => `<label class="slider"><span>${PARAM_TEXT[k] || U.human(k)}</span>
       <input type="range" min="${min}" max="${max}" step="${step}" data-shape="${part}" data-param="${k}" value="${Fm.shapeParam(spec, k)}">
       <output>${p.fmt(Fm.shapeParam(spec, k))}</output></label>`).join("")}</section>`;
+}
+
+// ------------------------------------------------------------ expressions
+
+// Lids are lines y = height + tilt·u in eye radii, u toward the nose
+// (alfie-face.json): [upper height, upper tilt, lower height, lower tilt].
+const LIDS = [["Upper lid", -1, 1.2, "1: open; lower closes him from above."], ["Upper lid tilt", -1, 1, "Up toward the nose: worried; down: cross."],
+  ["Lower lid", -1.2, 1, "-1: open; higher pushes up (a smile)."], ["Lower lid tilt", -1, 1, ""]];
+const EX_SHAPES = ["", "circle", "polygon", "star", "superellipse", "path"];
+const EX_SHAPE_TEXT = { "": "His usual eyes", ...SHAPE_TEXT, path: "Drawn (from an icon)" };
+
+// Every expression: the shipped ones (changed or not), then his own.
+function exprList(p) {
+  const own = p.draft.expressions || [];
+  return [
+    ...Object.keys(FACE.expressions).map((id) => {
+      const o = own.find((e) => e.id === id);
+      return { id, name: o?.name || U.human(id), builtin: true, changed: !!o, def: o || FACE.expressions[id] };
+    }),
+    ...own.filter((e) => !(e.id in FACE.expressions)).map((e) => ({ id: e.id, name: e.name || e.id, builtin: false, def: e })),
+  ];
+}
+
+// The draft entry for `id`, made from the shipped one on its first change.
+function ownExpr(p, id) {
+  const own = (p.draft.expressions ??= []);
+  let e = own.find((x) => x.id === id);
+  if (!e && FACE.expressions[id]) {
+    e = { id, name: U.human(id), ...U.clone(FACE.expressions[id]) };
+    own.push(e);
+  }
+  return e;
+}
+
+const exOpen = (p) => exprList(p).find((x) => p.open.has(`x:${x.id}`)) || null;
+
+function expressions(p) {
+  const all = exprList(p);
+  const items = all.map((x, i) => exprItem(p, x, i, all.length)).join("");
+  return `${U.intro("His faces: the twelve he ships with, which you can change, and new ones of your own.",
+      `Every expression is how his lids sit, how big his eyes are and where they look. Your own can be used anywhere an
+      expression is picked: mood levels, stories, house modes, voice. The open one shows on the live preview.`)}
+    ${U.list({ items, add: U.addButton("ex-add", "+ New expression"), what: "an expression" })}
+    <style>.exmini { display: block; width: 160px; height: 160px; margin: 0 auto 8px; }
+      .exsame { margin: 6px 0; }</style>`;
+}
+
+function exprItem(p, x, i, n) {
+  const key = `x:${x.id}`, open = p.open.has(key);
+  const chips = U.chip(x.builtin ? (x.changed ? "Changed" : "Built in") : "Yours");
+  const summary = U.esc(x.id);
+  if (!open) return U.item({ key, i, n, open, chips, name: x.name, summary, actions: { toggle: "ex-toggle" } });
+  const d = x.def, same = !p.exApart?.has(x.id) && JSON.stringify(d.left) === JSON.stringify(d.right || d.left);
+  const slider = (k, v, min, max, text, hint = "") => `<label class="slider"><span>${U.esc(text)}</span>
+      <input type="range" min="${min}" max="${max}" step="0.01" data-ex="${U.esc(x.id)}" data-k="${k}" value="${v}">
+      <output>${p.fmt(v)}</output>${hint ? `<small>${U.esc(hint)}</small>` : ""}</label>`;
+  const eye = (side, title) => U.card(title, `<div class="sliders">${LIDS.map(([t, lo, hi, h], j) =>
+    slider(`${side}.${j}`, (d[side] || d.left)[j], lo, hi, t, side === "left" ? h : "")).join("")}</div>`);
+  const own = (p.draft.expressions || []).findIndex((e) => e.id === x.id);
+  const names = x.builtin ? `<p class="muted">Built in. A change here replaces it everywhere he uses it.</p>`
+    : `<div class="grid">${U.field("Name", U.text(`expressions.${own}.name`, d.name, { placeholder: "Smug" }))}
+        ${U.idField(`expressions.${own}.id`, x.id, "mood levels, stories, house modes and <code>alfie.set_expression</code>")}</div>`;
+  const shape = d.shapes?.eye || null, st = shape?.type || "";
+  const shapeParams = shape && st !== "path" ? [...Fm.SHAPE_PARAMS[st], ...Fm.SHAPE_COMMON] : [];
+  const shapes = `${U.field("Eyes", `<select data-ex="${U.esc(x.id)}" data-k="shape" data-rerender>${EX_SHAPES.map((t) =>
+      `<option value="${t}" ${t === st ? "selected" : ""}>${U.esc(EX_SHAPE_TEXT[t])}</option>`).join("")}</select>`, "Heart eyes for a loving face, say. He morphs into them.")}
+    ${st === "path" ? `<div class="row pathfrom"><input class="ex-icon" placeholder="An icon: mdi:heart" data-icons="one" autocomplete="off">
+      <button class="flat" data-action="ex-shape-icon" data-name="${U.esc(x.id)}">Use its outline</button></div>` : ""}
+    <div class="sliders">${shapeParams.map(([k, lo, hi, step]) => `<label class="slider"><span>${PARAM_TEXT[k] || U.human(k)}</span>
+      <input type="range" min="${lo}" max="${hi}" step="${step}" data-ex="${U.esc(x.id)}" data-k="shape.${k}" value="${Fm.shapeParam(shape, k)}">
+      <output>${p.fmt(Fm.shapeParam(shape, k))}</output></label>`).join("")}</div>`;
+  const body = `<alfie-card class="exmini" data-expr="${U.esc(x.id)}"></alfie-card>
+    ${names}
+    <label class="check exsame">${U.toggle(null, same, { action: "ex-same" })}<span><b>Same for both eyes</b>
+      <small>Mirrored, as a face usually is.</small></span></label>
+    ${U.cards(same ? eye("left", "Eyes") : eye("left", "Left eye") + eye("right", "Right eye"))}
+    ${U.cards(U.card("Size and gaze", `<div class="sliders">${slider("size", d.size ?? 1, 0.3, 2, "Eye size")}
+      ${slider("look.0", d.look?.[0] ?? 0, -0.4, 0.4, "Look across")}${slider("look.1", d.look?.[1] ?? 0, -0.4, 0.4, "Look up")}</div>`)
+      + U.card("Eye shape", shapes))}`;
+  const footer = x.changed ? `<button class="flat" data-action="ex-reset" data-name="${U.esc(x.id)}">Back to built in</button>` : "";
+  return U.item({ key, i, n, open, chips, name: x.name, summary, body, footer,
+    actions: { toggle: "ex-toggle", dup: "ex-dup", ...(x.builtin ? {} : { del: "ex-del" }) } });
+}
+
+// The open expression holds the dock face; its still redraws from the draft.
+function showExpr(p) {
+  const x = exOpen(p);
+  p.faceHold = !!x;
+  p.face?.previewExpression?.(x ? x.id : null);
+  // After the shell has laid the draft's expressions on the cards (syncFace).
+  setTimeout(() => p.root.querySelectorAll(".exmini").forEach((m) => {
+    m.setConfig?.({ card: false, padding: 0.06 });
+    m.previewLook?.(U.clone(p.draft.look));
+    m.renderStill?.({ expression: m.dataset.expr, energy: 0.9 });
+  }), 0);
+}
+
+function exprInput(p, el, ev) {
+  const id = el.dataset.ex, k = el.dataset.k;
+  // A built-in's first change makes its entry: redraw (chip, Back to built in) once let go.
+  if (!(p.draft.expressions || []).some((x) => x.id === id)) p.exNew = true;
+  const e = ownExpr(p, id);
+  if (!e) return;
+  if (k === "shape") {
+    if (ev.type !== "change") return;
+    const t = el.value;
+    if (!t) delete e.shapes;
+    else e.shapes = { eye: t === "path" ? { type: "path", points: [[0, 1], [-1, -1], [1, -1]] } : { type: t } };
+    p.edited(true);
+    return;
+  }
+  const v = Number(el.value);
+  if (k.startsWith("shape.")) {
+    e.shapes = { eye: Fm.setShapeParam(e.shapes?.eye || { type: "circle" }, k.slice(6), v) };
+  } else if (k === "size") e.size = v;
+  else {
+    const [arr, j] = k.split(".");
+    if (arr === "look") (e.look ??= [0, 0])[Number(j)] = v;
+    else {
+      const same = JSON.stringify(e.left) === JSON.stringify(e.right);
+      e[arr] = [...(e[arr] || e.left)];
+      e[arr][Number(j)] = v;
+      if (arr === "left" && same && !el.closest(".detail")?.querySelector('[data-k^="right."]')) e.right = [...e.left];
+    }
+  }
+  const out = el.parentElement.querySelector("output");
+  if (out) out.textContent = p.fmt(v);
+  const redraw = ev.type === "change" && p.exNew;
+  if (redraw) p.exNew = false;
+  p.edited(redraw);
+  showExpr(p);
+}
+
+function exprClick(p, a, el) {
+  const own = (p.draft.expressions ??= []);
+  const all = exprList(p);
+  const x = all[Number(el.dataset.i)];
+  switch (a) {
+    case "ex-toggle": p.flip(`x:${x.id}`); return true;
+    case "ex-add": case "ex-dup": {
+      const src = a === "ex-dup" ? x.def : FACE.expressions.neutral;
+      const name = a === "ex-dup" ? `${x.name} (copy)` : "New expression";
+      const id = U.slugId([...all, ...own], name, "expression");
+      const { id: _i, name: _n, ...pose } = U.clone(src);
+      own.push({ id, name, ...pose });
+      p.autoId("x", id);
+      for (const k of [...p.open]) if (k.startsWith("x:")) p.open.delete(k);
+      p.open.add(`x:${id}`);
+      p.edited(true);
+      return true;
+    }
+    case "ex-del": {
+      if (!confirm(`Delete the expression "${x.name}"? Anything that uses it will need another.`)) return true;
+      p.draft.expressions = own.filter((e) => e.id !== x.id);
+      p.edited(true);
+      return true;
+    }
+    case "ex-reset":
+      p.draft.expressions = own.filter((e) => e.id !== el.dataset.name);
+      p.edited(true);
+      return true;
+    case "ex-same": {
+      // Apart starts with the right eye as the left; together copies the left over.
+      const id = exOpen(p)?.id, e = ownExpr(p, id);
+      p.exApart ??= new Set();
+      if (el.checked) { p.exApart.delete(id); if (e) e.right = [...e.left]; } else p.exApart.add(id);
+      p.edited(true);
+      return true;
+    }
+    case "ex-shape-icon": {
+      const id = el.dataset.name, name = el.parentElement.querySelector(".ex-icon")?.value.trim();
+      if (!name) return true;
+      IC.iconPath(name).then((r) => {
+        const pts = r && SvgP.outlinePoints(IC.flatten(r.path), 64);
+        if (!pts) { p.flash(`No outline in ${name}`); return; }
+        ownExpr(p, id).shapes = { eye: { type: "path", points: pts } };
+        p.edited(true);
+      });
+      return true;
+    }
+  }
+  return false;
 }
 
 // ------------------------------------------------------------ personality
@@ -215,6 +401,7 @@ function drawLookMini(p, m) {
 
 export function mount(p, sub) {
   p.root.querySelectorAll(".lookmini").forEach((m) => { m.setConfig?.({ card: false, padding: 0.06 }); });
+  if (sub === "expressions") showExpr(p);
   if (sub === "look") {
     applyLook(p);
     if (!Scr.pics(p).list && !Scr.pics(p).loading) Scr.loadPictures(p);
@@ -241,6 +428,7 @@ function pathHooks(p, part) {
 // The shell lets go of the dock face after this (faceHold off, syncFace(true)),
 // so here only the picks are forgotten, to match.
 export function leave(p) {
+  p.face?.previewExpression?.(null);
   if (p.pg) Object.assign(p.pg, { level: null, expr: "", lookExpr: "", energy: 0.8 });
 }
 
@@ -248,8 +436,9 @@ export function leave(p) {
 
 // Sliders and switches that are not a draft path: the playground's, and the shape editor.
 export function tool(p, ev) {
-  const el = ev.target.closest("[data-shape], [data-pg]");
+  const el = ev.target.closest("[data-shape], [data-pg], [data-ex]");
   if (!el) return false;
+  if (el.dataset.ex) { exprInput(p, el, ev); return true; }
   const card = p.face;
   if (el.dataset.pg === "energy") {
     const pg = pgState(p);
@@ -288,7 +477,25 @@ export function afterInput(p, path) {
   }
 }
 
+export function beforeInput(p, path, v) {
+  const m = /^expressions\.(\d+)\.(id|name)$/.exec(path);
+  if (!m) return;
+  const list = p.draft.expressions, i = Number(m[1]);
+  const follow = (from, to) => {
+    Fm.renameFaceRefs(p.draft, "expressions", from, to);
+    // The open editor's controls name it by id: keep them pointing at it.
+    p.root.querySelectorAll(`[data-ex="${CSS.escape(from)}"]`).forEach((el) => { el.dataset.ex = to; });
+    p.root.querySelectorAll(`[data-expr="${CSS.escape(from)}"]`).forEach((el) => { el.dataset.expr = to; });
+    if (p.exApart?.delete(from)) p.exApart.add(to);
+  };
+  if (m[2] === "id") { p.manualId("x", list[i].id); follow(list[i].id, v); p.renameOpen("x", list[i].id, v); }
+  // The shipped names are taken too, so a new "Happy" doesn't replace the built-in.
+  else p.nameToId("x", [...list, ...Object.keys(FACE.expressions).filter((k) => !list.some((e) => e.id === k)).map((id) => ({ id }))],
+    i, v, "expression", `expressions.${i}.id`, follow);
+}
+
 export function click(p, a, el) {
+  if (a.startsWith("ex-")) return exprClick(p, a, el);
   switch (a) {
     case "pg": pgClick(p, el); return true;
     case "play": p.face?.playLocal?.(el.dataset.name); return true;

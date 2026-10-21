@@ -57,6 +57,22 @@ function loadFace() {
   return faceData;
 }
 
+// His own expressions and animations (the config's, from alfie/face) laid
+// over the shipped ones. The face data is shared by every card on the page,
+// as there is one Alfie; `face.rev` changes with it, so expressions re-pose.
+function layFace(face, extra) {
+  face.builtin ??= { expressions: face.expressions, animations: face.animations, compiled: face.compiled };
+  const b = face.builtin, anims = extra?.animations || {};
+  face.expressions = { ...b.expressions, ...(extra?.expressions || {}) };
+  face.animations = { ...b.animations, ...anims };
+  face.compiled = { ...b.compiled };
+  for (const [k, a] of Object.entries(anims)) {
+    try { face.compiled[k] = F.compileAnimation(a); } catch (e) { console.warn(`Alfie: animation ${k}:`, e); }
+  }
+  face.rev = (face.rev || 0) + 1;
+}
+const extrasFetch = new Map();   // face_rev -> Promise of alfie/face, shared by the cards
+
 // Render styles set colour defaults; every colour can still be set alone.
 const STYLES = {
   neon: { color: "#4dffa0", glow: 0.6 },
@@ -388,6 +404,7 @@ class AlfieCard extends HTMLElement {
     this._error = null;
     this._showError();
     if (scene.screens_rev !== this._screensRev) this._fetchScreens(scene.screens_rev);
+    if (scene.face_rev && scene.face_rev !== this._faceRev) this._fetchFace(face, scene.face_rev);
     if (scene.screen?.icon && this._config.icons !== false) this._iconScreen(scene.screen.id, scene.screen.icon);
     this._syncBadges(scene.icons);
     // What is wrong (and which of it asks to join the rotation) reshapes the rotation.
@@ -485,14 +502,48 @@ class AlfieCard extends HTMLElement {
     const e = face.expressions[name];
     const k = this._face.personality.exaggeration;
     const pose = F.exaggerated(F.poseOf(e), F.poseOf(face.expressions.neutral), k);
-    this._face.setExpression(name, pose, t, this._parts(face, e), `${name}|${k}`, blend);
+    this._face.setExpression(name, pose, t, this._parts(face, e), `${name}|${k}|${face.rev || 0}`, blend);
+  }
+
+  // The config's expressions and animations, once per face_rev for the page.
+  async _fetchFace(face, rev) {
+    this._faceRev = rev;
+    if (!extrasFetch.has(rev)) {
+      extrasFetch.set(rev, this._hass.connection.sendMessagePromise({ type: "alfie/face" }).catch((e) => {
+        extrasFetch.delete(rev);
+        throw e;
+      }));
+    }
+    try {
+      const r = await extrasFetch.get(rev);
+      if (face.savedExtras !== r) {
+        face.savedExtras = r;
+        if (!face.previewing) layFace(face, r);
+      }
+      this._replay();
+    } catch (e) {
+      this._faceRev = undefined;     // try again with the next scene
+      console.warn("Alfie: can't load his expressions", e);
+    }
+  }
+
+  // The panel's draft expressions and animations on every card of the page,
+  // before saving; null goes back to the saved ones.
+  async previewFace(extra) {
+    const face = await loadFace();
+    face.previewing = !!extra;
+    layFace(face, extra || face.savedExtras || null);
+    this._replay();
   }
 
   // The unit outlines for an expression: the face's shapes, this card's
   // `shapes` over them, the expression's own eye shapes over those. Memoised,
   // so the same outlines are the same objects (and a re-sent scene is free).
   _parts(face, expr) {
-    const spec = { ...face.shapes, ...(this._config.shapes || {}), ...(expr.shapes || {}) };
+    const spec = { ...face.shapes, ...(this._config.shapes || {}) };
+    // An expression's own `eye` beats the look's separate eyes (heart eyes on both).
+    if (expr.shapes?.eye) { delete spec.left_eye; delete spec.right_eye; }
+    Object.assign(spec, expr.shapes || {});
     const key = JSON.stringify(spec);
     this._partsCache ??= new Map();
     let p = this._partsCache.get(key);
