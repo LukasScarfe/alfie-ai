@@ -302,7 +302,10 @@ Reactions → Motion & idle; they are not triggers.
   - `signal`: any or chosen signals go bad, recover, or either;
   - `wake`: Alfie wakes up or falls asleep.
 
-  Voice activity becomes a kind in M6. Every trigger also has: the story it plays, a **priority**
+  - `voice`: a voice satellite (any, or chosen ones) starts listening, thinking, answering, or is
+    done.
+
+  Every trigger also has: the story it plays, a **priority**
   (0 to 100), **when busy** (`auto`: a higher priority interrupts, otherwise it queues; `queue`;
   `interrupt`; `skip`), a **cooldown**, **even while he sleeps**, and **only while the mood is**.
   Entity and motion triggers are fed by the engine's one filtered listener. The other kinds are
@@ -547,15 +550,43 @@ letters: accents drop to the base letter, and letters it can't decompose (Ł) ar
 
 ## Voice
 
+Built in M6. Config section `voice`; the panel's Voice section (Assistants, Agents).
+
 - **Works with whatever voice assistant the user already has.** Alfie watches **every
   `assist_satellite` entity** (Voice PE, ESPHome ESP32 builds, the voice-satellite card on a
-  tablet). It never relies on named devices.
+  tablet) through the engine's one filtered listener, or only those in `voice.satellites`. It
+  never relies on named devices. The followed satellites that are listening, thinking or answering
+  go out in the scene as `voice` (never entity state); each phase also fires `alfie_voice`
+  (`satellite`, `phase`: listening, processing, responding, done).
 - He takes the face role and shows personality **only while a voice assistant is listening,
-  thinking or speaking**.
-- The integration exposes **what's wrong** to HA's voice agents (an LLM API/tool and an intent,
-  plus readable entity state), so "is anything wrong?" gets a real answer from any agent.
-- Optional deeper control: a persona prompt in his name, mood-aware replies, and unprompted TTS
-  announcements on chosen speakers as a story step.
+  thinking or speaking**. On a card that follows that satellite (card option `voice`: all, the
+  default; chosen, with `voice_satellites`; or none), the rotation waits and he comes on, as for a
+  story; a house mode that hides him gives way too. Listening and thinking wear
+  `listening_expression` (default surprised), with `listening_animation` once as he starts.
+  Thinking plays `processing_animation` (default processing) over and over. A trigger story beats
+  all of this. `while_asleep` (default on) lets a sleeping Alfie take part.
+- **Speaking without a mouth** (Lukas, 2026-10-20: all of them as options): `speak_style` is
+  **pulse** (the ring breathes out on each syllable; the default), **eyes** (the eyes grow and lift
+  a little), **both**, or **wave** (the ring ripples like a sound wave). `speak_strength` scales
+  it, and a card's `speak_style` / `speak_strength` override Alfie's. The rhythm (`speechLevel` in
+  alfie-face.js) is a few incommensurate sines with phrase pauses, so it never visibly repeats.
+  When the satellite goes back to idle he plays `after` (default nod).
+- A trigger kind `voice` fires a story when chosen (or any) satellites start a phase or are done.
+- **What's wrong for voice agents**, all opt-in so installing Alfie changes no one's assistant:
+  - the **Alfie LLM API**, ticked in an LLM agent's settings beside Assist. It brings the tool
+    `alfie__whats_wrong` (the bad signals worst first, with up to 5 entities each with their
+    states, how long, the mood, the good signals) and a prompt: the persona when `persona` is
+    on (`persona_prompt`, "Alfie" becomes his name), and with `mood_aware` (default on) one line on
+    how he feels and why, asking the agent to let it show a little;
+  - `assist_tool` adds the same tool to Assist through HA's LLM tools platform (`llm.py`);
+  - `intent` registers the intent `AlfieWhatsWrong` and `sentences` (HA's template syntax) with
+    HA's own agent, answered by a short spoken summary;
+  - `sensor.alfie_mood` has a `problems` attribute (unrecorded): what is wrong, in words.
+- **Speaking out loud**: a story's Speak step and `alfie.say` say a line. Satellites announce it
+  (`assist_satellite.announce`); media players get `tts.speak` through `tts_entity` (else the
+  first TTS engine) in `language`. With no speakers named, `speak_targets`, else every satellite
+  he follows. A Speak step's text takes `{name}`, `{mood}`, `{reason}` and `{wrong}`, and it can
+  wait while he talks (about 14 characters a second).
 - Lukas's setup today: the Android Companion app's native pipeline exposes **no** satellite states.
   The current face uses a hack that triggers on `conversation.*` entity state timestamps at reply
   time. His tablet will move to the voice-satellite card to become a real `assist_satellite`. His
@@ -773,14 +804,14 @@ automations, as of 2026-10-18:
   A 20 s debounce turns a run of motion across rooms into one glance.
 - **Idle fidget:** one random animation every 3 min (squint, eye_roll, scan, glance_left,
   glance_right, sigh or look_around). Alfie scales the interval with energy.
-- **Mood flips to critical:** a startle. **Voice reply:** processing, then a nod after 2 s
-  (moves to M6).
+- **Mood flips to critical:** a startle. **Voice reply:** processing, then a nod (Voice's
+  `processing_animation` and `after`).
 - **Reactions are settings:** `on_critical` (default startle), `on_recover` (nod) and `on_wake`
   (wake_up) each name an animation, and `""` means none.
 
 ## Open questions
 
-1. How Alfie shows "speaking" without a mouth (ring pulse? eye rhythm?).
+None at the moment.
 
 ## Reference: Lukas's environment
 
