@@ -1,20 +1,74 @@
 # Alfie: handoff
 
-**Milestones 1 to 3 are done.**
-- **M4 (Triggers and stories):** approved by Lukas from the screenshots. Its tablet check F is
-  still open.
-- **M5 (House modes):** built and checked in dev HA. Its tablet check F is still open.
-- **5½ (Settings tidy-up):** built and checked in dev HA, with the PNGs sent to Lukas (A to E).
-  F is waiting on his review.
-- **5¾ (Icons):** built and checked in dev HA, with the PNGs sent to Lukas (A to E). F is
-  waiting on his review.
-- **5⅞ (Oscilloscope):** A to D and F (the settings page) are done; the sidecar runs on
-  Numbat. E (Lukas on the CRT) is open.
-- **5⅝ (Panel style):** A to F done; G (Lukas's review of the screenshots) is open.
+**Milestones 1 to 3 are done.** Waiting on Lukas:
+- **M4 (Triggers and stories):** approved by Lukas from the screenshots. Tablet check F is still
+  open.
+- **M5 (House modes):** built and checked in dev HA. Tablet check F is still open.
+- **5½ (Settings tidy-up):** PNGs A to E sent. F is waiting on his review.
+- **5¾ (Icons):** PNGs A to E sent. F is waiting on his review.
+- **5⅞ (Oscilloscope):** A to D and F are done. E (Lukas on the CRT) is open.
+- **5⅝ (Panel style):** A to F done. G (his review of the screenshots) is open.
+- **M6 (Voice), in progress:** A to E are done and deployed to production (0.11.0).
+  - F: the PNGs are sent (voice sheet, dev dashboard listening, the Voice panel pages).
+  - Still open in F: **ask Lukas** before ticking the Alfie API on the Gemini agent, or turning on
+    `assist_tool` / `intent` on production, because that changes the household's voice pipeline.
+    Then try it on the S7+ (`assist_satellite.s7_assist_satellite`, followed, idle when deployed).
+  - G: Lukas's review.
 
-Version 0.10.0.
+Version 0.11.0.
 
-**Latest (0.10.0): automation hooks** (design.md "Automations"). Services moved to
+**Latest (0.11.0): Voice** (design.md "Voice"; plan.md M6 for the steps).
+- **Model:**
+  - Config section `voice` (missing → defaults, so no version bump).
+  - Trigger kind `voice` (`satellites`, `phase`; `triggers.voice_phase` / `voice_fires`).
+  - The speak step gained `targets`, `tts_entity`, `wait` and `{name} {mood} {reason} {wrong}`
+    (`stories.fill`, Context gained name / level / reason / wrong_names).
+- **Engine:**
+  - `assist_satellite.*` joins `_relevant` while voice is on or a voice trigger exists.
+  - `_voice_change` keeps `self.voice` (followed, active only), fires `alfie_voice`, plays
+    `after` on done, and returns voice triggers. The scene gains `voice`
+    (`{satellites, look}`), not in `state_key`.
+  - `speak()`: satellites announce it, media players get `tts.speak`, all non-blocking.
+    `alfie.say` and WS `alfie/voice/say` use it.
+- **Agents:**
+  - `tell.py` (pure) builds the tool data, the spoken answer, the mood line and the sensor's
+    `problems`.
+  - `voice.py`: `AlfieAPI` (always registered; the user ticks it in an agent), `WhatsWrongTool`
+    (`alfie__whats_wrong`) and `WhatsWrongIntent`. Its sentences go through
+    `conversation.agent_manager.get_agent_manager().register_trigger`, an internal API wrapped
+    in try/except.
+  - `llm.py` is HA's LLM tools platform (HA 2026.x): the tool joins Assist when `assist_tool`
+    is on.
+  - Persona, Assist tool and intent all default **off**. WS `alfie/voice/status` shows what
+    agents get.
+- **Card:**
+  - Options `voice` (all / chosen / none), `voice_satellites`, `speak_style` and
+    `speak_strength`.
+  - `_voice()` picks the latest followed satellite, and `_wanted` waits like a story.
+    `_blank()` gives way to it.
+  - The listening expression covers listening and thinking. The thinking animation loops in
+    `_loop`.
+  - Speaking: `F.speechLevel`, `speakingChannels` (eyes) and `speakingHead` (pulse, wave) in
+    `alfie-face.js`.
+  - `previewVoice(state, look)` is the panel's Try it. The harness has `sheet=voice`.
+- **Panel:**
+  - `panel/voice.js` (Assistants, Agents).
+  - The shell gained input kinds `list` (comma separated) and `lines`.
+  - Reactions has the voice trigger kind and the speak step's speakers. The card editor has
+    the voice rows.
+- **Checked:**
+  - In dev HA: a fake `assist_satellite.fake_tablet` drives the cards, and the intent answers
+    "is anything wrong" and "what's wrong at home" through `conversation/process` (and stops
+    when it is off). `llm/api/list` shows Alfie.
+  - On production: no errors, the S7+ is followed, the Alfie API is listed.
+  - Not yet: a real LLM tool call, real TTS (neither exists in dev).
+- **Gotchas:**
+  - Shot stills of the speaking styles can land on a pause between syllables.
+  - The dev HA's saved voice config keeps the sentences it was saved with.
+  - `devws.py`-style access to dev HA: prodtool's `WS` with HOST, PORT and `_token`
+    overridden by devtool's token.
+
+**Before that (0.10.0): automation hooks** (design.md "Automations"). Services moved to
 `services.py` (a table of handlers and schemas); `automation.py` (pure) builds the dropdowns,
 set at runtime with `async_set_service_schema` on start and through `engine.config_hooks`
 after each config change. Engine: `holds` / `hold()` / `_release` laid over the mode as

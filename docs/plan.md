@@ -168,7 +168,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         four speaking styles, harness `sheet=voice`; checks.
   - [x] E. Panel: Voice section (Assistants, Agents; Try it on the dock face, Say it), `voice` trigger
         kind, speak step speakers and wait, card editor rows (voice, satellites, speaking).
-  - [ ] F. Dev HA PNGs to Lukas; prod deploy against the S7+ (Lukas's OK before ticking the
+  - [~] F. Dev HA PNGs to Lukas (sent); prod deploy (done, 0.11.0) against the S7+ (Lukas's OK before ticking the
         API on the Gemini agent); design.md; 0.11.0.
   - [ ] G. Lukas's review.
 - [ ] **7. Editors and polish.** Shape (freehand path), expression and animation editors,
