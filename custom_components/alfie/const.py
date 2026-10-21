@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 DOMAIN = "alfie"
-VERSION = "0.11.5"           # keep equal to manifest.json (a test checks)
+VERSION = "0.12.0"           # keep equal to manifest.json (a test checks)
 
 CONF_NAME = "name"
 DEFAULT_NAME = "Alfie"

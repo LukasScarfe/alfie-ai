@@ -139,6 +139,10 @@ const DEFAULTS = {
   text_color: null,       // screen text; null takes the face colour
   accent_color: null,     // screen accents; null takes the face colour
   line_color: null,       // screen lines (plots, bars, pictures); null takes the style's, then the face colour
+  tap_action: { action: "why" },          // why: his why panel over the card; or any HA action (navigate, more-info, …)
+  hold_action: { action: "more-info" },
+  double_tap_action: { action: "none" },
+  entity: null,           // for more-info and toggle; null finds his mood sensor
   screen_line_width: 0.02, // ring radii: screens draw finer than the face
   icons: true,            // false: this card ignores icons (alfie.show_icon, a story's icon steps)
   voice: "all",           // which voice satellites bring Alfie on here: all, chosen (voice_satellites) or none
@@ -442,6 +446,7 @@ class AlfieCard extends HTMLElement {
     this._showError();
     if (scene.screens_rev !== this._screensRev) this._fetchScreens(scene.screens_rev);
     if (scene.face_rev && scene.face_rev !== this._faceRev) this._fetchFace(face, scene.face_rev);
+    if (this._whyEl && !this._whyEl.hidden) this._whyEl.innerHTML = this._whyHtml();
     if (scene.screen?.icon && this._config.icons !== false) this._iconScreen(scene.screen.id, scene.screen.icon);
     this._syncBadges(scene.icons);
     // What is wrong (and which of it asks to join the rotation) reshapes the rotation.
@@ -605,17 +610,123 @@ class AlfieCard extends HTMLElement {
         canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
         .msg { position: absolute; inset: auto 0 8px 0; text-align: center; font: 13px sans-serif;
                color: var(--secondary-text-color, #aaa); }
+        .wrap.tappable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .why { position: absolute; inset: 0; overflow: auto; padding: 14px 16px; box-sizing: border-box;
+               background: color-mix(in srgb, var(--card-background-color, #1c1c1c) 93%, transparent);
+               color: var(--primary-text-color, #e1e1e1); font: 13px/1.45 var(--paper-font-body1_-_font-family, sans-serif); }
+        .why[hidden] { display: none; }
+        .why h3 { margin: 0 0 2px; font-size: 16px; font-weight: 500; }
+        .why h4 { margin: 10px 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+                  color: var(--secondary-text-color, #aaa); font-weight: 500; }
+        .why p { margin: 0; } .why ul { margin: 0; padding-left: 18px; }
+        .why .bad { color: var(--error-color, #db4437); } .why .good { color: var(--success-color, #43a047); }
+        .why .v { color: var(--secondary-text-color, #aaa); }
       </style>
       ${c.card ? "<ha-card>" : '<div class="bare">'}
-        <div class="wrap"><canvas></canvas><div class="msg"></div></div>
+        <div class="wrap"><canvas></canvas><div class="msg"></div><div class="why" hidden></div></div>
       ${c.card ? "</ha-card>" : "</div>"}`;
     this._canvas = this.shadowRoot.querySelector("canvas");
     this._msg = this.shadowRoot.querySelector(".msg");
+    this._whyEl = this.shadowRoot.querySelector(".why");
+    this._gestures(this.shadowRoot.querySelector(".wrap"));
     this._ro?.disconnect();
     this._ro = new ResizeObserver(() => this._resize());
     this._ro.observe(this._canvas);
     this._colors = null;
     this._showError();
+  }
+
+  // ------------------------------------------------------------ tap, hold, double tap
+
+  // Tap, hold (half a second) and double tap, each to its action. A tap waits
+  // for a second one only when there is a double-tap action.
+  _gestures(wrap) {
+    if (!wrap) return;
+    const act = (k) => this._config[`${k}_action`]?.action || "none";
+    wrap.classList.toggle("tappable", ["tap", "hold", "double_tap"].some((k) => act(k) !== "none"));
+    let holdTimer = null, held = false, lastTap = 0, tapTimer = null, from = null;
+    wrap.addEventListener("pointerdown", (e) => {
+      if (this._still || e.button > 0) return;
+      held = false;
+      from = [e.clientX, e.clientY];
+      holdTimer = setTimeout(() => { held = true; this._act("hold"); }, 500);
+    });
+    const cancel = () => { clearTimeout(holdTimer); holdTimer = null; };
+    // A drag (scrolling the why panel, say) is no tap.
+    wrap.addEventListener("pointermove", (e) => { if (holdTimer && from && Math.hypot(e.clientX - from[0], e.clientY - from[1]) > 10) cancel(); });
+    wrap.addEventListener("pointerleave", cancel);
+    wrap.addEventListener("pointercancel", cancel);
+    wrap.addEventListener("pointerup", (e) => {
+      if (this._still || !holdTimer) return;
+      cancel();
+      if (held) return;
+      e.preventDefault();
+      if (act("double_tap") === "none") { this._act("tap"); return; }
+      const now = Date.now();
+      if (now - lastTap < 250) { clearTimeout(tapTimer); lastTap = 0; this._act("double_tap"); return; }
+      lastTap = now;
+      tapTimer = setTimeout(() => this._act("tap"), 250);
+    });
+  }
+
+  // One gesture's action: "why" is his own panel; anything else goes to HA
+  // as a hass-action event, the way HA's own cards do it.
+  _act(kind) {
+    const cfg = this._config[`${kind}_action`];
+    if (!cfg || cfg.action === "none") return;
+    if (this._whyEl && !this._whyEl.hidden) { this._showWhy(false); if (kind === "tap") return; }
+    if (cfg.action === "why") { this._showWhy(true); return; }
+    const entity = this._config.entity || Object.keys(this._hass?.states || {})
+      .find((e) => e.startsWith("sensor.") && e.endsWith("_mood") && "reason" in (this._hass.states[e].attributes || {})) || "sensor.alfie_mood";
+    this.dispatchEvent(new CustomEvent("hass-action", { bubbles: true, composed: true,
+      detail: { config: { entity, [`${kind}_action`]: cfg }, action: kind } }));
+  }
+
+  // The why panel: what he feels and why, what is on show and why, the house mode.
+  // It stays until tapped (or 20 s), and refreshes with the scene while open.
+  _showWhy(on) {
+    const el = this._whyEl;
+    if (!el) return;
+    clearTimeout(this._whyTimer);
+    el.hidden = !on;
+    if (!on) return;
+    el.innerHTML = this._whyHtml();
+    this._whyTimer = setTimeout(() => this._showWhy(false), 20000);
+  }
+
+  _whyHtml() {
+    const s = this._scene, st = this._hass?.states || {};
+    const esc = (v) => String(v ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
+    const human = (v) => String(v || "").replace(/_/g, " ").replace(/^./, (ch) => ch.toUpperCase());
+    if (!s) return `<h3>Alfie</h3><p>Not connected to Alfie yet.</p>`;
+    const level = human(s.mood?.level);
+    const value = (e) => {
+      const x = st[e];
+      if (!x) return `<span class="v">${esc(e)}: unknown</span>`;
+      const unit = x.attributes?.unit_of_measurement ? ` ${x.attributes.unit_of_measurement}` : "";
+      return `${esc(x.attributes?.friendly_name || e)} <span class="v">${esc(x.state)}${esc(unit)}</span>`;
+    };
+    const sig = (x) => `<li><span class="${x.kind === "bad" ? "bad" : "good"}">${esc(x.name)}</span>
+      ${x.entities?.length ? `<br>${x.entities.slice(0, 4).map(value).join("<br>")}${x.entities.length > 4 ? ` <span class="v">and ${x.entities.length - 4} more</span>` : ""}` : ""}</li>`;
+    const bad = (s.signals || []).filter((x) => x.kind === "bad"), good = (s.signals || []).filter((x) => x.kind !== "bad");
+    const title = (id) => this._screenIndex?.get(id)?.title || human(id);
+    let showing = "Just him.";
+    if (s.screen && this._override === s.screen.id) {
+      showing = s.story ? `${esc(title(s.screen.id))}, in the story ${esc(human(s.story.id))}${s.story.reason ? `: ${esc(s.story.reason)}` : ""}.`
+        : `${esc(title(s.screen.id))}, as an automation asked.`;
+    }
+    else if (s.story) showing = `The story ${esc(human(s.story.id))}${s.story.reason ? `: ${esc(s.story.reason)}` : ""}.`;
+    else if (this._override === "voice") showing = "Listening to a voice assistant.";
+    else if (this._cur?.id && this._rot?.steps) showing = `${esc(title(this._cur.id))}, in turn in the rotation.`;
+    else if (this._rot?.steps) showing = "His turn in the rotation.";
+    const mode = s.mode_info || {};
+    return `<h3>${esc(s.name || "Alfie")} is ${esc(level.toLowerCase())}${s.asleep ? ", and asleep" : ""}</h3>
+      <p>${esc(s.reason || "Nothing is wrong or right.")}</p>
+      ${bad.length ? `<h4>What's wrong</h4><ul>${bad.map(sig).join("")}</ul>` : ""}
+      ${good.length ? `<h4>What's good</h4><ul>${good.map(sig).join("")}</ul>` : ""}
+      <h4>On show</h4><p>${showing}</p>
+      <h4>House mode</h4><p>${esc(mode.name || "Normal")}${mode.why?.length ? ` <span class="v">(${mode.why.map((e) => esc(st[e]?.attributes?.friendly_name || e)).join(", ")})</span>` : ""}</p>
+      <h4>Face</h4><p>${esc(human(s.expression))}, energy ${Math.round((s.mood?.energy ?? 0.8) * 100)}%${s.personality?.preset ? `, ${esc(s.personality.preset)}` : ""}</p>`;
   }
 
   _showError() {
