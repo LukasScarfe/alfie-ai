@@ -3,16 +3,42 @@
 **Milestones 1 to 6 are done.** Lukas approved everything up to M6 on 2026-10-20.
 
 **M7 (Editors and polish), in progress.** The steps are in plan.md M7 (A to H):
-- **A. Pictures: done** (0.11.1, below).
-- **Next: B, the shape editor.** A `path` point editor on Look (drag, add, delete, roundness),
-  left and right eyes apart, and "From picture" (`alfie-svg.js` `pictureContours` gives an
-  uploaded SVG's outline to turn into a path).
-- Then C (expressions), D (animations), E (styles and themes), F (why panel and tap actions),
-  G (finish, 0.12.0) and H (Lukas's review).
+- **A. Pictures: done** (0.11.1).
+- **B. Shape editor: done** (0.11.2, below).
+- **Next: C, the expression editor.**
+  - A config section `expressions`, holding custom expressions and overrides of the 12
+    built-ins. The validator merges their names wherever expression names are checked
+    (`config.py` builds them from `face["expressions"]` around line 818).
+  - The cards need the custom poses: through the scene's look, or `alfie/screens`-style data.
+  - A new Appearance → Expressions sub-tab, with each eye's lids, size and look, optional eye
+    shapes, and a preview on the dock.
+- Then D (animations), E (styles and themes), F (why panel and tap actions), G (finish,
+  0.12.0) and H (Lukas's review).
 
-Version 0.11.1.
+Version 0.11.2.
 
-**Latest (0.11.1): Pictures** (design.md "Screens" → picture; screens-contract.md).
+**Latest (0.11.2): the shape editor** (design.md "The character" → Editors 1).
+- **Point editor:** `panel/shape-editor.js` is an SVG point editor (`html`, `wire`, `paint`,
+  `removeAt`). Appearance → Look uses it for every `path` part.
+- **Look changes:**
+  - Drawn is now a normal shape type.
+  - "Shape the left and right eyes apart" (`eyes-apart`).
+  - "From a picture or icon" under each shape.
+- **Pure helpers:**
+  - `alfie-svg.js` `outlinePoints` takes the biggest ring, simplifies it by RDP and fits it to
+    [-1, 1] counter-clockwise.
+  - `alfie-panel-forms.js` gains `mirrorSpec`, `pathSeed` and `changeShapeType(spec, type,
+    outlineOf)`.
+- **Face:** `alfie-face.js` `outline` now walks a path along its edge even at roundness 0.
+- `panel/screens.js` exports `pics`, `loadPictures` and `pictureSvg` for Look.
+- **Checked in dev HA:**
+  - A drawn rounded head, a star left eye and a concave drawn right eye render on the
+    dashboard.
+  - A scripted drag, add, remove and "mdi:heart outline" in the panel all land in the draft:
+    `devenv/out/m7/drag.js` (shot `--eval`).
+
+
+**Before that (0.11.1): Pictures** (design.md "Screens" → picture; screens-contract.md).
 - **Server:**
   - `pictures.py` (pure): `sanitise` keeps the drawable SVG subset and `PictureStore` handles
     `<config>/alfie/pictures/<id>.svg` plus `index.json`.

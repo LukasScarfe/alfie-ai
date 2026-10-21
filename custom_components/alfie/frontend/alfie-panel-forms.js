@@ -46,7 +46,16 @@ export const SHAPE_PARAMS = {
   polygon: [["sides", 3, 12, 1, 4], ["roundness", 0, 1, 0.05, 0]],
   star: [["points", 3, 12, 1, 5], ["inner", 0.1, 0.95, 0.05, 0.5], ["roundness", 0, 1, 0.05, 0]],
   superellipse: [["n", 0.5, 8, 0.1, 4]],
+  path: [["roundness", 0, 1, 0.05, 0]],
 };
+
+// A spec as seen in a mirror (x to -x): what the right eye is of a left one.
+export function mirrorSpec(spec) {
+  const out = { ...spec };
+  if (spec.rotation) out.rotation = -spec.rotation;
+  if (Array.isArray(spec.points)) out.points = spec.points.map(([x, y]) => [-x, y]).reverse();
+  return out;
+}
 export const SHAPE_COMMON = [["rotation", -180, 180, 5, 0], ["stretch_x", 0.3, 2, 0.05, 1], ["stretch_y", 0.3, 2, 0.05, 1]];
 
 // A shape spec with one param set; a param back at its default is dropped.
@@ -73,11 +82,23 @@ export function shapeParam(spec, param) {
 }
 
 // A new spec of another type keeps only what still makes sense (rotation, stretch).
-export function changeShapeType(spec, type) {
+export function changeShapeType(spec, type, outlineOf = null) {
   const out = { type };
   if (spec.rotation) out.rotation = spec.rotation;
   if (spec.stretch) out.stretch = spec.stretch;
+  // A path starts as the shape it was, its rotation and stretch baked in.
+  if (type === "path") {
+    delete out.rotation; delete out.stretch;
+    out.points = outlineOf ? pathSeed(outlineOf(spec)) : [[0, 1], [-1, -1], [1, -1]];
+  }
   return out;
+}
+
+// About 12 corners picked evenly from a dense outline (y up), rounded to 3 places.
+export function pathSeed(pts, n = 12) {
+  const r = (v) => Math.round(v * 1000) / 1000;
+  const step = Math.max(1, Math.floor(pts.length / n));
+  return pts.filter((_, i) => i % step === 0).slice(0, n).map(([x, y]) => [r(x), r(y)]);
 }
 
 // An id not yet in `list` (items with .id), built from `base`.

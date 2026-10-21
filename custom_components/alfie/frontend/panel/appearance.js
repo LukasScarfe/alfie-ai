@@ -6,6 +6,11 @@
 const V = new URL(import.meta.url).search;
 const U = await import(`./ui.js${V}`);
 const Fm = await import(`../alfie-panel-forms.js${V}`);
+const Face = await import(`../alfie-face.js${V}`);
+const SvgP = await import(`../alfie-svg.js${V}`);
+const IC = await import(`../alfie-icons.js${V}`);
+const PE = await import(`./shape-editor.js${V}`);
+const Scr = await import(`./screens.js${V}`);
 
 export const id = "appearance";
 export const title = "Appearance";
@@ -30,7 +35,7 @@ export const SLIDER_TEXT = {
   blink_rate: ["Blinking", "How often he blinks."],
 };
 const PREVIEW_ANIMS = ["glance_left", "nod", "look_around", "laugh", "startle", "sigh"];
-const SHAPE_TEXT = { circle: "Circle", polygon: "Polygon", star: "Star", superellipse: "Superellipse", path: "Path (edit in YAML)" };
+const SHAPE_TEXT = { circle: "Circle", polygon: "Polygon", star: "Star", superellipse: "Superellipse", path: "Drawn (move the corners)" };
 const PARAM_TEXT = { sides: "Sides", roundness: "Roundness", points: "Points", inner: "Inner size", n: "Squareness",
   rotation: "Rotation", stretch_x: "Stretch across", stretch_y: "Stretch up" };
 
@@ -52,9 +57,11 @@ function look(p) {
   const range = (path, v, min, max, step, text) => `<label class="slider"><span>${text}</span>
       <input type="range" min="${min}" max="${max}" step="${step}" data-path="${path}" data-kind="number" value="${v}">
       <output>${p.fmt(v)}</output></label>`;
-  const shapes = [["head", "Ring"], ["eye", "Eyes"]].map(([part, t]) => shapeEditor(p, part, t, Lk.shapes?.[part])).join("");
-  const extra = Lk.shapes && (Lk.shapes.left_eye || Lk.shapes.right_eye)
-    ? `<p class="muted">A separate left or right eye shape is kept as it is; edit it in YAML.</p>` : "";
+  const apart = eyesApart(Lk);
+  const parts = [["head", "Ring"], ...(apart ? [["left_eye", "Left eye"], ["right_eye", "Right eye"]] : [["eye", "Eyes"]])];
+  const shapes = parts.map(([part, t]) => shapeEditor(p, part, t, partSpec(Lk, part))).join("");
+  const extra = `<label class="check">${U.toggle(null, apart, { action: "eyes-apart" })}<span><b>Shape the left and right eyes apart</b>
+      <small>Off: the right eye is the left one in a mirror.</small></span></label>`;
   return `${U.intro("How Alfie is drawn on every card. A card's own options (in its editor) still win over these, one by one.")}
     ${U.card("Style and colour", `<div class="grid">${U.field("Style", U.select("look.style", Lk.style, (p.choices.styles || CARD_STYLES).map((s) => [s, STYLE_TEXT[s] || U.human(s)])),
         "Sets the default colours and glow.")}${colors}</div>
@@ -66,7 +73,8 @@ function look(p) {
       ${U.card("Glow and fill", `<label class="check">${U.toggle(null, Lk.glow == null, { action: "look-glow" })}<span><b>Glow from the style</b></span></label>
         ${Lk.glow == null ? "" : `<div class="sliders">${range("look.glow", Lk.glow, 0, 2, 0.05, "Glow")}</div>`}
         ${U.check("look.eye_fill", Lk.eye_fill, "Fill the eyes")}`)}`)}
-    <h3 class="cards-title">Shapes</h3>${U.cards(shapes)}${extra}`;
+    <h3 class="cards-title">Shapes</h3>${extra}${U.cards(shapes)}
+    <style>${PE.STYLE} .pathfrom { gap: 6px; flex-wrap: wrap; } .pathfrom select, .pathfrom input { flex: 1 1 120px; min-width: 0; }</style>`;
 }
 
 // Under the dock face: Look's four stills and expression picks, and
@@ -86,14 +94,26 @@ export function dock(p, sub) {
     </style>`;
 }
 
+// Separate eyes: a left or right eye spec of its own (the right is then not mirrored).
+const eyesApart = (Lk) => !!(Lk.shapes?.left_eye || Lk.shapes?.right_eye);
+const partSpec = (Lk, part) => Lk.shapes?.[part] || (part.endsWith("_eye") ? (part === "right_eye" && Lk.shapes?.eye
+  ? Fm.mirrorSpec(Lk.shapes.eye) : Lk.shapes?.eye) : null) || { type: "circle" };
+
 function shapeEditor(p, part, t, spec) {
   spec ||= { type: "circle" };
   const type = spec.type || "circle";
-  const types = [...Object.keys(Fm.SHAPE_PARAMS), ...(type === "path" ? ["path"] : [])];
-  const params = type === "path" ? [] : [...Fm.SHAPE_PARAMS[type], ...Fm.SHAPE_COMMON];
+  const types = Object.keys(Fm.SHAPE_PARAMS);
+  const params = [...Fm.SHAPE_PARAMS[type], ...Fm.SHAPE_COMMON];
+  const P = Scr.pics(p);
+  const picOpts = (P.list || []).map((m) => `<option value="${U.esc(m.id)}">${U.esc(m.name)}</option>`).join("");
+  const from = `<div class="row pathfrom"><select class="path-pic" data-part="${part}" aria-label="Picture">
+      <option value="">${P.list ? (P.list.length ? "A picture…" : "No pictures yet") : "Pictures…"}</option>${picOpts}</select>
+      <input class="path-icon" data-part="${part}" placeholder="or an icon: mdi:heart" data-icons="one" autocomplete="off">
+      <button class="flat" data-action="path-from" data-part="${part}">Use its outline</button></div>`;
   return `<section class="card shape"><h3>${U.esc(t)}</h3>${U.field("Shape", `<select data-shape="${part}" data-param="type">${types.map((x) =>
       `<option value="${x}" ${x === type ? "selected" : ""}>${SHAPE_TEXT[x]}</option>`).join("")}</select>`)}
-    ${type === "path" ? `<p class="muted">A custom path. Edit its points in YAML; it is kept untouched here.</p>` : ""}
+    ${type === "path" ? PE.html(part) : ""}
+    ${U.more(p, `from:${part}`, from, "From a picture or icon")}
     ${params.map(([k, min, max, step]) => `<label class="slider"><span>${PARAM_TEXT[k] || U.human(k)}</span>
       <input type="range" min="${min}" max="${max}" step="${step}" data-shape="${part}" data-param="${k}" value="${Fm.shapeParam(spec, k)}">
       <output>${p.fmt(Fm.shapeParam(spec, k))}</output></label>`).join("")}</section>`;
@@ -195,7 +215,27 @@ function drawLookMini(p, m) {
 
 export function mount(p, sub) {
   p.root.querySelectorAll(".lookmini").forEach((m) => { m.setConfig?.({ card: false, padding: 0.06 }); });
-  if (sub === "look") applyLook(p);
+  if (sub === "look") {
+    applyLook(p);
+    if (!Scr.pics(p).list && !Scr.pics(p).loading) Scr.loadPictures(p);
+    p.root.querySelectorAll(".pathed").forEach((el) => PE.wire(el, pathHooks(p, el.dataset.part)));
+  }
+}
+
+// The point editor's hooks: live edits go straight into the draft, and the
+// dock and the stills follow at most once a frame.
+let lookFrame = 0;
+function pathHooks(p, part) {
+  const Lk = p.draft.look;
+  return {
+    get: () => partSpec(Lk, part),
+    set: (spec) => {
+      (Lk.shapes ??= {})[part] = spec;
+      p.edited();
+      if (!lookFrame) lookFrame = requestAnimationFrame(() => { lookFrame = 0; applyLook(p); });
+    },
+    done: () => {},
+  };
 }
 
 // The shell lets go of the dock face after this (faceHold off, syncFace(true)),
@@ -224,10 +264,10 @@ export function tool(p, ev) {
   } else if (el.dataset.shape) {
     const part = el.dataset.shape, Lk = p.draft.look;
     Lk.shapes ??= {};
-    let spec = Lk.shapes[part] || { type: "circle" };
+    let spec = partSpec(Lk, part);
     if (el.dataset.param === "type") {
       if (ev.type !== "change") return true;
-      Lk.shapes[part] = Fm.changeShapeType(spec, el.value);
+      Lk.shapes[part] = Fm.changeShapeType(partSpec(Lk, part), el.value, (sp) => Face.outline(sp, 48));
       p.edited(true);
     } else {
       spec = Fm.setShapeParam(spec, el.dataset.param, Number(el.value));
@@ -258,6 +298,26 @@ export function click(p, a, el) {
       p.edited(true);
       return true;
     }
+    case "eyes-apart": {
+      const sh = (p.draft.look.shapes ??= {});
+      if (el.checked) {
+        const eye = sh.eye || { type: "circle" };
+        sh.left_eye = U.clone(eye);
+        sh.right_eye = Fm.mirrorSpec(eye);
+      } else {
+        if (sh.left_eye) sh.eye = sh.left_eye;
+        delete sh.left_eye; delete sh.right_eye;
+      }
+      p.edited(true);
+      applyLook(p);
+      return true;
+    }
+    case "path-rm": {
+      const ed = el.closest(".pathed");
+      if (ed) PE.removeAt(ed, Number(ed.dataset.sel ?? -1), pathHooks(p, el.dataset.part));
+      return true;
+    }
+    case "path-from": pathFrom(p, el.dataset.part, el.closest(".pathfrom")); return true;
     case "look-glow":
       p.draft.look.glow = el.checked ? null : 0.6;
       p.edited(true);
@@ -265,4 +325,27 @@ export function click(p, a, el) {
       return true;
   }
   return false;
+}
+
+// A part becomes a drawn shape from a picture's or an icon's biggest outline.
+async function pathFrom(p, part, row) {
+  const pic = row?.querySelector(".path-pic")?.value, icon = row?.querySelector(".path-icon")?.value.trim();
+  let contours = null;
+  if (icon) {
+    const r = await IC.iconPath(icon);
+    if (!r) { p.flash(`No icon called ${icon}`); return; }
+    contours = IC.flatten(r.path);
+  } else if (pic) {
+    const svg = await Scr.pictureSvg(p, pic);
+    contours = svg ? SvgP.pictureContours(svg, 1).contours : null;
+  } else {
+    p.flash("Pick a picture or type an icon first.");
+    return;
+  }
+  const pts = SvgP.outlinePoints(contours, 64);
+  if (!pts) { p.flash("That has no closed outline to use."); return; }
+  const Lk = p.draft.look;
+  (Lk.shapes ??= {})[part] = { type: "path", points: pts };
+  p.edited(true);
+  applyLook(p);
 }

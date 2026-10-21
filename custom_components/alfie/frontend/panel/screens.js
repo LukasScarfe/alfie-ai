@@ -129,9 +129,9 @@ let timer;
 
 // ------------------------------------------------------------ pictures
 
-const pics = (p) => (p.pics ??= { list: null, svg: new Map(), loading: false, msg: "" });
+export const pics = (p) => (p.pics ??= { list: null, svg: new Map(), loading: false, msg: "" });
 
-async function loadPictures(p) {
+export async function loadPictures(p) {
   const P = pics(p);
   P.loading = true;
   try {
@@ -141,11 +141,11 @@ async function loadPictures(p) {
     P.msg = `Can't list pictures: ${e?.message || e}`;
   }
   P.loading = false;
-  if (p.sec === "screens") p.render();
+  if (p.sec === "screens" || p.sec === "appearance") p.render();
 }
 
 // A picture's SVG, fetched once (null if it can't be had).
-function pictureSvg(p, id) {
+export function pictureSvg(p, id) {
   const P = pics(p);
   if (P.svg.has(id)) return Promise.resolve(P.svg.get(id));
   P.svg.set(id, null);

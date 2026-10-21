@@ -412,11 +412,13 @@ export function outline(spec, n = GEOMETRY.eye_sides) {
   spec = spec || { type: "circle" };
   const rot = (Number(spec.rotation) || 0) * DEG;
   const k = Math.max(0, Math.min(1, Number(spec.roundness) || 0));
-  const verts = k ? cornerVerts(spec) : null;
+  // A path is always walked along its edge, so a shape that isn't star-shaped
+  // round the centre (a crescent, a drawn outline) keeps its hollows.
+  const verts = k || spec.type === "path" ? cornerVerts(spec) : null;
   let pts = [];
   if (verts) {
     const c = Math.cos(rot), s = Math.sin(rot);
-    pts = sampleOutline(filleted(verts, k).map(([x, y]) => [x * c - y * s, x * s + y * c]), n);
+    pts = sampleOutline((k ? filleted(verts, k) : verts).map(([x, y]) => [x * c - y * s, x * s + y * c]), n);
   } else {
     const r = radial(spec);
     for (let j = 0; j < n; j++) {

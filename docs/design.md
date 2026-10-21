@@ -90,7 +90,18 @@ card is off screen, and sizes its canvas to the device pixel ratio once per resi
   - The card strokes outlines as smooth curves through the points. A vertex that turns more
     than 25° (a lid cut, a sharp tip) stays a crisp corner.
 - Editors, all in scope:
-  1. **Shape sliders** with a live preview.
+  1. **Shape editor** (Appearance → Look, built 2026-10-21):
+     - Sliders for every type, with a live preview.
+     - A **drawn** shape (`path`) has a point editor: drag a corner, press an edge to add one,
+       double-click (or Remove) to take one out. Snap (0.05) and Symmetric (moves the mirror
+       corner too) are options.
+     - Switching a shape to Drawn starts from about 12 corners of what it was.
+     - "From a picture or icon" takes the biggest closed outline of an uploaded picture or any
+       HA icon, simplified to at most 64 corners.
+     - A path is always walked along its edge (not by angle from the centre), so hollows such
+       as a crescent's stay.
+     - "Shape the left and right eyes apart" copies the eye into `left_eye` and a mirrored
+       `right_eye`. Turning it off keeps the left as `eye`.
   2. **Expression editor**: pose the shapes into named expressions. Presets are the 12 current
      moods: neutral, angry, sad, bored, skeptical, happy, surprised, alarmed, suspicious, sleepy,
      confused, closed.

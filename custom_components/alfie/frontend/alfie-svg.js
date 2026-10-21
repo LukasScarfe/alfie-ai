@@ -255,3 +255,62 @@ export function fitContours(pic, w, h, opts = {}) {
     return st;
   });
 }
+
+// ------------------------------------------------------- shape outlines
+
+// Ramer-Douglas-Peucker on a closed ring: the corners that matter within `tol`.
+function simplify(pts, tol) {
+  if (pts.length <= 3) return pts;
+  // Split the ring at its two farthest-apart points (a rough pair is enough).
+  let a = 0, b = 0, far = -1;
+  for (let i = 0; i < pts.length; i++) {
+    const d = Math.hypot(pts[i][0] - pts[0][0], pts[i][1] - pts[0][1]);
+    if (d > far) { far = d; b = i; }
+  }
+  const keep = new Uint8Array(pts.length);
+  keep[a] = keep[b] = 1;
+  const stack = [[a, b], [b, pts.length]];
+  const at = (i) => pts[i % pts.length];
+  while (stack.length) {
+    const [i, j] = stack.pop();
+    if (j - i < 2) continue;
+    const [ax, ay] = at(i), [bx, by] = at(j);
+    const L = Math.hypot(bx - ax, by - ay) || 1e-12;
+    let best = -1, k = -1;
+    for (let m = i + 1; m < j; m++) {
+      const [px, py] = at(m);
+      const d = L > 1e-12 ? Math.abs((bx - ax) * (ay - py) - (ax - px) * (by - ay)) / L : Math.hypot(px - ax, py - ay);
+      if (d > best) { best = d; k = m; }
+    }
+    if (best > tol) { keep[k % pts.length] = 1; stack.push([i, k], [k, j]); }
+  }
+  return pts.filter((_, i) => keep[i]);
+}
+
+const ringArea = (v) => v.reduce((s, [x, y], i) => { const [u, w] = v[(i + 1) % v.length]; return s + x * w - u * y; }, 0) / 2;
+
+// The biggest closed outline of `contours` (from pictureContours, or icon
+// `flatten`, both y down) as at most `max` path points for a face shape:
+// centred, y up, counter-clockwise, fitted to [-1, 1]. Null if there is none.
+export function outlinePoints(contours, max = 64) {
+  let best = null, area = 0;
+  for (const c of contours || []) {
+    if (c.pts.length < 3) continue;
+    const a = Math.abs(ringArea(c.pts));
+    if (a > area) { area = a; best = c.pts; }
+  }
+  if (!best || area <= 0) return null;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [x, y] of best) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, h = Math.max(x1 - x0, y1 - y0) / 2 || 1;
+  let pts = best.map(([x, y]) => [(x - cx) / h, -(y - cy) / h]);
+  if (ringArea(pts) < 0) pts.reverse();
+  // The loosest tolerance that keeps within `max`, by halving.
+  let lo = 0, hi = 0.5, out = simplify(pts, hi);
+  for (let i = 0; i < 18; i++) {
+    const mid = (lo + hi) / 2, s = simplify(pts, mid);
+    if (s.length <= max) { out = s; hi = mid; } else lo = mid;
+  }
+  const r = (v) => Math.round(v * 1000) / 1000;
+  return out.length >= 3 ? out.map(([x, y]) => [r(x), r(y)]) : null;
+}

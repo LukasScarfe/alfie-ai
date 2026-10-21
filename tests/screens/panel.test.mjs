@@ -22,6 +22,15 @@ check(P.optionField({ key: "c", kind: "color", label: "C" }, "#abc", "p", ctx).i
   check(P.optionField(opt, "", "p", { ...ctx, pictures: null }).includes("Loading"), "pictures loading");
 }
 
+// Mirroring a shape for the right eye, and starting a path from a shape.
+{
+  const m = P.mirrorSpec({ type: "path", points: [[0.5, 1], [-1, 0], [1, -1]], rotation: 20 });
+  check(JSON.stringify(m.points) === "[[-1,-1],[1,0],[-0.5,1]]" && m.rotation === -20, "mirror spec");
+  const c = P.changeShapeType({ type: "star", rotation: 10 }, "path", () => Array.from({ length: 48 }, (_, i) => [Math.cos(i), Math.sin(i)]));
+  check(c.type === "path" && c.points.length === 12 && c.rotation === undefined, "path seeded from the shape");
+  check(P.changeShapeType({ type: "circle" }, "path").points.length === 3, "path default triangle");
+}
+
 // Per-entity options: one comma separated item each, edited by position.
 check(P.perSet("", 1, "star") === ", star", "set past the end pads");
 check(P.perSet("ring, star", 1, "") === "ring", "trailing empties dropped");

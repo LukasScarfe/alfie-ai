@@ -182,7 +182,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         `alfie-svg.js` flattens basic shapes, transforms and viewBox to strokes (fill as outline,
         stroke-only as the line); options picture, colour, fill, fit, size, caption; Screens →
         Pictures sub-tab. 0.11.1.
-  - [ ] B. Shape editor: a `path` point editor (drag, add, delete, roundness), left and right
+  - [x] B. Shape editor (0.11.2): a `path` point editor (drag, add, delete, roundness), left and right
         eyes apart, "From picture" (an SVG or icon outline as a path).
   - [ ] C. Expression editor: config `expressions` (custom and overridden built-ins), merged
         everywhere names are checked, sent to the cards; Appearance → Expressions.
