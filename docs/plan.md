@@ -67,7 +67,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] Dev HA: a rotation card in both presenting styles, screenshots for Lukas.
   - [x] Shown on the real tablet against dev HA (Lukas): screens, rotation, both presenting
         styles, the card editor.
-- [~] **4. Triggers and stories.** Trigger config (any entity, per-motion-sensor actions, mood
+- [x] **4. Triggers and stories.** Trigger config (any entity, per-motion-sensor actions, mood
       changes, signal crossings), the fill-in story template and the advanced sequence builder, the
       default mood-change, bad-news and celebrate stories. Presenting is agreed (design.md
       "Screens": hand over or corner).
@@ -85,8 +85,8 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         stays gone or in his corner; Alfie steps; `face_seconds` optional (default 0); on
         appearing he plays the most relevant story on that card (`alfie/story/expand`,
         behaviour `appear_story_bad` / `_ok`, the new Hello story, card `appear_story`).
-  - [ ] F. Shown on the real tablet against dev HA (Lukas).
-- [~] **5. House modes.** Night, away, guests and user-defined modes with overrides. Decided with
+  - [x] F. Shown on the real tablet against dev HA (Lukas).
+- [x] **5. House modes.** Night, away, guests and user-defined modes with overrides. Decided with
       Lukas: one mode at a time (list order wins), away idles and greets on arrival, no guests
       default for now; a mode overrides presence, mood/bad news, personality, rotation, triggers.
   - [x] A. Model (pure): `modes.py`, trigger kind `mode`, config v3 (sleep_entity → Night),
@@ -97,8 +97,8 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         `follow_mode` option and editor; checks.
   - [x] D. Panel: Modes tab, mode trigger kind, Behaviour sleep pointer; click-through.
   - [x] E. Dev HA: Night, Away and Welcome home live, PNGs to Lukas; design.md; version 0.5.0.
-  - [ ] F. Shown on the real tablet against dev HA (Lukas).
-- [~] **5½. Settings tidy-up.** One vocabulary everywhere (design.md "Words"), the panel
+  - [x] F. Shown on the real tablet against dev HA (Lukas).
+- [x] **5½. Settings tidy-up.** One vocabulary everywhere (design.md "Words"), the panel
       regrouped into six sections with sub-tabs and "More options" folds, a generic starter config
       with a Get started guide (Lukas's house moves to `devenv/house.json`), config v4 key renames.
       Interfaces: [settings-contract.md](settings-contract.md).
@@ -108,8 +108,8 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] C. Panel sections: Mood, Reactions, House modes, Screens, Appearance.
   - [x] D. Card and card editor: regrouped editor, new keys with old ones still read.
   - [x] E. Dev HA: fresh install and house import checked, PNGs to Lukas; design.md; 0.6.0.
-  - [ ] F. Lukas's review of the PNGs (and the panel itself); fixes from it.
-- [~] **5¾. Icons.** Any HA icon in Alfie's line style: he turns into it (whole face or ring
+  - [x] F. Lukas's review of the PNGs (and the panel itself); fixes from it.
+- [x] **5¾. Icons.** Any HA icon in Alfie's line style: he turns into it (whole face or ring
       only), it shows beside him (his corner), or it goes on the card as a badge. It plays from a
       story step, the simple form, and `alfie.show_icon` / `clear_icons`, and entity triggers take
       a threshold entity. design.md "Icons".
@@ -121,8 +121,8 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         badge, local stories and Try it, `icons` option; harness `sheet=icons`.
   - [x] D. Panel: the Icon step, the simple form's icon, number-or-entity thresholds; editor.
   - [x] E. Lukas's house: Bright living room → Bright in here; checked live in dev HA, PNGs.
-  - [ ] F. Lukas's review of the PNGs and the choreography.
-- [~] **5⅞. Oscilloscope.** Alfie on the X-Y scope through xy-bench: the card's vector output, the
+  - [x] F. Lukas's review of the PNGs and the choreography.
+- [x] **5⅞. Oscilloscope.** Alfie on the X-Y scope through xy-bench: the card's vector output, the
       `scope/` sidecar (headless card to xy-bench), and xy-bench's `alfie` screen. design.md
       "Oscilloscope".
   - [x] A. Card: `vector_out` / `paint`, `G.vectorStroke`, the `alfie-vector` event; tests;
@@ -134,8 +134,8 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] D. Deployed on Numbat (`~/alfie-ai/scope`, Lukas chose the existing HA token).
   - [x] F. Settings page on the sidecar (`scope/settings.html`, port 8642): the card editor,
         beam order and condense, a live preview, saved to a volume and applied live.
-  - [ ] E. On the CRT: Lukas looks; tune fps, weights and aspect.
-- [~] **5⅝. Panel style.** House modes back in the UI, and a cleaning pass over the panel: native
+  - [x] E. On the CRT: Lukas looks; tune fps, weights and aspect.
+- [x] **5⅝. Panel style.** House modes back in the UI, and a cleaning pass over the panel: native
       HA look, left menu, list + detail, outlined fields, entity picker, save bar. Agreed with Lukas
       2026-10-20; design.md "Panel style".
   - [x] A. House modes back: panel section, mode trigger kind, card editor toggle, Overview line,
@@ -148,8 +148,8 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] E. Sections onto list + detail / titled cards: mood, reactions, modes, screens,
         appearance, overview, `alfie-panel-forms.js`.
   - [x] F. Card editor in the same style.
-  - [ ] G. Lukas's review of the screenshots (light/dark, wide/narrow) and the panel; fixes.
-- [~] **6. Voice.** React to all `assist_satellite` states, the what's-wrong LLM tool and intent,
+  - [x] G. Lukas's review of the screenshots (light/dark, wide/narrow) and the panel; fixes.
+- [x] **6. Voice.** React to all `assist_satellite` states, the what's-wrong LLM tool and intent,
       optional persona, mood-aware replies, TTS announcement step. Agreed with Lukas 2026-10-20:
       speaking looks are options (ring pulse default, eye rhythm, both, waveform ring); each card
       follows all, chosen or no satellites; an "Alfie" LLM API (whats_wrong tool, optional persona
@@ -170,12 +170,27 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         kind, speak step speakers and wait, card editor rows (voice, satellites, speaking).
   - [x] F. Dev HA PNGs to Lukas (sent); prod deploy (done, 0.11.0) against the S7+ (Lukas's OK before ticking the
         API on the Gemini agent); design.md; 0.11.0.
-  - [ ] G. Lukas's review.
-- [ ] **7. Editors and polish.** Shape (freehand path), expression and animation editors,
+  - [x] G. Lukas's review.
+- [~] **7. Editors and polish.** Shape (freehand path), expression and animation editors,
       building on M3's Look tab and Playground; card render styles and
       themes; the why panel; standard tap actions. The shape editor covers the head and the eyes,
       with every shape type in design.md ("Shapes are swappable data"), plus a freehand `path`
-      (true rounded corners are already done).
+      (true rounded corners are already done). Lukas (2026-10-20) added uploaded SVGs
+      as screens. New config sections default when missing (no version bump).
+  - [ ] A. SVG uploads and the `svg` (Picture) screen type: `<config>/alfie/svg/`, admin WS
+        upload / list / delete and `alfie/svg/get`, sanitised; `alfie-svg.js` flattens basic
+        shapes, transforms and viewBox to strokes (fill as outline, stroke-only as the line);
+        options file, colour, fit, scale, rotation, caption; Screens → Pictures sub-tab.
+  - [ ] B. Shape editor: a `path` point editor (drag, add, delete, roundness), left and right
+        eyes apart, "From picture" (an SVG or icon outline as a path).
+  - [ ] C. Expression editor: config `expressions` (custom and overridden built-ins), merged
+        everywhere names are checked, sent to the cards; Appearance → Expressions.
+  - [ ] D. Animation editor: config `animations` (keyframes: seconds, channels, easing),
+        Appearance → Animations with play and scrub.
+  - [ ] E. Render styles and themes: new styles, a plot line colour role, named palettes.
+  - [ ] F. Why panel on tap, and standard tap / hold / double-tap actions in the card editor.
+  - [ ] G. Tests, PNGs to Lukas, prod deploy, design.md, 0.12.0.
+  - [ ] H. Lukas's review.
 - [ ] **8. Release.** HACS packaging and README, install on production HA (with Lukas), put it on
       `tablet-dash`. Retire the old Superintendent HA automations only with Lukas's OK.
 
