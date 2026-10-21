@@ -10,9 +10,12 @@
 - **5⅝ (Panel style):** A to F done. G (his review of the screenshots) is open.
 - **M6 (Voice), in progress:** A to E are done and deployed to production (0.11.0).
   - F: the PNGs are sent (voice sheet, dev dashboard listening, the Voice panel pages).
-  - Still open in F: **ask Lukas** before ticking the Alfie API on the Gemini agent, or turning on
-    `assist_tool` / `intent` on production, because that changes the household's voice pipeline.
-    Then try it on the S7+ (`assist_satellite.s7_assist_satellite`, followed, idle when deployed).
+  - Lukas asked for it all on (2026-10-20). Done on production: persona, mood_aware, assist_tool
+    and intent; "is anything wrong" on HA's own agent answers from Alfie.
+  - Still open in F: ticking the Alfie API on the Gemini agent (Settings → Voice assistants →
+    Google AI Conversation options → "Control Home Assistant": Alfie). The auto-mode classifier
+    refused Claude touching that agent's config, so Lukas does it in the UI. Then try it on the
+    S7+ (`assist_satellite.s7_assist_satellite`).
   - G: Lukas's review.
 
 Version 0.11.0.
