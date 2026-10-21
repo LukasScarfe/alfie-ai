@@ -19,8 +19,9 @@ export const resets = {
 const L = U.LEVEL_TEXT;
 const KIND_TEXT = {
   entity: "An entity changes", motion: "Motion", mood: "The mood changes", signal: "A signal goes bad or recovers",
-  wake: "Alfie wakes or sleeps", mode: "A house mode starts or ends",
+  wake: "Alfie wakes or sleeps", mode: "A house mode starts or ends", voice: "A voice assistant listens, thinks or answers",
 };
+const PHASE_TEXT = [["listening", "Starts listening"], ["processing", "Starts thinking"], ["responding", "Starts answering"], ["done", "Is done"]];
 const BUSY_TEXT = [["auto", "By priority: higher interrupts"], ["queue", "Wait its turn"],
   ["interrupt", "Interrupt whatever is playing"], ["skip", "Don't play"]];
 const STEP_TEXT = {
@@ -102,6 +103,13 @@ function trigger(p, t, i, n) {
       ${U.wide("Signals", picks("signals", p.draft.signals.map((s) => s.id), (sid) => names[sid] || sid), "None picked: any.")}`;
   } else if (t.kind === "wake") {
     own += U.field("When Alfie", U.select(`${P}.edge`, t.edge, [["wakes", "Wakes up"], ["sleeps", "Falls asleep"]]));
+  } else if (t.kind === "voice") {
+    const st = p.hass?.states || {};
+    own += `${U.field("When a voice assistant", U.select(`${P}.phase`, t.phase, PHASE_TEXT))}
+      ${U.wide("Satellites", U.entities({ items: t.satellites, i, add: "trig-add-sat", rm: "trig-rm-sat",
+        placeholder: "assist_satellite.kitchen", list: "trig-sats" }), "None picked: any.")}
+      <datalist id="trig-sats">${Object.keys(st).filter((e) => e.startsWith("assist_satellite.")).sort()
+        .map((e) => `<option value="${U.esc(e)}">${U.esc(st[e].attributes?.friendly_name || "")}</option>`).join("")}</datalist>`;
   } else if (t.kind === "mode") {
     const ms = p.draft.modes || [];
     own += `${U.field("When", U.select(`${P}.edge`, t.edge, [["enter", "It starts"], ["leave", "It ends"], ["either", "It starts or ends"]]))}
@@ -211,11 +219,20 @@ function stepFields(p, s, P) {
         ${s.to === "custom" ? `x ${secs("x", -1, 1, "")} y ${secs("y", -1, 1, "")}` : ""} over ${secs("seconds", 0, 10)}`;
     case "resize": return `to ${secs("scale", 0.3, 1.5, "×")} over ${secs("seconds", 0, 10)}`;
     case "speak":
-      return `<input class="grow" data-path="${P}.text" value="${U.esc(s.text)}" placeholder="Something to say">
-        <small class="muted">Speaking comes with Voice; until then this step is skipped.</small>`;
+      return `<input class="grow" data-path="${P}.text" value="${U.esc(s.text)}" placeholder="Something to say: {name} {mood} {reason} {wrong}">
+        <input data-path="${P}.targets" data-kind="list" list="speak-to" value="${U.esc((s.targets || []).join(", "))}"
+          placeholder="Voice's speakers" title="Speakers: media players or satellites, comma separated. Empty: Voice's.">
+        <label class="check">${U.toggle(`${P}.wait`, s.wait)}<span>Wait while he says it</span></label>
+        <datalist id="speak-to">${speakerOptions(p)}</datalist>`;
     case "icon": return iconFields(p, s, P, secs);
     default: return "";
   }
+}
+
+function speakerOptions(p) {
+  const st = p.hass?.states || {};
+  return (p._speakerOpts ??= Object.keys(st).filter((e) => /^(media_player|assist_satellite)\./.test(e)).sort()
+    .map((e) => `<option value="${U.esc(e)}">${U.esc(st[e].attributes?.friendly_name || "")}</option>`).join(""));
 }
 
 // An icon step: the icon, how it shows, for how long; its look under More.
@@ -337,6 +354,13 @@ export function click(p, a, el) {
       return true;
     }
     case "trig-rm-ent": trs[i].entities.splice(j, 1); p.edited(true); return true;
+    case "trig-add-sat": {
+      const v = el.parentElement.querySelector("input").value.trim();
+      if (v && !trs[i].satellites.includes(v)) trs[i].satellites.push(v);
+      p.edited(true);
+      return true;
+    }
+    case "trig-rm-sat": trs[i].satellites.splice(j, 1); p.edited(true); return true;
     // stories
     case "st-toggle": p.flip(`st:${sts[i].id}`); return true;
     case "st-add": {

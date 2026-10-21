@@ -163,6 +163,7 @@ export function triggerSummary(t, names = {}) {
     case "signal": return `${cap(list(t.signals, "any signal"))} ${t.edge === "goes_bad" ? "goes bad" : t.edge === "recovers" ? "recovers" : "goes bad or recovers"}`;
     case "wake": return t.edge === "wakes" ? "Alfie wakes up" : "Alfie falls asleep";
     case "mode": return `${cap(list(t.modes, "any house mode"))} ${t.edge === "enter" ? "starts" : t.edge === "leave" ? "ends" : "starts or ends"}`;
+    case "voice": return `${cap(list(t.satellites, "any voice assistant"))} ${{ listening: "starts listening", processing: "starts thinking", responding: "starts answering", done: "is done" }[t.phase] || t.phase}`;
     default: return t.kind;
   }
 }

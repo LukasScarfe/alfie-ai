@@ -34,6 +34,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
 from .config import (
+    SPEAK_STYLES,
     STYLES,
     CUSTOM,
     PERSONALITY,
@@ -119,6 +120,7 @@ def ws_config_get(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
                      "places": list(stories.ICON_PLACES),
                      "colors": list(stories.ICON_COLORS),
                      "fills": list(stories.ICON_FILLS)},
+            "voice": {"speak_styles": list(SPEAK_STYLES), "phases": list(triggers.VOICE_PHASES)},
             "trigger_kinds": list(triggers.KINDS),
             "triggers": {k: triggers.default_trigger(k) for k in triggers.KINDS},
             "busy": list(triggers.BUSY),

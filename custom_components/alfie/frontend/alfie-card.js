@@ -263,6 +263,7 @@ class AlfieCard extends HTMLElement {
     this._energyPreview = null;
     this._lastAnimId = null;
     this._heldAnim = null;     // a trigger story animation waiting for Alfie to be back
+    this._voiceTry = null;     // the panel's Try it: a pretend satellite phase
     this._voicePhase = null;   // the followed satellite's phase here: listening, processing, responding
     this._visible = true;
     this._running = false;
@@ -591,6 +592,7 @@ class AlfieCard extends HTMLElement {
   // The satellite that has Alfie's face role on this card now ({state, since,
   // name, look}), or null: the latest of those the card follows.
   _voice() {
+    if (this._voiceTry) return this._voiceTry;
     const v = this._scene?.voice, mode = this._config?.voice ?? "all";
     if (!v || mode === "none" || this._still) return null;
     const chosen = mode === "chosen" ? [].concat(this._config.voice_satellites || []) : null;
@@ -604,7 +606,7 @@ class AlfieCard extends HTMLElement {
 
   // How he speaks here: the card's style and strength over Alfie's Voice ones.
   _speaking() {
-    const look = this._scene?.voice?.look || {}, c = this._config;
+    const look = this._voiceTry?.look || this._scene?.voice?.look || {}, c = this._config;
     const style = c.speak_style ?? look.speak_style ?? "pulse";
     return { style: F.SPEAK_STYLES.includes(style) ? style : "pulse",
       strength: clamp(Number(c.speak_strength ?? look.speak_strength ?? 1) || 1, 0, 3) };
@@ -627,7 +629,7 @@ class AlfieCard extends HTMLElement {
         if (this._local) this._stepLocal(t);
         // Thinking: the voice look's animation, again each time it ends.
         if (this._voicePhase === "processing" && !this._face.playing && !this._face.queue.length) {
-          const a = this._faceDoc?.compiled[this._scene?.voice?.look?.processing_animation];
+          const a = this._faceDoc?.compiled[this._voice()?.look?.processing_animation];
           if (a) this._face.play(a);
         }
         this._place = G.placeToward(this._place, this._scene?.story?.place ?? this._local?.place ?? null, dt);
@@ -1394,6 +1396,15 @@ class AlfieCard extends HTMLElement {
     const face = await loadFace();
     if (this._scene) this._onScene(this._scene);
     else this._personality(face);
+  }
+
+  // For the panel's Voice "Try it": this card acts as if a satellite were in
+  // `state` (listening, processing, responding), with `look` (the draft's);
+  // null goes back to the real satellites.
+  previewVoice(state, look = null) {
+    this._voiceTry = state ? { state, since: Infinity, name: "Try it", entity: "",
+      look: look || this._scene?.voice?.look || {} } : null;
+    if (this._scene) this._onScene(this._scene);
   }
 
   // For tests and the dev harness: draw one still frame, no clock, no HA.

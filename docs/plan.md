@@ -166,7 +166,8 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         `alfie/voice/status` and `alfie/voice/say`. All opt-in, off by default.
   - [x] D. Card: `voice` option (all / chosen / none), phase looks interrupt the rotation, the
         four speaking styles, harness `sheet=voice`; checks.
-  - [ ] E. Panel: Voice section, `voice` trigger kind, speak step fields, card editor row.
+  - [x] E. Panel: Voice section (Assistants, Agents; Try it on the dock face, Say it), `voice` trigger
+        kind, speak step speakers and wait, card editor rows (voice, satellites, speaking).
   - [ ] F. Dev HA PNGs to Lukas; prod deploy against the S7+ (Lukas's OK before ticking the
         API on the Gemini agent); design.md; 0.11.0.
   - [ ] G. Lukas's review.
