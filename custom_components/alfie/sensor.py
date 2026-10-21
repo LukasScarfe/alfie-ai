@@ -9,6 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from . import tell
 from .const import DOMAIN
 from .entity import AlfieEntity
 from .mood import LEVELS
@@ -25,7 +26,7 @@ class AlfieMoodSensor(AlfieEntity, SensorEntity):
     # The detail stays live on the entity but out of the recorder's database.
     # Animations are deliberately absent: they never write state (see
     # engine._push); the alfie_animation event and the WS carry them.
-    _unrecorded_attributes = frozenset({"signals", "energy", "score"})
+    _unrecorded_attributes = frozenset({"signals", "energy", "score", "problems"})
 
     @property
     def native_value(self) -> str | None:
@@ -46,4 +47,10 @@ class AlfieMoodSensor(AlfieEntity, SensorEntity):
             "bad": [x["name"] for x in s["signals"] if x["kind"] == "bad"],
             "good": [x["name"] for x in s["signals"] if x["kind"] == "good"],
             "signals": s["signals"],
+            # For voice agents reading entities: what is wrong, in words.
+            "problems": tell.summary(self.engine.mood, self._lookup),
         }
+
+    def _lookup(self, entity_id: str) -> tuple[str, str, str] | None:
+        st = self.hass.states.get(entity_id)
+        return (st.name, st.state, "") if st is not None else None

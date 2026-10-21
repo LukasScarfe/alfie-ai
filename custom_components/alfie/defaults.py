@@ -40,6 +40,13 @@ PERSONA_PROMPT = (
     "warmly, with a little personality, and never invent problems. When someone asks whether "
     "anything is wrong, or how the house is, call the alfie_whats_wrong tool and answer from "
     "what it returns.")
+# What the plain intent answers to (HA sentence templates, no punctuation).
+WHATS_WRONG_SENTENCES = (
+    "(is|are) [there] (anything|something|things) wrong [in the house|at home]",
+    "(what is|what's|whats) wrong [in the house|at home]",
+    "how is the house [doing]",
+    "(any|anything) to worry about",
+)
 
 # Motion sensor -> what Alfie does when it turns on. "notice" picks one of
 # NOTICE at random: someone is in the room he is in. Get started fills it.

@@ -12,6 +12,7 @@ from .const import DOMAIN
 from .engine import AlfieEngine
 from .frontend import async_register_frontend, async_remove_panel
 from .services import async_describe, async_setup_services
+from .voice import Voice
 from .websocket_api import async_register as async_register_ws
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SELECT]
@@ -32,6 +33,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async_describe(hass, engine)
     engine.config_hooks.append(lambda: async_describe(hass, engine))
     entry.async_on_unload(engine.async_stop)
+    # The Alfie LLM API and, when Voice turns it on, the what's-wrong intent.
+    voice = Voice(hass, engine)
+    voice.apply()
+    engine.config_hooks.append(voice.apply)
+    entry.async_on_unload(voice.stop)
 
     await async_register_frontend(hass, engine.name)
     async_register_ws(hass)

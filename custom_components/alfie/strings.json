@@ -166,6 +166,28 @@
       "name": "Clear icons",
       "description": "Take every icon off the displays."
     },
+    "say": {
+      "name": "Say",
+      "description": "Say something out loud: satellites announce it, media players play it through TTS. With no speakers, the ones in Alfie's Voice settings.",
+      "fields": {
+        "message": {
+          "name": "Message",
+          "description": "What to say."
+        },
+        "speakers": {
+          "name": "Speakers",
+          "description": "Media players or voice satellites. Empty: Voice's speakers, or every satellite Alfie follows."
+        },
+        "tts_entity": {
+          "name": "TTS engine",
+          "description": "For media players. Empty: Voice's engine, or the first one set up."
+        },
+        "language": {
+          "name": "Language",
+          "description": "The TTS language. Empty: the engine's default."
+        }
+      }
+    },
     "set_mood": {
       "name": "Set mood",
       "description": "Hold Alfie's mood at a level for a while, over what his signals and the house mode say. Auto lets go.",

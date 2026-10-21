@@ -21,6 +21,7 @@ EVENT_ANIMATION = "alfie_animation"   # fired whenever Alfie plays an animation
 EVENT_STORY = "alfie_story"           # a story starts, ends or is interrupted
 EVENT_ICON = "alfie_icon"             # an icon shows or ends (design.md "Icons")
 EVENT_SIGNAL = "alfie_signal"         # a signal goes bad, good or clear
+EVENT_VOICE = "alfie_voice"           # a satellite starts a phase (listening ... done)
 SCENE_VERSION = 1
 
 # A card ignores an animation older than this (a reconnect must not replay it).

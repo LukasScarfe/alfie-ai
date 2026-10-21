@@ -157,11 +157,13 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
       speak step can override them.
   - [x] A. Model (pure): a `voice` config section (missing: the defaults, so no version bump), trigger kind `voice`
         (satellites, phase), speak step targets / engine / fill-ins; tests.
-  - [ ] B. Engine: satellites in the one filtered listener, `voice` in the scene (no state
+  - [x] B. Engine: satellites in the one filtered listener, `voice` in the scene (no state
         writes), voice triggers, the `after` reaction, speak via `tts.speak` /
         `assist_satellite.announce`, `alfie_voice` events.
-  - [ ] C. Agents (`voice.py`): the Alfie LLM API (`alfie_whats_wrong`, persona + mood prompt),
-        intent `AlfieWhatsWrong`, `problems` attribute on `sensor.alfie_mood`.
+  - [x] C. Agents (`voice.py`, `tell.py`, `llm.py`): the Alfie LLM API (`alfie__whats_wrong`,
+        persona + mood prompt), Assist's tool (`assist_tool`), intent `AlfieWhatsWrong` and its
+        sentences (`intent`), `problems` on `sensor.alfie_mood`, `alfie.say`, WS
+        `alfie/voice/status` and `alfie/voice/say`. All opt-in, off by default.
   - [ ] D. Card: `voice` option (all / chosen / none), phase looks interrupt the rotation, the
         four speaking styles, harness `sheet=voice`; checks.
   - [ ] E. Panel: Voice section, `voice` trigger kind, speak step fields, card editor row.
