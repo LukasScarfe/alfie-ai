@@ -1105,6 +1105,22 @@
    ]
   }
  ],
+ "voice": {
+  "enabled": true,
+  "satellites": [],
+  "listening_expression": "surprised",
+  "listening_animation": "",
+  "processing_animation": "processing",
+  "speak_style": "pulse",
+  "speak_strength": 1,
+  "after": "nod",
+  "persona": false,
+  "persona_prompt": "You are Alfie, the face of this home: a small, lively ring with two eyes on the household's screens. You care about the house and the people in it. Answer briefly and warmly, with a little personality, and never invent problems. When someone asks whether anything is wrong, or how the house is, call the alfie_whats_wrong tool and answer from what it returns.",
+  "mood_aware": true,
+  "speak_targets": [],
+  "tts_entity": "",
+  "language": ""
+ },
  "overview": {
   "dismissed": true,
   "done": []

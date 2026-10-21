@@ -32,6 +32,15 @@ SIGNALS: tuple[Signal, ...] = (
 V2_SLEEP_ENTITY = "switch.global_sleep_switches"
 SLEEP_EXPRESSION = "closed"
 
+# The Alfie LLM API's persona, used when Voice's persona is on. The mood line
+# ("Right now you feel ...") is added after it when Voice's mood_aware is on.
+PERSONA_PROMPT = (
+    "You are Alfie, the face of this home: a small, lively ring with two eyes on the "
+    "household's screens. You care about the house and the people in it. Answer briefly and "
+    "warmly, with a little personality, and never invent problems. When someone asks whether "
+    "anything is wrong, or how the house is, call the alfie_whats_wrong tool and answer from "
+    "what it returns.")
+
 # Motion sensor -> what Alfie does when it turns on. "notice" picks one of
 # NOTICE at random: someone is in the room he is in. Get started fills it.
 MOTION_SENSORS: tuple[tuple[str, str], ...] = ()

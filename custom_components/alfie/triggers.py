@@ -9,11 +9,13 @@ of these kinds, plus the story it plays and how it behaves when Alfie is busy:
   signal  a signal goes bad or recovers (any signal, or chosen ones)
   wake    Alfie wakes up or falls asleep
   mode    a house mode starts or ends (modes.py), e.g. leaving away: a welcome
+  voice   a voice satellite (any, or chosen ones) starts listening, thinking,
+          answering, or goes back to idle (done)
 
 An entity trigger's above / below value is a number or another entity (an
 input_number, a sensor), whose state is the threshold, read when it is checked.
 
-Entity and motion triggers are fed from the engine's one filtered listener;
+Entity, motion and voice triggers are fed from the engine's one filtered listener;
 the rest are checked in its mood recompute, which already knows what moved.
 When several fire on the same change, only the highest priority plays.
 """
@@ -27,13 +29,16 @@ from typing import Any
 from .mood import LEVELS
 from .signals import OPERATORS, compare, is_pattern
 
-KINDS = ("entity", "motion", "mood", "signal", "wake", "mode")
+KINDS = ("entity", "motion", "mood", "signal", "wake", "mode", "voice")
 BUSY = ("auto", "queue", "interrupt", "skip")
 ENTITY_OPS = ("changes", *OPERATORS)
 DIRECTIONS = ("worse", "better", "any")
 SIGNAL_EDGES = ("goes_bad", "recovers", "either")
 WAKE_EDGES = ("wakes", "sleeps")
 MODE_EDGES = ("enter", "leave", "either")
+# A satellite's phases: its assist_satellite states, plus "done" for back to idle.
+VOICE_STATES = ("listening", "processing", "responding")
+VOICE_PHASES = (*VOICE_STATES, "done")
 
 
 def kind_fields(kind: str) -> dict[str, Any]:
@@ -45,6 +50,7 @@ def kind_fields(kind: str) -> dict[str, Any]:
         "signal": {"signals": [], "edge": "recovers"},
         "wake": {"edge": "wakes"},
         "mode": {"modes": [], "edge": "enter"},
+        "voice": {"satellites": [], "phase": "listening"},
     }[kind]
 
 
@@ -176,6 +182,12 @@ def validate_triggers(raw: Any, ck: Any, story_ids: set[str], signal_ids: set[st
                 if mode_ids is not None and m not in mode_ids:
                     ck.bad(where, f"mode {m!r} does not exist")
             out_t["edge"] = ck.choice(f"{where} edge", d["edge"], MODE_EDGES, "enter")
+        elif kind == "voice":
+            out_t["satellites"] = _strings(d["satellites"])
+            for e in out_t["satellites"]:
+                if not is_entity_id(e) and not is_pattern(e):
+                    ck.bad(where, f"{e!r} is not an entity id")
+            out_t["phase"] = ck.choice(f"{where} phase", d["phase"], VOICE_PHASES, "listening")
         else:
             out_t["edge"] = ck.choice(f"{where} edge", d["edge"], WAKE_EDGES, "wakes")
         out.append(out_t)
@@ -252,6 +264,24 @@ def mode_fires(trigger: Mapping[str, Any], old: str, new: str) -> bool:
     hit = (lambda m: m in picked) if picked else (lambda m: m != "normal")
     edge = trigger["edge"]
     return (edge in ("enter", "either") and hit(new)) or (edge in ("leave", "either") and hit(old))
+
+
+def voice_phase(old: str | None, new: str | None) -> str | None:
+    """The phase a satellite's state change starts, or None: a new working
+    state starts that phase, and going back to idle from one is "done"."""
+    if new == old:
+        return None
+    if new in VOICE_STATES:
+        return new
+    return "done" if old in VOICE_STATES else None
+
+
+def voice_fires(trigger: Mapping[str, Any], entity_id: str, phase: str) -> bool:
+    if trigger["kind"] != "voice" or not trigger["enabled"] or trigger["phase"] != phase:
+        return False
+    sats = trigger["satellites"]
+    return not sats or any(fnmatchcase(entity_id, p) if is_pattern(p) else entity_id == p
+                           for p in sats)
 
 
 def allowed(trigger: Mapping[str, Any], level: str, asleep: bool) -> bool:
