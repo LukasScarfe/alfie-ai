@@ -87,7 +87,7 @@ def mood_line(name: str, mood: Mood | None, persona: bool = True) -> str:
     """How he feels right now, for the agent's prompt: replies follow it. As
     the persona he is the one speaking; otherwise the agent hears about him."""
     level = mood.level if mood else "content"
-    why = (mood.reason if mood else "").rstrip(".")
+    why = mood.reason.rstrip(".") if mood and (mood.bad or mood.good) else ""
     who = "you feel" if persona else f"{name}, the home's face, feels"
     line = f"Right now {who} {level}" + (f", because: {why}." if why else ".")
     if level in ("miserable", "sad", "uneasy"):
