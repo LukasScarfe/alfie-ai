@@ -26,7 +26,7 @@ const IconPick = await import(`./panel/icon-picker.js${V}`);
 const { swatchValue, perSet } = await import(`./alfie-panel-forms.js${V}`);
 const EntPick = await import(`./panel/entity-picker.js${V}`);
 const { CSS } = await import(`./panel/style.js${V}`);
-const SECTIONS = await Promise.all(["overview", "mood", "reactions", "modes", "screens", "appearance"]
+const SECTIONS = await Promise.all(["overview", "mood", "reactions", "modes", "voice", "screens", "appearance"]
   .map((n) => import(`./panel/${n}.js${V}`)));
 const BY_ID = Object.fromEntries(SECTIONS.map((s) => [s.id, s]));
 
@@ -301,6 +301,8 @@ class AlfiePanel extends HTMLElement {
       // An option left empty is not written, so the type's default applies.
       v = el.value.trim() === "" ? undefined : kind === "optnum" ? Number(el.value) : el.value.trim();
     } else if (kind === "opttext") v = el.value;
+    // A list typed as text: comma separated (entities), or one per line.
+    else if (kind === "list" || kind === "lines") v = el.value.split(kind === "list" ? "," : "\n").map((x) => x.trim()).filter(Boolean);
     else if (kind === "optper") {
       // One entity's item of a per-entity option (comma separated); all empty is unset.
       v = perSet(path.split(".").reduce((o, k) => o?.[k], this.draft), Number(el.dataset.j), el.value) || undefined;
@@ -715,7 +717,7 @@ class AlfiePanel extends HTMLElement {
 
 const CSS_ESCAPE = (v) => (globalThis.CSS?.escape ? globalThis.CSS.escape(v) : String(v).replace(/["\\]/g, "\\$&"));
 const SECTION_ICONS = { overview: "mdi:view-dashboard-outline", mood: "mdi:emoticon-outline", reactions: "mdi:lightning-bolt-outline",
-  modes: "mdi:home-switch-outline", screens: "mdi:monitor-dashboard", appearance: "mdi:palette-outline" };
+  modes: "mdi:home-switch-outline", voice: "mdi:account-voice", screens: "mdi:monitor-dashboard", appearance: "mdi:palette-outline" };
 
 
 
