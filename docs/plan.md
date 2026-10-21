@@ -189,8 +189,8 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] D. Animation editor (0.11.4): config `animations` (keyframes: seconds, channels, easing),
         Appearance → Animations with play and scrub.
   - [x] E. Render styles and themes (0.11.5): new styles, a plot line colour role, named palettes.
-  - [ ] F. Why panel on tap, and standard tap / hold / double-tap actions in the card editor.
-  - [ ] G. Tests, PNGs to Lukas, prod deploy, design.md, 0.12.0.
+  - [x] F. Why panel on tap, and standard tap / hold / double-tap actions in the card editor.
+  - [x] G. Tests, PNGs to Lukas, prod deploy, design.md, 0.12.0.
   - [ ] H. Lukas's review.
 - [ ] **8. Release.** HACS packaging and README, install on production HA (with Lukas), put it on
       `tablet-dash`. Retire the old Superintendent HA automations only with Lukas's OK.

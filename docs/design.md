@@ -681,8 +681,21 @@ Built in M6. Config section `voice`; the panel's Voice section (Assistants, Agen
   go, like personality presets. It's chips in Look and a select in the card editor; on a card
   its empty colours are kept, so they mean the style's own. `themeOf` names the theme a look
   still wears.
-- Tap: a **why panel** (current mood, active signals, why he's showing what he's showing), plus
-  standard HA tap, hold and double-tap action config.
+- **Tap: the why panel** (built 2026-10-21). An overlay on the card with:
+  - his mood and its reason;
+  - what's wrong and what's good, each signal with its entities' live values;
+  - what's on show and why: an automation, a story (named), a voice assistant, the rotation,
+    or just him;
+  - the house mode (and the entities behind it);
+  - his face: expression, energy and personality.
+
+  It refreshes with each scene while open, and closes on a tap or after 20 s.
+- **Actions:** `tap_action`, `hold_action` and `double_tap_action` take `why` or any HA action
+  (more-info, navigate, url, perform-action, toggle, assist, none). HA's own go out as a
+  `hass-action` event, as HA's cards do.
+  - Defaults: tap why, hold more-info (`entity`, or his mood sensor), double tap none.
+  - A tap waits for a second one only when a double-tap action is set, and a drag is no tap.
+  - Set in the card editor's **Tap and hold** group.
 - Gotchas from an earlier custom card (xy-scope-card):
   - Define the element after `customElements.whenDefined("home-assistant")`, because HA installs a
     scoped-registry polyfill.

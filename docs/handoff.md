@@ -2,24 +2,38 @@
 
 **Milestones 1 to 6 are done.** Lukas approved everything up to M6 on 2026-10-20.
 
-**M7 (Editors and polish), in progress.** The steps are in plan.md M7 (A to H):
-- **A. Pictures: done** (0.11.1).
-- **B. Shape editor: done** (0.11.2).
-- **C. Expression editor: done** (0.11.3).
-- **D. Animation editor: done** (0.11.4).
-- **E. Styles and themes: done** (0.11.5, below). The style names are open for Lukas to
-  rename from the PNG.
-- **Next: F, the why panel and tap actions.**
-  - The card has no tap handling yet. Planned: tap opens a why panel over the card (mood and
-    reason, active signals with values, what's on screen and why, house mode).
-  - Standard HA `tap_action` / `hold_action` / `double_tap_action`, in the card editor. The
-    default tap is the why panel; HA's own actions are fired as `hass-action` events.
-  - The scene already has `reason`, `signals`, `mode_info`, `story` and `screen`.
-- Then G (finish, 0.12.0) and H (Lukas's review).
+**M7 (Editors and polish): built and deployed, 0.12.0.** Only H, Lukas's review, is open.
+Steps A to G are in plan.md M7:
+- A: pictures (uploaded SVGs as the Picture screen);
+- B: the shape editor;
+- C: the expression editor;
+- D: the animation editor;
+- E: styles and themes;
+- F: the why panel and tap actions;
+- G: the 0.12.0 release.
 
-Version 0.11.5.
+Each step sent Lukas PNGs as it went.
 
-**Latest (0.11.5): styles and themes** (design.md "Card").
+**Next after his review: M8 (Release).** HACS packaging and README, install on production
+(already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
+with his OK.
+
+Version 0.12.0.
+
+**Latest (0.12.0): the why panel and tap actions** (design.md "Card").
+- **Card:**
+  - `_gestures` handles tap, hold (500 ms) and double tap (250 ms), and a drag is no tap.
+  - `_act` opens the why panel or fires `hass-action`.
+  - `_showWhy` / `_whyHtml` build the overlay `.why` in the card. It refreshes on each scene
+    while open.
+  - DEFAULTS gained `tap_action`, `hold_action`, `double_tap_action` and `entity`.
+- **Card editor:** the "Tap and hold" group (`_actions`, `ACTIONS`, `ACTION_FIELD`).
+- **Checked in dev HA:** with the Monstera dry, a scripted tap (`devenv/out/m7/tap.js`) opens
+  the panel: uneasy, the dry Monstera at 13 %, on show, house mode, face.
+- Dev HA state left behind: pictures floorplan, logo and tree; screens pic_plan, pic_logo and
+  pic_tree; expressions smug and love; animation wiggle. The look is reset to circles.
+
+**Before that (0.11.5): styles and themes** (design.md "Card").
 - **Card:**
   - `STYLES` gained blueprint, chalk, ink and pastel; `backgroundOf` gives a style's paper.
   - `roughen` makes the chalk line, `_line` draws a face line in the style (rough, soft fill),

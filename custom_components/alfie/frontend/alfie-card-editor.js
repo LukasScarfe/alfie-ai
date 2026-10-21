@@ -20,7 +20,16 @@ export const DEFAULTS = {
   text_color: null, accent_color: null, line_color: null, screen_line_width: 0.02,
   appear_story: "auto", follow_mode: true, icons: true,
   voice: "all", voice_satellites: null, speak_style: null,
+  entity: null,
 };
+
+// Tap, hold and double tap (the card's *_action): his why panel, or HA's own actions.
+const ACTIONS = [["why", "His why panel"], ["more-info", "More info"], ["navigate", "Go to a view"], ["url", "Open a link"],
+  ["perform-action", "Run an action"], ["toggle", "Toggle"], ["assist", "Assist"], ["none", "Nothing"]];
+const ACTION_DEFAULT = { tap: "why", hold: "more-info", double_tap: "none" };
+// The one setting some actions need, as [key, label, placeholder].
+const ACTION_FIELD = { navigate: ["navigation_path", "View", "/lovelace/0"], url: ["url_path", "Link", "https://…"],
+  "perform-action": ["perform_action", "Action", "light.toggle"] };
 
 export const PRESETS = ["bubbly", "stoic", "grumpy", "sleepy", "nervous"];
 // The card-overridable sliders (config.py PERSONALITY; fidget_rate is the engine's).
@@ -268,6 +277,30 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
       ].join("");
     }
 
+    _action(kind) {
+      return this._config[`${kind}_action`] || { action: ACTION_DEFAULT[kind] };
+    }
+
+    _setAction(kind, value) {
+      const out = { ...this._config };
+      const v = value.action === ACTION_DEFAULT[kind] && Object.keys(value).length === 1 ? undefined : value;
+      if (v === undefined) delete out[`${kind}_action`]; else out[`${kind}_action`] = v;
+      this._emit(out);
+    }
+
+    _actions() {
+      const out = [];
+      for (const [kind, label] of [["tap", "Tap"], ["hold", "Hold"], ["double_tap", "Double tap"]]) {
+        const a = this._action(kind);
+        out.push(this._select(label, { get: () => a.action, set: (v) => this._setAction(kind, { action: v }) }, ACTIONS, { rerender: true }));
+        const f = ACTION_FIELD[a.action];
+        if (f) out.push(this._text(`${label}: ${f[1].toLowerCase()}`, { get: () => a[f[0]] || "", set: (v) => this._setAction(kind, { ...a, [f[0]]: v.trim() }) }, f[2]));
+      }
+      out.push(this._text("Entity", { get: () => this._config.entity || "", set: (v) => this._emit(applyChange(this._config, "entity", v.trim())) },
+        "sensor.alfie_mood", "For More info and Toggle. Empty: his mood sensor."));
+      return out.join("");
+    }
+
     _rotationField() {
       const rot = this._config.rotation;
       const custom = Array.isArray(rot);
@@ -449,6 +482,7 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
         this._group("display", "Display", this._get("display") === "rotation" ? `Rotation${rot ? `: ${rot.name || rot.id}` : ""}` : "Companion", this._display()),
         this._group("look", "Look", c.style ? human(c.style) : "Default", this._look()),
         this._group("personality", "Personality", personality, this._personality()),
+        this._group("actions", "Tap and hold", human(this._action("tap").action), this._actions()),
         this._group("more", "More options", `${this._get("fps")} fps`, this._more()),
       ];
       this.shadowRoot.innerHTML = `<style>${STYLE_CSS}</style>${groups.join("")}`;
