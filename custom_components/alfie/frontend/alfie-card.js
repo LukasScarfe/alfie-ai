@@ -815,22 +815,26 @@ class AlfieCard extends HTMLElement {
       if (!groups.has(st.group)) groups.set(st.group, []);
       groups.get(st.group).push(st);
     }
-    for (const g of groups?.values() ?? []) {
-      const colr = color[g[0].role] || col.face;
+    // Each group fills just before its first stroke, so a picture's later
+    // shapes cover the earlier ones' lines, as the SVG paints them.
+    const fillGroup = (g) => {
+      const colr = g[0].color || color[g[0].role] || col.face;
       ctx.globalAlpha = alpha * clamp(g[0].solid, 0, 1);
       ctx.fillStyle = ctx.shadowColor = colr;
       ctx.shadowBlur = 0;
       ctx.beginPath();
       for (const st of g) trace(ctx, st.pts.map(([x, y]) => [X(x), Y(y)]), true);
-      ctx.fill("nonzero");
-    }
+      ctx.fill(g[0].rule === "evenodd" ? "evenodd" : "nonzero");
+    };
     for (const st of strokes) {
+      const g = st.group && groups?.get(st.group);
+      if (g) { groups.delete(st.group); fillGroup(g); }
       const pts = st.pts;
       if (!pts?.length) continue;
       const w = Number.isFinite(st.w) ? st.w : 1;
       const dashed = w < 0.3, dim = dashed || st.role === "dim";
       const sw = dashed ? lw : lw * clamp(w, 0.45, 2.5);
-      const colr = color[st.role] || col.face;
+      const colr = st.color || color[st.role] || col.face;   // st.color: a picture's own
       ctx.globalAlpha = alpha * (dim ? 0.5 : 1);
       ctx.strokeStyle = ctx.fillStyle = ctx.shadowColor = colr;
       ctx.lineWidth = sw;
@@ -918,6 +922,8 @@ class AlfieCard extends HTMLElement {
     this._data.set(id, d);
     const age = (Date.now() - d.at) / 1000;
     if (d.inflight || age < (d.error ? DATA_RETRY : DATA_STALE)) return;
+    // Data that only changes with the screens (a picture): fetched once; screens_rev resets it.
+    if (d.data && d.at && this._typeOf(screen).refresh === false) return;
     d.inflight = true;
     try {
       const r = await this._hass.connection.sendMessagePromise({ type: "alfie/screen_data", screen: id });

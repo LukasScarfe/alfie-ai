@@ -279,6 +279,15 @@ export function optionField(opt, value, P, ctx) {
         value="${esc(value ?? "")}" placeholder="${esc(opt.domain?.length ? `${opt.domain[0]}.…` : "entity id")}">${noteHtml}</label>`;
     case "icon":
       return `<label class="field opt"><span>${label}</span>${iconInput(opt, value, dflt ?? "", `data-path="${path}" data-kind="opttext"`)}${noteHtml}</label>`;
+    case "picture": {
+      // An uploaded SVG (Screens → Pictures); the screens section handles the upload.
+      const pics = ctx.pictures || [];
+      const opts = [["", pics.length ? "Pick a picture" : ctx.pictures ? "No pictures yet: upload one" : "Loading…"],
+        ...pics.map((m) => [m.id, m.name]), ...(value && !pics.some((m) => m.id === value) && ctx.pictures ? [[value, `${value} (missing)`]] : [])];
+      return `<div class="field opt"><span>${label}</span><span class="row"><select class="grow" data-path="${path}" data-kind="opttext">${opts.map(([v, t]) =>
+        `<option value="${esc(v)}" ${(value ?? "") === v ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>
+        <label class="flat button">Upload…<input type="file" accept=".svg,image/svg+xml" hidden class="pic-upload-opt" data-path="${path}"></label></span>${noteHtml}</div>`;
+    }
     case "entities": {
       const vals = Array.isArray(value) ? value : [];
       const per = (ctx.options || []).filter((o) => o.per === opt.key);

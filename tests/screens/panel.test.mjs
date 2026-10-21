@@ -12,6 +12,16 @@ check(P.optionField({ key: "x", kind: "number", label: "X", default: 5, min: 1, 
 check(P.optionField({ key: "e", kind: "entity", label: "E", required: true }, "", "p", ctx).includes("req"), "required marker");
 check(P.optionField({ key: "c", kind: "color", label: "C" }, "#abc", "p", ctx).includes('value="#aabbcc"'), "swatch expands short hex");
 
+// A picture option: the uploaded pictures by name, a missing one flagged, and an upload button.
+{
+  const opt = { key: "picture", kind: "picture", label: "Picture", required: true };
+  const pics = [{ id: "plan", name: "Floor plan" }];
+  const f = P.optionField(opt, "plan", "screens.0.options", { ...ctx, pictures: pics });
+  check(f.includes('<option value="plan" selected>Floor plan</option>') && f.includes("pic-upload-opt"), "picture choices");
+  check(P.optionField(opt, "gone", "p", { ...ctx, pictures: pics }).includes("gone (missing)"), "missing picture");
+  check(P.optionField(opt, "", "p", { ...ctx, pictures: null }).includes("Loading"), "pictures loading");
+}
+
 // Per-entity options: one comma separated item each, edited by position.
 check(P.perSet("", 1, "star") === ", star", "set past the end pads");
 check(P.perSet("ring, star", 1, "") === "ring", "trailing empties dropped");

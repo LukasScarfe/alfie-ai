@@ -20,15 +20,18 @@ from .config import ConfigError, _Check
 
 _LOGGER = logging.getLogger(__name__)
 
-OPTION_KINDS = ("entity", "entities", "number", "text", "choice", "bool", "color", "icon")
+OPTION_KINDS = ("entity", "entities", "number", "text", "choice", "bool", "color", "icon",
+                "picture")
 # Kinds that can hold one value per item of an entities option (`"per": key`).
 PER_KINDS = ("text", "choice", "icon")
-NEEDS = (None, "history", "forecast", "calendar", "streets")
+NEEDS = (None, "history", "forecast", "calendar", "streets", "picture")
 
 _ENTITY = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 _COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
 # An icon name as the card draws it (alfie-screens.js isIcon): mdi:account.
 _ICON = re.compile(r"^[a-z][a-z0-9_-]*:[a-z0-9_-]*[a-z][a-z0-9_-]*$")
+# A picture's id (pictures.py): whether the file exists is the provider's to say.
+_PICTURE = re.compile(r"^[a-z0-9_]+$")
 
 
 def _meta_ok(meta: Any) -> str | None:
@@ -125,7 +128,7 @@ def _option(o: Mapping[str, Any], v: Any, ck: _Check, where: str) -> Any:
         return _num(ck.number(label, v, o.get("min"), o.get("max"), o.get("default", 0)))
     if o.get("per") and isinstance(v, (str, list)):
         return _per(o, v, ck, label) or o.get("default", "")
-    if kind in ("text", "color", "choice", "entity", "icon"):
+    if kind in ("text", "color", "choice", "entity", "icon", "picture"):
         if not isinstance(v, str):
             ck.bad(label, "must be text")
             return o.get("default", "")
@@ -134,6 +137,9 @@ def _option(o: Mapping[str, Any], v: Any, ck: _Check, where: str) -> Any:
             return _one(o, v, ck, label)
         if kind == "color" and not _COLOR.match(v):
             ck.bad(label, "must be a colour like #ffcc00")
+            return o.get("default", "")
+        if kind == "picture" and not _PICTURE.match(v):
+            ck.bad(label, "must be a picture's id")
             return o.get("default", "")
         if kind == "entity" and (why := _entity_ok(v, o.get("domain"))):
             ck.bad(label, why)

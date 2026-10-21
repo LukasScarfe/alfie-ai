@@ -33,8 +33,12 @@ The Python files are under `custom_components/alfie/`, and the frontend ones und
  ]}
 ```
 
-- `needs` is `null` or one provider kind: `history`, `forecast`, `calendar` or `streets`.
-- Option kinds are `entity`, `entities`, `number`, `text`, `choice`, `bool`, `color` and `icon`.
+- `needs` is `null` or one provider kind: `history`, `forecast`, `calendar`, `streets` or
+  `picture`.
+- `"refresh": false` says the data only changes with the screens (a picture): the card fetches
+  it once, and again only when `screens_rev` changes.
+- Option kinds are `entity`, `entities`, `number`, `text`, `choice`, `bool`, `color`, `icon` and
+  `picture` (an uploaded picture's id; the panel offers the pictures and an upload button).
   An `icon` option takes one of its `presets` (the type's built-in drawings, e.g. `ring`) or any
   icon name (`mdi:account`); the panel offers the presets first, then MDI icons.
 - `"when": {"<key>": [values]}` shows the field only while those options hold those values
@@ -73,8 +77,8 @@ The Python files are under `custom_components/alfie/`, and the frontend ones und
 ## Engine to card
 
 - **Scene** (`alfie/subscribe`) gains two fields:
-  - `"screens_rev"`: a short hash of `screens` plus `rotations`. A card refetches when it
-    changes.
+  - `"screens_rev"`: a short hash of `screens`, `rotations` and the pictures. A card refetches
+    when it changes.
   - `"screen"`: `null`, or `{"id": "plants", "until": <epoch s>, "seq": <int>}`. Set by the
     `alfie.show_screen` service; M4 stories will set it too.
 - **`alfie/screens`** (open to every logged-in user, because the wall tablet is not an admin)
@@ -137,6 +141,9 @@ export default {
   `S.iconStamp()` in its key, so it redraws when an icon arrives. `S.marker` takes an icon name
   too (`S.MARKER_ICON` times the size, outlined; a ring until it loads).
 - **A stroke** is `{pts: [[x, y], ...], closed: bool, w: number, role: "line" | "text" | "accent" | "dim", fill: bool}`.
+  - Optional: `color` (a CSS colour that wins over the role: a picture's own colours), and
+    `group` + `solid` (+ `rule: "evenodd"`) for strokes filled together as one shape. Each group
+    fills just before its first stroke is drawn, so later shapes cover earlier ones.
   - `w` is a weight. 1 is normal, more than 1 is bolder, and 0.15 is xy's "dotted": the card
     draws it dashed and dim.
   - The card maps `role` to its colours (face colour, text colour, accent colour, dim) and

@@ -1,0 +1,14 @@
+{"type": "picture", "title": "Picture", "needs": "picture", "refresh": false,
+ "options": [
+   {"key": "picture", "kind": "picture", "label": "Picture", "required": true, "hint": "Upload SVGs under Screens → Pictures, or with the button here."},
+   {"key": "color", "kind": "choice", "label": "Colour", "default": "line", "choices": ["line", "accent", "text", "own"], "hint": "Own: the colours in the SVG."},
+   {"key": "fill", "kind": "choice", "label": "Fill", "default": "none", "choices": ["none", "soft", "solid"], "hint": "Filled shapes are drawn as outlines; this fills them in too."},
+   {"key": "fit", "kind": "choice", "label": "Fit", "default": "contain", "choices": ["contain", "stretch"]},
+   {"key": "scale", "kind": "number", "label": "Size", "default": 1, "min": 0.2, "max": 2, "unit": "×"},
+   {"key": "caption", "kind": "text", "label": "Caption", "default": ""},
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "The caption's."},
+   {"key": "rotation", "kind": "number", "label": "Rotation", "default": 0, "min": -180, "max": 180, "unit": "°", "more": true},
+   {"key": "weight", "kind": "number", "label": "Line weight", "default": 1, "min": 0.3, "max": 2.5, "unit": "×", "more": true},
+   {"key": "detail", "kind": "number", "label": "Detail", "default": 1, "min": 0.25, "max": 4, "unit": "×", "more": true, "hint": "More draws curves smoother; less is lighter."},
+   {"key": "max_points", "kind": "number", "label": "Point budget", "default": 3000, "min": 300, "max": 12000, "more": true, "hint": "Tiny details are dropped first to stay under it."}
+ ]}

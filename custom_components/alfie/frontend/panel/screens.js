@@ -1,5 +1,6 @@
-// The panel's Screens section: Screens (data pages Alfie presents) and
-// Rotations (screens in turn on a card, and what Alfie plays between them).
+// The panel's Screens section: Screens (data pages Alfie presents), Rotations
+// (screens in turn on a card, and what Alfie plays between them) and Pictures
+// (uploaded SVGs for the Picture screen; not part of the draft, they save at once).
 
 const V = new URL(import.meta.url).search;
 const U = await import(`./ui.js${V}`);
@@ -8,13 +9,13 @@ const R = await import(`./reactions.js${V}`);
 
 export const id = "screens";
 export const title = "Screens";
-export const subs = [["screens", "Screens"], ["rotations", "Rotations"]];
+export const subs = [["screens", "Screens"], ["rotations", "Rotations"], ["pictures", "Pictures"]];
 export const resets = { screens: ["screens"], rotations: ["rotations", "behaviour.appear_story_bad", "behaviour.appear_story_ok"] };
 
 const PREVIEW_DELAY = 300;
 
 export function render(p, sub) {
-  return sub === "rotations" ? rotations(p) : screens(p);
+  return sub === "rotations" ? rotations(p) : sub === "pictures" ? pictures(p) : screens(p);
 }
 
 // ------------------------------------------------------------ screens
@@ -44,6 +45,7 @@ function screens(p) {
       .pertable > code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .pertable input, .pertable select { min-width: 0; width: 100%; }
       .iconfield { flex-wrap: nowrap; gap: 6px; } .iconfield ha-icon { flex: none; --mdc-icon-size: 22px; }
+      label.flat { cursor: pointer; }
       @media (max-width: 760px) { .split2 { grid-template-columns: 1fr; } .pvbox { position: static; } }
     </style>`;
 }
@@ -57,12 +59,12 @@ function screen(p, sc, i, n, types, list) {
   }
   // Options that don't apply now are hidden; rarely changed ones fold under More options.
   const fields = (more) => info.options.filter((o) => !!o.more === more && Fm.optionShown(o, sc.options, info.options))
-    .map((o) => Fm.optionField(o, sc.options?.[o.key], `${P}.options`, { i, type: sc.type, list, options: info.options, values: sc.options })).join("");
+    .map((o) => Fm.optionField(o, sc.options?.[o.key], `${P}.options`, { i, type: sc.type, list, options: info.options, values: sc.options, pictures: pics(p).list })).join("");
   const extra = info ? fields(true) : "";
   const form = info ? fields(false) + (extra ? U.more(p, `so:${sc.id}`, extra) : "")
     : `<p class="error">Unknown screen type "${U.esc(sc.type)}".</p>`;
   const saved = p.saved.screens.find((x) => x.id === sc.id && x.type === sc.type);
-  const dataNote = !info?.needs ? "" : saved
+  const dataNote = !info?.needs || info.needs === "picture" ? "" : saved
     ? `Data comes from the saved options${U.same(saved.options, sc.options) ? "" : "; your edits show after saving"}.`
     : "Save to load data: until then this shows a stand-in.";
   const body = `<div class="split2">
@@ -85,9 +87,13 @@ async function drawPreview(p, card) {
   if (!card._configured) { card.setConfig({ card: false, aspect: 1.6, padding: 0.06 }); card._configured = true; }
   const typeInfo = p.choices.screen_types?.[sc.type];
   const seq = card._seq = (card._seq || 0) + 1;
+  // A picture shows from the draft's choice at once, saved or not.
+  const pid = typeInfo?.needs === "picture" ? sc.options?.picture : null;
+  const svg = pid ? pics(p).svg.get(pid) : undefined;
+  if (pid && svg === undefined) pictureSvg(p, pid).then(() => { if (card.isConnected && card.dataset.id === sc.id) drawPreview(p, card); });
   try {
     await card.renderScreenStill({
-      type: sc.type, options: sc.options || {}, typeInfo, data: p.sdata.get(sc.id)?.data ?? null,
+      type: sc.type, options: sc.options || {}, typeInfo, data: pid ? (svg ? { svg } : null) : p.sdata.get(sc.id)?.data ?? null,
       t: Date.now() / 1000, states: p.hass.states, config: p.hass.config, present: "handover", u: 1,
       title: sc.title,
     });
@@ -96,7 +102,7 @@ async function drawPreview(p, card) {
   }
   // A saved screen that needs data gets it once; the preview shows the saved data.
   const saved = p.saved.screens.some((x) => x.id === sc.id && x.type === sc.type);
-  if (typeInfo?.needs && saved && !p.sdata.has(sc.id)) {
+  if (typeInfo?.needs && typeInfo.needs !== "picture" && saved && !p.sdata.has(sc.id)) {
     p.sdata.set(sc.id, {});
     try {
       const r = await p.hass.callWS({ type: "alfie/screen_data", screen: sc.id });
@@ -113,9 +119,144 @@ async function drawPreview(p, card) {
 
 const drawAll = (p) => p.root.querySelectorAll(".spv").forEach((c) => drawPreview(p, c));
 
-export function mount(p, sub) { if (sub === "screens") drawAll(p); }
+export function mount(p, sub) {
+  if ((sub === "screens" || sub === "pictures") && !pics(p).list && !pics(p).loading) loadPictures(p);
+  if (sub === "screens") drawAll(p);
+  if (sub === "pictures") mountPictures(p);
+}
 export function leave() { clearTimeout(timer); }
 let timer;
+
+// ------------------------------------------------------------ pictures
+
+const pics = (p) => (p.pics ??= { list: null, svg: new Map(), loading: false, msg: "" });
+
+async function loadPictures(p) {
+  const P = pics(p);
+  P.loading = true;
+  try {
+    P.list = (await p.hass.callWS({ type: "alfie/pictures/list" })).pictures;
+  } catch (e) {
+    P.list = [];
+    P.msg = `Can't list pictures: ${e?.message || e}`;
+  }
+  P.loading = false;
+  if (p.sec === "screens") p.render();
+}
+
+// A picture's SVG, fetched once (null if it can't be had).
+function pictureSvg(p, id) {
+  const P = pics(p);
+  if (P.svg.has(id)) return Promise.resolve(P.svg.get(id));
+  P.svg.set(id, null);
+  return p.hass.callWS({ type: "alfie/pictures/get", picture: id })
+    .then((r) => { P.svg.set(id, r.svg); return r.svg; }, () => null);
+}
+
+const usedBy = (p, id) => p.draft.screens.filter((s) => p.choices.screen_types?.[s.type]?.needs === "picture" && s.options?.picture === id);
+const kb = (n) => (n >= 1024 ? `${Math.round(n / 1024)} KB` : `${n} B`);
+
+function pictures(p) {
+  const P = pics(p);
+  const rows = (P.list || []).map((m) => {
+    const used = usedBy(p, m.id);
+    return `<section class="card pic"><alfie-card class="ppv" data-pic="${U.esc(m.id)}"></alfie-card>
+      <div class="picinfo">
+        ${U.field("Name", `<input class="pic-name" data-pic="${U.esc(m.id)}" value="${U.esc(m.name)}">`)}
+        <small class="muted">ID <code>${U.esc(m.id)}</code> · ${kb(m.size)}${m.shapes ? ` · ${m.shapes} shape${m.shapes > 1 ? "s" : ""}` : ""}</small>
+        <small>${used.length ? `Used by ${used.map((s) => `<b>${U.esc(s.title || s.id)}</b>`).join(", ")}` : `<span class="muted">Not used by a screen yet.</span>`}</small>
+        <div class="row">
+          <button class="flat" data-action="pic-screen" data-pic="${U.esc(m.id)}">${U.icon("mdi:plus")}Make a screen</button>
+          <label class="flat">${U.icon("mdi:file-replace-outline")}Replace<input type="file" accept=".svg,image/svg+xml" hidden class="pic-replace" data-pic="${U.esc(m.id)}"></label>
+          <button class="flat" data-action="pic-del" data-pic="${U.esc(m.id)}">${U.icon("mdi:delete-outline")}Delete</button>
+        </div>
+      </div></section>`;
+  }).join("");
+  return `${U.intro("Pictures are SVG files for the Picture screen: a floor plan, a logo, a drawing.",
+      `Alfie draws them in his line style: filled shapes as their outlines, lines as lines. Text has to be turned
+      into paths first (in Inkscape: Path → Object to Path). Uploads save at once; they aren't part of Save and Discard.`)}
+    <label class="picdrop">${U.icon("mdi:upload")}<span><b>Upload SVGs</b><br><small class="muted">Drop files here, or click to pick. Up to 2 MB each.</small></span>
+      <input type="file" accept=".svg,image/svg+xml" multiple hidden id="pic-file"></label>
+    ${P.msg ? `<p class="${/^Can't|^Couldn't/.test(P.msg) ? "error" : "muted"} picmsg">${U.esc(P.msg)}</p>` : ""}
+    ${P.list === null ? `<p class="muted">Loading…</p>` : rows ? `<div class="pics">${rows}</div>` : U.empty("No pictures yet.")}
+    <style>
+      .picdrop { display: flex; gap: 14px; align-items: center; padding: 18px; margin: 8px 0 16px; border: 2px dashed var(--edge); border-radius: 12px; cursor: pointer; }
+      .picdrop.over { border-color: var(--primary-color); background: var(--secondary-background-color); }
+      .picdrop ha-icon { --mdc-icon-size: 32px; color: var(--primary-color); }
+      .pics { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+      .pic { display: flex; flex-direction: column; gap: 8px; }
+      .pic .ppv { display: block; aspect-ratio: 1.6; }
+      .picinfo { display: flex; flex-direction: column; gap: 6px; }
+      .picinfo .row { flex-wrap: wrap; gap: 6px; } label.flat { cursor: pointer; }
+    </style>`;
+}
+
+function mountPictures(p) {
+  const drop = p.root.querySelector(".picdrop");
+  if (drop && !drop._wired) {
+    drop._wired = true;
+    drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+    drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+    drop.addEventListener("drop", (e) => {
+      e.preventDefault();
+      drop.classList.remove("over");
+      upload(p, [...(e.dataTransfer?.files || [])]);
+    });
+  }
+  p.root.querySelectorAll(".ppv").forEach(async (card) => {
+    const id = card.dataset.pic;
+    if (!card.setConfig) return;
+    card.setConfig({ card: false, aspect: 1.6, padding: 0.06 });
+    const svg = await pictureSvg(p, id);
+    if (!card.isConnected) return;
+    await card.renderScreenStill({
+      type: "picture", options: {}, typeInfo: p.choices.screen_types?.picture, data: svg ? { svg } : null,
+      t: Date.now() / 1000, states: p.hass.states, config: p.hass.config, present: "handover", u: 1,
+    }).catch(() => {});
+  });
+}
+
+// Upload files (each its own picture, or one replacing `replace`). Returns the
+// ids made, in order; problems go in the message line.
+async function upload(p, files, replace = null) {
+  const P = pics(p), made = [], bad = [];
+  for (const f of files) {
+    try {
+      const svg = await f.text();
+      const r = await p.hass.callWS({ type: "alfie/pictures/upload", name: f.name, svg, ...(replace ? { replace } : {}) });
+      P.svg.delete(r.id);
+      made.push(r.id);
+    } catch (e) {
+      bad.push(`${f.name}: ${e?.message || e}`);
+    }
+  }
+  P.msg = bad.length ? `Couldn't upload ${bad.join("; ")}` : made.length ? `Uploaded ${made.length === 1 ? "1 picture" : `${made.length} pictures`}.` : "";
+  await loadPictures(p);
+  return made;
+}
+
+export function tool(p, ev) {
+  const el = ev.target;
+  if (ev.type !== "change") return el.matches?.(".pic-name, #pic-file, .pic-replace, .pic-upload-opt");
+  if (el.id === "pic-file") { upload(p, [...el.files]); return true; }
+  if (el.matches(".pic-replace")) { upload(p, [...el.files].slice(0, 1), el.dataset.pic); return true; }
+  if (el.matches(".pic-upload-opt")) {
+    const path = el.dataset.path;
+    upload(p, [...el.files].slice(0, 1)).then(([id]) => {
+      if (!id) { p.flash(pics(p).msg); return; }
+      const keys = path.split("."), last = keys.pop();
+      keys.reduce((o, k) => (o[k] ??= {}), p.draft)[last] = id;
+      p.edited(true);
+    });
+    return true;
+  }
+  if (el.matches(".pic-name")) {
+    p.hass.callWS({ type: "alfie/pictures/rename", picture: el.dataset.pic, name: el.value })
+      .then(() => loadPictures(p), (e) => p.flash(e?.message || String(e)));
+    return true;
+  }
+  return false;
+}
 
 // ------------------------------------------------------------ rotations
 
@@ -257,6 +398,28 @@ export function click(p, a, el) {
         if (t.per === key && o[t.key] !== undefined) o[t.key] = Fm.perDrop(o[t.key], j) || undefined;
       }
       p.edited(true);
+      return true;
+    }
+    case "pic-screen": {
+      const info = p.choices.screen_types?.picture;
+      const m = pics(p).list?.find((x) => x.id === el.dataset.pic);
+      if (!info || !m) return true;
+      const sc = Fm.newScreen(info, screens);
+      sc.title = m.name;
+      sc.id = U.slugId(screens, sc.title, "picture");
+      sc.options = { picture: m.id };
+      screens.push(sc);
+      p.autoId("s", sc.id);
+      p.open.add(`s:${sc.id}`);
+      p.edited(true);
+      p.go("screens", "screens");
+      return true;
+    }
+    case "pic-del": {
+      const id = el.dataset.pic, used = usedBy(p, id);
+      if (!confirm(`Delete this picture?${used.length ? ` ${used.length} screen${used.length > 1 ? "s use" : " uses"} it and will show nothing.` : ""}`)) return true;
+      p.hass.callWS({ type: "alfie/pictures/delete", picture: id })
+        .then(() => { pics(p).svg.delete(id); pics(p).msg = ""; return loadPictures(p); }, (e) => p.flash(e?.message || String(e)));
       return true;
     }
     case "rot-toggle": p.flip(`r:${rots[i].id}`); return true;

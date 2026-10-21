@@ -47,6 +47,8 @@ from .const import DOMAIN
 from .mood import COMBINE_MODES, LEVELS
 from .signals import OPERATORS, SEVERITIES
 from . import modes, stories, suggest, tell, triggers, voice
+from .pictures import MAX_UPLOAD, PictureError
+from .providers.picture import store_for as picture_store
 
 
 @callback
@@ -56,7 +58,8 @@ def async_register(hass: HomeAssistant) -> None:
         return
     for cmd in (ws_subscribe, ws_config_get, ws_config_set, ws_config_reset, ws_config_preview,
                 ws_screens, ws_screen_data, ws_story_play, ws_story_expand, ws_triggers_status, ws_suggest,
-                ws_voice_status, ws_voice_say):
+                ws_voice_status, ws_voice_say, ws_pictures_list, ws_picture_get,
+                ws_picture_upload, ws_picture_rename, ws_picture_delete):
         websocket_api.async_register_command(hass, cmd)
     data["_ws_registered"] = True
 
@@ -332,3 +335,75 @@ def ws_voice_say(hass: HomeAssistant, connection: websocket_api.ActiveConnection
         return
     went = engine.speak(msg["message"], msg.get("speakers"), msg.get("tts_entity", ""))
     connection.send_result(msg["id"], {"speakers": went})
+
+
+# ------------------------------------------------------------- pictures
+
+async def _pictures(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+                    msg: dict[str, Any], job, changed: bool = False) -> None:
+    """Run a blocking store call in an executor and send its result; a
+    PictureError goes back as the user's reason."""
+    if (engine := _engine(hass, connection, msg["id"])) is None:
+        return
+    try:
+        result = await hass.async_add_executor_job(job)
+    except PictureError as e:
+        connection.send_error(msg["id"], "invalid_picture", str(e))
+        return
+    if changed:
+        await engine.pictures_changed()
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "alfie/pictures/list"})
+@websocket_api.async_response
+async def ws_pictures_list(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+                           msg: dict[str, Any]) -> None:
+    store = picture_store(hass)
+    await _pictures(hass, connection, msg, lambda: {"pictures": store.list()})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "alfie/pictures/get",
+                                  vol.Required("picture"): str})
+@websocket_api.async_response
+async def ws_picture_get(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+                         msg: dict[str, Any]) -> None:
+    store = picture_store(hass)
+    await _pictures(hass, connection, msg,
+                    lambda: {"id": msg["picture"], "svg": store.read(msg["picture"])})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "alfie/pictures/upload",
+                                  vol.Required("name"): str,
+                                  vol.Required("svg"): vol.All(str, vol.Length(max=MAX_UPLOAD)),
+                                  vol.Optional("replace"): str})
+@websocket_api.async_response
+async def ws_picture_upload(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+                            msg: dict[str, Any]) -> None:
+    store = picture_store(hass)
+    await _pictures(hass, connection, msg,
+                    lambda: store.save(msg["name"], msg["svg"], msg.get("replace")), changed=True)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "alfie/pictures/rename",
+                                  vol.Required("picture"): str, vol.Required("name"): str})
+@websocket_api.async_response
+async def ws_picture_rename(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+                            msg: dict[str, Any]) -> None:
+    store = picture_store(hass)
+    await _pictures(hass, connection, msg,
+                    lambda: store.rename(msg["picture"], msg["name"]) or {}, changed=True)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "alfie/pictures/delete",
+                                  vol.Required("picture"): str})
+@websocket_api.async_response
+async def ws_picture_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+                            msg: dict[str, Any]) -> None:
+    store = picture_store(hass)
+    await _pictures(hass, connection, msg,
+                    lambda: store.delete(msg["picture"]) or {}, changed=True)
