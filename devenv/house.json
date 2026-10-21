@@ -1108,6 +1108,7 @@
  "voice": {
   "enabled": true,
   "satellites": [],
+  "while_asleep": true,
   "listening_expression": "surprised",
   "listening_animation": "",
   "processing_animation": "processing",
@@ -1117,6 +1118,14 @@
   "persona": false,
   "persona_prompt": "You are Alfie, the face of this home: a small, lively ring with two eyes on the household's screens. You care about the house and the people in it. Answer briefly and warmly, with a little personality, and never invent problems. When someone asks whether anything is wrong, or how the house is, call the alfie_whats_wrong tool and answer from what it returns.",
   "mood_aware": true,
+  "assist_tool": false,
+  "intent": false,
+  "sentences": [
+   "(is|are) [there] (anything|something|things) wrong [in the house|at home]",
+   "(what is|what's|whats) wrong [in the house|at home]",
+   "how is the house [doing]",
+   "(any|anything) to worry about"
+  ],
   "speak_targets": [],
   "tts_entity": "",
   "language": ""

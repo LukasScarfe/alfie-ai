@@ -132,13 +132,15 @@ def default_voice() -> dict[str, Any]:
     """Voice (design.md "Voice"): which satellites he follows ([] every one),
     his look in each phase, the Alfie LLM API's persona and mood prompt, and
     where a speak step talks when it names no speakers."""
-    return {"enabled": True, "satellites": [],
+    return {"enabled": True, "satellites": [], "while_asleep": True,
             "listening_expression": "surprised", "listening_animation": "",
             "processing_animation": "processing",
             "speak_style": "pulse", "speak_strength": 1,
             "after": "nod",
             "persona": False, "persona_prompt": defaults.PERSONA_PROMPT,
             "mood_aware": True,
+            "assist_tool": False, "intent": False,
+            "sentences": list(defaults.WHATS_WRONG_SENTENCES),
             "speak_targets": [], "tts_entity": "", "language": ""}
 
 
@@ -548,6 +550,26 @@ def _entity_list(where: str, v: Any, domains: tuple[str, ...], ck: _Check) -> li
     return out
 
 
+def _sentences(v: Any, ck: _Check) -> list[str]:
+    """The intent's sentences, in HA's template syntax: (a|b) [optional]."""
+    if isinstance(v, str):
+        v = v.splitlines()
+    if not isinstance(v, list):
+        ck.bad("voice sentences", "must be a list")
+        return list(defaults.WHATS_WRONG_SENTENCES)
+    out: list[str] = []
+    for x in v:
+        x = " ".join(str(x).split()).lower()
+        if not x:
+            continue
+        if x.count("(") != x.count(")") or x.count("[") != x.count("]") \
+                or re.search(r"[.,!?;]", x):
+            ck.bad("voice sentences", f"{x!r}: unbalanced brackets or punctuation")
+        elif x not in out:
+            out.append(x)
+    return out
+
+
 def _voice(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
            animations: Any, ck: _Check) -> dict[str, Any]:
     v = _section(raw, "voice", base)
@@ -559,6 +581,7 @@ def _voice(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
     return {
         "enabled": bool(v["enabled"]),
         "satellites": _entity_list("voice satellites", v["satellites"], ("assist_satellite",), ck),
+        "while_asleep": bool(v["while_asleep"]),
         "listening_expression": ck.choice("voice listening expression",
                                           v["listening_expression"] or "",
                                           ("", *expressions), ""),
@@ -573,6 +596,9 @@ def _voice(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
         "persona": bool(v["persona"]),
         "persona_prompt": prompt[:4000] or defaults.PERSONA_PROMPT,
         "mood_aware": bool(v["mood_aware"]),
+        "assist_tool": bool(v["assist_tool"]),
+        "intent": bool(v["intent"]),
+        "sentences": _sentences(v["sentences"], ck),
         "speak_targets": _entity_list("voice speakers", v["speak_targets"],
                                       ("media_player", "assist_satellite"), ck),
         "tts_entity": tts,

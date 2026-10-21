@@ -136,6 +136,29 @@ show_icon:
           translation_key: icon_fill
           options: [none, soft, solid]
 clear_icons:
+say:
+  fields:
+    message:
+      required: true
+      example: "The washing is done."
+      selector:
+        text:
+          multiline: true
+    speakers:
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: [media_player, assist_satellite]
+    tts_entity:
+      selector:
+        entity:
+          filter:
+            - domain: tts
+    language:
+      example: en
+      selector:
+        text:
 set_mood:
   fields:
     level:

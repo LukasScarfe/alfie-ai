@@ -109,6 +109,14 @@ SERVICES: dict[str, tuple[Callable[[AlfieEngine, dict[str, Any]], Any], dict[Any
         vol.Optional("fill", default="soft"): vol.In(ICON_FILLS),
     }),
     "clear_icons": (lambda e, d: e.clear_icons(), {}),
+    # Say something out loud; with no speakers, Voice's (design.md "Voice").
+    "say": (lambda e, d: e.speak(d["message"], d.get("speakers"), d.get("tts_entity", ""),
+                                 d.get("language", "")), {
+        vol.Required("message"): vol.All(cv.string, vol.Strip, vol.Length(min=1)),
+        vol.Optional("speakers"): cv.entity_ids,
+        vol.Optional("tts_entity"): cv.entity_id,
+        vol.Optional("language"): cv.string,
+    }),
     # Held overrides of the house mode (modes.with_holds); auto lets go.
     "set_mood": (lambda e, d: e.hold("mood", d["level"], d.get("duration")), {
         vol.Required("level"): cv.string, vol.Optional("duration"): DURATION,

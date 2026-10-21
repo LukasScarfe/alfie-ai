@@ -16,6 +16,10 @@ fired and what came of it. Both are admin only.
 the house has and the config doesn't cover yet. Admin only, one pass over the
 states per call.
 
+`alfie/voice/status` shows the panel what voice agents get from Alfie (the
+satellites he follows, the prompt, the tool's answer, the intent's), and
+`alfie/voice/say` says a line out loud. Both are admin only.
+
 `alfie/screens` and `alfie/screen_data` feed the cards the user's screens and
 their server-side data. Like subscribe they are open to every logged-in user.
 """
@@ -41,7 +45,7 @@ from .config import _Check
 from .const import DOMAIN
 from .mood import COMBINE_MODES, LEVELS
 from .signals import OPERATORS, SEVERITIES
-from . import modes, stories, suggest, triggers
+from . import modes, stories, suggest, tell, triggers, voice
 
 
 @callback
@@ -50,7 +54,8 @@ def async_register(hass: HomeAssistant) -> None:
     if data.get("_ws_registered"):
         return
     for cmd in (ws_subscribe, ws_config_get, ws_config_set, ws_config_reset, ws_config_preview,
-                ws_screens, ws_screen_data, ws_story_play, ws_story_expand, ws_triggers_status, ws_suggest):
+                ws_screens, ws_screen_data, ws_story_play, ws_story_expand, ws_triggers_status, ws_suggest,
+                ws_voice_status, ws_voice_say):
         websocket_api.async_register_command(hass, cmd)
     data["_ws_registered"] = True
 
@@ -289,3 +294,39 @@ def ws_triggers_status(hass: HomeAssistant, connection: websocket_api.ActiveConn
                     "total": len(st["actions"])} if st else None,
         "queue": [{"story": q["story"], "trigger": q["trigger"]} for q in engine._queue],
     })
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "alfie/voice/status"})
+@callback
+def ws_voice_status(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+                    msg: dict[str, Any]) -> None:
+    if (engine := _engine(hass, connection, msg["id"])) is None:
+        return
+    sats = []
+    for st in hass.states.async_all("assist_satellite"):
+        sats.append({"entity_id": st.entity_id, "name": st.name, "state": st.state,
+                     "followed": engine._follows(st.entity_id)})
+    connection.send_result(msg["id"], {
+        "satellites": sats,
+        "active": engine._voice_scene()["satellites"],
+        "prompt": voice.prompt(engine),
+        "whats_wrong": voice.whats_wrong(engine),
+        "spoken": tell.spoken(engine.mood, voice._lookup(hass)),
+        "tool": voice.WhatsWrongTool.name,
+        "api": voice.API_ID,
+    })
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "alfie/voice/say",
+                                  vol.Required("message"): str,
+                                  vol.Optional("speakers"): [str],
+                                  vol.Optional("tts_entity"): str})
+@callback
+def ws_voice_say(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+                 msg: dict[str, Any]) -> None:
+    if (engine := _engine(hass, connection, msg["id"])) is None:
+        return
+    went = engine.speak(msg["message"], msg.get("speakers"), msg.get("tts_entity", ""))
+    connection.send_result(msg["id"], {"speakers": went})

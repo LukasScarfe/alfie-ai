@@ -33,6 +33,7 @@ from .const import (
     EVENT_ICON,
     EVENT_SIGNAL,
     EVENT_STORY,
+    EVENT_VOICE,
     FACE_FILE,
     SCENE_VERSION,
 )
@@ -62,6 +63,7 @@ QUEUE_STALE = 60.0           # seconds a queued story may wait before it is drop
 REPEAT_GAP = 900.0           # seconds between one signal's walk-in replays
 ANIMATION_SLACK = 0.25       # seconds added to an animation a story waits for
 OVERLAYS_MAX = 4             # icon badges on the cards at once; the oldest goes first
+SATELLITE = "assist_satellite."
 
 Listener = Callable[[dict[str, Any]], None]
 
@@ -147,6 +149,10 @@ class AlfieEngine:
         self._repeated: dict[str, float] = {}           # signal id -> monotonic
         self._repeat_unsub: CALLBACK_TYPE | None = None
         self._old_expression: str | None = None         # the mood's, before this change
+        # Voice (design.md "Voice"): the satellites he follows that are
+        # listening, thinking or answering now. Not entity state.
+        self.voice: dict[str, dict[str, Any]] = {}
+        self._voice_triggers: list[dict[str, Any]] = []
 
     # ------------------------------------------------------------ lifecycle
 
@@ -215,6 +221,8 @@ class AlfieEngine:
         self.stories = {s["id"]: s for s in cfg["stories"]}
         self.triggers = [t for t in cfg["triggers"] if t["enabled"]]
         self._entity_triggers = [t for t in self.triggers if t["kind"] in ("entity", "motion")]
+        self._voice_triggers = [t for t in self.triggers if t["kind"] == "voice"]
+        self.voice = {e: v for e, v in self.voice.items() if self._follows(e)}
         self._thresholds = {}
         for t in self._entity_triggers:
             if (eid := trig.threshold_entity(t)) is not None:
@@ -293,6 +301,8 @@ class AlfieEngine:
         if hit is None:
             hit = (eid in self.motion_sensors or self._is_signal_entity(eid)
                    or eid in self._thresholds
+                   or (eid.startswith(SATELLITE)
+                       and (self.config["voice"]["enabled"] or bool(self._voice_triggers)))
                    or any(trig.watches(t, eid) for t in self._entity_triggers))
             self._relevant_cache[eid] = hit
         return hit
@@ -327,8 +337,83 @@ class AlfieEngine:
                 if trig.entity_fires(t, e, e, ns, os_) and all(t is not f for f, _ in fired):
                     fired.append((t, ()))
                     break
+        if eid.startswith(SATELLITE):
+            fired += self._voice_change(eid, old.state if old else None,
+                                        new.state if new else None)
         if fired:
             self._fire(fired)
+
+    # -------------------------------------------------------------- voice
+
+    def _follows(self, entity_id: str) -> bool:
+        """Whether Alfie takes the face role for this satellite."""
+        v = self.config.get("voice") or {}
+        return bool(v.get("enabled")) and (not v.get("satellites") or entity_id in v["satellites"])
+
+    @callback
+    def _voice_change(self, eid: str, old: str | None,
+                      new: str | None) -> list[tuple[dict[str, Any], tuple[str, ...]]]:
+        """A satellite moved: follow it in the scene, fire its event, and
+        return the voice triggers its new phase fires."""
+        phase = trig.voice_phase(old, new)
+        if phase is None:
+            return []
+        self.hass.bus.async_fire(EVENT_VOICE, {"satellite": eid, "phase": phase})
+        _LOGGER.debug("voice %s: %s", eid, phase)
+        if self._follows(eid):
+            v = self.config["voice"]
+            if phase == "done":
+                self.voice.pop(eid, None)
+                if v["after"] and not self.asleep and not self.voice:
+                    st = self.hass.states.get(eid)
+                    self.play(v["after"], f"Voice: {st.name if st else eid} is done.", "voice",
+                              push=False)
+            elif not self.asleep or v["while_asleep"]:
+                st = self.hass.states.get(eid)
+                self.voice[eid] = {"state": phase, "since": time.time(),
+                                   "name": st.name if st else eid}
+            self._push()
+        return [(t, ()) for t in self._voice_triggers if trig.voice_fires(t, eid, phase)]
+
+    def _voice_scene(self) -> dict[str, Any]:
+        v = self.config.get("voice") or {}
+        return {"satellites": {e: dict(x) for e, x in self.voice.items()},
+                "look": {k: v.get(k) for k in ("listening_expression", "listening_animation",
+                                                "processing_animation", "speak_style",
+                                                "speak_strength")}}
+
+    @callback
+    def speak(self, text: str, targets: list[str] | None = None,
+              tts_entity: str = "", language: str = "") -> list[str]:
+        """Say `text` out loud, without waiting: satellites announce it, media
+        players get TTS. With no targets, the Voice settings' speakers, else
+        every satellite he follows. Returns where it went."""
+        v = self.config["voice"]
+        targets = list(targets or v["speak_targets"])
+        if not targets:
+            targets = [e for e in self.hass.states.async_entity_ids("assist_satellite")
+                       if self._follows(e)]
+        sats = [t for t in targets if t.startswith(SATELLITE)]
+        players = [t for t in targets if t.startswith("media_player.")]
+        if sats:
+            self.hass.async_create_task(self.hass.services.async_call(
+                "assist_satellite", "announce", {"message": text},
+                target={"entity_id": sats}, blocking=False))
+        if players:
+            tts = tts_entity or v["tts_entity"] or next(
+                iter(self.hass.states.async_entity_ids("tts")), "")
+            if not tts:
+                _LOGGER.warning("Alfie can't say %r: no TTS engine is set up", text)
+                players = []
+            else:
+                data: dict[str, Any] = {"message": text, "media_player_entity_id": players}
+                if language or v["language"]:
+                    data["language"] = language or v["language"]
+                self.hass.async_create_task(self.hass.services.async_call(
+                    "tts", "speak", data, target={"entity_id": tts}, blocking=False))
+        if not sats and not players:
+            _LOGGER.info("Alfie had nothing to say %r on", text)
+        return [*sats, *players]
 
     def _limits(self, t: dict[str, Any]) -> tuple[Any, Any]:
         """A trigger's threshold now, twice (it didn't move), or Nones for a fixed value."""
@@ -728,7 +813,10 @@ class AlfieEngine:
         return Context(mood_expression=mood_expr,
                        old_mood_expression=old_expression or mood_expr,
                        why=self._screens_of(why),
-                       wrong=self._screens_of(r.signal.id for r in (m.bad if m else ())))
+                       wrong=self._screens_of(r.signal.id for r in (m.bad if m else ())),
+                       name=self.name, level=m.level if m else "content",
+                       reason=m.reason if m else "",
+                       wrong_names=tuple(r.signal.name for r in (m.bad if m else ())))
 
     def appear_story(self) -> str:
         """The most relevant story for Alfie appearing in a rotation, mood-led:
@@ -794,8 +882,7 @@ class AlfieEngine:
             elif a.kind == "icon":
                 self._overlay(a.value)
             elif a.kind == "speak":
-                _LOGGER.debug("story %s would say %r (speaking comes with Voice)",
-                              st["id"], a.value)
+                self.speak(a.value["text"], a.value["targets"], a.value["tts_entity"])
             if a.seconds > 0:
                 self._push()
                 self._story_unsub = async_call_later(
@@ -1028,6 +1115,7 @@ class AlfieEngine:
             "reason": "Asleep." if self.asleep else "An automation holds his mood." if "mood" in self.holds
                       else (m.reason if m else ""),
             "story": self._story_scene(),
+            "voice": self._voice_scene(),
             "screen": self.screen,
             "icons": self.overlays,
             "screens_rev": self.screens_rev,

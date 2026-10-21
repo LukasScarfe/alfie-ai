@@ -135,3 +135,63 @@ def test_an_old_speak_step_still_loads():
     step = next(s for s in valid(cfg)["stories"] if s["id"] == "say")["steps"][0]
     assert step == {"kind": "speak", "text": "Hi", "targets": [], "tts_entity": "",
                     "wait": False}
+
+
+# ------------------------------------------------------------------ telling
+
+from alfie.mood import Mood  # noqa: E402
+from alfie.signals import Signal, SignalResult  # noqa: E402
+from alfie.tell import mood_line, spoken, summary, whats_wrong  # noqa: E402
+
+STATES = {"sensor.a_battery": ("Door battery", "9", "%"),
+          "sensor.b_battery": ("Lock battery", "12", "%"),
+          "binary_sensor.leak": ("Kitchen leak", "on", "")}
+
+
+def lookup(e):
+    return STATES.get(e)
+
+
+def sig(i, sev, name):
+    return Signal(id=i, name=name, entities=("x",), op="is", value="on", kind="bad",
+                  severity=sev)
+
+
+def mood(*bad):
+    return Mood("uneasy", -2.0, "skeptical", 0.5, tuple(bad), ())
+
+
+BATT = SignalResult(sig("low_battery", "major", "A battery is low"), True,
+                    ("sensor.a_battery", "sensor.b_battery", "sensor.gone"))
+LEAK = SignalResult(sig("leak", "critical", "Water is leaking"), True, ("binary_sensor.leak",))
+
+
+def test_whats_wrong_lists_the_worst_first():
+    d = whats_wrong(mood(BATT, LEAK), lookup, {"leak": 100.0}, 700.0)
+    assert not d["all_well"] and d["mood"] == "uneasy"
+    assert [p["problem"] for p in d["problems"]] == ["Water is leaking", "A battery is low"]
+    assert d["problems"][0]["minutes"] == 10 and "minutes" not in d["problems"][1]
+    assert d["problems"][1]["entities"] == [
+        {"entity_id": "sensor.a_battery", "name": "Door battery", "state": "9 %"},
+        {"entity_id": "sensor.b_battery", "name": "Lock battery", "state": "12 %"}]
+
+
+def test_all_well():
+    assert whats_wrong(None, lookup, {}, 0)["all_well"]
+    assert spoken(mood(), lookup) == "Nothing's wrong. All is well."
+    assert summary(None, lookup) == "All is well."
+
+
+def test_spoken_and_summary():
+    assert spoken(mood(LEAK, BATT), lookup) == (
+        "2 things. Water is leaking: Kitchen leak. "
+        "A battery is low: Door battery at 9 % and Lock battery at 12 %.")
+    assert summary(mood(BATT), lookup) == "A battery is low (Door battery and Lock battery)"
+
+
+def test_mood_line():
+    m = mood(BATT)
+    assert mood_line("Alfie", m) == ("Right now you feel uneasy, because: A battery is low. "
+                                     "Let a little of that show in your tone, but stay helpful.")
+    assert mood_line("Alfie", None, persona=False) == \
+        "Right now Alfie, the home's face, feels content."
