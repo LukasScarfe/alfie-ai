@@ -155,7 +155,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
       follows all, chosen or no satellites; an "Alfie" LLM API (whats_wrong tool, optional persona
       and mood prompt) plus a plain intent; default speakers and TTS engine in Voice settings, a
       speak step can override them.
-  - [ ] A. Model (pure): config v7 `voice` section + `migrate_v6`, trigger kind `voice`
+  - [x] A. Model (pure): a `voice` config section (missing: the defaults, so no version bump), trigger kind `voice`
         (satellites, phase), speak step targets / engine / fill-ins; tests.
   - [ ] B. Engine: satellites in the one filtered listener, `voice` in the scene (no state
         writes), voice triggers, the `after` reaction, speak via `tts.speak` /

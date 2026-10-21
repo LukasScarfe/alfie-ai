@@ -55,9 +55,10 @@ from .triggers import validate_triggers
 # 6: label and text screens' size became text_size, a multiplier (migrate_v5).
 CONFIG_VERSION = 6
 SECTIONS = ("signals", "mood", "behaviour", "personality", "look", "screens", "rotations",
-            "stories", "triggers", "modes", "overview")
+            "stories", "triggers", "modes", "voice", "overview")
 GUIDE_STEPS = ("signals", "motion", "sleep", "dashboard", "screens")   # Get started
 STYLES = ("neon", "flat", "crt", "theme")     # the card's render styles
+SPEAK_STYLES = ("pulse", "eyes", "both", "wave")   # how he shows speaking (no mouth)
 SHAPE_TYPES = ("circle", "polygon", "star", "superellipse", "path")
 SHAPE_SLOTS = ("head", "eye", "left_eye", "right_eye")
 STEP_SECONDS = (3.0, 3600.0)     # how long a rotation step may show its screen
@@ -127,6 +128,20 @@ def default_look() -> dict[str, Any]:
             "shapes": {"head": {"type": "circle"}, "eye": {"type": "circle"}}}
 
 
+def default_voice() -> dict[str, Any]:
+    """Voice (design.md "Voice"): which satellites he follows ([] every one),
+    his look in each phase, the Alfie LLM API's persona and mood prompt, and
+    where a speak step talks when it names no speakers."""
+    return {"enabled": True, "satellites": [],
+            "listening_expression": "surprised", "listening_animation": "",
+            "processing_animation": "processing",
+            "speak_style": "pulse", "speak_strength": 1,
+            "after": "nod",
+            "persona": False, "persona_prompt": defaults.PERSONA_PROMPT,
+            "mood_aware": True,
+            "speak_targets": [], "tts_entity": "", "language": ""}
+
+
 def default_config() -> dict[str, Any]:
     return {
         "version": CONFIG_VERSION,
@@ -157,6 +172,7 @@ def default_config() -> dict[str, Any]:
         "stories": copy.deepcopy(list(defaults.STORIES)),
         "triggers": copy.deepcopy(list(defaults.TRIGGERS)),
         "modes": copy.deepcopy(list(defaults.MODES)),
+        "voice": default_voice(),
         "overview": {"dismissed": False, "done": []},
     }
 
@@ -518,6 +534,52 @@ def _behaviour(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
     }
 
 
+def _entity_list(where: str, v: Any, domains: tuple[str, ...], ck: _Check) -> list[str]:
+    if not isinstance(v, list):
+        ck.bad(where, "must be a list")
+        return []
+    out: list[str] = []
+    for x in v:
+        x = str(x).strip()
+        if x.count(".") != 1 or x.split(".")[0] not in domains:
+            ck.bad(where, f"{x!r} is not a {' or '.join(domains)} entity")
+        elif x not in out:
+            out.append(x)
+    return out
+
+
+def _voice(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
+           animations: Any, ck: _Check) -> dict[str, Any]:
+    v = _section(raw, "voice", base)
+    tts = str(v["tts_entity"] or "").strip()
+    if tts and not tts.startswith("tts."):
+        ck.bad("voice TTS engine", f"{tts!r} is not a tts entity")
+        tts = ""
+    prompt = str(v["persona_prompt"] or "").strip()
+    return {
+        "enabled": bool(v["enabled"]),
+        "satellites": _entity_list("voice satellites", v["satellites"], ("assist_satellite",), ck),
+        "listening_expression": ck.choice("voice listening expression",
+                                          v["listening_expression"] or "",
+                                          ("", *expressions), ""),
+        "listening_animation": ck.choice("voice listening animation",
+                                         v["listening_animation"] or "", ("", *animations), ""),
+        "processing_animation": ck.choice("voice thinking animation",
+                                          v["processing_animation"] or "", ("", *animations), ""),
+        "speak_style": ck.choice("voice speaking style", v["speak_style"], SPEAK_STYLES, "pulse"),
+        "speak_strength": _num(ck.number("voice speaking strength", v["speak_strength"],
+                                         0.2, 3, 1.0)),
+        "after": ck.choice("voice after a reply", v["after"] or "", ("", *animations), ""),
+        "persona": bool(v["persona"]),
+        "persona_prompt": prompt[:4000] or defaults.PERSONA_PROMPT,
+        "mood_aware": bool(v["mood_aware"]),
+        "speak_targets": _entity_list("voice speakers", v["speak_targets"],
+                                      ("media_player", "assist_satellite"), ck),
+        "tts_entity": tts,
+        "language": str(v["language"] or "").strip(),
+    }
+
+
 def _personality(raw: Mapping[str, Any], face: Mapping[str, Any], ck: _Check) -> dict[str, Any]:
     p = raw.get("personality") if isinstance(raw.get("personality"), Mapping) else {}
     presets = (*(face.get("personalities") or {}), CUSTOM)
@@ -754,6 +816,7 @@ def validate(raw: Any, face: Mapping[str, Any],
                                         mode_ids(raw_modes))
     cfg["modes"] = validate_modes(raw_modes, ck, tuple(face.get("personalities") or ()),
                                   {r["id"] for r in cfg["rotations"]})
+    cfg["voice"] = _voice(raw, base["voice"], expressions, animations, ck)
     cfg["overview"] = _overview(raw.get("overview"), ck)
     trigger_ids = {t["id"] for t in cfg["triggers"]}
     for m in cfg["modes"]:

@@ -9,7 +9,9 @@ ordered list of steps that every display performs together:
   wait        do nothing for a while
   move        spring to a place on the card
   resize      spring to a size
-  speak       say something (a placeholder until milestone 6, Voice)
+  speak       say something out loud: TTS on chosen speakers (media players or
+              voice satellites), or the Voice settings' speakers. Its text
+              takes {name} {mood} {reason} {wrong} fill-ins
   icon        show a Home Assistant icon: he turns into it, it shows beside
               him (his corner), or it is added onto the card as a badge
 
@@ -50,6 +52,8 @@ ICON_FILLS = ("none", "soft", "solid")       # outlines only, a faint fill, fill
 ICON_SIZE = (0.3, 2.0)                       # times the style's natural size
 ICON_SECONDS = (1.0, 3600.0)
 ICON_SCREEN = "@icon"                        # the screen id an icon shows as
+SPEAK_FILLS = ("name", "mood", "reason", "wrong")
+SPEAK_RATE = 14.0                            # characters a second, for a speak step's wait
 
 
 def is_icon_name(v: Any) -> bool:
@@ -84,7 +88,8 @@ def default_step(kind: str) -> dict[str, Any]:
         "wait": {"kind": "wait", "seconds": 2},
         "move": {"kind": "move", "to": "centre", "x": 0, "y": 0, "seconds": 0.8},
         "resize": {"kind": "resize", "scale": 1, "seconds": 0.8},
-        "speak": {"kind": "speak", "text": ""},
+        "speak": {"kind": "speak", "text": "", "targets": [], "tts_entity": "",
+                  "wait": False},
         "icon": {"kind": "icon", **default_icon(), "wait": True},
     }[kind]
 
@@ -163,7 +168,44 @@ def _step(raw: Any, where: str, ck: Any, expressions: Sequence[str],
         s["wait"] = bool(s["wait"])
     else:
         s["text"] = str(s["text"] or "").strip()
+        s["targets"] = _entities(f"{where} speakers", s["targets"], ("media_player",
+                                                                    "assist_satellite"), ck)
+        tts = str(s["tts_entity"] or "").strip()
+        if tts and not tts.startswith("tts."):
+            ck.bad(f"{where} TTS engine", f"{tts!r} is not a tts entity")
+            tts = ""
+        s["tts_entity"] = tts
+        s["wait"] = bool(s["wait"])
     return s
+
+
+def _entities(where: str, v: Any, domains: Sequence[str], ck: Any) -> list[str]:
+    """Entity ids in `domains`, as a list (a comma string is split)."""
+    if isinstance(v, str):
+        v = [x for x in v.split(",")]
+    if not isinstance(v, list):
+        ck.bad(where, "must be a list")
+        return []
+    out: list[str] = []
+    for x in v:
+        x = str(x).strip()
+        if not x:
+            continue
+        if x.split(".")[0] not in domains or x.count(".") != 1:
+            ck.bad(where, f"{x!r} is not a {' or '.join(domains)} entity")
+        elif x not in out:
+            out.append(x)
+    return out
+
+
+def fill(text: str, ctx: "Context") -> str:
+    """A speak step's text with its {name} {mood} {reason} {wrong} filled in;
+    any other braces stay as they are."""
+    vals = {"name": ctx.name, "mood": ctx.level, "reason": ctx.reason,
+            "wrong": ", ".join(ctx.wrong_names) or "nothing"}
+    for k in SPEAK_FILLS:
+        text = text.replace("{" + k + "}", vals[k])
+    return text
 
 
 def check_icon(raw: Mapping[str, Any], where: str, ck: Any) -> dict[str, Any]:
@@ -292,6 +334,10 @@ class Context:
     old_mood_expression: str = "neutral"
     why: tuple[str, ...] = ()       # screens of the signals that just changed
     wrong: tuple[str, ...] = ()     # screens of every active bad signal
+    name: str = "Alfie"
+    level: str = "content"          # the mood level
+    reason: str = ""                # the mood's reason, as the panel shows it
+    wrong_names: tuple[str, ...] = ()   # names of every active bad signal
 
 
 @dataclass(frozen=True)
@@ -335,7 +381,10 @@ def expand(steps: Sequence[Mapping[str, Any]], ctx: Context,
                 place = {**place, "scale": float(s["scale"])}
             out.append(Action("place", {**place, "seconds": s["seconds"]}, s["seconds"]))
         elif kind == "speak" and s["text"]:
-            out.append(Action("speak", s["text"], 0.0))
+            text = fill(s["text"], ctx)
+            out.append(Action("speak", {"text": text, "targets": list(s.get("targets") or []),
+                                        "tts_entity": s.get("tts_entity") or ""},
+                              round(len(text) / SPEAK_RATE + 1, 1) if s.get("wait") else 0.0))
         elif kind == "icon":
             out.append(icon_action(s, s["wait"]))
     return out
