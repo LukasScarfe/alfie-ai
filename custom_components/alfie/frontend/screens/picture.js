@@ -13,20 +13,28 @@ export default {
   type: "picture",
   draw({ w, h, data, options: o, memo, S }) {
     const svg = data?.svg;
-    const caption = S.title(o.caption ?? "");
-    const ch = caption ? CAP * (Number(o.text_size) || 1) : 0;
+    // Elements: the picture, and the caption in a band under it; either can
+    // have a box of its own, and the picture takes the whole screen without
+    // the caption in its way.
+    const L = S.layout(w, h, o.layout);
+    memo.boxes = L.boxes;
+    const caption = L.show("caption") ? S.title(o.caption ?? "") : "";
+    const ch = caption ? CAP * (Number(o.text_size) || 1) * L.size("caption") : 0;
     const out = [];
-    let ph = h, py = 0;
+    let pbox = S.rect(-w, -h, w, h);
     if (caption) {
       const room = ch * (1 + GAP);
-      ph = Math.max(h * 0.3, h - room / 2 - ch / 2);
-      py = h - ph;
-      let size = ch;
-      while (size > 0.03 && S.width(caption, size) > 2 * w * 0.94) size *= 0.9;
-      out.push(...S.text(caption, size, 0, -h + ch / 2));
+      if (L.flow("caption")) {
+        const ph = Math.max(h * 0.3, h - room / 2 - ch / 2);
+        pbox = S.rect(-w, h - 2 * ph, w, h);
+      }
+      const B = L.box("caption", S.rect(-w * 0.97, -h, w * 0.97, -h + ch));
+      out.push(...S.fitText(caption, B, L.own("caption") ? B.h * Math.min(1, L.size("caption")) : ch, { align: L.align("caption") }));
     }
+    if (!L.show("picture")) return out;
+    const P_ = L.box("picture", pbox);
     if (!svg) {
-      if (!caption) out.push(...S.text(o.picture ? "Picture" : "No picture", 0.2, 0, 0, { role: "dim" }));
+      if (!caption) out.push(...S.text(o.picture ? "Picture" : "No picture", 0.2, P_.cx, P_.cy, { role: "dim" }));
       return out;
     }
     const detail = Number(o.detail) || 1;
@@ -35,14 +43,14 @@ export default {
       memo.pic = P.pictureContours(svg, detail);
       memo.key = null;
     }
-    const key = [w, ph, py, o.fit, o.scale, o.rotation, o.color, o.fill, o.weight, o.max_points].join("|");
+    const key = [P_.x0, P_.y0, P_.x1, P_.y1, o.fit, o.scale, o.rotation, o.color, o.fill, o.weight, o.max_points].join("|");
     if (memo.key !== key) {
       memo.key = key;
-      memo.strokes = P.fitContours(memo.pic, w * 0.96, ph * 0.96, {
+      memo.strokes = P.fitContours(memo.pic, (P_.w / 2) * 0.96, (P_.h / 2) * 0.96, {
         fit: o.fit, scale: o.scale, rotation: o.rotation, fill: o.fill, weight: o.weight,
         budget: o.max_points, own: o.color === "own", role: o.color === "own" ? "line" : o.color,
       });
-      if (py) for (const st of memo.strokes) st.pts = st.pts.map(([x, y]) => [x, y + py]);
+      if (P_.cx || P_.cy) for (const st of memo.strokes) st.pts = st.pts.map(([x, y]) => [x + P_.cx, y + P_.cy]);
     }
     return out.length ? out.concat(memo.strokes) : memo.strokes;
   },

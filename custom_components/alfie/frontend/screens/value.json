@@ -7,5 +7,10 @@
    {"key": "decimals", "kind": "number", "label": "Decimals", "default": 1, "min": 0, "max": 3},
    {"key": "below", "kind": "text", "label": "Accent colour below", "default": "", "hint": "A number. Empty: off."},
    {"key": "above", "kind": "text", "label": "Accent colour above", "default": "", "hint": "A number. Empty: off."},
-   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the label. The number fills the room left."}
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the label. The number fills the room left."},
+   {"key": "layout", "kind": "layout", "label": "Layout", "default": {}, "elements": [
+     {"key": "icon", "label": "Icon", "text": true},
+     {"key": "number", "label": "Number", "text": true},
+     {"key": "name", "label": "Label", "text": true}
+   ]}
  ]}

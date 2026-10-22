@@ -12,5 +12,10 @@
    {"key": "moon_fill", "kind": "bool", "label": "Fill the lit part of the moon", "default": false},
    {"key": "labels", "kind": "bool", "label": "Names and facing letter", "default": true},
    {"key": "times", "kind": "bool", "label": "Show the time", "default": true},
-   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the screen's text. Text fitted to its room still shrinks to fit."}
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the screen's text. Text fitted to its room still shrinks to fit."},
+   {"key": "layout", "kind": "layout", "label": "Layout", "default": {}, "elements": [
+     {"key": "sky", "label": "Sky"},
+     {"key": "facing", "label": "Facing letter", "text": true},
+     {"key": "time", "label": "Time", "text": true}
+   ]}
  ]}

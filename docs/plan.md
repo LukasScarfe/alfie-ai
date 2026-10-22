@@ -191,6 +191,8 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] E. Render styles and themes (0.11.5): new styles, a plot line colour role, named palettes.
   - [x] F. Why panel on tap, and standard tap / hold / double-tap actions in the card editor.
   - [x] G. Tests, PNGs to Lukas, prod deploy, design.md, 0.12.0.
+  - [x] I. Layout boxes for every screen element, Edit as YAML, plot axes, weather without
+    overlaps (Lukas, 2026-10-22); 0.13.0.
   - [ ] H. Lukas's review.
 - [ ] **8. Release.** HACS packaging and README, install on production HA (with Lukas), put it on
       `tablet-dash`. Retire the old Superintendent HA automations only with Lukas's OK.

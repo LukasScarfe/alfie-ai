@@ -22,7 +22,7 @@ const iconOf = (name, S) => (S.isIcon(name) ? (x, y, s) => S.marker(name, x, y, 
 
 export default {
   type: "value",
-  draw({ w, h, data, options: o, states, S }) {
+  draw({ w, h, data, options: o, states, memo, S }) {
     states = pick(states, data, "states");
     const st = states[o.entity];
     const raw = st ? S.number(st.state) : null;
@@ -36,34 +36,56 @@ export default {
     const iconName = o.icon === "auto" ? autoIcon(o.entity, st) : o.icon;
     const icon = iconOf(iconName, S);
 
-    // Block at unit digit height 1: number [unit], icon, label.
+    // Block at unit digit height 1: number [unit], icon, label. An element in a
+    // box of its own leaves the block, and the rest grows to fill the room.
+    const L = S.layout(w, h, o.layout);
+    if (memo) memo.boxes = L.boxes;
+    const iconIn = icon && L.flow("icon"), nameIn = name && L.flow("name"), numIn = L.flow("number");
     const bigUnit = unit === "°" || unit === "%";
     const uh = bigUnit ? 1 : 0.42;
     const uw = unit ? S.width(unit, uh) + 0.12 : 0;
     const nw = S.width(num, 1), rowW0 = nw + uw;
-    const lh = 0.28 * (Number(o.text_size) || 1), lw = name ? S.width(name, lh) : 0;
-    const wide = w >= 1.3 * h, ih = icon ? 0.95 : 0;
-    const rowW = rowW0 + (icon && wide ? ih + 0.25 : 0);
-    const blockW = Math.max(rowW, lw);
-    const blockH = 1 + (icon && !wide ? ih + 0.25 : 0) + (name ? lh + 0.3 : 0);
+    const lh = 0.28 * (Number(o.text_size) || 1) * L.size("name"), lw = nameIn ? S.width(name, lh) : 0;
+    const wide = w >= 1.3 * h, ih = icon ? 0.95 * L.size("icon") : 0;
+    const rowW = (numIn ? rowW0 : 0) + (iconIn && wide ? ih + (numIn ? 0.25 : 0) : 0);
+    const rowH = numIn || (iconIn && wide) ? Math.max(numIn ? 1 : 0, iconIn && wide ? ih : 0) : 0;
+    const blockW = Math.max(rowW, lw, 1e-6);
+    const blockH = Math.max(1e-6, rowH + (iconIn && !wide ? ih + (rowH ? 0.25 : 0) : 0) + (nameIn ? lh + (rowH || iconIn ? 0.3 : 0) : 0));
     const k = Math.min((2 * w * 0.9) / blockW, (2 * h * 0.88) / blockH, h * 1.2);
 
     let y = (blockH * k) / 2;        // walking down from the top of the block
     const out = [];
-    if (icon && !wide) {
-      out.push(...icon(0, y - (ih * k) / 2, ih * k).map((s) => ({ ...s, role })));
+    const auto = {};
+    if (iconIn && !wide) {
+      auto.icon = S.rect(-(ih * k) / 2, y - ih * k, (ih * k) / 2, y);
       y -= (ih + 0.25) * k;
     }
-    const cy = y - k / 2;
-    const x0 = -(rowW * k) / 2;
-    let x = x0;
-    if (icon && wide) {
-      out.push(...icon(x + (ih * k) / 2, cy, ih * k).map((s) => ({ ...s, role })));
+    const cy = y - (rowH * k) / 2;
+    let x = -(rowW * k) / 2;
+    if (iconIn && wide) {
+      auto.icon = S.rect(x, cy - (ih * k) / 2, x + ih * k, cy + (ih * k) / 2);
       x += (ih + 0.25) * k;
     }
-    out.push(...S.text(num, k, x + (nw * k) / 2, cy, { role }));
-    if (unit) out.push(...S.text(unit, uh * k, x + (nw + 0.12) * k + (S.width(unit, uh * k)) / 2, bigUnit ? cy : cy - ((1 - uh) * k) / 2, { role }));
-    if (name) out.push(...S.text(name, lh * k, 0, y - (1 + 0.3 + lh / 2) * k, { role: "dim" }));
+    if (numIn) auto.number = S.rect(x, cy - k / 2, x + rowW0 * k, cy + k / 2);
+    if (nameIn) auto.name = S.rect(-(lw * k) / 2, y - (rowH + 0.3 + lh) * k, (lw * k) / 2, y - (rowH + 0.3) * k);
+
+    if (icon && L.show("icon")) {
+      const B = L.box("icon", auto.icon || null), s = Math.min(B.w, B.h);
+      out.push(...icon(B.cx, B.cy, s).map((st) => ({ ...st, role })));
+    }
+    if (L.show("number")) {
+      // The number and its unit as one group, `kk` tall, its left edge at x0.
+      const B = L.box("number", auto.number || null);
+      const kk = L.own("number") ? Math.min(B.h, B.w / rowW0) * Math.min(1, L.size("number")) : k;
+      const al = L.align("number");
+      const x0 = al === "left" ? B.x0 : al === "right" ? B.x1 - rowW0 * kk : B.cx - (rowW0 * kk) / 2;
+      out.push(...S.text(num, kk, x0 + (nw * kk) / 2, B.cy, { role }));
+      if (unit) out.push(...S.text(unit, uh * kk, x0 + (nw + 0.12) * kk + (S.width(unit, uh * kk)) / 2, bigUnit ? B.cy : B.cy - ((1 - uh) * kk) / 2, { role }));
+    }
+    if (name && L.show("name")) {
+      const B = L.box("name", auto.name || null);
+      out.push(...S.fitText(name, B, L.own("name") ? B.h * Math.min(1, L.size("name")) : lh * k, { role: "dim", align: L.align("name") }));
+    }
     return out;
   },
 };

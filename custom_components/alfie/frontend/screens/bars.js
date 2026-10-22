@@ -13,7 +13,7 @@ function fit(S, s, maxW, hMax, hMin) {
 
 export default {
   type: "bars",
-  draw({ w, h, data, options: o, states, S }) {
+  draw({ w, h, data, options: o, states, memo, S }) {
     states = pick(states, data, "states");
     const ids = o.entities || [];
     if (!ids.length) return S.text("Bars", Math.min(0.3, h * 0.5), 0, 0, { role: "dim" });
@@ -43,56 +43,96 @@ export default {
     const n = items.length, vert = o.direction !== "horizontal";
     const ts = Number(o.text_size) || 1;   // the Text size option
     const out = [];
+    // Elements: title, bars, labels (the names) and values. Auto: the title on
+    // top, the names under the bars (or left of them), the values on their
+    // tops (or right of them). Names or values in a box of their own spread
+    // across it, a slot per bar; the bars in one take the names and values along.
+    const L = S.layout(w, h, o.layout);
+    if (memo) memo.boxes = L.boxes;
+    const title = L.show("title") ? S.title(o.title || "") : "";
+    let H = h;   // the top of the room the bars and their text share
+    if (title) {
+      const th = Math.min(0.14 * ts * L.size("title"), h * 0.2);
+      const B = L.box("title", S.rect(-w * 0.96, h * 0.96 - th, w * 0.96, h * 0.96));
+      out.push(...S.fitText(title, B, L.own("title") ? B.h * Math.min(1, L.size("title")) : th, { align: L.align("title") }));
+      if (L.flow("title")) H = h - th * 1.5;
+    }
+    const showLab = L.show("labels"), showVal = o.values && L.show("values");
+    const labIn = showLab && L.flow("labels"), valIn = showVal && L.flow("values");
+    const sl = L.size("labels"), sv = L.size("values");
 
     // One bar: S.bars draws vertical bars; horizontal ones are the same
     // points turned on their side, the first bar at the top.
-    const bar = (it, i, slot, x0, y0, len, fillFrac, mapPt) => {
+    const bar = (it, i, slot, len, fillFrac, mapPt) => {
       const [s] = S.bars([it.v], 0, 0, slot, len, { lo, hi, fill: fillFrac });
       const low = below !== null && it.v !== null && it.v < below;
       // Without the helper's baseline legs: one shared ground line is drawn instead.
       const pts = s.pts.slice(1, -1);
-      if (pts.length > 1) out.push({ ...s, pts: pts.map(([px, py]) => mapPt(px + slot * i, py)), fill: !!o.fill, role: low ? "accent" : "line" });
+      if (pts.length > 1 && L.show("bars")) out.push({ ...s, pts: pts.map(([px, py]) => mapPt(px + slot * i, py)), fill: !!o.fill, role: low ? "accent" : "line" });
       return low;
     };
+    const frac = (it) => (it.v === null ? 0 : (Math.min(Math.max(it.v, lo), hi) - lo) / (hi - lo));
+    const valText = (it) => S.fmt(it.v, dec) + (it.v !== null ? unit : "");
+    // A row (or column) of text in a box of its own: a slot per bar.
+    const slots = (B, k) => (vert ? S.rect(B.x0 + (B.w * k) / n, B.y0, B.x0 + (B.w * (k + 1)) / n, B.y1) : S.rect(B.x0, B.y1 - (B.h * (k + 1)) / n, B.x1, B.y1 - (B.h * k) / n));
 
     if (vert) {
-      const padX = 0.04 * w, x0 = -w + padX, W = 2 * w - 2 * padX, slot = W / n;
-      const lblH = Math.min(0.14, slot * 0.5, h * 0.12) * ts, valH = Math.min(0.16, slot * 0.4, h * 0.14) * ts;
-      const rows = (o.values ? valH * 1.6 : 0), labRow = lblH * 2;
-      const top = h * 0.92 - rows, base = -h * 0.92 + labRow + lblH * 0.3, len = top - base;
+      const padX = 0.04 * w, slot0 = (2 * w - 2 * padX) / n;
+      const lblH = Math.min(0.14, slot0 * 0.5, h * 0.12) * ts * sl, valH = Math.min(0.16, slot0 * 0.4, h * 0.14) * ts * sv;
+      const rows = (valIn ? valH * 1.6 : 0), labRow = labIn ? lblH * 2 : 0;
+      const autoB = S.rect(-w + padX, -h * 0.92 + labRow + (labIn ? lblH * 0.3 : 0), w - padX, H * 0.92 + (H - h) * 0.08 - rows);
+      // Bars in a box of their own keep their names and values inside it.
+      const own = L.box("bars", autoB), B = L.own("bars") ? S.rect(own.x0, own.y0 + labRow + (labIn ? lblH * 0.3 : 0), own.x1, own.y1 - rows) : own;
+      const x0 = B.x0, W = B.w, slot = W / n, base = B.y0, len = B.h;
       items.forEach((it, i) => {
-        const low = bar(it, i, slot, x0, base, len, 0.6, (px, py) => [x0 + px, base + py]);
+        const low = bar(it, i, slot, len, 0.6, (px, py) => [x0 + px, base + py]);
         const cx = x0 + slot * (i + 0.5);
-        const l = fit(S, it.name, slot * 0.96, lblH, lblH * 0.7);
-        out.push(...S.text(l.s, l.ht, cx, -h * 0.92 + lblH * 0.6, { role: "dim" }));
-        if (o.values) {
-          const frac = it.v === null ? 0 : (Math.min(Math.max(it.v, lo), hi) - lo) / (hi - lo);
-          const t = S.fmt(it.v, dec) + (it.v !== null ? unit : "");
-          const f = fit(S, t, slot * 0.98, valH, valH * 0.7);
-          out.push(...S.text(f.s, f.ht, cx, base + frac * len + f.ht * 0.9, { role: low ? "accent" : "text" }));
+        if (labIn) {
+          const l = fit(S, it.name, slot * 0.96, lblH, lblH * 0.7);
+          out.push(...S.text(l.s, l.ht, cx, base - lblH * 0.3 - lblH * 1.4, { role: "dim" }));
         }
+        if (valIn) {
+          const f = fit(S, valText(it), slot * 0.98, valH, valH * 0.7);
+          out.push(...S.text(f.s, f.ht, cx, base + frac(it) * len + f.ht * 0.9, { role: low ? "accent" : "text" }));
+        }
+        it.low = low;
       });
-      out.push(...S.baseline(x0, base, W, { weight: 0.5 }));   // ground line under the bars
+      if (labIn) L.box("labels", S.rect(x0, base - lblH * 2.3, x0 + W, base - lblH * 0.3));
+      if (valIn) L.box("values", S.rect(x0, base, x0 + W, base + len + valH * 1.6));
+      if (L.show("bars")) out.push(...S.baseline(x0, base, W, { weight: 0.5 }));   // ground line under the bars
     } else {
-      const padY = 0.06 * h, Y = 2 * h - 2 * padY, slot = Y / n;
-      const lblH = Math.min(0.14, slot * 0.4) * ts, valH = Math.min(0.16, slot * 0.4) * ts;
-      const labW = Math.min(w * 0.6, Math.max(...items.map((it) => S.width(S.title(it.name), lblH))) + 0.06);
-      const valW = o.values ? Math.min(w * 0.4, Math.max(...items.map((it) => S.width(S.fmt(it.v, dec) + unit, valH))) + 0.06) : 0;
-      const bx = -w + 0.04 * w + labW, len = 2 * w * 0.96 - labW - valW - 0.04 * w;
-      const topY = h - padY;
+      const padY = 0.06 * h, slot0 = (h + H - 2 * padY) / n;
+      const lblH = Math.min(0.14, slot0 * 0.4) * ts * sl, valH = Math.min(0.16, slot0 * 0.4) * ts * sv;
+      const labW = labIn ? Math.min(w * 0.6, Math.max(...items.map((it) => S.width(S.title(it.name), lblH))) + 0.06) : 0;
+      const valW = valIn ? Math.min(w * 0.4, Math.max(...items.map((it) => S.width(valText(it), valH))) + 0.06) : 0;
+      const autoB = S.rect(-w + 0.04 * w + labW, -h + padY, -w + 0.04 * w + labW + 2 * w * 0.96 - labW - valW - 0.04 * w, H - padY);
+      const own = L.box("bars", autoB), B = L.own("bars") ? S.rect(own.x0 + labW, own.y0, own.x1 - valW - 0.04 * w, own.y1) : own;
+      const bx = B.x0, len = B.w, topY = B.y1, slot = B.h / n;
       items.forEach((it, i) => {
         // Bar i: vertical points (x along the stack, y up the bar) become (y along, -x down).
-        const low = bar(it, i, slot, bx, topY, len, 0.6, (px, py) => [bx + py, topY - px]);
+        const low = bar(it, i, slot, len, 0.6, (px, py) => [bx + py, topY - px]);
         const cy = topY - slot * (i + 0.5);
-        const l = fit(S, it.name, labW - 0.04, lblH, lblH * 0.7);
-        out.push(...S.text(l.s, l.ht, -w + 0.04 * w + labW - 0.04 - S.width(l.s, l.ht) / 2, cy, { role: "dim" }));
-        if (o.values) {
-          const t = S.fmt(it.v, dec) + (it.v !== null ? unit : "");
-          const f = fit(S, t, valW, valH, valH * 0.7);
-          out.push(...S.text(f.s, f.ht, w * 0.96 - S.width(f.s, f.ht) / 2, cy, { role: low ? "accent" : "text" }));
+        if (labIn) {
+          const l = fit(S, it.name, labW - 0.04, lblH, lblH * 0.7);
+          out.push(...S.text(l.s, l.ht, bx - 0.04 - S.width(l.s, l.ht) / 2, cy, { role: "dim" }));
         }
+        if (valIn) {
+          const f = fit(S, valText(it), valW, valH, valH * 0.7);
+          out.push(...S.text(f.s, f.ht, B.x1 + valW + 0.04 * w - S.width(f.s, f.ht) / 2, cy, { role: low ? "accent" : "text" }));
+        }
+        it.low = low;
       });
-      out.push(S.stroke([[bx, topY], [bx, topY - Y]], { w: 0.5 }));   // ground line left of the bars
+      if (labIn) L.box("labels", S.rect(bx - labW, B.y0, bx, B.y1));
+      if (valIn) L.box("values", S.rect(B.x1, B.y0, B.x1 + valW + 0.04 * w, B.y1));
+      if (L.show("bars")) out.push(S.stroke([[bx, topY], [bx, topY - B.h]], { w: 0.5 }));   // ground line left of the bars
+    }
+    if (showLab && !labIn) {
+      const B = L.box("labels", null), al = L.align("labels", vert ? "centre" : "right");
+      items.forEach((it, i) => out.push(...S.fitText(S.title(it.name), S.inset(slots(B, i), 0.01), (vert ? B.h : B.h / n) * 0.7 * sl, { role: "dim", align: al })));
+    }
+    if (showVal && !valIn) {
+      const B = L.box("values", null), al = L.align("values", vert ? "centre" : "left");
+      items.forEach((it, i) => out.push(...S.fitText(valText(it), S.inset(slots(B, i), 0.01), (vert ? B.h : B.h / n) * 0.7 * sv, { role: it.low ? "accent" : "text", align: al })));
     }
     return out;
   },

@@ -104,6 +104,10 @@ export default {
     const minute = Math.floor(t / 60);
     const key = `${minute}|${loc.lat}|${loc.lon}|${loc.tz}|${w.toFixed(3)}|${h.toFixed(3)}|${JSON.stringify(o)}`;
     if (memo.key === key) return memo.out;
+    // Elements: the disc (with its compass letters) and the rise and set
+    // times. Either can have a box of its own; times in one become a table.
+    const L = S.layout(w, h, o.layout);
+    memo.boxes = L.boxes;
 
     const { lat, lon, tz } = loc;
     const sz = Number(o.size) || 1;
@@ -113,9 +117,12 @@ export default {
     const [sx, sy] = xy(sAlt, sAz), [mx, my] = xy(mAlt, mAz);
     items.push(...K.sunMark(sx, sy, 0.05 * sz));
     items.push(...K.moonStrokes(mx, my, 0.06 * sz, K.moonPhase(t), { fill: !!o.moon_fill, flip: lat < 0 }));
-    const out = scaleAll(items, u);
+    const D = L.box("disc", S.rect(-w, -h, w, h));
+    const ud = L.own("disc") ? Math.min(D.h / 2, D.w / 2 / 0.95) : u;
+    const out = L.show("disc") ? S.shift(scaleAll(items, ud), D.cx, D.cy) : [];
+    const own = L.own("times"), at0 = out.length;
 
-    if (o.times) {
+    if (o.times && L.show("times")) {
       const mid = K.localMidnight(t, tz);
       const sunRS = K.riseSet((s) => K.sun(lat, lon, s)[0], mid, -0.833);
       const hrs = (x) => (x === null ? null : K.localHours(x, tz));
@@ -128,7 +135,8 @@ export default {
       // Under a narrow box's disc, the rows grow only as far as the bottom edge allows.
       const k = ts <= 1 ? ts : wide ? Math.max(1, Math.min(ts, (w * 0.98 - inner) / (perH * 0.1 * u)))
         : Math.max(1, Math.min(ts, 0.25 / (0.1 + 0.14 * (rows.length - 1))));
-      const hh = 0.1 * u * k;
+      const T = own ? L.box("times", null) : null;
+      const hh = own ? Math.min(T.h / rows.length * 0.55, T.w / 2 / (perH * 1.5)) * Math.min(1, L.size("times")) : 0.1 * u * k * L.size("times");
       // A small arrow, up for rise and down for set, then the time.
       const entry = (cx, cy, up, text) => {
         const wTxt = S.width(text, hh), a = hh * 0.45, gap = hh * 0.5;
@@ -138,7 +146,12 @@ export default {
       };
       rows.forEach(([rs, kind], i) => {
         const rise = K.clock(hrs(rs.rise)), set = K.clock(hrs(rs.set));
-        if (wide) {
+        if (own) {
+          // A table: rise on the left half, set on the right, a row each.
+          const y = T.y1 - (T.h / rows.length) * (i + 0.5);
+          entry(T.x0 + T.w * 0.25, y, true, rise); entry(T.x0 + T.w * 0.75, y, false, set);
+          if (o.moon_times) out.push(...(kind ? K.moonStrokes(T.cx, y, hh * 0.35, 0.3, { dark: false }) : K.sunMark(T.cx, y, hh * 0.25)));
+        } else if (wide) {
           // Beside the disc, which leaves the corners of a wide box free.
           const y = (0.1 - i * 0.24 * Math.max(1, k)) * u;
           const x = (t) => (ts > 1 ? Math.max(w * 0.7, inner + (S.width(t, hh) + 1.4 * hh) / 2) : w * 0.7);
@@ -150,6 +163,7 @@ export default {
         }
       });
     }
+    if (o.times && L.show("times") && !own) L.box("times", S.bounds(out.slice(at0)));
     memo.key = key; memo.out = out;
     return out;
   },

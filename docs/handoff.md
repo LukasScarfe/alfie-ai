@@ -18,7 +18,20 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.12.0.
+Version 0.13.0.
+
+**Latest (0.13.0, 2026-10-22, Lukas): layout boxes, Edit as YAML, plot axes** (design.md
+"Layout", "Edit as YAML", "Plot axes").
+- `S.layout` / `S.stack` / `S.fitText` / `S.lines` / `S.bounds` / `S.shift` in alfie-screens.js;
+  every type's JSON has a `layout` option listing its elements, and each draw puts
+  `memo.boxes` (the boxes in %) for the panel.
+- Panel (panel/screens.js): the Layout fold (`layoutTable`, `layInput`, Take over, outlines via
+  `renderScreenStill({highlight})` and `card.stillBoxes()`), and the YAML fold
+  (`fillYaml`, `applyYaml`, WS `alfie/screen/yaml`).
+- Weather is bands now; Text size 2 no longer overlaps (a test checks the boxes stay apart).
+- Tests: tests/screens/layout.test.mjs (every element of every type hidden and boxed),
+  layout and YAML pytest in test_screens_config.py. `./dev test` installs pyyaml too.
+- Waiting on Lukas's look at it on production.
 
 **Latest: house modes switched off (2026-10-22, Lukas).** `const.HOUSE_MODES = False` hides
 them everywhere (design.md "House modes"). Rotations are now set by automations with

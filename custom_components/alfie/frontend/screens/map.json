@@ -7,5 +7,9 @@
    {"key": "title", "kind": "text", "label": "Title", "default": ""},
    {"key": "allow_network", "kind": "bool", "label": "Fetch streets from the internet", "default": false},
    {"key": "endpoint", "kind": "text", "label": "Overpass endpoint", "default": "https://overpass-api.de/api/interpreter", "when": {"allow_network": [true]}, "more": true},
-   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the screen's text. Text fitted to its room still shrinks to fit."}
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the screen's text. Text fitted to its room still shrinks to fit."},
+   {"key": "layout", "kind": "layout", "label": "Layout", "default": {}, "elements": [
+     {"key": "map", "label": "Map"},
+     {"key": "title", "label": "Title", "text": true}
+   ]}
  ]}

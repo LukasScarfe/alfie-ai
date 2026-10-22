@@ -508,10 +508,31 @@ built types:
   cheap, and the history TTL floors at 15 min either way).
 - **Screen options stay lean (Lukas, 2026-10-20).** A field that doesn't apply is hidden (its
   `when`: range fields on an auto range, the hourly or daily fields by forecast, a text
-  screen's source fields), rarely changed ones fold under More options (`more`), and drawing
-  internals are not options: plot points and ticks, and weather smoothing
-  are chosen by the screen. Label and text sizes are Text size (×) like every type. Each point holds the bucket's mean, max, min or last value (Combine points;
-  all but the mean keep a count whole), and the line is straight or steps.
+  screen's source fields), rarely changed ones fold under More options (`more`). Plot points
+  and weather smoothing are chosen by the screen. Label and text sizes are Text size (×) like
+  every type. Each point holds the bucket's mean, max, min or last value (Combine points; all
+  but the mean keep a count whole), and the line is straight or steps.
+- **Layout: every element in a free box (Lukas, 2026-10-22).** Each type's JSON names its
+  elements in a `layout` option (kind `layout`): a plot's title, lines, value axis, time axis,
+  latest values and series labels; the weather's title, icon, temperature, forecast area and
+  each forecast row; and so on for every type. Per element: Show, a box of its own
+  (`[x, y, w, h]` in % of the screen from its top left), Size (its text, ×) and Align.
+  - Without a box an element goes where the screen's auto layout puts it. Auto layouts are
+    bands that measure their text (`S.stack`), so a larger Text size squeezes, never overlaps.
+  - A hidden or boxed element leaves the flow and the rest closes up. Text shrinks to fit its
+    box. A chart in a box of its own (bars, the weather curve) keeps its labels inside it.
+  - Panel: the **Layout** fold (greyed numbers are where the element is now; Take over copies
+    them all into boxes; clicking a name outlines it dotted in the preview).
+  - `S.layout` in alfie-screens.js; screen_types.py checks it and keeps only what differs.
+- **Edit as YAML (Lukas, 2026-10-22):** every screen has a fold with all its options as YAML
+  (defaults filled, layout included). Apply checks it on the server (`alfie/screen/yaml`,
+  unknown keys are errors) and puts it in the form; Save as usual.
+- **Plot axes (Lukas, 2026-10-22):** value axis on the left, right or both; ticks auto, about N,
+  every step, or a list; unit on the top tick, every tick or none; tick decimals, tick marks
+  (out, in, cross, none) and the axis line. A time axis (on by default) with a label every
+  auto or 1 h to 30 d, as hour (midnight shows the day), time, weekday, day, date or relative.
+  Gridlines for values, times or both, dotted (`S.FAINT`) or solid. Per series: line weight
+  and marker size.
 - Plot, value and bars take the sensor's unit unless the Unit option says otherwise; `none`
   shows no unit (a Plex sensor reports "watching").
 - **value**: one big readout with an icon (auto by device class) and threshold colouring.
