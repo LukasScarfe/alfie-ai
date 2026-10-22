@@ -68,7 +68,7 @@ export const idField = (path, id, uses, auto = null) => field("ID", text(path, i
 export const automation = {
   screen: (id) => ["action", `action: alfie.show_screen\ndata:\n  screen: ${id}`],
   story: (id) => ["action", `action: alfie.play_story\ndata:\n  story: ${id}`],
-  rotation: (id) => ["action", `action: alfie.show_rotation\ndata:\n  rotation: ${id}`],
+  rotation: (id) => ["action", `action: alfie.show_rotation\ndata:\n  rotation: ${id}\n  duration: 10800`],
   mode: (id) => ["action", `action: alfie.set_mode\ndata:\n  mode: ${id}`],
   trigger: (id) => ["action", `action: alfie.set_enabled\ndata:\n  item: trigger.${id}\n  enabled: false`],
   signal: (id) => ["trigger", `trigger: event\nevent_type: alfie_signal\nevent_data:\n  signal: ${id}\n  state: bad`],

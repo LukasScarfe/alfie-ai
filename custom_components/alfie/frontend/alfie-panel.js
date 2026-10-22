@@ -407,16 +407,20 @@ class AlfiePanel extends HTMLElement {
     }
   }
 
+  // The sections shown: House modes only while the engine has them on (const.HOUSE_MODES).
+  _sections() { return SECTIONS.filter((s) => s.id !== "modes" || this.choices?.house_modes !== false); }
+
   // The left menu: every section with its sub-pages under it. Narrow, one dropdown.
   _nav() {
-    const links = SECTIONS.map((s) => {
+    const secs = this._sections();
+    const links = secs.map((s) => {
       const subs = s.subs.length > 1 ? s.subs.map(([k, t]) => `<button class="sub ${s.id === this.sec && k === this.sub ? "on" : ""}"
         data-action="section" data-section="${s.id}" data-sub="${k}">${U.esc(t)}</button>`).join("") : "";
       const on = s.id === this.sec && !subs;
       return `<button class="sec ${on ? "on" : ""} ${s.id === this.sec ? "here" : ""}" data-action="section" data-section="${s.id}"
         data-sub="${s.subs[0]?.[0] || ""}">${U.icon(SECTION_ICONS[s.id] || "mdi:circle-small")}<span>${U.esc(s.title)}</span></button>${subs}`;
     }).join("");
-    const opts = SECTIONS.flatMap((s) => s.subs.length > 1 ? s.subs.map(([k, t]) => [`${s.id}/${k}`, `${s.title} · ${t}`]) : [[`${s.id}/`, s.title]]);
+    const opts = secs.flatMap((s) => s.subs.length > 1 ? s.subs.map(([k, t]) => [`${s.id}/${k}`, `${s.title} · ${t}`]) : [[`${s.id}/`, s.title]]);
     const pick = U.select("", `${this.sec}/${this.sub}`, opts, { attrs: 'class="navpick" aria-label="Page"' });
     return `<div class="links">${links}</div>${pick}`;
   }

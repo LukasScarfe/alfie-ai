@@ -446,6 +446,13 @@ or the `alfie.show_icon` action (with `alfie.clear_icons`), and every display sh
 
 ## House modes
 
+**Switched off (Lukas, 2026-10-22).** `const.HOUSE_MODES = False`: no mode is ever chosen,
+`select.alfie_mode` (removed from the registry on setup) and `alfie.set_mode` are gone, and the
+panel hides the House modes section, the Night "Get started" step and the mode trigger kind.
+Automations steer Alfie through the holds instead, chiefly `alfie.show_rotation` with a
+duration; the newest call replaces the last. The Overview and the card's why panel show the
+held rotation and when it ends. The code below stays; `True` brings modes back.
+
 Built in M5: `modes.py` (pure), the engine's mode choice, the card's hiding and rotation
 handling, and the panel's **House modes** section.
 

@@ -725,7 +725,8 @@ class AlfieCard extends HTMLElement {
       ${bad.length ? `<h4>What's wrong</h4><ul>${bad.map(sig).join("")}</ul>` : ""}
       ${good.length ? `<h4>What's good</h4><ul>${good.map(sig).join("")}</ul>` : ""}
       <h4>On show</h4><p>${showing}</p>
-      <h4>House mode</h4><p>${esc(mode.name || "Normal")}${mode.why?.length ? ` <span class="v">(${mode.why.map((e) => esc(st[e]?.attributes?.friendly_name || e)).join(", ")})</span>` : ""}</p>
+      ${mode.name == null ? "" : `<h4>House mode</h4><p>${esc(mode.name)}${mode.why?.length ? ` <span class="v">(${mode.why.map((e) => esc(st[e]?.attributes?.friendly_name || e)).join(", ")})</span>` : ""}</p>`}
+      ${s.holds?.rotation ? `<h4>Rotation</h4><p>${esc(human(s.holds.rotation.value))}, as an automation asked${s.holds.rotation.until ? ` until ${new Date(s.holds.rotation.until * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}.</p>` : ""}
       <h4>Face</h4><p>${esc(human(s.expression))}, energy ${Math.round((s.mood?.energy ?? 0.8) * 100)}%${s.personality?.preset ? `, ${esc(s.personality.preset)}` : ""}</p>`;
   }
 

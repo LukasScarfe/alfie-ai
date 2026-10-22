@@ -370,7 +370,7 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
           this._range("Corner size", t("corner_size"), 0.15, 0.5, 0.01, { hint: "Alfie's size in the corner, as a share of his full size." }));
       }
       out.push(this._select("Transition", t("transition"), [["", "Default (the rotation's, else fade)"], ...TRANSITIONS.map((s) => [s, human(s)]), ["random", "Random: a different one each time"]]),
-        this._bool("Follow house modes", t("follow_mode"), "A house mode may hide Alfie on this card or swap its rotation. Off: the card keeps its own."),
+        this._bool("Follow alfie.show_rotation", t("follow_mode"), "An automation's alfie.show_rotation (or alfie.set_alfie hidden) changes this card too. Off: the card keeps its own rotation."),
         this._bool("Show icons", t("icons"), "Icons from stories and alfie.show_icon. Off: this card leaves them out."),
         this._select("Voice assistants", t("voice"), [["all", "All: any voice satellite brings Alfie on"], ["chosen", "Chosen satellites only"],
           ["none", "None: this card ignores voice"]], { rerender: true, hint: "While one listens, thinks or answers, Alfie takes over this card." }));
