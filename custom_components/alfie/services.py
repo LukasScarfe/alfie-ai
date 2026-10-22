@@ -23,7 +23,7 @@ from homeassistant.util.yaml import load_yaml_dict
 
 from .automation import choices
 from .config import _Check as Check
-from .const import DOMAIN
+from .const import DOMAIN, HOUSE_MODES
 from .engine import AlfieEngine
 from .stories import (
     ICON_COLORS,
@@ -148,6 +148,8 @@ def _set_mode(engine: AlfieEngine, mode: str, duration: float | None) -> None:
 
 async def async_setup_services(hass: HomeAssistant) -> None:
     for name, (do, schema) in SERVICES.items():
+        if name == "set_mode" and not HOUSE_MODES:
+            continue
         hass.services.async_register(DOMAIN, name, _handler(hass, do), schema=vol.Schema(schema))
     path = os.path.join(os.path.dirname(__file__), "services.yaml")
     hass.data[DOMAIN]["services_yaml"] = await hass.async_add_executor_job(load_yaml_dict, path)
@@ -158,6 +160,8 @@ def async_describe(hass: HomeAssistant, engine: AlfieEngine) -> None:
     """services.yaml with the config's own names in the dropdowns."""
     base = hass.data.get(DOMAIN, {}).get("services_yaml") or {}
     for service, fields in choices(engine.config, engine.face).items():
+        if not hass.services.has_service(DOMAIN, service):
+            continue
         desc = copy.deepcopy(base.get(service) or {})
         for field, selector in fields.items():
             desc.setdefault("fields", {}).setdefault(field, {})["selector"] = selector

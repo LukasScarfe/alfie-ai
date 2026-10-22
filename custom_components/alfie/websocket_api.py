@@ -44,7 +44,7 @@ from .config import (
     face_extras,
 )
 from .config import _Check
-from .const import DOMAIN
+from .const import DOMAIN, HOUSE_MODES
 from .mood import COMBINE_MODES, LEVELS
 from .signals import OPERATORS, SEVERITIES
 from . import modes, stories, suggest, tell, triggers, voice
@@ -125,7 +125,8 @@ def ws_config_get(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
                      "colors": list(stories.ICON_COLORS),
                      "fills": list(stories.ICON_FILLS)},
             "voice": {"speak_styles": list(SPEAK_STYLES), "phases": list(triggers.VOICE_PHASES)},
-            "trigger_kinds": list(triggers.KINDS),
+            "trigger_kinds": [k for k in triggers.KINDS if HOUSE_MODES or k != "mode"],
+            "house_modes": HOUSE_MODES,
             "triggers": {k: triggers.default_trigger(k) for k in triggers.KINDS},
             "busy": list(triggers.BUSY),
             "entity_ops": list(triggers.ENTITY_OPS),

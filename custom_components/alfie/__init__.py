@@ -5,17 +5,17 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DOMAIN
+from .const import DOMAIN, HOUSE_MODES
 from .engine import AlfieEngine
 from .frontend import async_register_frontend, async_remove_panel
 from .services import async_describe, async_setup_services
 from .voice import Voice
 from .websocket_api import async_register as async_register_ws
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SELECT]
+PLATFORMS: list[Platform] = [Platform.SENSOR, *([Platform.SELECT] if HOUSE_MODES else [])]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
@@ -41,6 +41,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await async_register_frontend(hass, engine.name)
     async_register_ws(hass)
+    if not HOUSE_MODES:
+        # House modes are off: the mode select left in the registry goes.
+        reg = er.async_get(hass)
+        for ent in er.async_entries_for_config_entry(reg, entry.entry_id):
+            if ent.domain == "select":
+                reg.async_remove(ent.entity_id)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload))
     return True

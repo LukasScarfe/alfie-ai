@@ -35,6 +35,7 @@ from .const import (
     EVENT_STORY,
     EVENT_VOICE,
     FACE_FILE,
+    HOUSE_MODES,
     SCENE_VERSION,
 )
 from .mood import LEVELS, Mood, MoodSettings, combine
@@ -223,7 +224,7 @@ class AlfieEngine:
         self.personality = md.personality(self.effective, built.personality,
                                           self.face.get("personalities") or {})
         self.motion_sensors = {g["entity"]: g["action"] for g in self.behaviour["motion_sensors"]}
-        self._mode_signals = tuple(sig for m in cfg["modes"]
+        self._mode_signals = tuple(sig for m in cfg["modes"] if HOUSE_MODES
                                    if (sig := md.condition_signal(m)) is not None)
         self.stories = {s["id"]: s for s in cfg["stories"]}
         self.triggers = [t for t in cfg["triggers"] if t["enabled"]]
@@ -464,7 +465,8 @@ class AlfieEngine:
         plays them."""
         old, old_mode = self.mood, self.mode_id
         states = self._signal_states()
-        mode, self.mode_why = md.choose(self.config["modes"], states, self.mode)
+        mode, self.mode_why = (md.choose(self.config["modes"], states, self.mode)
+                               if HOUSE_MODES else (None, None))
         key = (mode["id"] if mode else None, tuple(sorted(self.holds.items())))
         if key != self._effective_key:
             self.active, self._effective_key = mode, key
@@ -1127,7 +1129,8 @@ class AlfieEngine:
             "animation": self.animation,
             "mode": self.mode_id,
             "mode_pick": self.mode,
-            "mode_info": {"name": self.active["name"] if self.active else "Normal",
+            # name None: house modes are off (const.HOUSE_MODES) and the cards say nothing of them.
+            "mode_info": {"name": (self.active["name"] if self.active else "Normal") if HOUSE_MODES else None,
                           "alfie": self.alfie_state,
                           "rotation": self.effective["rotation"] if self.effective else "",
                           "why": list(self.mode_why.entities) if self.mode_why else []},

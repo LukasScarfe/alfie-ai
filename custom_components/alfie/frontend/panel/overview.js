@@ -74,7 +74,7 @@ function steps(p) {
     { id: "motion", title: "Tell Alfie about motion sensors", done: d.behaviour.motion_sensors.length > 0 || done.includes("motion"),
       text: "When someone moves, he glances that way or notices you.",
       go: ["reactions", "motion"], content: motionSuggestions },
-    { id: "sleep", title: "When is it night?", done: !!night?.condition || done.includes("sleep"),
+    p.choices?.house_modes !== false && { id: "sleep", title: "When is it night?", done: !!night?.condition || done.includes("sleep"),
       text: "While it is on, Alfie sleeps (only something critical wakes him). Pick what tells him: a sleep mode, a bedtime switch.",
       go: ["modes", ""], content: sleepSuggestions },
     { id: "dashboard", title: "Put Alfie on a dashboard", done: done.includes("dashboard"),
@@ -85,7 +85,7 @@ function steps(p) {
     { id: "screens", title: "Optional: build a screen", done: d.screens.length > 0 || done.includes("screens"),
       text: "Screens are data pages Alfie presents: a plot, the weather, the sky, a clock. Stories show them, and a rotation shows them in turn.",
       go: ["screens", "screens"] },
-  ];
+  ].filter(Boolean);
 }
 
 function guide(p) {
@@ -161,13 +161,15 @@ function sleepSuggestions(p) {
 // ------------------------------------------------------------ now
 
 // What automations hold (alfie.set_mood and the like), and for how long.
-const HOLD_TEXT = { mood: "mood", alfie: "Alfie", rotation: "rotation", personality: "personality" };
-function holdsText(holds) {
-  const parts = Object.entries(holds || {}).map(([k, h]) => {
-    const left = h.until ? Math.max(1, Math.round((h.until - Date.now() / 1000) / 60)) : null;
-    return `${HOLD_TEXT[k] || k} <b>${U.esc(U.human(h.value))}</b>${left ? ` for ${left} min` : ""}`;
-  });
-  return parts.length ? ` · An automation holds ${parts.join(", ")}` : "";
+const HOLD_TEXT = { mood: "Mood", alfie: "Alfie", rotation: "Rotation", personality: "Personality" };
+function holdsText(p, holds) {
+  const rots = Object.fromEntries((p.draft.rotations || []).map((r) => [r.id, r.name]));
+  return Object.entries(holds || {}).map(([k, h]) => {
+    const mins = h.until ? Math.max(1, Math.round((h.until - Date.now() / 1000) / 60)) : null;
+    const left = mins == null ? " until changed" : mins >= 90 ? ` for ${Math.floor(mins / 60)} h ${mins % 60} min more` : ` for ${mins} min more`;
+    const name = k === "rotation" ? rots[h.value] || U.human(h.value) : U.human(h.value);
+    return `${HOLD_TEXT[k] || k}: <b>${U.esc(name)}</b>${left}`;
+  }).join(" · ");
 }
 
 export function scene(p, s) {
@@ -176,8 +178,10 @@ export function scene(p, s) {
   if (!mood || !s) return;
   mood.innerHTML = `<b>${U.esc(L[s.mood?.level] || s.mood?.level)}</b>${s.asleep ? " and asleep" : ""} · ${U.esc(s.reason)}`;
   const info = s.mode_info;
-  root.querySelector(".nowmode").innerHTML = info
-    ? `House mode: <b>${U.esc(info.name)}</b>${s.mode_pick && s.mode_pick !== "auto" ? " (picked by hand)" : ""}${holdsText(s.holds)}` : "";
+  const held = holdsText(p, s.holds);
+  root.querySelector(".nowmode").innerHTML = p.choices?.house_modes === false
+    ? held || "Rotation: each card's own"
+    : info ? `House mode: <b>${U.esc(info.name)}</b>${s.mode_pick && s.mode_pick !== "auto" ? " (picked by hand)" : ""}${held ? ` · ${held}` : ""}` : "";
   root.querySelector(".nowsigs").innerHTML = (s.signals || []).map((x) => `<div class="nowsig">
       ${U.chip(x.kind === "bad" ? U.human(x.severity) : "Good", x.kind === "bad" ? x.severity : "good")}
       <button class="link" data-action="go" data-section="mood" data-sub="signals" data-open="sig:${U.esc(x.id)}">${U.esc(x.name)}</button></div>`).join("")
