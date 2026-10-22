@@ -12,6 +12,7 @@ acted on or asked about and `screen_for` builds a screen of them.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -35,6 +36,23 @@ FROM_STATE = {"HassTurnOn": "off", "HassTurnOff": "on", "HassOpenCover": "closed
 ON_OFF = ("light", "switch", "fan", "input_boolean", "binary_sensor", "lock", "cover",
           "media_player", "climate", "valve", "siren", "humidifier", "vacuum", "automation")
 FIND_TOOL = "find_entity"
+# A request for music: a tool by its name (play_music, a Spotify or Music
+# Assistant tool), or the words with something done to a media player.
+MUSIC_TOOL = re.compile(r"music|spotify|song|playlist|radio|album")
+MUSIC_WORDS = re.compile(r"\b(music|songs?|playlists?|album|tunes|spotify|radio|play\w* .*\bby\b)", re.I)
+# A voice plot's title icon, by the sensor's device class.
+CLASS_ICONS = {
+    "temperature": "mdi:thermometer", "humidity": "mdi:water-percent", "moisture": "mdi:water",
+    "power": "mdi:flash", "energy": "mdi:lightning-bolt", "illuminance": "mdi:brightness-5",
+    "aqi": "mdi:air-filter", "pm25": "mdi:air-filter", "pm10": "mdi:air-filter",
+    "carbon_dioxide": "mdi:molecule-co2", "battery": "mdi:battery", "pressure": "mdi:gauge",
+    "atmospheric_pressure": "mdi:gauge", "wind_speed": "mdi:weather-windy",
+    "precipitation": "mdi:weather-rainy", "voltage": "mdi:sine-wave", "current": "mdi:current-ac",
+    "signal_strength": "mdi:wifi", "distance": "mdi:ruler", "speed": "mdi:speedometer",
+    "weight": "mdi:weight", "sound_pressure": "mdi:ear-hearing", "data_rate": "mdi:transmission-tower",
+    "monetary": "mdi:cash", "duration": "mdi:timer-outline", "volume": "mdi:cup-water",
+}
+PLOT_ICON = "mdi:chart-line"
 MAX_SPOKEN = 600     # characters of a reply kept, for timing and matching
 
 
@@ -61,6 +79,7 @@ class Turn:
     acted: list[str] = field(default_factory=list)      # entity ids changed
     asked: list[str] = field(default_factory=list)      # entity ids looked at
     names: list[str] = field(default_factory=list)      # names a lookup was given
+    tools: list[str] = field(default_factory=list)      # every tool called, bare names
     froms: dict[str, str] = field(default_factory=dict)  # entity id -> state before
     _calls: dict[str, str] = field(default_factory=dict)  # tool call id -> intent
 
@@ -74,6 +93,7 @@ class Turn:
             for c in calls:
                 tool = _bare(_get(c, "tool_name", ""))
                 self._calls[str(_get(c, "id", ""))] = tool
+                self._add(self.tools, tool)
                 args = _get(c, "tool_args", {}) or {}
                 for k in ("name", "query"):
                     v = args.get(k) if isinstance(args, Mapping) else None
@@ -88,6 +108,7 @@ class Turn:
                 str(content.get("tool_call_id")), ""))
             res = content.get("result")
             data = res.get("data") if isinstance(res, Mapping) else content.get("tool_result")
+            self._add(self.tools, tool)
             self._result(tool, data)
 
     def _result(self, tool: str, data: Any) -> None:
@@ -125,6 +146,26 @@ def last_turn(contents: list[Mapping[str, Any]]) -> Turn:
     for c in contents[start:]:
         t.feed(c)
     return t
+
+
+def is_music(turn: Turn) -> bool:
+    """Whether the person asked for music."""
+    if any(MUSIC_TOOL.search(t.lower()) for t in turn.tools if t):
+        return True
+    media = any(e.startswith("media_player.") for e in turn.acted)
+    return bool(MUSIC_WORDS.search(turn.said)) and (media or bool(turn.tools))
+
+
+def plot_icon(attrs: Mapping[str, Any]) -> str:
+    """An icon for a sensor's kind: its device class's, else its own, else a chart."""
+    return CLASS_ICONS.get(str(attrs.get("device_class") or "")) or str(
+        attrs.get("icon") or "") or PLOT_ICON
+
+
+def plot_title(style: str, attrs: Mapping[str, Any], name: str) -> str:
+    """A voice plot's title: icon (default), icon_name, name or none."""
+    icon = plot_icon(attrs)
+    return {"icon": icon, "icon_name": f"{icon} {name}", "name": name}.get(style, "")
 
 
 def subject(turn: Turn, index: Index | None) -> tuple[str, list[str]]:
@@ -199,9 +240,12 @@ def screen_for(kind: str, ids: list[str], state_of: State,
         if nums and len(nums) == len(ids):
             units = {str((state_of(e) or ("", {}))[1].get("unit_of_measurement") or "") for e in nums}
             if len(units) == 1 and len(nums) <= 6:
+                first = (state_of(nums[0]) or ("", {}))[1]
                 return {"type": "plot", "title": title(nums[0]) if len(nums) == 1 else "",
                         "options": {"entities": nums, "hours": settings.get("plot_hours") or 24,
-                                    "title": title(nums[0]) if len(nums) == 1 else ""}}
+                                    "title": plot_title(settings.get("plot_title", "icon"), first,
+                                                        title(nums[0]) if len(nums) == 1 else ""),
+                                    "text_size": settings.get("plot_text_size") or 2}}
             return {"type": "bars", "title": "", "options": {
                 "entities": nums[:max_grid], "range": "auto"}}
     froms = froms or {}

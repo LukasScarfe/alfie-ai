@@ -1161,8 +1161,10 @@
   "tts_entity": "",
   "language": "",
     "find_entity": true, "screens": true, "action_screens": true, "answer_screens": true,
-    "screen_present": "corner", "linger_seconds": 6, "plot_hours": 24, "max_grid": 6,
-    "screen_skip": ["script", "scene", "automation", "todo", "schedule", "button", "conversation", "tts", "stt", "update", "event"]
+    "screen_present": "corner", "screen_seconds": 5, "hold_while_speaking": false, "linger_seconds": 6,
+    "plot_hours": 24, "plot_title": "icon", "plot_text_size": 2, "max_grid": 6,
+    "screen_skip": ["script", "scene", "automation", "todo", "schedule", "button", "conversation", "tts", "stt", "update", "event"],
+    "music_animation": "groove", "music_expression": "happy", "music_icon": "mdi:music-note", "music_screen": false
  },
  "overview": {
   "dismissed": true,

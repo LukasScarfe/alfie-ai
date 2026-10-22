@@ -374,9 +374,13 @@ class Voice:
         def state_of(eid: str) -> tuple[str, dict[str, Any]] | None:
             st = self.hass.states.get(eid)
             return None if st is None else (st.state, dict(st.attributes))
-        scr = converse.screen_for(kind, ids, state_of, v, turn.froms)
+        music = converse.is_music(turn)
+        if music:
+            engine.music_reaction()
+        scr = None if music and not v["music_screen"] else converse.screen_for(
+            kind, ids, state_of, v, turn.froms)
         self.last = {"at": time.time(), "said": turn.said, "reply": turn.reply, "kind": kind,
-                     "entities": ids, "screen": scr["type"] if scr else None}
+                     "entities": ids, "screen": scr["type"] if scr else None, "music": music}
         meta = engine.types.get(scr["type"]) if scr else None
         if scr is None or meta is None:
             return
@@ -385,8 +389,8 @@ class Voice:
         except ConfigError as e:
             _LOGGER.debug("voice screen not shown: %s", e)
             return
-        engine.show_voice_screen(scr, v["linger_seconds"] + converse.speech_seconds(turn.reply),
-                                 hold=bool(engine.voice))
+        engine.show_voice_screen(scr, v["screen_seconds"],
+                                 hold=v["hold_while_speaking"] and bool(engine.voice))
 
     @callback
     def stop(self) -> None:

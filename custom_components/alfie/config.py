@@ -144,6 +144,7 @@ def default_look() -> dict[str, Any]:
 SCREEN_SKIP = ("script", "scene", "automation", "todo", "schedule", "button", "conversation",
                "tts", "stt", "update", "event")
 VOICE_PRESENTS = ("corner", "handover", "card")
+PLOT_TITLES = ("icon", "icon_name", "name", "none")   # a voice plot's title
 
 
 def default_voice() -> dict[str, Any]:
@@ -163,8 +164,13 @@ def default_voice() -> dict[str, Any]:
             # Voice screens (design.md "Voice screens"): the find tool, and a
             # screen made from what a voice turn did or was asked about.
             "find_entity": True, "screens": True, "action_screens": True,
-            "answer_screens": True, "screen_present": "corner", "linger_seconds": 6,
-            "plot_hours": 24, "max_grid": 6, "screen_skip": list(SCREEN_SKIP)}
+            "answer_screens": True, "screen_present": "corner", "screen_seconds": 5,
+            "hold_while_speaking": False, "linger_seconds": 6,
+            "plot_hours": 24, "plot_title": "icon", "plot_text_size": 2, "max_grid": 6,
+            "screen_skip": list(SCREEN_SKIP),
+            # A request for music: an animation and a badge instead of a screen.
+            "music_animation": "groove", "music_expression": "happy",
+            "music_icon": "mdi:music-note", "music_screen": False}
 
 
 def default_config() -> dict[str, Any]:
@@ -634,11 +640,30 @@ def _voice(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
         "answer_screens": bool(v["answer_screens"]),
         "screen_present": ck.choice("voice screen presenting", v["screen_present"],
                                     VOICE_PRESENTS, "corner"),
+        "screen_seconds": _num(ck.number("voice screen time", v["screen_seconds"], 1, 120, 5)),
+        "hold_while_speaking": bool(v["hold_while_speaking"]),
         "linger_seconds": _num(ck.number("voice screen linger", v["linger_seconds"], 0, 120, 6)),
         "plot_hours": _num(ck.number("voice screen plot span", v["plot_hours"], 1, 720, 24)),
+        "plot_title": ck.choice("voice plot title", v["plot_title"], PLOT_TITLES, "icon"),
+        "plot_text_size": _num(ck.number("voice plot text size", v["plot_text_size"], 0.5, 2, 2)),
         "max_grid": int(ck.number("voice screen grid size", v["max_grid"], 1, 12, 6)),
         "screen_skip": _skip_list(v["screen_skip"], ck),
+        "music_animation": ck.choice("voice music animation", v["music_animation"] or "",
+                                     ("", *animations), ""),
+        "music_expression": ck.choice("voice music expression", v["music_expression"] or "",
+                                      ("", *expressions), ""),
+        "music_icon": _music_icon(v["music_icon"], ck),
+        "music_screen": bool(v["music_screen"]),
     }
+
+
+def _music_icon(v: Any, ck: _Check) -> str:
+    from .stories import is_icon_name   # lazy: stories imports this module
+    icon = str(v or "").strip()
+    if icon and not is_icon_name(icon):
+        ck.bad("voice music icon", f"{icon!r} is not an icon name (like mdi:music-note)")
+        return ""
+    return icon
 
 
 def _skip_list(v: Any, ck: _Check) -> list[str]:

@@ -709,12 +709,21 @@ in the panel's Voice → Screens (and Agents for the find tool).
     conversation that goes on ends with an UPDATED event carrying the whole log.
 - **The screen** (`converse.screen_for`):
   - an action: the `toggle` type, its knob starting at the state before (HassTurnOn → off);
-  - an answer: numbers with one unit → `plot` over `plot_hours` (default 24); numbers with
-    mixed units → `bars`; `weather.*` → `weather`; anything else → `toggle` showing its state;
+  - an answer: numbers with one unit → `plot` over `plot_hours` (default 24), titled by
+    `plot_title` (Lukas, 2026-10-22: default `icon`, an MDI icon for the sensor's kind from its
+    device class, e.g. a thermometer; or icon_name, name, none) at `plot_text_size` 2;
+    numbers with mixed units → `bars`; `weather.*` → `weather`; anything else → `toggle`
+    showing its state;
   - more than `max_grid` (6): a grid of the first ones and "+N more";
   - `screen_skip` (default script, scene, automation, todo, schedule, button, ...) leaves
     domains or entity ids out;
   - `action_screens` / `answer_screens` turn either kind off, `screens` all of it.
+- **Music** (Lukas, 2026-10-22: "a cute animation should play"): a turn that asks for music
+  (a tool named like play_music, Spotify, a playlist or radio; or the words music, songs, a
+  playlist... with something done or looked up) gets a reaction instead of a screen: his
+  `music_expression` (happy) for a while, `music_animation` (groove: a sway and bob, three
+  times, ending on a wink; 4.8 s) and a `music_icon` badge (a note, top right). `music_screen`
+  shows the player's screen as well.
 - **The `toggle` type** (also a normal screen type): the entity's icon (its own, else by name
   words — coffee, lamp, grow, tv... — then by kind), a switch whose knob slides from `from` to the
   state (waits 0.45 s, then eases; exact at any frame rate), the name and the state ("On now"
@@ -724,9 +733,9 @@ in the panel's Voice → Screens (and Agents for the find tool).
   - The scene's `screen` is `{"id": "@voice:<seq>", "inline": {type, title, options}, "present",
     "hold"}`, and cards register it like an icon screen.
   - `screen_present` is corner (default), handover, or each card's own setting.
-  - While a followed satellite is still answering, the screen holds (up to 90 s), then stays
-    `linger_seconds` (6) after it is done. With no satellite: the reply's speaking time (about
-    14 characters a second) plus the linger.
+  - It shows briefly (Lukas, 2026-10-22): `screen_seconds` (5) from when it comes in. With
+    `hold_while_speaking` on, it holds while a followed satellite is still answering (up to
+    90 s), then stays `linger_seconds` (6).
   - A story or an automation's `show_screen` beats it.
   - A card's `voice_screens: false` (or `voice: none`) leaves voice screens out.
   - Any conversation counts, typed ones in HA's Assist dialog too: the chat log doesn't say

@@ -13,8 +13,9 @@ export const subs = [["assistants", "Assistants"], ["agents", "Agents"], ["scree
 const ASSIST_KEYS = ["enabled", "satellites", "while_asleep", "listening_expression", "listening_animation",
   "processing_animation", "speak_style", "speak_strength", "after", "speak_targets", "tts_entity", "language"];
 const AGENT_KEYS = ["persona", "persona_prompt", "mood_aware", "assist_tool", "intent", "sentences", "find_entity"];
-const SCREEN_KEYS = ["screens", "action_screens", "answer_screens", "screen_present", "linger_seconds", "plot_hours",
-  "max_grid", "screen_skip"];
+const SCREEN_KEYS = ["screens", "action_screens", "answer_screens", "screen_present", "screen_seconds",
+  "hold_while_speaking", "linger_seconds", "plot_hours", "plot_title", "plot_text_size", "max_grid", "screen_skip",
+  "music_animation", "music_expression", "music_icon", "music_screen"];
 export const resets = { assistants: ASSIST_KEYS.map((k) => `voice.${k}`), agents: AGENT_KEYS.map((k) => `voice.${k}`),
   screens: SCREEN_KEYS.map((k) => `voice.${k}`) };
 
@@ -85,9 +86,12 @@ function assistants(p) {
 
 const PRESENTS = [["corner", "Corner: he stays, small, while it shows"], ["handover", "Hand over: he leaves for it"],
   ["card", "Each card's own setting"]];
+const PLOT_TITLES = [["icon", "An icon for its kind"], ["icon_name", "The icon and its name"], ["name", "Its name"], ["none", "None"]];
 
 function screens(p) {
-  const v = p.draft.voice, last = p.voiceStatus?.last_screen;
+  const v = p.draft.voice, last = p.voiceStatus?.last_screen, c = p.choices;
+  const exprs = [["", "Keep his face"], ...c.expressions.map((e) => [e, U.human(e)])];
+  const anims = [["", "None"], ...c.animations.map((a) => [a, U.human(a)])];
   const when = last ? new Date(last.at * 1000).toLocaleTimeString() : "";
   const peek = last ? `
       <p><b>${U.esc(when)}</b> · “${U.esc(last.said || "…")}” → “${U.esc(last.reply || "")}”</p>
@@ -101,12 +105,21 @@ function screens(p) {
         ${U.check("voice.answer_screens", v.answer_screens, "When asked about something", "Sensors as a plot, several with one unit on one plot or as bars; things that are on or off as their switch.")}`)}
       ${U.card("How", `<div class="grid">
         ${U.field("Presenting", U.select("voice.screen_present", v.screen_present, PRESENTS))}
-        ${U.field("Stays after he's done", U.num("voice.linger_seconds", v.linger_seconds, { min: 0, max: 120, step: 1, unit: "s" }),
-          "With a satellite he waits for it to finish speaking; without one, about as long as the reply takes to say, plus this.")}
+        ${U.field("On screen for", U.num("voice.screen_seconds", v.screen_seconds, { min: 1, max: 120, step: 1, unit: "s" }))}
         ${U.field("Plot span", U.num("voice.plot_hours", v.plot_hours, { min: 1, max: 720, step: 1, unit: "h" }))}
+        ${U.field("Plot title", U.select("voice.plot_title", v.plot_title, PLOT_TITLES), "The icon goes by the sensor's kind: a thermometer for a temperature, a drop for humidity.")}
+        ${U.field("Plot text size", U.num("voice.plot_text_size", v.plot_text_size, { min: 0.5, max: 2, step: 0.1, unit: "×" }))}
         ${U.field("Most switches at once", U.num("voice.max_grid", v.max_grid, { min: 1, max: 12, step: 1 }), "More show as \"+N more\".")}</div>
+        ${U.check("voice.hold_while_speaking", v.hold_while_speaking, "Wait until he has finished speaking",
+          "With a satellite: the screen stays while it answers, then the time below. Off: the time above, from when it comes in.")}
+        ${v.hold_while_speaking ? U.field("Then stays", U.num("voice.linger_seconds", v.linger_seconds, { min: 0, max: 120, step: 1, unit: "s" })) : ""}
         ${U.wide("Leave out", `<textarea data-path="voice.screen_skip" data-kind="list" rows="2">${U.esc(v.screen_skip.join(", "))}</textarea>`,
           "Domains (script, scene) or entity ids, comma separated.")}`)}`)}
+      ${U.card("Music", `<div class="grid">
+        ${U.field("He plays", U.select("voice.music_animation", v.music_animation, anims))}
+        ${U.field("His face", U.select("voice.music_expression", v.music_expression, exprs))}
+        ${U.field("Badge", U.text("voice.music_icon", v.music_icon, { placeholder: "None, or mdi:music-note" }))}</div>
+        ${U.check("voice.music_screen", v.music_screen, "A screen too", "Off: just his reaction, so it can be seen. On: the player's screen as well.")}`)}
     ${U.card("Last voice screen", peek)}`;
 }
 

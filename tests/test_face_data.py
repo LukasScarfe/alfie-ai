@@ -7,7 +7,7 @@ EXPRESSIONS = {"neutral", "angry", "sad", "bored", "skeptical", "happy", "surpri
                "alarmed", "suspicious", "sleepy", "confused", "closed"}
 ANIMATIONS = {"wink_left", "wink_right", "look_around", "glance_left", "glance_right", "nod",
               "shake", "eye_roll", "startle", "double_take", "laugh", "sigh", "squint",
-              "flinch", "scan", "processing", "glitch", "dizzy", "nod_off", "wake_up"}
+              "flinch", "scan", "processing", "glitch", "dizzy", "nod_off", "wake_up", "groove"}
 CHANNELS = {"shut", "shut_l", "shut_r", "open", "droop", "size", "dx", "dy", "lx", "ly",
             "rx", "ry", "fx", "fy"}
 EASES = {"ease", "spring", "cut", "linear"}
