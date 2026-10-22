@@ -1,0 +1,204 @@
+"""Voice screens (design.md "Voice screens"): what a voice turn was about, and
+the screen Alfie makes from it.
+
+PURE (no HA import), so the tests run under plain python. voice.py feeds a
+`Turn` the chat log's content as HA adds it (conversation's chat log
+subscription: built-in intents and LLM agents both log their tool calls and
+results there), and when the reply comes, `subject` says which entities the
+turn acted on or asked about and `screen_for` builds a screen of them.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
+from typing import Any
+
+from .finder import Index
+
+# Intents that change something; the rest (HassGetState, GetLiveContext,
+# HassGetWeather, ...) only look.
+ACTION_INTENTS = frozenset({
+    "HassTurnOn", "HassTurnOff", "HassToggle", "HassLightSet", "HassSetPosition",
+    "HassOpenCover", "HassCloseCover", "HassLockDoor", "HassUnlockDoor",
+    "HassFanSetSpeed", "HassClimateSetTemperature", "HassMediaPause", "HassMediaUnpause",
+    "HassMediaNext", "HassMediaPrevious", "HassSetVolume", "HassVacuumStart",
+    "HassVacuumReturnToBase", "HassValveOpen", "HassValveClose"})
+# The state a switch was in before the intent, for the knob to slide from.
+FROM_STATE = {"HassTurnOn": "off", "HassTurnOff": "on", "HassOpenCover": "closed",
+              "HassCloseCover": "open", "HassLockDoor": "unlocked", "HassUnlockDoor": "locked",
+              "HassMediaPause": "playing", "HassMediaUnpause": "paused",
+              "HassValveOpen": "closed", "HassValveClose": "open"}
+# Things that are on or off: the toggle's knob.
+ON_OFF = ("light", "switch", "fan", "input_boolean", "binary_sensor", "lock", "cover",
+          "media_player", "climate", "valve", "siren", "humidifier", "vacuum", "automation")
+FIND_TOOL = "find_entity"
+MAX_SPOKEN = 600     # characters of a reply kept, for timing and matching
+
+
+def _bare(tool: str) -> str:
+    """assist__HassTurnOn -> HassTurnOn (LLM agents namespace their tools)."""
+    return str(tool or "").rsplit("__", 1)[-1]
+
+
+def _get(obj: Any, key: str, default: Any = None) -> Any:
+    """A field of a ToolInput (an object in process) or of its dict form."""
+    if isinstance(obj, Mapping):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
+@dataclass
+class Turn:
+    """One question and its answer, as the chat log fills in."""
+
+    said: str = ""                     # what the person said
+    reply: str = ""                    # Alfie's final answer
+    done: bool = False
+    acted: list[str] = field(default_factory=list)      # entity ids changed
+    asked: list[str] = field(default_factory=list)      # entity ids looked at
+    names: list[str] = field(default_factory=list)      # names a lookup was given
+    froms: dict[str, str] = field(default_factory=dict)  # entity id -> state before
+    _calls: dict[str, str] = field(default_factory=dict)  # tool call id -> intent
+
+    def feed(self, content: Mapping[str, Any]) -> None:
+        role = content.get("role")
+        if role == "user":
+            self.__init__()            # a new question starts a new turn
+            self.said = str(content.get("content") or "")[:MAX_SPOKEN]
+        elif role == "assistant":
+            calls = content.get("tool_calls") or []
+            for c in calls:
+                tool = _bare(_get(c, "tool_name", ""))
+                self._calls[str(_get(c, "id", ""))] = tool
+                args = _get(c, "tool_args", {}) or {}
+                for k in ("name", "query"):
+                    v = args.get(k) if isinstance(args, Mapping) else None
+                    for n in (v if isinstance(v, list) else [v]):
+                        if isinstance(n, str) and n.strip() and n not in self.names:
+                            self.names.append(n.strip())
+            if content.get("content") and not calls:
+                self.reply = str(content["content"])[:MAX_SPOKEN]
+                self.done = True
+        elif role == "tool_result":
+            tool = _bare(content.get("tool_name") or self._calls.get(
+                str(content.get("tool_call_id")), ""))
+            res = content.get("result")
+            data = res.get("data") if isinstance(res, Mapping) else content.get("tool_result")
+            self._result(tool, data)
+
+    def _result(self, tool: str, data: Any) -> None:
+        if not isinstance(data, Mapping):
+            return
+        if tool == FIND_TOOL:
+            rows = data.get("results") or []
+            if rows and isinstance(rows[0], Mapping) and rows[0].get("entity_id"):
+                self._add(self.asked, rows[0]["entity_id"])
+            return
+        targets = (data.get("data") or {}).get("success") if isinstance(data.get("data"), Mapping) else None
+        ids = [t.get("id") for t in targets or [] if isinstance(t, Mapping) and t.get("type") == "entity"]
+        if not ids:
+            return
+        acting = tool in ACTION_INTENTS or data.get("response_type") == "action_done"
+        for eid in ids:
+            if not isinstance(eid, str) or "." not in eid:
+                continue
+            self._add(self.acted if acting else self.asked, eid)
+            if acting and tool in FROM_STATE:
+                self.froms.setdefault(eid, FROM_STATE[tool])
+
+    @staticmethod
+    def _add(lst: list[str], eid: str) -> None:
+        if eid not in lst:
+            lst.append(eid)
+
+
+def subject(turn: Turn, index: Index | None) -> tuple[str, list[str]]:
+    """("action" | "answer", entity ids), or ("", []) when the turn was about
+    nothing in the house. What it did beats what it looked at, which beats
+    the names a lookup was given, which beats names in the words."""
+    if turn.acted:
+        return "action", list(turn.acted)
+    if turn.asked:
+        return "answer", list(turn.asked)
+    if index is None:
+        return "", []
+    ids: list[str] = []
+    for n in turn.names:
+        e = index.best(n)
+        if e and e.entity_id not in ids:
+            ids.append(e.entity_id)
+    if not ids:
+        ids = index.mentioned(turn.said) or index.mentioned(turn.reply)
+    return ("answer", ids) if ids else ("", [])
+
+
+# ------------------------------------------------------------------ screens
+
+State = Callable[[str], "tuple[str, Mapping[str, Any]] | None"]   # id -> (state, attributes)
+
+
+def _number(state: str) -> float | None:
+    try:
+        return float(state)
+    except (TypeError, ValueError):
+        return None
+
+
+def _kind(eid: str, st: tuple[str, Mapping[str, Any]] | None) -> str:
+    domain = eid.split(".", 1)[0]
+    if domain == "weather":
+        return "weather"
+    if st is None:
+        return "toggle"
+    state, attrs = st
+    if domain in ("sensor", "number", "input_number") and (
+            _number(state) is not None or attrs.get("state_class") or attrs.get("unit_of_measurement")):
+        return "number"
+    return "toggle"
+
+
+def screen_for(kind: str, ids: list[str], state_of: State,
+               settings: Mapping[str, Any], froms: Mapping[str, str] | None = None
+               ) -> dict[str, Any] | None:
+    """The screen for a turn: {"type", "title", "options"}, or None.
+
+    `settings` is the voice config (answer_screens, action_screens,
+    plot_hours, max_grid, screen_skip)."""
+    if not kind or not ids:
+        return None
+    if not settings.get("action_screens" if kind == "action" else "answer_screens", True):
+        return None
+    skip = set(settings.get("screen_skip") or ())
+    ids = [e for e in ids if e not in skip and e.split(".", 1)[0] not in skip
+           and state_of(e) is not None]
+    if not ids:
+        return None
+    max_grid = int(settings.get("max_grid") or 6)
+    title = lambda e: str((state_of(e) or ("", {}))[1].get("friendly_name") or e)  # noqa: E731
+    kinds = {e: _kind(e, state_of(e)) for e in ids}
+
+    if kind == "answer":
+        nums = [e for e in ids if kinds[e] == "number"]
+        if kinds[ids[0]] == "weather":
+            return {"type": "weather", "title": title(ids[0]), "options": {"weather": ids[0]}}
+        if nums and len(nums) == len(ids):
+            units = {str((state_of(e) or ("", {}))[1].get("unit_of_measurement") or "") for e in nums}
+            if len(units) == 1 and len(nums) <= 6:
+                return {"type": "plot", "title": title(nums[0]) if len(nums) == 1 else "",
+                        "options": {"entities": nums, "hours": settings.get("plot_hours") or 24,
+                                    "title": title(nums[0]) if len(nums) == 1 else ""}}
+            return {"type": "bars", "title": "", "options": {
+                "entities": nums[:max_grid], "range": "auto"}}
+    froms = froms or {}
+    shown = ids[:max_grid]
+    return {"type": "toggle", "title": title(shown[0]) if len(shown) == 1 else "",
+            "options": {"entities": shown,
+                        "from": [froms.get(e, "") for e in shown] if kind == "action" else [],
+                        "more": max(0, len(ids) - len(shown)),
+                        "action": kind == "action"}}
+
+
+def speech_seconds(text: str) -> float:
+    """About how long a reply takes to say (design.md: ~14 characters a second)."""
+    return len(text or "") / 14.0

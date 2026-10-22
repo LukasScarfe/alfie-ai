@@ -81,6 +81,11 @@ The Python files are under `custom_components/alfie/`, and the frontend ones und
     when it changes.
   - `"screen"`: `null`, or `{"id": "plants", "until": <epoch s>, "seq": <int>}`. Set by the
     `alfie.show_screen` service; M4 stories will set it too.
+    A voice screen (design.md "Voice screens") carries its own definition instead of naming a
+    saved one: `{"id": "@voice:<seq>", "inline": {"type", "title", "options"}, "present",
+    "hold", ...}`, its options already checked. The card registers it under that id, and
+    `alfie/screen_data` answers for the last few `@voice:` ids (one provider cache key,
+    `@voice`, for them all).
 - **`alfie/screens`** (open to every logged-in user, because the wall tablet is not an admin)
   returns `{"rev", "screens", "rotations", "types"}`, where `types` is every type's JSON.
 - **`alfie/screen_data {screen: id}`** (open to every logged-in user) returns

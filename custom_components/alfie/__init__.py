@@ -35,6 +35,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.async_on_unload(engine.async_stop)
     # The Alfie LLM API and, when Voice turns it on, the what's-wrong intent.
     voice = Voice(hass, engine)
+    hass.data[DOMAIN]["voice"] = voice
     voice.apply()
     engine.config_hooks.append(voice.apply)
     entry.async_on_unload(voice.stop)
@@ -60,5 +61,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         hass.data[DOMAIN].pop("engine", None)
+        hass.data[DOMAIN].pop("voice", None)
         async_remove_panel(hass)
     return unloaded

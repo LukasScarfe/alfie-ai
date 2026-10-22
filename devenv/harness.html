@@ -98,7 +98,8 @@
       cfg.aspect = 1.6;
       cfg.screen_line_width = 0.012;
     } else if (sheet === "screen") {
-      frames = [{ ...base, label: base.type, present: q.get("present") || "handover", corner: q.get("corner") || "bottom_right", u: Number(q.get("u") || 1) }];
+      frames = [{ ...base, label: base.type, present: q.get("present") || "handover", corner: q.get("corner") || "bottom_right", u: Number(q.get("u") || 1),
+                 ...(q.get("shown") ? { shown: Number(q.get("shown")) } : {}) }];
       cfg.aspect = Number(q.get("aspect") || 1.6);
     } else {
       base.options = { text: "Hello Alfie, this is a screen" };

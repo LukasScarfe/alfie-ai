@@ -19,7 +19,7 @@ export const DEFAULTS = {
   present: "handover", corner: "bottom_right", corner_size: 0.3, transition: null,
   text_color: null, accent_color: null, line_color: null, screen_line_width: 0.02,
   appear_story: "auto", follow_mode: true, icons: true,
-  voice: "all", voice_satellites: null, speak_style: null,
+  voice: "all", voice_satellites: null, speak_style: null, voice_screens: true,
   entity: null,
 };
 
@@ -382,7 +382,8 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
       }
       if (this._get("voice") !== "none") {
         out.push(this._select("Speaking", t("speak_style"), [["", "Default (Alfie's Voice setting)"], ["pulse", "Ring pulse"], ["eyes", "Eye rhythm"],
-          ["both", "Ring and eyes"], ["wave", "Waveform ring"]]));
+          ["both", "Ring and eyes"], ["wave", "Waveform ring"]]),
+          this._bool("Voice screens", t("voice_screens"), "When he answers about something in the house or switches it, a screen of it shows here."));
       }
       return out.join("");
     }
