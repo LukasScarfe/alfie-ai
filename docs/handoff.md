@@ -18,7 +18,13 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.14.0.
+Version 0.14.1.
+
+**Latest (0.14.1, 2026-10-22, Lukas):** voice plots are titled by an MDI icon for the sensor's
+kind (`converse.plot_icon`, setting `plot_title`) at `plot_text_size` 2; voice screens show
+for `screen_seconds` 5 (`hold_while_speaking` off by default); a music request gets
+`engine.music_reaction()` (happy face, the new `groove` animation in alfie-face.json, a note
+badge) instead of a screen (`music_screen`). Checked on dev (music) and prod (plot).
 
 **Latest (0.14.0, 2026-10-22, Lukas): M9 voice screens, built and on production; only H, his
 review, is open** (design.md "Voice screens", plan.md M9).
