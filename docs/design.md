@@ -701,7 +701,12 @@ in the panel's Voice → Screens (and Agents for the find tool).
   - else the `alfie__find_entity` answer, or the names a lookup (GetLiveContext) was given,
     resolved by the name index;
   - else exposed entities whose name or alias appears whole in what was said, then in the reply.
-  - A turn is done at the reply (assistant content with no tool calls).
+  - A turn is done at the reply (assistant content with no tool calls). HA's own agent logs
+    its intents, results and reply as it goes. An LLM agent's subscribers only hear what was
+    said and the tool results (HA 2026.10 doesn't notify its assistant messages), so once such a
+    turn starts, the watcher looks at HA's stored log (`hass.data["conversation_chat_logs"]`)
+    every 0.4 s for at most 30 s and reads the finished turn from it (`converse.last_turn`); a
+    conversation that goes on ends with an UPDATED event carrying the whole log.
 - **The screen** (`converse.screen_for`):
   - an action: the `toggle` type, its knob starting at the state before (HassTurnOn → off);
   - an answer: numbers with one unit → `plot` over `plot_hours` (default 24); numbers with

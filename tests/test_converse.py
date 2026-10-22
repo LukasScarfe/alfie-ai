@@ -152,3 +152,23 @@ def test_settings_and_skips_turn_screens_off():
 def test_speech_seconds():
     assert speech_seconds("x" * 28) == 2
     assert speech_seconds("") == 0
+
+
+def test_an_llm_turn_is_read_back_from_the_whole_log():
+    # HA tells subscribers of an LLM agent's turn only what was said and the
+    # tool results; the finished log has the calls and the reply too.
+    from alfie.converse import last_turn
+    log = [{"role": "system", "content": "prompt"},
+           {"role": "user", "content": "is the coffee maker on"},
+           {"role": "assistant", "agent_id": "g", "content": "It was off."},
+           {"role": "user", "content": "how dry is the monstera"},
+           {"role": "assistant", "agent_id": "g",
+            "tool_calls": [Call("assist__homeassistant__GetLiveContext", {"name": "Monstera moisture"}, "1")]},
+           {"role": "tool_result", "agent_id": "g", "tool_call_id": "1",
+            "tool_name": "assist__homeassistant__GetLiveContext", "result": {"data": {"success": True}}},
+           {"role": "assistant", "agent_id": "g", "content": "Thirty-three percent."}]
+    t = last_turn(log)
+    assert t.done and t.said == "how dry is the monstera" and t.reply == "Thirty-three percent."
+    assert subject(t, INDEX) == ("answer", ["sensor.monstera"])
+    # Not finished yet: no reply after the last thing said.
+    assert not last_turn(log[:5]).done

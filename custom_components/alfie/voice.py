@@ -22,6 +22,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers import (
     area_registry as ar,
     config_validation as cv,
@@ -42,6 +43,10 @@ _LOGGER = logging.getLogger(__name__)
 API_ID = DOMAIN
 INTENT = "AlfieWhatsWrong"
 TURNS_KEPT = 8      # conversations followed at once; older ones are dropped
+# An LLM agent's finished turn is read from HA's stored chat log: looked for
+# this often while a turn is open, for at most this long (then forgotten).
+CHECK_EVERY = 0.4
+CHECK_FOR = 30.0
 
 
 def _lookup(hass: HomeAssistant) -> tell.Lookup:
@@ -171,6 +176,8 @@ class Voice:
         self._index_unsubs: list[CALLBACK_TYPE] = []
         self._watch_unsub: CALLBACK_TYPE | None = None
         self._turns: dict[str, converse.Turn] = {}
+        self._checks: dict[str, CALLBACK_TYPE] = {}   # conversation id -> its next look
+        self._deadline: dict[str, float] = {}          # conversation id -> monotonic give-up
         self.last: dict[str, Any] | None = None    # the last voice screen, for the panel
 
     @callback
@@ -274,26 +281,85 @@ class Voice:
             self._watch_unsub()
             self._watch_unsub = None
             self._turns.clear()
+            self._stop_checks()
 
     @callback
     def _on_chat(self, conversation_id: str, event_type: Any, data: dict[str, Any]) -> None:
-        if event_type == self._events.DELETED:
-            self._turns.pop(conversation_id, None)
+        cid, ev = conversation_id, self._events
+        if event_type == ev.DELETED:
+            self._turns.pop(cid, None)
+            self._stop_checks(cid)
             return
-        if event_type != self._events.CONTENT_ADDED or not isinstance(data.get("content"), dict):
+        if event_type == ev.UPDATED and isinstance(data.get("chat_log"), dict):
+            # A conversation that goes on: HA hands over its whole log at the turn's end.
+            self._finish(cid, data["chat_log"].get("content") or [])
             return
-        turn = self._turns.pop(conversation_id, None) or converse.Turn()
-        self._turns[conversation_id] = turn          # most recent last
+        if event_type != ev.CONTENT_ADDED or not isinstance(data.get("content"), dict):
+            return
+        turn = self._turns.pop(cid, None) or converse.Turn()
+        self._turns[cid] = turn          # most recent last
         while len(self._turns) > TURNS_KEPT:
-            self._turns.pop(next(iter(self._turns)))
-        was = turn.done
+            old = next(iter(self._turns))
+            self._turns.pop(old)
+            self._stop_checks(old)
         try:
             turn.feed(data["content"])
         except Exception:  # an HA change in the log's shape must not break voice
             _LOGGER.exception("Alfie couldn't read a voice turn")
             return
-        if turn.done and not was:
-            self.hass.async_create_task(self._show(turn), eager_start=True)
+        if turn.done:
+            self._show_once(cid, turn)       # HA's own agent: its reply is logged as it goes
+        elif cid not in self._checks:
+            self._deadline[cid] = time.monotonic() + CHECK_FOR
+            self._checks[cid] = async_call_later(self.hass, CHECK_EVERY, self._checker(cid))
+
+    def _checker(self, cid: str) -> Callable[[Any], None]:
+        @callback
+        def check(_now: Any) -> None:
+            self._checks.pop(cid, None)
+            turn = self._turns.get(cid)
+            if turn is None or turn.shown:
+                return
+            logs = self.hass.data.get("conversation_chat_logs") or {}
+            log = logs.get(cid)
+            if log is not None:
+                try:
+                    if self._finish(cid, [c.as_dict() for c in log.content]):
+                        return
+                except Exception:  # noqa: BLE001 - an HA change: give up on this turn
+                    _LOGGER.debug("Alfie couldn't read the chat log", exc_info=True)
+                    return
+            if time.monotonic() < self._deadline.get(cid, 0):
+                self._checks[cid] = async_call_later(self.hass, CHECK_EVERY, self._checker(cid))
+            else:
+                self._deadline.pop(cid, None)
+        return check
+
+    @callback
+    def _finish(self, cid: str, contents: list[Any]) -> bool:
+        """Read the finished turn from a whole log; True once it is shown."""
+        turn = self._turns.get(cid)
+        full = converse.last_turn([c for c in contents if isinstance(c, dict)])
+        if not full.done or (turn is not None and (turn.shown or (turn.said and full.said != turn.said))):
+            return False
+        self._turns[cid] = full
+        self._show_once(cid, full)
+        return True
+
+    @callback
+    def _show_once(self, cid: str, turn: converse.Turn) -> None:
+        if turn.shown:
+            return
+        turn.shown = True
+        self._stop_checks(cid)
+        self.hass.async_create_task(self._show(turn), eager_start=True)
+
+    @callback
+    def _stop_checks(self, cid: str | None = None) -> None:
+        for k in [cid] if cid is not None else list(self._checks):
+            self._deadline.pop(k, None)
+            if (unsub := self._checks.pop(k, None)) is not None:
+                unsub()
 
     async def _show(self, turn: converse.Turn) -> None:
         engine, v = self.engine, self.engine.config["voice"]
@@ -323,6 +389,7 @@ class Voice:
         if self._watch_unsub is not None:
             self._watch_unsub()
             self._watch_unsub = None
+        self._stop_checks()
         for u in self._index_unsubs:
             u()
         self._index_unsubs.clear()

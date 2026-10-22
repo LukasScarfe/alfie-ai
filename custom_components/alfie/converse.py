@@ -3,9 +3,11 @@ the screen Alfie makes from it.
 
 PURE (no HA import), so the tests run under plain python. voice.py feeds a
 `Turn` the chat log's content as HA adds it (conversation's chat log
-subscription: built-in intents and LLM agents both log their tool calls and
-results there), and when the reply comes, `subject` says which entities the
-turn acted on or asked about and `screen_for` builds a screen of them.
+subscription). HA's own agent logs its intents, results and reply there as
+it goes; an LLM agent's subscribers hear only what was said and the tool
+results, so its finished turn is read back from the whole log
+(`last_turn`). When the reply is in, `subject` says which entities the turn
+acted on or asked about and `screen_for` builds a screen of them.
 """
 
 from __future__ import annotations
@@ -55,6 +57,7 @@ class Turn:
     said: str = ""                     # what the person said
     reply: str = ""                    # Alfie's final answer
     done: bool = False
+    shown: bool = False                # its screen has been made (once per turn)
     acted: list[str] = field(default_factory=list)      # entity ids changed
     asked: list[str] = field(default_factory=list)      # entity ids looked at
     names: list[str] = field(default_factory=list)      # names a lookup was given
@@ -111,6 +114,17 @@ class Turn:
     def _add(lst: list[str], eid: str) -> None:
         if eid not in lst:
             lst.append(eid)
+
+
+def last_turn(contents: list[Mapping[str, Any]]) -> Turn:
+    """The turn from the last thing the person said to the end of a whole
+    chat log (its contents' dicts): how an LLM agent's turn is read, as HA
+    tells subscribers only of what the person said and of tool results."""
+    start = max((i for i, c in enumerate(contents) if c.get("role") == "user"), default=0)
+    t = Turn()
+    for c in contents[start:]:
+        t.feed(c)
+    return t
 
 
 def subject(turn: Turn, index: Index | None) -> tuple[str, list[str]]:
