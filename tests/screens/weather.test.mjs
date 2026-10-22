@@ -55,6 +55,17 @@ for (const [w, h] of [[1, 1], [1.6, 1], [0.5, 0.35]]) {
   check(valid(draw(null, { title: "Outside" }, {})), `no data with title @${w}x${h}`);
   check(valid(draw(null, {})), `states only @${w}x${h}`);
   check(valid(draw({ type: "hourly", times: [], temp: [], low: [], pop: [], precip: [], cond: [] }, {})), `empty forecast @${w}x${h}`);
+  // Auto layout never overlaps, at any Text size: the bands' boxes stay apart.
+  for (const ts of [0.5, 1, 2]) {
+    for (const [data, o, keys] of [[dailyData(5), { forecast: "daily", title: "Home" }, ["title", "temperature", "days", "day_icons", "highs", "lows", "rain"]],
+      [hourly(24), { title: "Home" }, ["title", "temperature", "forecast"]]]) {
+      const memo = {};
+      W.draw({ w, h, t: 3, data, options: opts({ ...o, text_size: ts }), states, config: {}, memo, S });
+      const bx = keys.map((k) => memo.boxes[k]).filter(Boolean);
+      const hit = bx.some((a, i) => bx.some((b, j) => j > i && a[1] < b[1] + b[3] - 0.05 && b[1] < a[1] + a[3] - 0.05 && a[0] < b[0] + b[2] && b[0] < a[0] + a[2]));
+      check(bx.length === keys.length && !hit, `${o.forecast || "hourly"} bands apart at text size ${ts} @${w}x${h}`);
+    }
+  }
   const a = draw(hourly(24), {}), b = W.draw({ w, h, t: 9, data: hourly(24), options: opts(), states, config: {}, memo: {}, S });
   check(a.length === b.length, `animation keeps the stroke count @${w}x${h}`);
 }

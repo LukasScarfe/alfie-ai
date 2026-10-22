@@ -250,7 +250,9 @@ export function layout(w, h, opt) {
 // Split `r` top to bottom into bands: {key, h} fixed, or {key, grow, min}
 // sharing what is left. Fixed bands shrink together when they don't fit.
 // Falsy entries are skipped, so a band can be left out with `cond && {...}`.
-export function stack(r, bands, gap = 0) {
+// With no growing band, `spread` shares the room left over between the gaps
+// (and half a gap above and below), so the bands sit centred.
+export function stack(r, bands, gap = 0, { spread = false } = {}) {
   const live = bands.filter(Boolean);
   const room = Math.max(0, r.h - gap * Math.max(0, live.length - 1));
   const fixed = live.reduce((t, b) => t + (b.grow ? 0 : b.h), 0);
@@ -258,12 +260,13 @@ export function stack(r, bands, gap = 0) {
   const grows = live.reduce((t, b) => t + (b.grow || 0), 0);
   const k = fixed > 0 ? Math.min(1, Math.max(0, room - mins) / fixed) : 1;
   const spare = Math.max(0, room - fixed * k);
+  const extra = spread && !grows && live.length ? spare / live.length : 0;
   const out = {};
-  let y = r.y1;
+  let y = r.y1 - extra / 2;
   for (const b of live) {
     const bh = b.grow ? (spare * b.grow) / grows : b.h * k;
     out[b.key] = rect(r.x0, y - bh, r.x1, y);
-    y -= bh + gap;
+    y -= bh + gap + extra;
   }
   return out;
 }

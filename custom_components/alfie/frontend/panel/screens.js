@@ -516,7 +516,8 @@ function setLayout(sc, lay) {
 // left; Size (its text); Align. Clicking a name outlines it in the preview.
 function layoutTable(p, sc, i, opt) {
   const lay = sc.options?.layout || {}, auto = p.layBoxes?.get(sc.id) || {};
-  const rows = opt.elements.map((el) => {
+  const all = p.choices.screen_types?.[sc.type]?.options || [];
+  const rows = opt.elements.filter((el) => Fm.optionShown(el, sc.options, all)).map((el) => {
     const e = lay[el.key] || {}, own = Array.isArray(e.box), at = `data-i="${i}" data-key="${U.esc(el.key)}"`;
     const on = p.layHi?.id === sc.id && p.layHi.key === el.key, name = U.esc(el.label);
     const nums = BOX.map((b, j) => `<label>${b}<input type="number" class="lay" ${at} data-f="${j}" min="0" max="100" step="0.5"
