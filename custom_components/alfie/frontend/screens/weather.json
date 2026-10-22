@@ -12,5 +12,20 @@
    {"key": "decimals", "kind": "number", "label": "Decimals", "default": 0, "min": 0, "max": 2, "hint": "For the temperature now."},
    {"key": "time_labels", "kind": "bool", "label": "Hour labels under the curve", "default": true},
    {"key": "animate", "kind": "bool", "label": "Animated icon", "default": true, "more": true},
-   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the screen's text. Text fitted to its room still shrinks to fit."}
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the screen's text. Text fitted to its room still shrinks to fit."},
+   {"key": "layout", "kind": "layout", "label": "Layout", "default": {}, "elements": [
+     {"key": "title", "label": "Title", "text": true},
+     {"key": "icon", "label": "Icon now", "text": true},
+     {"key": "temperature", "label": "Temperature now", "text": true},
+     {"key": "forecast", "label": "Forecast area"},
+     {"key": "curve", "label": "Curve", "when": {"forecast": ["hourly"]}},
+     {"key": "temp_axis", "label": "Temperature axis", "text": true, "when": {"forecast": ["hourly"]}},
+     {"key": "rain_axis", "label": "Rain axis", "text": true, "when": {"forecast": ["hourly"]}},
+     {"key": "hours", "label": "Hour labels", "text": true, "when": {"forecast": ["hourly"]}},
+     {"key": "days", "label": "Day names", "text": true, "when": {"forecast": ["daily"]}},
+     {"key": "day_icons", "label": "Day icons", "text": true, "when": {"forecast": ["daily"]}},
+     {"key": "highs", "label": "Highs", "text": true, "when": {"forecast": ["daily"]}},
+     {"key": "lows", "label": "Lows", "text": true, "when": {"forecast": ["daily"]}},
+     {"key": "rain", "label": "Rain", "when": {"forecast": ["daily"]}}
+   ]}
  ]}

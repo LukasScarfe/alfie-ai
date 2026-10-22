@@ -299,7 +299,8 @@
     "decimals": 0,
     "time_labels": true,
     "animate": true,
-    "text_size": 1
+    "text_size": 1,
+    "layout": {}
    }
   },
   {
@@ -319,7 +320,8 @@
     "decimals": 0,
     "time_labels": true,
     "animate": true,
-    "text_size": 1
+    "text_size": 1,
+    "layout": {}
    }
   },
   {
