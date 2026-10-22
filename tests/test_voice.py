@@ -195,3 +195,17 @@ def test_mood_line():
                                      "Let a little of that show in your tone, but stay helpful.")
     assert mood_line("Alfie", None, persona=False) == \
         "Right now Alfie, the home's face, feels content."
+
+
+# ------------------------------------------------------------ voice screens
+
+def test_voice_screen_settings_have_defaults_and_are_checked():
+    v = valid(default_config())["voice"]
+    assert v["find_entity"] and v["screens"] and v["screen_present"] == "corner"
+    assert v["linger_seconds"] == 6 and v["plot_hours"] == 24 and v["max_grid"] == 6
+    assert "script" in v["screen_skip"]
+    got = valid(with_voice(screen_skip="Light.Hall, ", max_grid=3))["voice"]
+    assert got["screen_skip"] == ["light.hall"] and got["max_grid"] == 3
+    assert "voice screens leave out" in errors(with_voice(screen_skip=["not ok!"]))
+    assert "voice screen presenting" in errors(with_voice(screen_present="sideways"))
+    assert "voice screen grid size" in errors(with_voice(max_grid=50))

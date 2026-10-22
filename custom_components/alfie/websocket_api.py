@@ -360,7 +360,10 @@ def ws_voice_status(hass: HomeAssistant, connection: websocket_api.ActiveConnect
         "whats_wrong": voice.whats_wrong(engine),
         "spoken": tell.spoken(engine.mood, voice._lookup(hass)),
         "tool": voice.WhatsWrongTool.name,
+        "find_tool": voice.FindEntityTool.name,
         "api": voice.API_ID,
+        "last_screen": (hass.data[DOMAIN].get("voice").last
+                        if hass.data[DOMAIN].get("voice") else None),
     })
 
 

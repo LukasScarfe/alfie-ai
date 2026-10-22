@@ -139,6 +139,13 @@ def default_look() -> dict[str, Any]:
             "shapes": {"head": {"type": "circle"}, "eye": {"type": "circle"}}}
 
 
+# What voice screens leave out unless told otherwise: things with no state
+# worth a screen (a script running, a scene set) and Alfie's own plumbing.
+SCREEN_SKIP = ("script", "scene", "automation", "todo", "schedule", "button", "conversation",
+               "tts", "stt", "update", "event")
+VOICE_PRESENTS = ("corner", "handover", "card")
+
+
 def default_voice() -> dict[str, Any]:
     """Voice (design.md "Voice"): which satellites he follows ([] every one),
     his look in each phase, the Alfie LLM API's persona and mood prompt, and
@@ -152,7 +159,12 @@ def default_voice() -> dict[str, Any]:
             "mood_aware": True,
             "assist_tool": False, "intent": False,
             "sentences": list(defaults.WHATS_WRONG_SENTENCES),
-            "speak_targets": [], "tts_entity": "", "language": ""}
+            "speak_targets": [], "tts_entity": "", "language": "",
+            # Voice screens (design.md "Voice screens"): the find tool, and a
+            # screen made from what a voice turn did or was asked about.
+            "find_entity": True, "screens": True, "action_screens": True,
+            "answer_screens": True, "screen_present": "corner", "linger_seconds": 6,
+            "plot_hours": 24, "max_grid": 6, "screen_skip": list(SCREEN_SKIP)}
 
 
 def default_config() -> dict[str, Any]:
@@ -616,7 +628,32 @@ def _voice(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
                                       ("media_player", "assist_satellite"), ck),
         "tts_entity": tts,
         "language": str(v["language"] or "").strip(),
+        "find_entity": bool(v["find_entity"]),
+        "screens": bool(v["screens"]),
+        "action_screens": bool(v["action_screens"]),
+        "answer_screens": bool(v["answer_screens"]),
+        "screen_present": ck.choice("voice screen presenting", v["screen_present"],
+                                    VOICE_PRESENTS, "corner"),
+        "linger_seconds": _num(ck.number("voice screen linger", v["linger_seconds"], 0, 120, 6)),
+        "plot_hours": _num(ck.number("voice screen plot span", v["plot_hours"], 1, 720, 24)),
+        "max_grid": int(ck.number("voice screen grid size", v["max_grid"], 1, 12, 6)),
+        "screen_skip": _skip_list(v["screen_skip"], ck),
     }
+
+
+def _skip_list(v: Any, ck: _Check) -> list[str]:
+    """Domains (script) or entity ids (light.hall) voice screens leave out."""
+    items = v.split(",") if isinstance(v, str) else v if isinstance(v, list) else []
+    out: list[str] = []
+    for x in items:
+        x = str(x).strip().lower()
+        if not x:
+            continue
+        if not re.match(r"^[a-z_]+(\.[a-z0-9_]+)?$", x):
+            ck.bad("voice screens leave out", f"{x!r} is not a domain or an entity id")
+        elif x not in out:
+            out.append(x)
+    return out
 
 
 def _personality(raw: Mapping[str, Any], face: Mapping[str, Any], ck: _Check) -> dict[str, Any]:

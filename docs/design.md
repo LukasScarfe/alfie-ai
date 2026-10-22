@@ -559,6 +559,8 @@ built types:
   (`mdi:plex Viewers`) is drawn as the icon, and a plot series marker or the value screen's
   icon may be one (`mdi:account`).
 - **label**: plain text, the reference type.
+- **toggle** (2026-10-22): an icon with a sliding switch, the name and the state, for one
+  entity or a grid of them. Made by voice screens (see "Voice screens"), usable as any screen.
 - **picture** (Lukas, 2026-10-20): an uploaded SVG (a floor plan, a logo, a drawing). Drawn in
   Alfie's line style: filled shapes as their outlines (closed, as icons are), stroke-only shapes as
   their lines.
@@ -642,7 +644,7 @@ letters: accents drop to the base letter, and letters it can't decompose (Ł) ar
 
 ## Voice
 
-Built in M6. Config section `voice`; the panel's Voice section (Assistants, Agents).
+Built in M6. Config section `voice`; the panel's Voice section (Assistants, Agents, Screens).
 
 - **Works with whatever voice assistant the user already has.** Alfie watches **every
   `assist_satellite` entity** (Voice PE, ESPHome ESP32 builds, the voice-satellite card on a
@@ -684,6 +686,54 @@ Built in M6. Config section `voice`; the panel's Voice section (Assistants, Agen
   time. His tablet will move to the voice-satellite card to become a real `assist_satellite`. His
   pipeline is Whisper and Piper (local) plus a Gemini brain with a SearXNG search tool; see
   `~/Documents/superintendent-plan.md`.
+
+## Voice screens
+
+Built in M9 (Lukas, 2026-10-22). When a voice turn switches something in the house or answers
+about it, Alfie shows a screen made from that entity. All of it is the `voice` config section's,
+in the panel's Voice → Screens (and Agents for the find tool).
+
+- **What a turn was about** (`converse.py`, pure): the engine follows HA's chat logs
+  (`conversation.async_subscribe_chat_logs`). HA's own agent and every LLM agent log their tool
+  calls and results there, so it costs no extra request. Per turn:
+  - intent results' `data.success[]` entity ids: an **action** when the intent changes something
+    (HassTurnOn, HassLightSet, ...), else an **answer**;
+  - else the `alfie__find_entity` answer, or the names a lookup (GetLiveContext) was given,
+    resolved by the name index;
+  - else exposed entities whose name or alias appears whole in what was said, then in the reply.
+  - A turn is done at the reply (assistant content with no tool calls).
+- **The screen** (`converse.screen_for`):
+  - an action: the `toggle` type, its knob starting at the state before (HassTurnOn → off);
+  - an answer: numbers with one unit → `plot` over `plot_hours` (default 24); numbers with
+    mixed units → `bars`; `weather.*` → `weather`; anything else → `toggle` showing its state;
+  - more than `max_grid` (6): a grid of the first ones and "+N more";
+  - `screen_skip` (default script, scene, automation, todo, schedule, button, ...) leaves
+    domains or entity ids out;
+  - `action_screens` / `answer_screens` turn either kind off, `screens` all of it.
+- **The `toggle` type** (also a normal screen type): the entity's icon (its own, else by name
+  words — coffee, lamp, grow, tv... — then by kind), a switch whose knob slides from `from` to the
+  state (waits 0.45 s, then eases; exact at any frame rate), the name and the state ("On now"
+  after an action). One entity fills the screen with layout boxes (title, icon, switch, name,
+  state); several are a grid of cells. Things that aren't on or off show their state, no switch.
+- **Presenting**:
+  - The scene's `screen` is `{"id": "@voice:<seq>", "inline": {type, title, options}, "present",
+    "hold"}`, and cards register it like an icon screen.
+  - `screen_present` is corner (default), handover, or each card's own setting.
+  - While a followed satellite is still answering, the screen holds (up to 90 s), then stays
+    `linger_seconds` (6) after it is done. With no satellite: the reply's speaking time (about
+    14 characters a second) plus the linger.
+  - A story or an automation's `show_screen` beats it.
+  - A card's `voice_screens: false` (or `voice: none`) leaves voice screens out.
+  - Any conversation counts, typed ones in HA's Assist dialog too: the chat log doesn't say
+    which device a turn came from.
+- **`alfie__find_entity`** (`finder.py`, pure index; `voice.py` tool): read-only search of every
+  entity that isn't hidden or disabled, by name, aliases, device and area, with plural and
+  apostrophe folding and a bonus when the room is named. Returns the top 5 with state, unit, area,
+  aliases and `can_control` (exposed). In the Alfie API when `find_entity` is on (default), and
+  in Assist with `assist_tool`. The index is built in an executor on first use and again only
+  after an entity, device or area registry change. The Alfie API's prompt gets one line about it.
+- The panel's Voice → Screens shows the last voice screen: what was said, the reply, what it
+  was about and which screen was made.
 
 ## Card
 

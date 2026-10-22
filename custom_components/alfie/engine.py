@@ -70,6 +70,11 @@ SATELLITE = "assist_satellite."
 Listener = Callable[[dict[str, Any]], None]
 
 
+VOICE_SCREEN = "@voice"       # voice screens' ids: @voice:<seq>
+VOICE_HOLD = 90.0             # seconds a voice screen waits for its satellite to be done
+VOICE_SCREENS_KEPT = 4
+
+
 def _load_face() -> dict[str, Any]:
     path = os.path.join(os.path.dirname(__file__), "frontend", FACE_FILE)
     with open(path, encoding="utf-8") as f:
@@ -157,6 +162,9 @@ class AlfieEngine:
         # listening, thinking or answering now. Not entity state.
         self.voice: dict[str, dict[str, Any]] = {}
         self._voice_triggers: list[dict[str, Any]] = []
+        # Voice screens (design.md "Voice screens"): the last few made, by
+        # their @voice:<seq> id, for alfie/screen_data. Not entity state.
+        self._voice_screens: dict[str, dict[str, Any]] = {}
 
     # ------------------------------------------------------------ lifecycle
 
@@ -214,7 +222,7 @@ class AlfieEngine:
         self.face_rev = hashlib.sha1(json.dumps(extras, sort_keys=True).encode()).hexdigest()[:10]
         self.expressions = set(self.face["expressions"]) | set(extras["expressions"])
         self.animations = set(self.face["animations"]) | set(extras["animations"])
-        if self.screen and not self.screen.get("icon") \
+        if self.screen and not self.screen.get("icon") and not self.screen.get("inline") \
                 and self.screen["id"] not in {s["id"] for s in cfg["screens"]}:
             self._clear_screen(None)   # the screen being shown was deleted
         self.signals = built.signals
@@ -372,6 +380,8 @@ class AlfieEngine:
             v = self.config["voice"]
             if phase == "done":
                 self.voice.pop(eid, None)
+                if not self.voice and self.screen and self.screen.get("hold"):
+                    self._linger()
                 if v["after"] and not self.asleep and not self.voice:
                     st = self.hass.states.get(eid)
                     self.play(v["after"], f"Voice: {st.name if st else eid} is done.", "voice",
@@ -1011,6 +1021,44 @@ class AlfieEngine:
         if seq is not None:
             self._push()
 
+    @callback
+    def show_voice_screen(self, screen: dict[str, Any], seconds: float, hold: bool) -> None:
+        """Every card presents a screen made from a voice turn (converse.py):
+        while a satellite is still answering (`hold`) until it is done and
+        then the voice settings' linger, else for `seconds`. A story or an
+        automation's screen beats it. Not entity state."""
+        if self.story is not None or (self.screen and not self.screen.get("inline")):
+            return
+        if self._screen_unsub:
+            self._screen_unsub()
+        self._screen_seq += 1
+        seq = self._screen_seq
+        sid = f"{VOICE_SCREEN}:{seq}"
+        self._voice_screens[sid] = screen
+        for old in list(self._voice_screens)[:-VOICE_SCREENS_KEPT]:
+            del self._voice_screens[old]
+        present = self.config["voice"]["screen_present"]
+        wait = VOICE_HOLD if hold else seconds
+        self.screen = {"id": sid, "until": time.time() + wait, "seq": seq, "inline": screen,
+                       "present": None if present == "card" else present, "transition": None,
+                       "hold": hold}
+        self._screen_unsub = async_call_later(
+            self.hass, wait, callback(lambda _now: self._clear_screen(seq)))
+        self._push()
+
+    @callback
+    def _linger(self) -> None:
+        """The satellite is done: the held voice screen stays its linger, then goes."""
+        sc = self.screen
+        if sc is None:
+            return
+        seq, wait = sc["seq"], float(self.config["voice"]["linger_seconds"])
+        if self._screen_unsub:
+            self._screen_unsub()
+        self.screen = {**sc, "until": time.time() + wait, "hold": False}
+        self._screen_unsub = async_call_later(
+            self.hass, wait, callback(lambda _now: self._clear_screen(seq)))
+
     def _set_screens_rev(self) -> None:
         """Cards refetch screens (and their data) when this changes: the
         screens, the rotations, or any picture."""
@@ -1031,6 +1079,9 @@ class AlfieEngine:
         """The cached provider answer for a screen, fetching if it is stale.
         Raises ValueError for an unknown screen."""
         screen = next((s for s in self.config["screens"] if s["id"] == screen_id), None)
+        if screen is None and screen_id in self._voice_screens:
+            # One cache key for every voice screen: its options pick the answer.
+            screen = {**self._voice_screens[screen_id], "id": VOICE_SCREEN}
         if screen is None:
             raise ValueError(f"unknown screen {screen_id!r}")
         needs = self.types[screen["type"]].get("needs") if screen["type"] in self.types else None

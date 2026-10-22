@@ -1,0 +1,18 @@
+{"type": "toggle", "title": "Switches", "needs": null,
+ "options": [
+   {"key": "entities", "kind": "entities", "label": "Entities", "required": true, "hint": "1 to 6 things that are on or off (or any entity: its state shows as text). More are a grid."},
+   {"key": "title", "kind": "text", "label": "Title", "default": "", "hint": "Empty: none on a grid; the name on one entity."},
+   {"key": "labels", "kind": "text", "per": "entities", "label": "Label", "default": "", "hint": "Empty: the friendly name."},
+   {"key": "icons", "kind": "icon", "per": "entities", "label": "Icon", "default": "", "presets": ["auto"], "hint": "Empty or auto: the entity's own or one from its kind. Or any icon such as mdi:coffee-maker."},
+   {"key": "from", "kind": "text", "per": "entities", "label": "Starts from", "default": "", "hint": "A state (on, off, open...) the switch slides from as the screen comes in. Empty: it starts where it is.", "more": true},
+   {"key": "action", "kind": "bool", "label": "Something was just done", "default": false, "hint": "Voice screens set it: the switch slides once, and the state reads as what happened.", "more": true},
+   {"key": "more", "kind": "number", "label": "And N more", "default": 0, "min": 0, "max": 999, "hint": "Shown as '+N more' under a grid.", "more": true},
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×"},
+   {"key": "layout", "kind": "layout", "label": "Layout", "default": {}, "elements": [
+     {"key": "title", "label": "Title", "text": true},
+     {"key": "icon", "label": "Icon"},
+     {"key": "switch", "label": "Switch"},
+     {"key": "name", "label": "Name", "text": true},
+     {"key": "state", "label": "State", "text": true}
+   ]}
+ ]}

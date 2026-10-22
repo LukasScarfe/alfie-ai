@@ -1,25 +1,29 @@
 // The panel's Voice section (design.md "Voice"): Assistants (which voice
 // satellites he follows, how he looks while one listens, thinks and answers,
-// and where he speaks) and Agents (what voice agents get from him: the Alfie
-// LLM API, the what's-wrong tool and intent, the persona and his mood).
+// and where he speaks), Agents (what voice agents get from him: the Alfie
+// LLM API, the what's-wrong and find tools, the intent, the persona and his
+// mood) and Screens (design.md "Voice screens": what he shows of a voice turn).
 
 const V = new URL(import.meta.url).search;
 const U = await import(`./ui.js${V}`);
 
 export const id = "voice";
 export const title = "Voice";
-export const subs = [["assistants", "Assistants"], ["agents", "Agents"]];
+export const subs = [["assistants", "Assistants"], ["agents", "Agents"], ["screens", "Screens"]];
 const ASSIST_KEYS = ["enabled", "satellites", "while_asleep", "listening_expression", "listening_animation",
   "processing_animation", "speak_style", "speak_strength", "after", "speak_targets", "tts_entity", "language"];
-const AGENT_KEYS = ["persona", "persona_prompt", "mood_aware", "assist_tool", "intent", "sentences"];
-export const resets = { assistants: ASSIST_KEYS.map((k) => `voice.${k}`), agents: AGENT_KEYS.map((k) => `voice.${k}`) };
+const AGENT_KEYS = ["persona", "persona_prompt", "mood_aware", "assist_tool", "intent", "sentences", "find_entity"];
+const SCREEN_KEYS = ["screens", "action_screens", "answer_screens", "screen_present", "linger_seconds", "plot_hours",
+  "max_grid", "screen_skip"];
+export const resets = { assistants: ASSIST_KEYS.map((k) => `voice.${k}`), agents: AGENT_KEYS.map((k) => `voice.${k}`),
+  screens: SCREEN_KEYS.map((k) => `voice.${k}`) };
 
 const STYLE_TEXT = { pulse: "Ring pulse", eyes: "Eye rhythm", both: "Ring and eyes", wave: "Waveform ring" };
 const TRY = [["listening", "Listening"], ["processing", "Thinking"], ["responding", "Answering"]];
 const SENTENCE_HINT = "One per line, in HA's sentence syntax: (a|b) picks one, [x] is optional. No punctuation.";
 
 export function render(p, sub) {
-  return sub === "agents" ? agents(p) : assistants(p);
+  return sub === "agents" ? agents(p) : sub === "screens" ? screens(p) : assistants(p);
 }
 
 // A datalist of the house's entities in `domains`, for an entity input.
@@ -77,6 +81,35 @@ function assistants(p) {
     <style>.tryrow { gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }</style>`;
 }
 
+// ------------------------------------------------------------ screens
+
+const PRESENTS = [["corner", "Corner: he stays, small, while it shows"], ["handover", "Hand over: he leaves for it"],
+  ["card", "Each card's own setting"]];
+
+function screens(p) {
+  const v = p.draft.voice, last = p.voiceStatus?.last_screen;
+  const when = last ? new Date(last.at * 1000).toLocaleTimeString() : "";
+  const peek = last ? `
+      <p><b>${U.esc(when)}</b> · “${U.esc(last.said || "…")}” → “${U.esc(last.reply || "")}”</p>
+      <p class="muted">${last.kind ? `${last.kind === "action" ? "Did something to" : "Asked about"} ${last.entities.map((e) => `<code>${U.esc(e)}</code>`).join(", ")}: ${last.screen ? `a ${U.esc(last.screen)} screen` : "no screen (left out, or turned off)"}.` : "Nothing in the house: no screen."}</p>`
+    : `<p class="muted">Nothing yet. Ask your voice assistant about something in the house.</p>`;
+  return `${U.intro("When your voice assistant switches something or answers about it, Alfie shows it: a switch sliding for what was done, a plot of the last hours for a sensor, the weather for the weather.",
+      "He reads what each conversation did from Home Assistant itself, so it works with HA's own agent and any LLM agent, and costs no extra request. Cards can turn it off in their editor.")}
+    ${U.cards(`${U.card("Voice screens", `
+        ${U.check("voice.screens", v.screens, "Show what a voice request was about")}
+        ${U.check("voice.action_screens", v.action_screens, "When something is switched", "Its icon and a switch sliding to its new state; a grid for several.")}
+        ${U.check("voice.answer_screens", v.answer_screens, "When asked about something", "Sensors as a plot, several with one unit on one plot or as bars; things that are on or off as their switch.")}`)}
+      ${U.card("How", `<div class="grid">
+        ${U.field("Presenting", U.select("voice.screen_present", v.screen_present, PRESENTS))}
+        ${U.field("Stays after he's done", U.num("voice.linger_seconds", v.linger_seconds, { min: 0, max: 120, step: 1, unit: "s" }),
+          "With a satellite he waits for it to finish speaking; without one, about as long as the reply takes to say, plus this.")}
+        ${U.field("Plot span", U.num("voice.plot_hours", v.plot_hours, { min: 1, max: 720, step: 1, unit: "h" }))}
+        ${U.field("Most switches at once", U.num("voice.max_grid", v.max_grid, { min: 1, max: 12, step: 1 }), "More show as \"+N more\".")}</div>
+        ${U.wide("Leave out", `<textarea data-path="voice.screen_skip" data-kind="list" rows="2">${U.esc(v.screen_skip.join(", "))}</textarea>`,
+          "Domains (script, scene) or entity ids, comma separated.")}`)}`)}
+    ${U.card("Last voice screen", peek)}`;
+}
+
 // ------------------------------------------------------------ agents
 
 function agents(p) {
@@ -94,15 +127,23 @@ function agents(p) {
       ${U.card("What's wrong", `
         ${U.check("voice.assist_tool", v.assist_tool, "Add the tool to Assist too", "Any agent using Assist can then ask, without ticking the Alfie API.")}
         ${U.check("voice.intent", v.intent, "Answer on HA's own assistant", "For the built-in agent (no LLM): these sentences get his answer.", )}
-        ${v.intent ? U.wide("Sentences", `<textarea data-path="voice.sentences" data-kind="lines" rows="5">${U.esc(v.sentences.join("\n"))}</textarea>`, SENTENCE_HINT) : ""}`)}`)}
+        ${v.intent ? U.wide("Sentences", `<textarea data-path="voice.sentences" data-kind="lines" rows="5">${U.esc(v.sentences.join("\n"))}</textarea>`, SENTENCE_HINT) : ""}`)}
+      ${U.card("Finding things", `
+        ${U.check("voice.find_entity", v.find_entity, "Find anything in the house",
+          `The <code>${U.esc(st?.find_tool || "alfie__find_entity")}</code> tool: the agent can look up a thing it wasn't given (only the exposed ones go in every request), by name, alias, device or room. Read-only: it can only switch what is exposed.`)}`)}`)}
     ${U.card("Right now", status)}
     <style>.vprompt { white-space: pre-wrap; font: inherit; background: var(--secondary-background-color); padding: 8px 10px; border-radius: 8px; }</style>`;
 }
 
 export function mount(p, sub) {
-  if (sub === "agents") {
+  if (sub === "agents" || sub === "screens") {
     p.hass.callWS({ type: "alfie/voice/status" })
-      .then((r) => { const first = !p.voiceStatus; p.voiceStatus = r; if (first && p.sec === "voice") p.render(); })
+      .then((r) => {
+        // Render again only when something shown changed (a render mounts, which asks again).
+        const changed = !p.voiceStatus || p.voiceStatus.last_screen?.at !== r.last_screen?.at;
+        p.voiceStatus = r;
+        if (changed && p.sec === "voice") p.render();
+      })
       .catch(() => {});
   }
   // Try it plays on the dock's face, with the draft's looks.

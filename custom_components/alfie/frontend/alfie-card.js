@@ -147,6 +147,7 @@ const DEFAULTS = {
   icons: true,            // false: this card ignores icons (alfie.show_icon, a story's icon steps)
   voice: "all",           // which voice satellites bring Alfie on here: all, chosen (voice_satellites) or none
   voice_satellites: null, // for voice: chosen, a list of assist_satellite entity ids
+  voice_screens: true,    // show the screens Alfie makes from voice turns (design.md "Voice screens")
   speak_style: null,      // pulse | eyes | both | wave while a satellite answers; null takes Alfie's Voice setting
   speak_strength: null,   // how much speaking shows, 0.2..3; null takes Alfie's
   vector_out: false,      // true: each frame's strokes go out as an "alfie-vector" event (the oscilloscope feed)
@@ -448,6 +449,7 @@ class AlfieCard extends HTMLElement {
     if (scene.face_rev && scene.face_rev !== this._faceRev) this._fetchFace(face, scene.face_rev);
     if (this._whyEl && !this._whyEl.hidden) this._whyEl.innerHTML = this._whyHtml();
     if (scene.screen?.icon && this._config.icons !== false) this._iconScreen(scene.screen.id, scene.screen.icon);
+    if (scene.screen?.inline) this._inlineScreen(scene.screen.id, scene.screen.inline);
     this._syncBadges(scene.icons);
     // What is wrong (and which of it asks to join the rotation) reshapes the rotation.
     const badKey = (scene.signals || []).filter((s) => s.kind === "bad")
@@ -1110,6 +1112,7 @@ class AlfieCard extends HTMLElement {
     this._scrTour = new Map(); // screen id -> its kept beam tours (vector feed; G.tourStrokes)
     this._bad = new Set();     // screen ids whose module failed (logged once)
     this._icons ??= new Map(); // icon "screens" (@icon:<seq>), kept across a screens reload
+    this._inline ??= new Map(); // voice screens (@voice:<seq>), made by the engine, kept likewise
     this._badges ??= new Map(); // seq (or local key) -> {v, at (s, wall clock), style}
     this._cur = null;          // {id, tIn, tOut}: the screen on show
     this._rot = null;
@@ -1126,6 +1129,7 @@ class AlfieCard extends HTMLElement {
       this._screensRev = rev ?? r.rev;
       this._screenIndex = new Map((r.screens || []).map((s) => [s.id, s]));
       for (const v of this._icons.values()) this._screenIndex.set(v.id, v);
+      for (const v of this._inline.values()) this._screenIndex.set(v.id, v);
       this._memo.clear();
       this._bad.clear();
       for (const d of this._data.values()) d.at = 0;   // keep what we have, fetch afresh
@@ -1204,7 +1208,8 @@ class AlfieCard extends HTMLElement {
   // The screen id wanted at this moment, and the one after it (to prefetch).
   _wanted(dt) {
     const sc = this._scene?.screen;
-    if (sc && sc.until * 1000 > Date.now() && this._screenIndex.has(sc.id)) {
+    const skip = sc?.inline && (this._config.voice_screens === false || this._config.voice === "none");
+    if (sc && !skip && sc.until * 1000 > Date.now() && this._screenIndex.has(sc.id)) {
       this._override = sc.id;
       // An icon comes in once its path is here, so it never morphs out of nothing.
       return { id: this._ready(sc.id) ? sc.id : null, next: null };   // the rotation waits (its clock is not advanced)
@@ -1278,6 +1283,22 @@ class AlfieCard extends HTMLElement {
       this._screenIndex.set(id, v);
       for (const old of [...this._icons.keys()].slice(0, Math.max(0, this._icons.size - 6))) {
         if (old !== this._cur?.id) { this._icons.delete(old); this._screenIndex.delete(old); }
+      }
+      this._loadModule(v);
+    }
+    return v;
+  }
+
+  // A screen the engine made from a voice turn (@voice:<seq>): its type and
+  // checked options come in the scene, its data from alfie/screen_data.
+  _inlineScreen(id, def) {
+    let v = this._inline.get(id);
+    if (!v) {
+      v = { id, type: def.type, title: def.title || "", options: def.options || {} };
+      this._inline.set(id, v);
+      this._screenIndex.set(id, v);
+      for (const old of [...this._inline.keys()].slice(0, Math.max(0, this._inline.size - 4))) {
+        if (old !== this._cur?.id) { this._inline.delete(old); this._screenIndex.delete(old); this._data.delete(old); }
       }
       this._loadModule(v);
     }
@@ -1724,7 +1745,8 @@ class AlfieCard extends HTMLElement {
   // expression, states, config (stand-ins for hass.states and hass.config)}.
   // Uses the fade transition.
   async renderScreenStill({ type, options = {}, typeInfo = null, data = null, t = 0, present = this._config.present,
-    corner = this._config.corner, u = 1, expression = "neutral", title = null, states = {}, config = {}, highlight = null } = {}) {
+    corner = this._config.corner, u = 1, expression = "neutral", title = null, states = {}, config = {}, highlight = null,
+    shown = 60 } = {}) {
     const face = await loadFace();
     await S.loadFont();
     const mod = await S.loadScreen(type);
@@ -1746,7 +1768,8 @@ class AlfieCard extends HTMLElement {
       strokes: (hw, hh) => {
         try {
           const memo = this._stillMemo = {};
-          const out = mod.draw({ w: hw, h: hh, t, data, options: opts, states, config, memo, S });
+          // `shown`: a still is the screen settled (a switch slid home), unless asked otherwise.
+          const out = mod.draw({ w: hw, h: hh, t, shown, data, options: opts, states, config, memo, S });
           // The panel's layout table outlines the element being edited.
           const b = highlight && memo.boxes?.[highlight];
           return b ? [...out, ...S.outline(S.layout(hw, hh, { hi: { box: b } }).box("hi", null))] : out;

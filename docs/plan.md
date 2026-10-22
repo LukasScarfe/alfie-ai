@@ -196,26 +196,27 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [ ] H. Lukas's review.
 - [ ] **8. Release.** HACS packaging and README, install on production HA (with Lukas), put it on
       `tablet-dash`. Retire the old Superintendent HA automations only with Lukas's OK.
-- [ ] **9. Voice screens.** Agreed with Lukas 2026-10-22; not started ("let's not build this
-      yet"). When Alfie answers about an entity or acts on one, he shows a screen generated from
+- [~] **9. Voice screens.** Agreed with Lukas 2026-10-22; built 2026-10-22 (0.14.0), see
+      design.md "Voice screens". When Alfie answers about an entity or acts on one, he shows a screen generated from
       it. Every behaviour is a Voice setting (`find_entity`, `answer_screens`, `action_screens`,
       `present`, `linger_seconds` 6, `plot_hours` 24, `max_grid` 6, per-domain on/off).
-  - [ ] A. `alfie__find_entity` in `AlfieAPI` (voice.py, and llm.py with `assist_tool`): read-only
+  - [x] A. `alfie__find_entity` in `AlfieAPI` (voice.py, and llm.py with `assist_tool`): read-only
         search of every non-hidden entity by name, aliases, device and area; top 5 with state.
         Index built once, rebuilt on registry-updated events.
-  - [ ] B. `converse.py`: `conversation.async_subscribe_chat_logs`; per turn collect intent
+  - [x] B. `converse.py`: `conversation.async_subscribe_chat_logs`; per turn collect intent
         results' `success[].id` (actions), find_entity / GetLiveContext args (questions), and
-        name/alias matches in the words as a fallback. First check whether local-intent turns
-        log their targets; if not, use the satellite window + state_changed of the exposed set.
-  - [ ] C. Inline screens: scene `screen` gains `{"inline": {type, options}}`, and
+        name/alias matches in the words as a fallback. (Local-intent turns do log their targets,
+        so no state_changed window was needed.)
+  - [x] C. Inline screens: scene `screen` gains `{"inline": {type, options}}`, and
         `alfie/screen_data` takes it. Mapping: a number → 24 h plot; several with one unit → one
         plot, else bars; on/off → `toggle`; weather → weather; many → a toggle grid or a count.
-  - [ ] D. Screen type `toggle`: the entity's icon, a knob sliding old → new state, name and
+  - [x] D. Screen type `toggle`: the entity's icon, a knob sliding old → new state, name and
         state; light brightness, media play/pause; grid of up to `max_grid`; layout boxes.
         PNGs to Lukas.
-  - [ ] E. Card: present in the corner while the followed satellite responds, linger after
+  - [x] E. Card: present in the corner while the followed satellite responds, linger after
         done; no satellite → show when the chat-log turn ends. PNGs to Lukas.
-  - [ ] F. Panel rows and a "Last answer" peek; harness `sheet=voice-screens`.
+  - [x] F. Panel Voice → Screens (settings and a "Last voice screen" peek), find tool under
+        Agents, card editor "Voice screens"; harness `sheet=screen&type=toggle&shown=<s>`.
   - [ ] G. Tests (find_entity scoring, chat-log fixtures from real turns, mapping, toggle boxes),
         design.md, screens-contract.md, release, prod check.
 

@@ -1159,7 +1159,10 @@
   ],
   "speak_targets": [],
   "tts_entity": "",
-  "language": ""
+  "language": "",
+    "find_entity": true, "screens": true, "action_screens": true, "answer_screens": true,
+    "screen_present": "corner", "linger_seconds": 6, "plot_hours": 24, "max_grid": 6,
+    "screen_skip": ["script", "scene", "automation", "todo", "schedule", "button", "conversation", "tts", "stt", "update", "event"]
  },
  "overview": {
   "dismissed": true,
