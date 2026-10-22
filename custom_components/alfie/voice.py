@@ -286,6 +286,8 @@ class Voice:
     @callback
     def _on_chat(self, conversation_id: str, event_type: Any, data: dict[str, Any]) -> None:
         cid, ev = conversation_id, self._events
+        _LOGGER.debug("voice turn %s: %s %s", cid, event_type,
+                      (data.get("content") or {}).get("role") if isinstance(data, dict) else "")
         if event_type == ev.DELETED:
             self._turns.pop(cid, None)
             self._stop_checks(cid)
@@ -322,6 +324,8 @@ class Voice:
                 return
             logs = self.hass.data.get("conversation_chat_logs") or {}
             log = logs.get(cid)
+            _LOGGER.debug("voice turn %s: log %s", cid,
+                          None if log is None else [c.role for c in log.content][-4:])
             if log is not None:
                 try:
                     if self._finish(cid, [c.as_dict() for c in log.content]):
