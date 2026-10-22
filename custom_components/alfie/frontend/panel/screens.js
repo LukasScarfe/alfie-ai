@@ -44,6 +44,16 @@ function screens(p) {
       .pertable { display: grid; grid-template-columns: minmax(64px, 1fr) repeat(var(--per), minmax(84px, 1fr)) 28px; gap: 6px 8px; align-items: center; margin: 4px 0 6px; overflow-x: auto; }
       .pertable > code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .pertable input, .pertable select { min-width: 0; width: 100%; }
+      .laytable { display: flex; flex-direction: column; gap: 6px; }
+      .layrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 6px 8px; border: 1px solid var(--divider-color, #444); border-radius: 8px; }
+      .layrow .el { flex: 1 1 120px; text-align: left; padding: 2px 6px; border-radius: 6px; font-weight: 500; }
+      .layrow .el.on { background: var(--soft); outline: 1px dashed var(--accent); }
+      .layrow label { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; white-space: nowrap; }
+      .layrow input[type=number] { width: 64px; padding-left: 6px; padding-right: 2px; }
+      .layrow select { width: 96px; }
+      .layrow .nums { display: flex; flex-wrap: wrap; gap: 4px 10px; flex: 1 1 100%; }
+      textarea.scyaml { width: 100%; box-sizing: border-box; font-family: var(--code-font-family, monospace); font-size: 13px; line-height: 1.45; }
+      .yamlerr { color: var(--error-color, #db4437); white-space: pre-wrap; }
       .iconfield { flex-wrap: nowrap; gap: 6px; } .iconfield ha-icon { flex: none; --mdc-icon-size: 22px; }
       label.flat { cursor: pointer; }
       @media (max-width: 760px) { .split2 { grid-template-columns: 1fr; } .pvbox { position: static; } }
@@ -61,6 +71,7 @@ function screen(p, sc, i, n, types, list) {
   const fields = (more) => info.options.filter((o) => !!o.more === more && Fm.optionShown(o, sc.options, info.options))
     .map((o) => Fm.optionField(o, sc.options?.[o.key], `${P}.options`, { i, type: sc.type, list, options: info.options, values: sc.options, pictures: pics(p).list })).join("");
   const extra = info ? fields(true) : "";
+  const lay = info?.options.find((o) => o.kind === "layout");
   const form = info ? fields(false) + (extra ? U.more(p, `so:${sc.id}`, extra) : "")
     : `<p class="error">Unknown screen type "${U.esc(sc.type)}".</p>`;
   const saved = p.saved.screens.find((x) => x.id === sc.id && x.type === sc.type);
@@ -72,6 +83,8 @@ function screen(p, sc, i, n, types, list) {
         <div class="grid">${U.field("Name", U.text(`${P}.title`, sc.title, { placeholder: info?.title || "" }), "How lists show it.")}
           ${U.idField(`${P}.id`, sc.id, "signals, stories, rotations and <code>alfie.show_screen</code>", U.automation.screen(sc.id))}</div>
         ${U.group("Options", form)}
+        ${lay ? U.more(p, `sl:${sc.id}`, layoutTable(p, sc, i, lay), "Layout") : ""}
+        ${info ? U.more(p, `sy:${sc.id}`, yamlEditor(p, sc, i), "Edit as YAML") : ""}
       </div>
       <div class="pvbox"><alfie-card class="spv" data-id="${U.esc(sc.id)}"></alfie-card>
         <small class="pvnote">${U.esc(dataNote)}</small></div>
@@ -95,8 +108,16 @@ async function drawPreview(p, card) {
     await card.renderScreenStill({
       type: sc.type, options: sc.options || {}, typeInfo, data: pid ? (svg ? { svg } : null) : p.sdata.get(sc.id)?.data ?? null,
       t: Date.now() / 1000, states: p.hass.states, config: p.hass.config, present: "handover", u: 1,
-      title: sc.title,
+      title: sc.title, highlight: p.layHi?.id === sc.id ? p.layHi.key : null,
     });
+    // The auto boxes the screen drew with: the layout table's placeholders and Take over.
+    p.layBoxes ??= new Map();
+    const boxes = card.stillBoxes?.();
+    if (boxes) {
+      const had = JSON.stringify(p.layBoxes.get(sc.id) || null);
+      p.layBoxes.set(sc.id, boxes);
+      if (had !== JSON.stringify(boxes)) fillPlaceholders(p, sc.id);
+    }
   } catch (e) {
     if (seq === card._seq && note) note.textContent = `Preview failed: ${e?.message || e}`;
   }
@@ -121,7 +142,10 @@ const drawAll = (p) => p.root.querySelectorAll(".spv").forEach((c) => drawPrevie
 
 export function mount(p, sub) {
   if ((sub === "screens" || sub === "pictures") && !pics(p).list && !pics(p).loading) loadPictures(p);
-  if (sub === "screens") drawAll(p);
+  if (sub === "screens") {
+    drawAll(p);
+    p.root.querySelectorAll("details[data-more^='sy:'][open]").forEach((d) => fillYaml(p, d));
+  }
   if (sub === "pictures") mountPictures(p);
 }
 export function leave() { clearTimeout(timer); }
@@ -237,6 +261,8 @@ async function upload(p, files, replace = null) {
 
 export function tool(p, ev) {
   const el = ev.target;
+  if (el.matches?.(".lay")) { layInput(p, el, ev); return true; }
+  if (el.matches?.(".scyaml")) { (p.yamlText ??= new Map()).set(el.dataset.id, el.value); return true; }
   if (ev.type !== "change") return el.matches?.(".pic-name, #pic-file, .pic-replace, .pic-upload-opt");
   if (el.id === "pic-file") { upload(p, [...el.files]); return true; }
   if (el.matches(".pic-replace")) { upload(p, [...el.files].slice(0, 1), el.dataset.pic); return true; }
@@ -349,6 +375,34 @@ export function click(p, a, el) {
   const i = Number(el.dataset.i), j = Number(el.dataset.j), key = el.dataset.key;
   switch (a) {
     case "sc-toggle": p.flip(`s:${screens[i].id}`); return true;
+    case "lay-hi": {
+      const id = screens[i].id, on = p.layHi?.id === id && p.layHi.key === key;
+      p.layHi = on ? null : { id, key };
+      p.root.querySelectorAll(`.laytable[data-i="${i}"] .el`).forEach((b) => b.classList.toggle("on", !on && b.dataset.key === key));
+      drawAll(p);
+      return true;
+    }
+    case "lay-take": case "lay-auto": {
+      const sc = screens[i], boxes = p.layBoxes?.get(sc.id) || {};
+      const lay = { ...(sc.options?.layout || {}) };
+      for (const el of layoutOf(p, sc)?.elements || []) {
+        const e = { ...(lay[el.key] || {}) };
+        if (a === "lay-auto") delete e.box;
+        else if (boxes[el.key]) e.box = boxes[el.key];
+        if (Object.keys(e).length) lay[el.key] = e; else delete lay[el.key];
+      }
+      setLayout(sc, lay);
+      p.yamlText?.delete(sc.id);
+      p.edited(true);
+      return true;
+    }
+    case "yaml-apply": applyYaml(p, screens[i], el); return true;
+    case "yaml-reload": {
+      p.yamlText?.delete(screens[i].id);
+      const d = el.closest("details");
+      if (d) { d.querySelector(".scyaml").dataset.loaded = ""; fillYaml(p, d); }
+      return true;
+    }
     case "sc-add": {
       const info = p.choices.screen_types?.[p.root.querySelector("#newtype")?.value];
       if (!info) return true;
@@ -444,4 +498,128 @@ export function click(p, a, el) {
       return true;
   }
   return false;
+}
+
+// ------------------------------------------------------------ layout
+
+const layoutOf = (p, sc) => p.choices.screen_types?.[sc.type]?.options.find((o) => o.kind === "layout");
+const ALIGNS = [["auto", "Auto"], ["left", "Left"], ["centre", "Centre"], ["right", "Right"]];
+const BOX = ["x", "y", "w", "h"];
+
+function setLayout(sc, lay) {
+  const o = (sc.options ??= {});
+  if (Object.keys(lay).length) o.layout = lay; else delete o.layout;
+}
+
+// The Layout fold: a row per element. Show; Box (its own, else where the
+// screen puts it, shown greyed); its x, y, w, h in % of the screen from the top
+// left; Size (its text); Align. Clicking a name outlines it in the preview.
+function layoutTable(p, sc, i, opt) {
+  const lay = sc.options?.layout || {}, auto = p.layBoxes?.get(sc.id) || {};
+  const rows = opt.elements.map((el) => {
+    const e = lay[el.key] || {}, own = Array.isArray(e.box), at = `data-i="${i}" data-key="${U.esc(el.key)}"`;
+    const on = p.layHi?.id === sc.id && p.layHi.key === el.key, name = U.esc(el.label);
+    const nums = BOX.map((b, j) => `<label>${b}<input type="number" class="lay" ${at} data-f="${j}" min="0" max="100" step="0.5"
+      value="${own ? U.esc(e.box[j]) : ""}" placeholder="${U.esc(auto[el.key]?.[j] ?? "")}" aria-label="${name} ${b} %"></label>`).join("");
+    const text = el.text ? `<label>Size<input type="number" class="lay" ${at} data-f="size" min="0.25" max="4" step="0.05" value="${U.esc(e.size ?? "")}" placeholder="1" aria-label="${name} size"></label>
+      <select class="lay" ${at} data-f="align" aria-label="${name} align">${ALIGNS.map(([v, t]) => `<option value="${v}" ${(e.align || "auto") === v ? "selected" : ""}>${t}</option>`).join("")}</select>` : "";
+    return `<div class="layrow"><button class="flat el ${on ? "on" : ""}" data-action="lay-hi" ${at} title="Outline it in the preview">${name}</button>
+      <label><input type="checkbox" class="lay" ${at} data-f="show" ${e.show === false ? "" : "checked"}>Show</label>
+      <label title="Its own box, else where the screen puts it"><input type="checkbox" class="lay" ${at} data-f="own" ${own ? "checked" : ""}>Own box</label>
+      ${text}<div class="nums">${nums}</div></div>`;
+  }).join("");
+  return `<div class="wide">
+    <div class="laytable" data-i="${i}">${rows}</div>
+    <small>Boxes are x, y, width and height in % of the screen, from its top left. An element without its own box goes
+      where the screen puts it (the greyed numbers), and the others close up around one that is hidden or boxed. Text
+      shrinks to fit its box. Click a name to outline it in the preview.</small>
+    <div class="row"><button class="flat" data-action="lay-take" data-i="${i}">Take over: every element in its own box, where it is now</button>
+      <button class="flat" data-action="lay-auto" data-i="${i}">Back to auto</button></div></div>`;
+}
+
+// The greyed auto boxes, refreshed after the preview draws without a re-render.
+function fillPlaceholders(p, id) {
+  const i = p.draft.screens.findIndex((x) => x.id === id), boxes = p.layBoxes.get(id) || {};
+  p.root.querySelectorAll(`.laytable[data-i="${i}"] input.lay[type=number]`).forEach((inp) => {
+    const j = Number(inp.dataset.f);
+    if (Number.isInteger(j)) inp.placeholder = boxes[inp.dataset.key]?.[j] ?? "";
+  });
+}
+
+function layInput(p, el, ev) {
+  const sc = p.draft.screens[Number(el.dataset.i)], key = el.dataset.key, f = el.dataset.f;
+  if (!sc) return;
+  const lay = { ...(sc.options?.layout || {}) }, e = { ...(lay[key] || {}) };
+  const autoBox = p.layBoxes?.get(sc.id)?.[key] || [0, 0, 50, 50];
+  let rerender = false;
+  if (f === "show") { if (el.checked) delete e.show; else e.show = false; }
+  else if (f === "own") { if (el.checked) e.box = [...autoBox]; else delete e.box; rerender = true; }
+  else if (f === "size") { const v = Number(el.value); if (el.value === "" || v === 1) delete e.size; else if (v > 0) e.size = v; }
+  else if (f === "align") { if (el.value === "auto") delete e.align; else e.align = el.value; }
+  else {
+    // A number typed into a box that was auto gives the element its own, from where it was.
+    const j = Number(f), v = Number(el.value);
+    if (el.value === "" || !Number.isFinite(v)) return;
+    const box = [...(e.box || autoBox)];
+    box[j] = Math.min(100, Math.max(0, v));
+    if (!e.box) rerender = ev.type === "change";
+    e.box = box;
+  }
+  if (Object.keys(e).length) lay[key] = e; else delete lay[key];
+  setLayout(sc, lay);
+  p.yamlText?.delete(sc.id);
+  if (rerender) { p.edited(true); return; }
+  if (f === "show" || f === "align" || f === "size" || ev.type === "change") el.closest(".laytable")?.querySelectorAll(`[data-key="${CSS.escape(key)}"][data-f="own"]`)
+    .forEach((c) => { c.checked = Array.isArray(e.box); });
+  p.edited(false);
+  clearTimeout(timer);
+  timer = setTimeout(() => drawAll(p), PREVIEW_DELAY);
+}
+
+// ------------------------------------------------------------ YAML
+
+function yamlEditor(p, sc, i) {
+  return `<div class="wide">
+    <textarea class="scyaml" data-id="${U.esc(sc.id)}" rows="14" spellcheck="false" aria-label="Options as YAML">${U.esc(p.yamlText?.get(sc.id) ?? "")}</textarea>
+    <small class="yamlerr" data-id="${U.esc(sc.id)}"></small>
+    <div class="row"><button class="primary" data-action="yaml-apply" data-i="${i}">Apply to the form</button>
+      <button class="flat" data-action="yaml-reload" data-i="${i}">Reload from the form</button></div>
+    <small>Every option of this screen, layout included. Apply checks it and puts it in the form; Save as usual.</small></div>`;
+}
+
+export function toggled(p, d) {
+  if (d.open && d.dataset.more.startsWith("sy:")) fillYaml(p, d);
+}
+
+async function fillYaml(p, d) {
+  const ta = d.querySelector(".scyaml");
+  if (!ta || ta.dataset.loaded || p.yamlText?.has(ta.dataset.id)) return;
+  const sc = p.draft.screens.find((x) => x.id === ta.dataset.id);
+  if (!sc) return;
+  ta.dataset.loaded = "1";
+  try {
+    const r = await p.hass.callWS({ type: "alfie/screen/yaml", screen_type: sc.type, options: sc.options || {} });
+    if (!p.yamlText?.has(sc.id)) ta.value = r.yaml;
+  } catch (e) {
+    ta.dataset.loaded = "";
+    const err = d.querySelector(".yamlerr");
+    if (err) err.textContent = `Can't load it: ${e?.message || e}`;
+  }
+}
+
+async function applyYaml(p, sc, btn) {
+  const d = btn.closest("details"), ta = d?.querySelector(".scyaml"), err = d?.querySelector(".yamlerr");
+  if (!ta) return;
+  let r;
+  try {
+    r = await p.hass.callWS({ type: "alfie/screen/yaml", screen_type: sc.type, yaml: ta.value });
+  } catch (e) {
+    if (err) err.textContent = e?.message || String(e);
+    return;
+  }
+  if (r.errors.length) { if (err) err.textContent = r.errors.join("\n"); return; }
+  sc.options = r.options;
+  p.yamlText?.delete(sc.id);
+  p.flash("Applied to the form. Save to keep it.");
+  p.edited(true);
 }

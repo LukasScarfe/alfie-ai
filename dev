@@ -31,7 +31,7 @@ case "${1:-}" in
   test)    # Python unit tests, then the card maths check under node.
            docker run --rm -v "$ROOT:/src:ro" -v alfie-pip-cache:/root/.cache/pip -w /src \
              -e PYTHONDONTWRITEBYTECODE=1 python:3.13-alpine \
-             sh -c "pip install -q --root-user-action=ignore pytest >/dev/null && python -m pytest -q -p no:cacheprovider tests"
+             sh -c "pip install -q --root-user-action=ignore pytest pyyaml >/dev/null && python -m pytest -q -p no:cacheprovider tests"
            # Every node test, in one container: tests/*.test.mjs and tests/screens/*.test.mjs.
            docker run --rm --entrypoint sh -v "$ROOT:/repo:ro" -w /repo "$CHROME" -c '
              fail=0

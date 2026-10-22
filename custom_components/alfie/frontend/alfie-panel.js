@@ -74,6 +74,7 @@ class AlfiePanel extends HTMLElement {
     this.root.addEventListener("toggle", (e) => {
       const d = e.target;
       if (d?.dataset?.more) d.open ? this.open.add(`more:${d.dataset.more}`) : this.open.delete(`more:${d.dataset.more}`);
+      if (d?.dataset?.more && this.draft) this._section().toggled?.(this, d);
     }, true);
     // HA may create <alfie-panel> and set hass before this class is defined
     // (the module awaits the card first); those land as own properties that

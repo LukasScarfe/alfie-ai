@@ -21,7 +21,7 @@ from .config import ConfigError, _Check
 _LOGGER = logging.getLogger(__name__)
 
 OPTION_KINDS = ("entity", "entities", "number", "text", "choice", "bool", "color", "icon",
-                "picture")
+                "picture", "layout")
 # Kinds that can hold one value per item of an entities option (`"per": key`).
 PER_KINDS = ("text", "choice", "icon")
 NEEDS = (None, "history", "forecast", "calendar", "streets", "picture")
@@ -32,6 +32,9 @@ _COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
 _ICON = re.compile(r"^[a-z][a-z0-9_-]*:[a-z0-9_-]*[a-z][a-z0-9_-]*$")
 # A picture's id (pictures.py): whether the file exists is the provider's to say.
 _PICTURE = re.compile(r"^[a-z0-9_]+$")
+# A layout element's text alignment ("auto": the type's own).
+ALIGNS = ("auto", "left", "centre", "right")
+SIZE_RANGE = (0.25, 4.0)
 
 
 def _meta_ok(meta: Any) -> str | None:
@@ -48,6 +51,9 @@ def _meta_ok(meta: Any) -> str | None:
             return f"bad option {o!r}"
         if o["kind"] == "choice" and not o.get("choices"):
             return f"choice option {o['key']!r} has no choices"
+        if o["kind"] == "layout" and not (isinstance(o.get("elements"), list) and all(
+                isinstance(e, dict) and e.get("key") for e in o["elements"])):
+            return f"layout option {o['key']!r} needs a list of elements"
         if o.get("per") and (o["kind"] not in PER_KINDS or not any(
                 x.get("key") == o["per"] and x.get("kind") == "entities" for x in opts if isinstance(x, dict))):
             return f"option {o['key']!r}: per needs a {'/'.join(PER_KINDS)} option and an entities option"
@@ -112,8 +118,53 @@ def _per(o: Mapping[str, Any], v: Any, ck: _Check, label: str) -> str:
     return ", ".join(out)
 
 
+def _layout(o: Mapping[str, Any], v: Any, ck: _Check, label: str) -> dict[str, Any]:
+    """A layout option: per element, only what differs from auto. `box` is
+    [x, y, w, h] in % of the screen from its top left, `size` scales the
+    element's text, `show: false` hides it. Unknown elements are dropped."""
+    if not isinstance(v, Mapping):
+        ck.bad(label, "must be a mapping of elements")
+        return {}
+    out: dict[str, Any] = {}
+    for el in o["elements"]:
+        k, e = el["key"], v.get(el["key"])
+        if e is None:
+            continue
+        where = f"{label} {k}"
+        if not isinstance(e, Mapping):
+            ck.bad(where, "must be a mapping (show, box, size, align)")
+            continue
+        item: dict[str, Any] = {}
+        if e.get("show") is not None and e["show"] in (False, "false", "off", 0):
+            item["show"] = False
+        box = e.get("box")
+        if box not in (None, "", "auto"):
+            if not isinstance(box, list) or len(box) != 4:
+                ck.bad(where, "box must be [x, y, w, h] in % of the screen, or auto")
+            else:
+                b = [ck.number(f"{where} box", x, 0, 100, -1) for x in box]
+                if all(x >= 0 for x in b):
+                    if b[2] <= 0 or b[3] <= 0:
+                        ck.bad(where, "box needs a width and height above 0")
+                    else:
+                        item["box"] = [_num(round(x, 2)) for x in b]
+        if e.get("size") not in (None, ""):
+            size = ck.number(f"{where} size", e["size"], *SIZE_RANGE, 1)
+            if size != 1:
+                item["size"] = _num(size)
+        if e.get("align") not in (None, "", "auto"):
+            item["align"] = ck.choice(f"{where} align", e["align"], ALIGNS, "auto")
+            if item["align"] == "auto":
+                del item["align"]
+        if item:
+            out[k] = item
+    return out
+
+
 def _option(o: Mapping[str, Any], v: Any, ck: _Check, where: str) -> Any:
     kind, label = o["kind"], f"{where} {o.get('label') or o['key']}"
+    if kind == "layout":
+        return {} if v is None or v == "" else _layout(o, v, ck, label)
     required = bool(o.get("required"))
     empty = v is None or v == "" or v == []
     if empty:
@@ -184,3 +235,39 @@ def validate_options(meta: Mapping[str, Any], options: Any) -> dict[str, Any]:
     if ck.errors:
         raise ConfigError(ck.errors)
     return out
+
+
+def options_yaml(meta: Mapping[str, Any], options: Any) -> str:
+    """A screen's options as YAML for the panel's text editor: every option,
+    defaults filled, in the type's order; short lists inline."""
+    import yaml   # HA ships PyYAML; imported here so the checks above stay importable bare
+    full = check_options(meta, options, _Check(), "")
+    head = "".join(
+        f"# {o['key']}: per element ({', '.join(e['key'] for e in o['elements'])}): show, "
+        "box [x, y, w, h] in % from the top left (or auto), size, align\n"
+        for o in meta.get("options", []) if o["kind"] == "layout")
+    return head + yaml.safe_dump(full, sort_keys=False, default_flow_style=None,
+                                 allow_unicode=True, width=100)
+
+
+def options_from_yaml(meta: Mapping[str, Any], text: str) -> tuple[dict[str, Any], list[str]]:
+    """The editor's YAML back as options (only what differs from the defaults)
+    and the problems found. Unknown keys are problems here, to catch typos."""
+    import yaml
+    try:
+        raw = yaml.safe_load(text) if text.strip() else {}
+    except yaml.YAMLError as e:
+        return {}, [f"YAML: {e}"]
+    raw = {} if raw is None else raw
+    if not isinstance(raw, dict):
+        return {}, ["YAML: must be a mapping of options"]
+    ck = _Check()
+    known = {o["key"]: o for o in meta.get("options", [])}
+    for k in raw:
+        if k not in known:
+            ck.bad(str(k), "is not an option of this screen")
+    full = check_options(meta, raw, ck, "")
+    lean = {k: v for k, v in full.items()
+            if not (v == known[k].get("default", {} if known[k]["kind"] == "layout" else None)
+                    or (known[k]["kind"] == "layout" and not v))}
+    return lean, [e.lstrip(" ") for e in ck.errors]

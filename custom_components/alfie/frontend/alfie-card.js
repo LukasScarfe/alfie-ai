@@ -1072,14 +1072,15 @@ class AlfieCard extends HTMLElement {
       const pts = st.pts;
       if (!pts?.length) continue;
       const w = Number.isFinite(st.w) ? st.w : 1;
-      const dashed = w < 0.3, dim = dashed || st.role === "dim";
-      const sw = dashed ? lw : lw * clamp(w, 0.45, 2.5);
+      // Under 0.3 a line is dotted and dim; under 0.1 (S.FAINT: gridlines) finer and fainter still.
+      const dashed = w < 0.3, faint = w < 0.1, dim = dashed || st.role === "dim";
+      const sw = faint ? lw * 0.5 : dashed ? lw : lw * clamp(w, 0.45, 2.5);
       const colr = st.color || color[st.role] || col.face;   // st.color: a picture's own
-      ctx.globalAlpha = alpha * (dim ? 0.5 : 1);
+      ctx.globalAlpha = alpha * (faint ? 0.35 : dim ? 0.5 : 1);
       ctx.strokeStyle = ctx.fillStyle = ctx.shadowColor = colr;
       ctx.lineWidth = sw;
       ctx.shadowBlur = col.glow * sw * 3;
-      this._tap(pts.map(([x, y]) => [X(x), Y(y)]), st.closed, alpha * (dim ? 0.5 : 1));
+      this._tap(pts.map(([x, y]) => [X(x), Y(y)]), st.closed, alpha * (faint ? 0.35 : dim ? 0.5 : 1));
       if (pts.length === 1) {
         ctx.beginPath();
         ctx.arc(X(pts[0][0]), Y(pts[0][1]), sw * 0.9, 0, 2 * Math.PI);
@@ -1090,7 +1091,7 @@ class AlfieCard extends HTMLElement {
       ctx.beginPath();
       const at = pts.map(([x, y]) => [X(x), Y(y)]);
       trace(ctx, col.rough && !dashed ? roughen(at, sw * 0.35, 0, !!st.closed) : at, !!st.closed);
-      if (st.fill) { ctx.globalAlpha = alpha * 0.3; ctx.fill(); ctx.globalAlpha = alpha * (dim ? 0.5 : 1); }
+      if (st.fill) { ctx.globalAlpha = alpha * 0.3; ctx.fill(); ctx.globalAlpha = alpha * (faint ? 0.35 : dim ? 0.5 : 1); }
       ctx.stroke();
     }
     ctx.setLineDash([]);
@@ -1714,13 +1715,16 @@ class AlfieCard extends HTMLElement {
     this._draw(this._stillFrame, this._stillScr);
   }
 
+  // The element boxes (in %) the last still screen drew with, if its type lays them out.
+  stillBoxes() { return this._stillMemo?.boxes ?? null; }
+
   // For tests and the dev harness: one still frame of a screen with Alfie, no
   // clock, no HA. {type, options, typeInfo (the type's JSON, for defaults), data,
   // t (epoch s), present, corner, u (0..1, how far the screen has arrived),
   // expression, states, config (stand-ins for hass.states and hass.config)}.
   // Uses the fade transition.
   async renderScreenStill({ type, options = {}, typeInfo = null, data = null, t = 0, present = this._config.present,
-    corner = this._config.corner, u = 1, expression = "neutral", title = null, states = {}, config = {} } = {}) {
+    corner = this._config.corner, u = 1, expression = "neutral", title = null, states = {}, config = {}, highlight = null } = {}) {
     const face = await loadFace();
     await S.loadFont();
     const mod = await S.loadScreen(type);
@@ -1741,7 +1745,11 @@ class AlfieCard extends HTMLElement {
       faceAlpha: present === "corner" ? 1 : 1 - pres, alpha: pres,
       strokes: (hw, hh) => {
         try {
-          return mod.draw({ w: hw, h: hh, t, data, options: opts, states, config, memo: {}, S });
+          const memo = this._stillMemo = {};
+          const out = mod.draw({ w: hw, h: hh, t, data, options: opts, states, config, memo, S });
+          // The panel's layout table outlines the element being edited.
+          const b = highlight && memo.boxes?.[highlight];
+          return b ? [...out, ...S.outline(S.layout(hw, hh, { hi: { box: b } }).box("hi", null))] : out;
         } catch (e) {
           console.error(e);
           return this._titleStrokes({ title: title || type }, hw, hh);

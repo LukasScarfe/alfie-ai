@@ -88,6 +88,24 @@ check(near(S.curve([0, 10], 0, 0, 2, 1, { lo: 0, hi: 10 })[0].pts[1][1], 1), "cu
 
 // --------------------------------------------------------------- helpers
 check(S.niceTicks(0, 40).join() === "0,20,40", "nice_ticks 0..40");
+check(S.niceTicks(0, 1, 4, { fine: true }).join() === "0,0.5,1" && S.niceTicks(0, 12000, 5, { fine: true }).join() === "0,2500,5000,7500,10000", "fine ticks go below 1 and above 100");
+check(S.niceTicks(17.3, 22.8, 6, { fine: true }).join() === "18,19,20,21,22" && S.tickDecimals([0, 0.5, 1]) === 1 && S.tickDecimals([5, 10]) === 0, "fine ticks on whole data; tick decimals");
+{
+  // Layout: % boxes from the top left to draw units and back; hidden and boxed leave the flow.
+  const L = S.layout(1.6, 1, { a: { box: [0, 0, 50, 25] }, b: { show: false }, c: { size: 2, align: "left" } });
+  const r = L.box("a", null);
+  check(near(r.x0, -1.6) && near(r.x1, 0) && near(r.y1, 1) && near(r.y0, 0.5), "a box in % lands in draw units");
+  check(!L.flow("a") && !L.flow("b") && L.flow("c") && !L.show("b") && L.size("c") === 2 && L.align("c") === "left" && L.align("a") === "centre", "flow, show, size, align");
+  L.box("c", S.rect(-1.6, -1, 1.6, 0));
+  check(JSON.stringify(L.boxes) === JSON.stringify({ a: [0, 0, 50, 25], c: [0, 50, 100, 50] }), "boxes kept in % for the panel");
+  check(L.box("b", S.rect(0, 0, 1, 1)) && !("b" in L.boxes), "a hidden element has no box to show");
+  const st = S.stack(S.rect(0, 0, 1, 1), [{ key: "t", h: 0.2 }, false, { key: "m", grow: 1 }, { key: "f", h: 0.1 }], 0.05);
+  check(near(st.t.y1, 1) && near(st.t.h, 0.2) && near(st.m.h, 0.6) && near(st.f.y0, 0), "stack: fixed bands, the rest grows");
+  const tight = S.stack(S.rect(0, 0, 1, 0.3), [{ key: "a", h: 0.4 }, { key: "b", h: 0.2 }]);
+  check(near(tight.a.h, 0.2) && near(tight.b.h, 0.1), "stack: fixed bands shrink together");
+  const ft = S.fitText("Hello", S.rect(0, 0, 0.2, 1), 0.5, { align: "left" }).flatMap((k) => k.pts);
+  check(Math.min(...ft.map((q) => q[0])) >= -0.01 && Math.max(...ft.map((q) => q[0])) <= 0.21, "fitText shrinks to its box, aligned left");
+}
 check(S.niceTicks(3, 17).join() === "5,10,15", "nice_ticks 3..17");
 check(S.niceTicks(0, 1).join() === "0,1", "nice_ticks 0..1");
 check(S.niceTicks(-10, 10).join() === "-10,0,10", "nice_ticks -10..10");

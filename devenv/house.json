@@ -246,9 +246,11 @@
      "sensor.fineoffset_wh51_0ee64d_moisture"
     ],
     "title": "",
-    "labels": "",
     "markers": "ring, diamond, square",
+    "marker_sizes": "normal",
     "styles": "solid",
+    "weights": "normal",
+    "labels": "",
     "hours": 1,
     "combine": "mean",
     "shape": "straight",
@@ -259,9 +261,25 @@
     "unit": "",
     "decimals": 0,
     "axis": true,
+    "axis_side": "left",
+    "value_ticks": "auto",
+    "tick_count": 4,
+    "tick_step": 5,
+    "tick_list": "",
+    "tick_unit": "top",
+    "tick_decimals": "auto",
+    "tick_marks": "out",
+    "axis_line": true,
+    "time_axis": true,
+    "time_step": "auto",
+    "time_format": "auto",
+    "time_marks": "out",
+    "grid": "none",
+    "grid_style": "dotted",
     "now": true,
     "legend": false,
-    "text_size": 1
+    "text_size": 1,
+    "layout": {}
    }
   },
   {
@@ -435,8 +453,8 @@
     "template": "Happy birthday {name}!",
     "seconds": 6,
     "max_lines": 4,
-    "empty": "--",
-    "text_size": 1.0
+    "text_size": 1,
+    "empty": "--"
    }
   }
  ],

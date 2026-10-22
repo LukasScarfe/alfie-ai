@@ -5,7 +5,7 @@
        sheet=energy&expr=neutral    one expression across energy levels
        sheet=shapes                 head/eye shape combinations across expressions
        sheet=personality            each preset across expressions and an animation frame
-       sheet=screen&type=label&opts=<json>&data=<json>[&states=<json>&hcfg=<json>&present=corner&u=1]   one screen
+       sheet=screen&type=label&opts=<json>&data=<json>[&states=<json>&hcfg=<json>&present=corner&u=1&hi=element]   one screen (hi: outline a layout element)
        sheet=present                label screen, both presenting styles, u = 0, .25, .5, 1, and the four corners
        sheet=intros[&only=draw,zoom][&kind=screen|face][&us=0,.5,1]   every intro style at u = 0, .25, .5, .75, 1 (or us): a label screen arriving, and
                                     the face leaving as strokes (morph from the face); about SIZE=2000x1900 at both kinds
@@ -91,7 +91,7 @@
     const J = (k, d) => (q.get(k) ? JSON.parse(q.get(k)) : d);
     // states= and hcfg= stand in for hass.states and hass.config.
     const base = { type: q.get("type") || "label", options: J("opts", {}), data: J("data", null), t: Number(q.get("t") || 0),
-                   states: J("states", {}), config: J("hcfg", {}) };
+                   states: J("states", {}), config: J("hcfg", {}), highlight: q.get("hi") };
     if (sheet === "font") {
       base.options = { text: "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 :.-\u00b0%'!", size: 0.3 };
       frames = [{ ...base, label: "font", present: "handover", u: 1 }];
