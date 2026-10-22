@@ -339,7 +339,8 @@
     "house": true,
     "smoke": true,
     "decimals": 0,
-    "text_size": 1
+    "text_size": 1,
+    "layout": {}
    }
   },
   {
@@ -354,7 +355,8 @@
     "decimals": 1,
     "below": "35",
     "above": "",
-    "text_size": 1
+    "text_size": 1,
+    "layout": {}
    }
   },
   {
@@ -366,6 +368,7 @@
      "sensor.fineoffset_wh51_0ee63f_moisture",
      "sensor.fineoffset_wh51_0ee64d_moisture"
     ],
+    "title": "",
     "labels": "Monstera, Ficus",
     "range": "fixed",
     "min": 0,
@@ -377,7 +380,8 @@
     "highlight_below": "35",
     "sort": "none",
     "fill": false,
-    "text_size": 1
+    "text_size": 1,
+    "layout": {}
    }
   },
   {
@@ -395,7 +399,8 @@
     "moon_path": true,
     "moon_fill": false,
     "size": 1.5,
-    "text_size": 1
+    "text_size": 1,
+    "layout": {}
    }
   },
   {
@@ -415,7 +420,8 @@
     "moon_fill": false,
     "labels": true,
     "times": true,
-    "text_size": 1
+    "text_size": 1,
+    "layout": {}
    }
   },
   {
@@ -432,7 +438,8 @@
     "title": "",
     "allow_network": false,
     "endpoint": "https://overpass-api.de/api/interpreter",
-    "text_size": 1
+    "text_size": 1,
+    "layout": {}
    }
   },
   {
@@ -456,7 +463,8 @@
     "seconds": 6,
     "max_lines": 4,
     "text_size": 1,
-    "empty": "--"
+    "empty": "--",
+    "layout": {}
    }
   }
  ],

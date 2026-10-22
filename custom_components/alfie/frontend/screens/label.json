@@ -1,5 +1,6 @@
 {"type": "label", "title": "Label", "needs": null,
  "options": [
    {"key": "text", "kind": "text", "label": "Text", "required": true},
-   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.2, "max": 3, "unit": "×", "hint": "The largest the text gets; it shrinks to fit."}
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.2, "max": 3, "unit": "×", "hint": "The largest the text gets; it shrinks to fit."},
+   {"key": "layout", "kind": "layout", "label": "Layout", "default": {}, "elements": [{"key": "text", "label": "Text", "text": true}]}
  ]}

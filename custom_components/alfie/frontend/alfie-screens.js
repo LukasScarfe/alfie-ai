@@ -284,6 +284,27 @@ export function fitText(s, r, height, { align = "centre", role = "text", w = 1 }
 // The height `fitText` would use.
 export const fitHeight = (s, r, height) => Math.max(0, Math.min(height, r.h, width(s, 1) > 0 ? r.w / width(s, 1) : height));
 
+// The rect around some strokes (null for none).
+export function bounds(strokes) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const st of strokes) for (const [x, y] of st.pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  return x0 <= x1 ? rect(x0, y0, x1, y1) : null;
+}
+
+// Strokes moved by (dx, dy).
+export const shift = (strokes, dx, dy) => (dx || dy ? strokes.map((st) => ({ ...st, pts: st.pts.map(([x, y]) => [x + dx, y + dy]) })) : strokes);
+
+// Lines of text `ht` tall, `pitch` cap heights apart, centred on r's middle
+// and aligned in it.
+export function lines(ls, ht, r, { pitch = 1.6, align = "centre", role = "text" } = {}) {
+  const top = r.cy + ((ls.length - 1) * pitch * ht) / 2;
+  return ls.flatMap((line, i) => {
+    const lw = width(line, ht);
+    const cx = align === "left" ? r.x0 + lw / 2 : align === "right" ? r.x1 - lw / 2 : r.cx;
+    return text(line, ht, cx, top - i * pitch * ht, { role });
+  });
+}
+
 // A dotted outline of a box: the panel shows the element being edited.
 export const outline = (r) => [stroke([[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]], { closed: true, w: DOTTED, role: "accent" })];
 

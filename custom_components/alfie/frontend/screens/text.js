@@ -68,12 +68,15 @@ export default {
     const list = shownTitles(options, data, states, S);
     const secs = Math.max(1, Number(options.seconds) || 6);
     const shown = list.length ? list[Math.floor(since / secs) % list.length] : S.title(options.empty) || "--";
-    const key = [shown, w.toFixed(3), h.toFixed(3), options.text_size, options.max_lines, S.iconStamp()].join("|");
+    const key = [shown, w.toFixed(3), h.toFixed(3), options.text_size, options.max_lines, JSON.stringify(options.layout || {}), S.iconStamp()].join("|");
     if (memo.key !== key) {
       memo.key = key;
-      const f = fit(S, shown, w * 0.92, h * 0.88, Math.max(0.05, 0.3 * (Number(options.text_size) || 1)), Math.max(1, options.max_lines | 0 || 4));
-      const top = ((f.lines.length - 1) * PITCH * f.h) / 2;
-      memo.strokes = f.lines.flatMap((line, i) => S.text(line, f.h, 0, top - i * PITCH * f.h));
+      // One element, the text: the whole screen, or a box of its own.
+      const L = S.layout(w, h, options.layout);
+      const B = L.box("text", S.rect(-w, -h, w, h));
+      memo.boxes = L.boxes;
+      const f = fit(S, shown, (B.w / 2) * 0.92, (B.h / 2) * 0.88, Math.max(0.05, 0.3 * (Number(options.text_size) || 1) * L.size("text")), Math.max(1, options.max_lines | 0 || 4));
+      memo.strokes = L.show("text") ? S.lines(f.lines, f.h, S.inset(B, (B.w / 2) * 0.08, 0), { pitch: PITCH, align: L.align("text") }) : [];
     }
     return memo.strokes;
   },

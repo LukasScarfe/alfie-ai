@@ -10,5 +10,9 @@
    {"key": "moon_path", "kind": "bool", "label": "Dotted moon pass", "default": true},
    {"key": "moon_fill", "kind": "bool", "label": "Fill the lit part of the moon", "default": false},
    {"key": "size", "kind": "number", "label": "Sun and moon size", "default": 1, "min": 0.5, "max": 2.5, "more": true},
-   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the screen's text. Text fitted to its room still shrinks to fit."}
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the screen's text. Text fitted to its room still shrinks to fit."},
+   {"key": "layout", "kind": "layout", "label": "Layout", "default": {}, "elements": [
+     {"key": "disc", "label": "Sky disc"},
+     {"key": "times", "label": "Rise and set times", "text": true}
+   ]}
  ]}

@@ -99,8 +99,14 @@ export function streetStrokes(data, centre, k, bw, bh, S) {
 
 export default {
   type: "map",
-  draw({ w, h, data, options, states, config, memo, S }) {
+  draw({ w: sw, h: sh, data, options, states, config, memo, S }) {
     const o = options;
+    // Elements: the map (streets, markers, the house) and the title. The map
+    // in a box of its own is drawn to fit it, the title over it unless it has
+    // its own.
+    const L = S.layout(sw, sh, o.layout);
+    memo.boxes = L.boxes;
+    const M = L.box("map", S.rect(-sw, -sh, sw, sh)), w = M.w / 2, h = M.h / 2;
     const found = (o.trackers ?? []).map((id) => trackerInfo(id, states)).filter(Boolean);
     const home = ok(Number(config?.latitude), Number(config?.longitude)) ? [Number(config.latitude), Number(config.longitude)] : null;
     const title = S.title(o.title ?? "");
@@ -108,7 +114,7 @@ export default {
     const ts = Number(o.text_size) || 1;
     const bw = w - 0.06 * unit, bh = h - 0.06 * unit;   // markers stay this far inside the edge
     const centre = found.length ? found[0].pos : home;
-    if (!centre) return S.text(title || "--", 0.2 * unit);
+    if (!centre) return S.text(title || "--", 0.2 * unit, M.cx, M.cy);
 
     const near = found.filter((f) => metres(centre, f.pos) < 2 * 500);
     const radius = o.radius > 0 ? o.radius : autoRadius(centre, [...near.map((f) => f.pos), ...(o.show_home && home && metres(centre, home) < 500 ? [home] : [])].slice(0, 6));
@@ -119,7 +125,7 @@ export default {
       memo.key = key;
       memo.streets = data ? streetStrokes(data, centre, k, w * 0.97, h * 0.97, S) : [];
     }
-    const out = [...memo.streets];
+    const out = L.show("map") ? [...memo.streets] : [];
 
     const letters = initials(found.map((f) => f.name), S);
     let spots = found.map((f) => place(f.pos, centre, k, bw, bh, true));
@@ -128,13 +134,14 @@ export default {
       const mx = (spots[0][0] + spots[1][0]) / 2, my = (spots[0][1] + spots[1][1]) / 2;
       spots = [[mx - 0.09 * unit, my], [mx + 0.09 * unit, my]];
     }
+    if (!L.show("map")) spots = [];
     spots.forEach((s, i) => {
       const size = (i === 0 ? 0.16 : 0.13) * unit;
       out.push(...S.marker(KINDS[i % KINDS.length], s[0], s[1], size, { role: "accent" }));
       if (o.labels) out.push(...S.text(letters[i], size * 0.5 * Math.min(ts, 1.3), s[0], s[1], { role: "accent" }));
     });
 
-    if (o.show_home && home) {
+    if (o.show_home && home && L.show("map")) {
       let [hx, hy] = place(home, centre, k, bw, bh);
       const close = spots.filter((p) => Math.hypot(p[0] - hx, p[1] - hy) < HOME_GAP * unit);
       if (close.length) {
@@ -146,7 +153,11 @@ export default {
       }
       if (Math.abs(hx) < w - 0.08 * unit && Math.abs(hy) < h - 0.08 * unit) out.push(...S.house(hx, hy, 0.16 * unit));
     }
-    if (title) out.push(...S.text(title, 0.07 * unit * ts, 0, h - (0.03 + 0.07 * ts) * unit));
-    return out;
+    if (title && L.show("title")) {
+      const th = 0.07 * unit * ts * L.size("title"), y = h - (0.03 + 0.07 * ts) * unit + M.cy;
+      const B = L.box("title", S.rect(M.x0 + 0.03 * unit, y - th / 2, M.x1 - 0.03 * unit, y + th / 2));
+      out.push(...S.shift(S.fitText(title, B, L.own("title") ? B.h * Math.min(1, L.size("title")) : th, { align: L.align("title") }), -M.cx, -M.cy));
+    }
+    return S.shift(out, M.cx, M.cy);
   },
 };

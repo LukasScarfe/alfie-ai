@@ -183,7 +183,9 @@ function hourly({ fr, f, ts, cur, data, options, config, memo, S, L, conv, suffi
   const rightW = mode && L.flow("rain_axis") ? S.width("100%", rh) + 0.04 * f + 0.07 : 0.04 * f;
   const dropH = mode && L.flow("rain_axis") ? 0.15 * f : 0;
   const hoursH = labels && L.flow("hours") ? hh * 1.9 : 0.035;   // room for the baseline's ticks
-  const C = L.box("curve", S.rect(fr.x0 + leftW, fr.y0 + hoursH, fr.x1 - rightW, fr.y1 - dropH));
+  // The curve in a box of its own keeps its axes and hours inside it.
+  const own = L.box("curve", S.rect(fr.x0 + leftW, fr.y0 + hoursH, fr.x1 - rightW, fr.y1 - dropH));
+  const C = L.own("curve") ? S.rect(own.x0 + leftW, own.y0 + hoursH, own.x1 - rightW, own.y1 - dropH) : own;
   const x0 = C.x0, pw = C.w, y0 = C.y0, ph = C.h;
 
   // Rain, a dotted line against the right axis, on the temperature's hours
@@ -214,7 +216,7 @@ function hourly({ fr, f, ts, cur, data, options, config, memo, S, L, conv, suffi
   const [lo, hi] = S.span([series], { pad: 0.05, minSpan: 4 });
   const known = series.filter((v) => v !== null);
   if (known.length && L.show("temp_axis")) {
-    const A = L.box("temp_axis", S.rect(fr.x0, C.y0, C.x0 - 0.04 * f, C.y1));
+    const A = L.box("temp_axis", S.rect(C.x0 - leftW, C.y0, C.x0 - 0.04 * f, C.y1));
     const ticks = [...new Set([Math.round(Math.min(...known)), Math.round(Math.max(...known))])].filter((v) => v >= lo && v <= hi);
     out.push(...S.axis(A.x1, A.y0, A.h, lo, hi, ticks, { unit: suffix, labelH: ah, weight: 0.25 }));
   }

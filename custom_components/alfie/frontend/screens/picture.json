@@ -10,5 +10,9 @@
    {"key": "rotation", "kind": "number", "label": "Rotation", "default": 0, "min": -180, "max": 180, "unit": "°", "more": true},
    {"key": "weight", "kind": "number", "label": "Line weight", "default": 1, "min": 0.3, "max": 2.5, "unit": "×", "more": true},
    {"key": "detail", "kind": "number", "label": "Detail", "default": 1, "min": 0.25, "max": 4, "unit": "×", "more": true, "hint": "More draws curves smoother; less is lighter."},
-   {"key": "max_points", "kind": "number", "label": "Point budget", "default": 3000, "min": 300, "max": 12000, "more": true, "hint": "Tiny details are dropped first to stay under it."}
+   {"key": "max_points", "kind": "number", "label": "Point budget", "default": 3000, "min": 300, "max": 12000, "more": true, "hint": "Tiny details are dropped first to stay under it."},
+   {"key": "layout", "kind": "layout", "label": "Layout", "default": {}, "elements": [
+     {"key": "picture", "label": "Picture"},
+     {"key": "caption", "label": "Caption", "text": true}
+   ]}
  ]}

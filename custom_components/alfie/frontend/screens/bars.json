@@ -1,6 +1,7 @@
 {"type": "bars", "title": "Bars", "needs": null,
  "options": [
    {"key": "entities", "kind": "entities", "label": "Entities", "required": true},
+   {"key": "title", "kind": "text", "label": "Title", "default": ""},
    {"key": "labels", "kind": "text", "per": "entities", "label": "Label", "default": "", "hint": "Empty: the entity name."},
    {"key": "range", "kind": "choice", "label": "Scale", "default": "fixed", "choices": ["fixed", "auto"]},
    {"key": "min", "kind": "number", "label": "Minimum", "default": 0, "min": -10000, "max": 10000, "when": {"range": ["fixed"]}},
@@ -12,5 +13,11 @@
    {"key": "highlight_below", "kind": "text", "label": "Accent bars below", "default": "", "hint": "A number. Empty: off."},
    {"key": "sort", "kind": "choice", "label": "Sort", "default": "none", "choices": ["none", "ascending", "descending"]},
    {"key": "fill", "kind": "bool", "label": "Shade the bars", "default": false},
-   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the screen's text. Text fitted to its room still shrinks to fit."}
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×", "hint": "Scales the screen's text. Text fitted to its room still shrinks to fit."},
+   {"key": "layout", "kind": "layout", "label": "Layout", "default": {}, "elements": [
+     {"key": "title", "label": "Title", "text": true},
+     {"key": "bars", "label": "Bars"},
+     {"key": "labels", "label": "Names", "text": true},
+     {"key": "values", "label": "Values", "text": true}
+   ]}
  ]}
