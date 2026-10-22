@@ -20,6 +20,13 @@ with his OK.
 
 Version 0.12.0.
 
+**Latest: house modes switched off (2026-10-22, Lukas).** `const.HOUSE_MODES = False` hides
+them everywhere (design.md "House modes"). Rotations are now set by automations with
+`alfie.show_rotation` + `duration`. On production, "Schedule: Sleep and Wake Cycle" calls it
+on the first unplug at home 05:00-11:00 (`morning`, 10800 s); its 10:30 end trigger and the
+Away automation's mode reset are removed. Without Night/Away, Alfie no longer sleeps or goes
+quiet by himself; `alfie.set_alfie` can do that from an automation if Lukas wants it.
+
 **Latest (0.12.0): the why panel and tap actions** (design.md "Card").
 - **Card:**
   - `_gestures` handles tap, hold (500 ms) and double tap (250 ms), and a drag is no tap.
