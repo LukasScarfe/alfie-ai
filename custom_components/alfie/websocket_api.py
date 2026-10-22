@@ -20,6 +20,9 @@ states per call.
 satellites he follows, the prompt, the tool's answer, the intent's), and
 `alfie/voice/say` says a line out loud. Both are admin only.
 
+`alfie/screen/yaml` turns a screen's options into YAML and back, for the
+panel's text editor. Admin only.
+
 `alfie/screens` and `alfie/screen_data` feed the cards the user's screens and
 their server-side data. Like subscribe they are open to every logged-in user.
 """
@@ -49,6 +52,7 @@ from .mood import COMBINE_MODES, LEVELS
 from .signals import OPERATORS, SEVERITIES
 from . import modes, stories, suggest, tell, triggers, voice
 from .pictures import MAX_UPLOAD, PictureError
+from .screen_types import options_from_yaml, options_yaml
 from .providers.picture import store_for as picture_store
 
 
@@ -60,7 +64,7 @@ def async_register(hass: HomeAssistant) -> None:
     for cmd in (ws_subscribe, ws_config_get, ws_config_set, ws_config_reset, ws_config_preview,
                 ws_screens, ws_screen_data, ws_story_play, ws_story_expand, ws_triggers_status, ws_suggest,
                 ws_voice_status, ws_voice_say, ws_pictures_list, ws_picture_get,
-                ws_picture_upload, ws_picture_rename, ws_picture_delete, ws_face):
+                ws_picture_upload, ws_picture_rename, ws_picture_delete, ws_face, ws_screen_yaml):
         websocket_api.async_register_command(hass, cmd)
     data["_ws_registered"] = True
 
@@ -190,6 +194,30 @@ def ws_config_preview(hass: HomeAssistant, connection: websocket_api.ActiveConne
     if not msg["with_config"]:
         del result["config"]
     connection.send_result(msg["id"], {"errors": [], **result})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "alfie/screen/yaml",
+                                  vol.Required("screen_type"): str,
+                                  vol.Optional("options"): dict,
+                                  vol.Optional("yaml"): str})
+@callback
+def ws_screen_yaml(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+                   msg: dict[str, Any]) -> None:
+    """The panel's YAML editor for a screen's options: `options` in, its YAML
+    out; or `yaml` in, the options (only what differs from the defaults) and
+    any problems out."""
+    if (engine := _engine(hass, connection, msg["id"])) is None:
+        return
+    meta = engine.types.get(msg["screen_type"])
+    if meta is None:
+        connection.send_error(msg["id"], "not_found", f"no screen type {msg['screen_type']!r}")
+        return
+    if "yaml" in msg:
+        options, errors = options_from_yaml(meta, msg["yaml"])
+        connection.send_result(msg["id"], {"options": options, "errors": errors})
+    else:
+        connection.send_result(msg["id"], {"yaml": options_yaml(meta, msg.get("options") or {})})
 
 
 @websocket_api.require_admin

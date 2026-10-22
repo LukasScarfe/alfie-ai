@@ -276,6 +276,7 @@ export function optionField(opt, value, P, ctx) {
   // Another option shows or hides with this one: redraw the form when it changes.
   const re = (ctx.options || []).some((o) => o.when && opt.key in o.when) ? " data-rerender" : "";
   switch (opt.kind) {
+    case "layout": return "";   // the screens section draws it as its own group (layoutTable)
     case "bool":
       return `<div class="wide opt"><label class="check"><input type="checkbox" class="switch" data-path="${path}" data-kind="bool"${re}
         ${(value ?? dflt) ? "checked" : ""}> <span><b>${label}</b></span></label>${noteHtml}</div>`;

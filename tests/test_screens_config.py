@@ -196,3 +196,56 @@ def test_per_needs_an_entities_option():
     assert ST._meta_ok({"type": "x", "options": [{"key": "m", "kind": "icon", "per": "entities"}]})
     assert ST._meta_ok({"type": "x", "options": [{"key": "e", "kind": "entities"},
                                                  {"key": "m", "kind": "number", "per": "e"}]})
+
+
+# ----------------------------------------------------------------- layout
+
+LAID = {"type": "laid", "title": "Laid", "needs": None, "options": [
+    {"key": "title", "kind": "text", "label": "Title", "default": ""},
+    {"key": "hours", "kind": "number", "label": "Span", "default": 72, "min": 1, "max": 2160},
+    {"key": "layout", "kind": "layout", "label": "Layout", "default": {},
+     "elements": [{"key": "title", "label": "Title"}, {"key": "plot", "label": "Plot"}]},
+]}
+
+
+def test_layout_kept_lean():
+    out = validate_options(LAID, {"layout": {
+        "title": {"show": False, "size": 1, "align": "auto"},
+        "plot": {"box": [10, 20.123, 80, 60], "size": 1.5, "align": "left"},
+        "ghost": {"show": False}}})
+    assert out["layout"] == {"title": {"show": False},
+                             "plot": {"box": [10, 20.12, 80, 60], "size": 1.5, "align": "left"}}
+    assert validate_options(LAID, {})["layout"] == {}
+    assert validate_options(LAID, {"layout": {"plot": {"box": "auto"}}})["layout"] == {}
+
+
+@pytest.mark.parametrize("bad", [
+    {"plot": {"box": [0, 0, 0, 10]}}, {"plot": {"box": [0, 0, 150, 10]}},
+    {"plot": {"box": [1, 2, 3]}}, {"plot": {"size": 9}}, {"plot": {"align": "middle"}},
+    {"plot": "big"}, ["plot"],
+])
+def test_layout_problems(bad):
+    with pytest.raises(ConfigError):
+        validate_options(LAID, {"layout": bad})
+
+
+def test_layout_meta_needs_elements(tmp_path):
+    (tmp_path / "x.json").write_text(json.dumps({"type": "x", "options": [
+        {"key": "layout", "kind": "layout"}]}))
+    assert load_types(str(tmp_path)) == {}
+
+
+def test_options_yaml_round_trip():
+    text = ST.options_yaml(LAID, {"hours": 24, "layout": {"plot": {"box": [0, 0, 50, 50]}}})
+    assert text.startswith("# layout: per element (title, plot)")
+    assert "box: [0, 0, 50, 50]" in text and "hours: 24" in text and "title: ''" in text
+    opts, errors = ST.options_from_yaml(LAID, text)
+    assert errors == [] and opts == {"hours": 24, "layout": {"plot": {"box": [0, 0, 50, 50]}}}
+
+
+def test_options_from_yaml_problems():
+    assert ST.options_from_yaml(LAID, "hours: [")[1][0].startswith("YAML:")
+    assert ST.options_from_yaml(LAID, "- a")[1] == ["YAML: must be a mapping of options"]
+    opts, errors = ST.options_from_yaml(LAID, "hourz: 3\nhours: 9999\n")
+    assert any("hourz" in e for e in errors) and any("Span" in e for e in errors)
+    assert ST.options_from_yaml(LAID, "")[0] == {}

@@ -209,9 +209,85 @@ export function readoutWidth(value, height, { unit = "", decimals = 0 } = {}) {
   return width(fmt(value, decimals) + unit, height);
 }
 
+// ------------------------------------------------------------------- layout
+
+// A box in draw units: corners, centre and full size.
+export const rect = (x0, y0, x1, y1) => ({ x0, y0, x1, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0 });
+export const inset = (r, dx, dy = dx) => rect(r.x0 + dx, r.y0 + dy, r.x1 - dx, r.y1 - dy);
+
+// A screen's elements in boxes. A type works out where each element goes
+// (auto, in draw units) and asks `box(key, auto)` for the one to draw in. The
+// `layout` option (screen_types.py) can hide an element, give it a box of its
+// own ([x, y, w, h] in % of the screen from its top left), scale its text
+// (`size`) or align it. Hidden or boxed elements leave the flow (`flow`), so
+// the auto layout closes up around them. `boxes` holds every element's box in
+// %, for the panel's Take over and its outlines.
+export function layout(w, h, opt) {
+  const L = opt && typeof opt === "object" && !Array.isArray(opt) ? opt : {};
+  const own = (k) => {
+    const b = L[k]?.box;
+    return Array.isArray(b) && b.length === 4 && b.every((x) => Number.isFinite(Number(x))) ? b.map(Number) : null;
+  };
+  const r1 = (x) => Math.round(x * 10) / 10;
+  const toRect = ([x, y, bw, bh]) => rect(-w + (w * x) / 50, h - (h * (y + bh)) / 50, -w + (w * (x + bw)) / 50, h - (h * y) / 50);
+  const toPct = (r) => [r1(((r.x0 + w) * 50) / w), r1(((h - r.y1) * 50) / h), r1((r.w * 50) / w), r1((r.h * 50) / h)];
+  const me = {
+    boxes: {},
+    show: (k) => L[k]?.show !== false,
+    own: (k) => !!own(k),
+    flow: (k) => L[k]?.show !== false && !own(k),
+    size: (k) => Number(L[k]?.size) || 1,
+    align: (k, d = "centre") => (["left", "centre", "right"].includes(L[k]?.align) ? L[k].align : d),
+    box(k, auto) {
+      const b = own(k), r = b ? toRect(b) : auto;
+      if (r && me.show(k)) me.boxes[k] = toPct(r);
+      return r;
+    },
+  };
+  return me;
+}
+
+// Split `r` top to bottom into bands: {key, h} fixed, or {key, grow, min}
+// sharing what is left. Fixed bands shrink together when they don't fit.
+// Falsy entries are skipped, so a band can be left out with `cond && {...}`.
+export function stack(r, bands, gap = 0) {
+  const live = bands.filter(Boolean);
+  const room = Math.max(0, r.h - gap * Math.max(0, live.length - 1));
+  const fixed = live.reduce((t, b) => t + (b.grow ? 0 : b.h), 0);
+  const mins = live.reduce((t, b) => t + (b.grow ? b.min || 0 : 0), 0);
+  const grows = live.reduce((t, b) => t + (b.grow || 0), 0);
+  const k = fixed > 0 ? Math.min(1, Math.max(0, room - mins) / fixed) : 1;
+  const spare = Math.max(0, room - fixed * k);
+  const out = {};
+  let y = r.y1;
+  for (const b of live) {
+    const bh = b.grow ? (spare * b.grow) / grows : b.h * k;
+    out[b.key] = rect(r.x0, y - bh, r.x1, y);
+    y -= bh + gap;
+  }
+  return out;
+}
+
+// `s` `height` tall, smaller if it must be to fit `r`, aligned in it.
+export function fitText(s, r, height, { align = "centre", role = "text", w = 1 } = {}) {
+  if (!r || !s) return [];
+  const wd = width(s, 1);
+  const ht = Math.max(0, Math.min(height, r.h, wd > 0 ? r.w / wd : height));
+  const tw = wd * ht;
+  const cx = align === "left" ? r.x0 + tw / 2 : align === "right" ? r.x1 - tw / 2 : r.cx;
+  return text(s, ht, cx, r.cy, { role, w });
+}
+
+// The height `fitText` would use.
+export const fitHeight = (s, r, height) => Math.max(0, Math.min(height, r.h, width(s, 1) > 0 ? r.w / width(s, 1) : height));
+
+// A dotted outline of a box: the panel shows the element being edited.
+export const outline = (r) => [stroke([[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]], { closed: true, w: DOTTED, role: "accent" })];
+
 // ------------------------------------------------------------------- charts
 
 export const DOTTED = 0.15;   // weight of a dotted series: the card draws w < 0.3 dashed and dim
+export const FAINT = 0.05;    // a gridline: under 0.1 the card draws finer dots, fainter still
 
 function place(vals, x0, y0, w, h, lo, hi) {
   const n = vals.length, k = hi > lo ? h / (hi - lo) : 0, out = [];
@@ -252,14 +328,35 @@ export function baseline(x0, y0, w, { ticks = 0, tick = 0.03, weight = 0.5 } = {
 }
 
 // Round values to label an axis spanning lo..hi: the finest of 1, 2, 5, 10,
-// 20, 25, 50, 100 giving at most `most` ticks.
-export function niceTicks(lo, hi, most = 4) {
+// 20, 25, 50, 100 giving at most `most` ticks. `fine` goes on in both
+// directions: 0.1, 0.2, 0.5 below, 200, 250, 500, 1000... above.
+export function niceTicks(lo, hi, most = 4, { fine = false } = {}) {
+  if (fine) return fineTicks(lo, hi, most);
   for (const step of [1, 2, 5, 10, 20, 25, 50, 100]) {
     const ticks = [];
     for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) ticks.push(v);
     if (ticks.length <= most) return ticks;
   }
   return [lo, hi];
+}
+
+function fineTicks(lo, hi, most) {
+  const span = hi - lo;
+  if (!(span > 0) || !Number.isFinite(span)) return Number.isFinite(lo) ? [lo] : [];
+  const mag = 10 ** Math.floor(Math.log10(span / Math.max(1, most)));
+  for (const m of [1, 2, 2.5, 5, 10, 20, 25, 50]) {
+    if (m % 1 && mag < 10) continue;   // 2.5 only as 25, 250...: no quarter values on whole data
+    const step = m * mag, ticks = [];
+    for (let k = Math.ceil(lo / step - 1e-9); k * step <= hi + step * 1e-9; k++) ticks.push(Number((k * step).toFixed(10)));
+    if (ticks.length <= most) return ticks;
+  }
+  return [lo, hi];
+}
+
+// How many decimals labels need to tell ticks apart: those of their step.
+export function tickDecimals(ticks) {
+  const d = ticks.map((t) => { const s = String(Math.abs(t)); return s.includes("e-") ? 6 : (s.split(".")[1] || "").length; });
+  return Math.min(3, Math.max(0, ...d));
 }
 
 export function axis(x, y0, h, lo, hi, ticks, { unit = "", labelH = 0.075, tick = 0.03, weight = 0.5, unlabelled = [], side = "left" } = {}) {
