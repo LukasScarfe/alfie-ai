@@ -26,6 +26,7 @@ from homeassistant.helpers.event import async_call_later
 from . import modes as md
 from . import triggers as trig
 from .config import NOTICE, build, face_extras, reset, validate
+from .config import _Check as Check
 from .const import (
     CONF_NAME,
     DEFAULT_NAME,
@@ -48,6 +49,7 @@ from .stories import (
     Action,
     Context,
     animation_length,
+    check_icon,
     expand,
     icon_action,
     play_rate,
@@ -1044,6 +1046,26 @@ class AlfieEngine:
                        "hold": hold}
         self._screen_unsub = async_call_later(
             self.hass, wait, callback(lambda _now: self._clear_screen(seq)))
+        self._push()
+
+    @callback
+    def music_reaction(self) -> None:
+        """Someone asked for music (voice screens): his happy face for a while,
+        the music animation, and a note badge beside him. Off by leaving the
+        voice settings' music_* empty."""
+        v = self.config["voice"]
+        anim = v["music_animation"] if v["music_animation"] in self.animations else ""
+        seconds = max(self._anim_seconds(anim) if anim else 0.0, 3.0) + 0.5
+        if v["music_expression"] and v["music_expression"] in self.expressions:
+            self.set_expression(v["music_expression"], seconds)
+        if anim:
+            self.play(anim, "Voice: music.", "voice", push=False)
+        if v["music_icon"]:
+            ck = Check()
+            icon = check_icon({"icon": v["music_icon"], "style": "overlay", "place": "top_right",
+                               "seconds": seconds}, "music", ck)
+            if not ck.errors:
+                self.show_icon(icon)
         self._push()
 
     @callback

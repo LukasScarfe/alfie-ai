@@ -86,7 +86,7 @@ def test_a_live_context_lookup_goes_by_the_name_it_was_given():
     s = screen_for("answer", ["sensor.monstera"], state_of, SETTINGS)
     assert s == {"type": "plot", "title": "Monstera soil moisture",
                  "options": {"entities": ["sensor.monstera"], "hours": 24,
-                             "title": "Monstera soil moisture"}}
+                             "title": "mdi:chart-line", "text_size": 2}}
 
 
 def test_with_no_tools_the_words_name_the_entity():
@@ -172,3 +172,45 @@ def test_an_llm_turn_is_read_back_from_the_whole_log():
     assert subject(t, INDEX) == ("answer", ["sensor.monstera"])
     # Not finished yet: no reply after the last thing said.
     assert not last_turn(log[:5]).done
+
+
+def test_a_voice_plot_is_titled_by_an_icon_for_its_kind():
+    from alfie.converse import plot_icon, plot_title
+    assert plot_icon({"device_class": "temperature"}) == "mdi:thermometer"
+    assert plot_icon({"device_class": "humidity", "icon": "mdi:x"}) == "mdi:water-percent"
+    assert plot_icon({"icon": "mdi:leaf"}) == "mdi:leaf"
+    assert plot_icon({}) == "mdi:chart-line"
+    attrs = {"device_class": "temperature"}
+    assert plot_title("icon", attrs, "Office") == "mdi:thermometer"
+    assert plot_title("icon_name", attrs, "Office") == "mdi:thermometer Office"
+    assert plot_title("name", attrs, "Office") == "Office"
+    assert plot_title("none", attrs, "Office") == ""
+    STATES["sensor.office_temp"][1]["device_class"] = "temperature"
+    s = screen_for("answer", ["sensor.office_temp"], state_of,
+                   {**SETTINGS, "plot_title": "icon_name", "plot_text_size": 1.5})
+    assert s["options"]["title"] == "mdi:thermometer Office temperature"
+    assert s["options"]["text_size"] == 1.5
+    del STATES["sensor.office_temp"][1]["device_class"]
+
+
+def test_music_requests_are_spotted():
+    from alfie.converse import is_music
+    llm = turn_of({"role": "user", "content": "play my liked songs"},
+                  {"role": "tool_result", "agent_id": "g", "tool_call_id": "1",
+                   "tool_name": "assist__script__play_music", "result": {"data": {"success": True}}},
+                  {"role": "assistant", "agent_id": "g", "content": "Playing."})
+    assert is_music(llm)
+    local = turn_of({"role": "user", "content": "play some music"},
+                    {"role": "assistant", "agent_id": "x", "tool_calls": [Call("HassMediaUnpause", {}, "1")]},
+                    intent_result("HassMediaUnpause", "1", "action_done", ["media_player.tv"]),
+                    {"role": "assistant", "agent_id": "x", "content": "Resumed"})
+    assert is_music(local)
+    lights = turn_of({"role": "user", "content": "turn on the lights"},
+                     {"role": "assistant", "agent_id": "x", "tool_calls": [Call("HassTurnOn", {}, "1")]},
+                     intent_result("HassTurnOn", "1", "action_done", ["light.a"]),
+                     {"role": "assistant", "agent_id": "x", "content": "Done"})
+    assert not is_music(lights)
+    # Just talking about music, nothing played: no reaction.
+    chat = turn_of({"role": "user", "content": "who wrote that song"},
+                   {"role": "assistant", "agent_id": "x", "content": "Someone."})
+    assert not is_music(chat)

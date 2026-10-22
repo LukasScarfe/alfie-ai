@@ -209,3 +209,15 @@ def test_voice_screen_settings_have_defaults_and_are_checked():
     assert "voice screens leave out" in errors(with_voice(screen_skip=["not ok!"]))
     assert "voice screen presenting" in errors(with_voice(screen_present="sideways"))
     assert "voice screen grid size" in errors(with_voice(max_grid=50))
+
+
+def test_voice_screen_timing_plot_and_music_settings():
+    v = valid(default_config())["voice"]
+    assert v["screen_seconds"] == 5 and v["hold_while_speaking"] is False
+    assert v["plot_title"] == "icon" and v["plot_text_size"] == 2
+    assert v["music_animation"] == "groove" and v["music_expression"] == "happy"
+    assert v["music_icon"] == "mdi:music-note" and v["music_screen"] is False
+    assert valid(with_voice(music_icon="", music_animation=""))["voice"]["music_icon"] == ""
+    assert "voice music icon" in errors(with_voice(music_icon="note"))
+    assert "voice music animation" in errors(with_voice(music_animation="boogie"))
+    assert "voice plot title" in errors(with_voice(plot_title="big"))
