@@ -18,7 +18,31 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.13.0.
+Version 0.14.0.
+
+**Latest (0.14.0, 2026-10-22, Lukas): M9 voice screens, built and on production; only H, his
+review, is open** (design.md "Voice screens", plan.md M9).
+- `finder.py` (pure name index + `alfie__find_entity` scoring), `converse.py` (pure: a `Turn`
+  fed chat-log contents, `last_turn`, `subject`, `screen_for`), the `toggle` screen type, and
+  voice.py's `FindEntityTool`, index (`Voice.index()`, rebuilt on registry events) and chat-log
+  watcher (`_on_chat`, `_checker`, `_finish`). Engine: `show_voice_screen`, `_linger`,
+  `@voice:<seq>` ids in `screen_data`. Card: `_inlineScreen`, card option `voice_screens`.
+  Panel: Voice → Screens, find tool under Agents.
+- **Gotcha:** HA 2026.10 notifies chat-log subscribers of an LLM agent's user words and tool
+  results only, not its assistant messages, so LLM turns are read back from
+  `hass.data["conversation_chat_logs"]` (every 0.4 s, at most 30 s, only while a turn is open).
+  Right after the first deploy a few Gemini turns made no screen; not reproduced since.
+- Checked on production: "is the coffee maker on" → toggle, "how dry is the monstera" → plot,
+  "how hot is the server CPU" → `alfie__find_entity` (unexposed sensor). A real household
+  request ("play my liked songs") made a toggle of the record player.
+- Open for Lukas: on square cards the corner Alfie sits close to a single toggle's name (corner
+  layout is the same for every screen type).
+- Dev HA now has an Ollama agent (`conversation.ollama_conversation`, qwen2.5:3b on raccoon)
+  and a pipeline "LLM test" with prefer-local, for testing LLM turns; `input_boolean.espresso_machine`
+  exposed. `./dev shot` needs the `alfie-dev/alfie` path (not `lovelace/0`).
+- Production house (2026-10-22, outside the repo): voice runs on Gemini 3.5 Flash-Lite (free
+  tier); every exposed entity has a plain name and aliases (backup
+  `devenv/out/registry_backup_2026-10-22.json`); see `~/claude/docs/homeassistant.md`.
 
 **Latest (0.13.0, 2026-10-22, Lukas): layout boxes, Edit as YAML, plot axes** (design.md
 "Layout", "Edit as YAML", "Plot axes").

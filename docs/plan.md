@@ -217,8 +217,9 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         done; no satellite → show when the chat-log turn ends. PNGs to Lukas.
   - [x] F. Panel Voice → Screens (settings and a "Last voice screen" peek), find tool under
         Agents, card editor "Voice screens"; harness `sheet=screen&type=toggle&shown=<s>`.
-  - [ ] G. Tests (find_entity scoring, chat-log fixtures from real turns, mapping, toggle boxes),
+  - [x] G. Tests (find_entity scoring, chat-log fixtures from real turns, mapping, toggle boxes),
         design.md, screens-contract.md, release, prod check.
+  - [ ] H. Lukas's review (PNGs sent 2026-10-22: action toggle, answer plot, grid).
 
 ## How an agent continues development
 
