@@ -62,6 +62,14 @@ check(pausedFill(T0 + 50) === pausedFill(T0 + 200), "a paused bar holds");
 // Missing parts close up.
 const noAlbum = draw({}, { st: { "media_player.k": player("playing", { media_album_name: "", media_duration: 0 }) } });
 check(valid(noAlbum) && inBox(noAlbum, 1.6, 1), "no album and no length still draws");
+// Song name, artist and album each turn off; turning one off draws less.
+const all = draw({});
+for (const k of ["show_title", "show_artist", "show_album"]) {
+  const less = draw({ [k]: false });
+  check(valid(less) && inBox(less, 1.6, 1) && less.length < all.length, `${k} off draws less`);
+}
+const bare = draw({ show_title: false, show_artist: false, show_album: false, bar: "none", times: "none", state_icon: false });
+check(bare.length === 0, "everything off draws nothing");
 // One memo across frames: the text is reused, the times move.
 const memo = {};
 const a = draw({}, { memo, t: T0 + 10 }), b = draw({}, { memo, t: T0 + 11 });

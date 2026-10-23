@@ -228,6 +228,8 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         Tests (`tests/screens/nowplaying.test.mjs`, layout, text size). PNGs to Lukas.
   - [x] B. Voice music requests show it (song and artist only, `music_screen` on by default,
         `music_seconds`), 0.15.1. PNGs to Lukas.
+  - [x] Song name, artist and album each a switch, on the type and for voice music screens
+        (Voice → Screens → Music), 0.16.1. PNGs to Lukas.
   - [ ] C. Lukas's review.
 - [~] **11. Volume screen.** Asked by Lukas 2026-10-22 (the volume screen was "way overloaded":
       a toggle grid of every player a volume intent set); built 2026-10-22 (0.16.0), see

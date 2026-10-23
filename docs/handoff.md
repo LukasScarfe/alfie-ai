@@ -18,7 +18,12 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.16.0.
+Version 0.16.1.
+
+**Latest (0.16.1, 2026-10-22, Lukas):** the nowplaying type's song name, artist and album each
+turn off (`show_title`, `show_artist`, `show_album`), and the voice music screen has the same
+three as settings (`music_show_title` / `_artist` on, `music_show_album` off) under Voice →
+Screens → Music. PNGs sent.
 
 **Latest (0.16.0, 2026-10-22, Lukas): voice volume changes show the `volume` screen** (plan.md
 M11, design.md "Voice screens" Volume and "Screens" volume): a speaker icon and a slider for

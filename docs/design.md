@@ -563,7 +563,7 @@ built types:
   entity or a grid of them. Made by voice screens (see "Voice screens"), usable as any screen.
 - **nowplaying** (Lukas, 2026-10-22): what a Music Assistant player is playing. Stacked and
   centred: the title (wraps onto `title_lines`, 2, before it shrinks), the artist, the album
-  (`show_album`), then a play or pause mark (`state_icon`), the play bar and the times.
+  (each turns off: `show_title`, `show_artist`, `show_album`; Lukas, 2026-10-22), then a play or pause mark (`state_icon`), the play bar and the times.
   - Players: the ones picked, or with none every Music Assistant player (`app_id`
     music_assistant) but its groups. The playing one shows; of several, the one updated last;
     a paused one when nothing plays (`show_paused`, on).
@@ -745,7 +745,8 @@ in the panel's Voice → Screens (and Agents for the find tool).
   `music_expression` (happy) for a while, `music_animation` (groove: a sway and bob, three
   times, ending on a wink; 4.8 s) and a `music_icon` badge (a note, top right). With
   `music_screen` (on) it also shows a `nowplaying` screen for `music_seconds` (15): just the song
-  and the artist (Lukas, 2026-10-22: no album, bar or times; text size 1.5), for the players the
+  and the artist (Lukas, 2026-10-22: no album, bar or times; text size 1.5; the song, artist
+  and album are each a setting, `music_show_title` / `_artist` / `_album`), for the players the
   turn named or any Music Assistant player. Until one plays it shows the badge's icon, large.
 - **Volume** (Lukas, 2026-10-22: "just a volume icon with a slider that is at the current volume
   amount"): a turn whose intents change a volume (HassSetVolume, HassSetVolumeRelative,

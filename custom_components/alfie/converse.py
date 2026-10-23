@@ -266,8 +266,7 @@ def screen_for(kind: str, ids: list[str], state_of: State,
                         "action": kind == "action"}}
 
 
-SONG_AND_ARTIST = {"show_album": False, "bar": "none", "times": "none", "state_icon": False,
-                   "text_size": 1.5}
+SONG_AND_ARTIST = {"bar": "none", "times": "none", "state_icon": False, "text_size": 1.5}
 
 
 def music_screen(ids: list[str], state_of: State,
@@ -275,10 +274,14 @@ def music_screen(ids: list[str], state_of: State,
     """The now playing screen for a music request: the players it named (any
     Music Assistant player when it named none). Until one plays it shows the
     music badge rather than "Nothing playing", as the music is on its way.
-    Just the song and the artist (Lukas, 2026-10-22): no album, bar or times."""
+    By default just the song and the artist (Lukas, 2026-10-22): no album, bar
+    or times. Which of the song, artist and album show are settings."""
     players = [e for e in ids if e.startswith("media_player.") and state_of(e) is not None]
     return {"type": "nowplaying", "title": "",
             "options": {"players": players, "empty": settings.get("music_icon") or "mdi:music-note",
+                        "show_title": settings.get("music_show_title", True),
+                        "show_artist": settings.get("music_show_artist", True),
+                        "show_album": settings.get("music_show_album", False),
                         **SONG_AND_ARTIST}}
 
 
