@@ -99,3 +99,31 @@ def test_unknown_slot_and_shapes_type():
 
 def test_unknown_keys_dropped():
     assert "wat" not in look(wat=1)
+
+
+def test_motion_defaults_match_the_card():
+    """look.motion: config.py MOTION and alfie-face.js MOTION hold the same defaults."""
+    import re
+    from alfie.config import MOTION
+    with open(os.path.join(os.path.dirname(__file__), "..", "custom_components", "alfie",
+                           "frontend", "alfie-face.js")) as f:
+        block = re.search(r"export const MOTION = \{(.*?)\};", f.read(), re.S).group(1)
+    js = {k: float(v) for k, v in re.findall(r"(\w+): (-?[\d.]+)", block)}
+    assert js == {k: d for k, (d, _, _) in MOTION.items()}
+    m = default_config()["look"]["motion"]
+    assert m["wave_depth"] == 0.028 and m["wave_bumps"] == 7 and m["transition_seconds"] == {}
+    assert look()["motion"] == m
+
+
+def test_motion_validation():
+    m = look(motion={"wave_depth": 0.1, "wave_bumps": 11.6, "transition_seconds": {"zoom": 2}})
+    assert m["motion"]["wave_depth"] == 0.1 and m["motion"]["wave_bumps"] == 12
+    assert m["motion"]["transition_seconds"] == {"zoom": 2} and m["motion"]["speak_rate"] == 1
+    assert errors(motion={"wave_depth": 1})
+    assert errors(motion={"wiggle": 1})[0].endswith("unknown setting 'wiggle'")
+    assert errors(motion={"transition_seconds": {"zoom": 9}})
+    assert errors(motion="fast")
+    # a partial motion keeps the rest at their defaults, and a reset clears it
+    cfg = validate({"look": {"motion": {"breath_depth": 2}}}, FACE)
+    assert cfg["look"]["motion"]["breath_seconds"] == 3.6
+    assert reset(cfg, "look")["look"]["motion"] == default_config()["look"]["motion"]

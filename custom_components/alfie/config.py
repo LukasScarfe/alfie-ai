@@ -85,6 +85,35 @@ PERSONALITY = {
     "energy_bias": (0.0, -0.5, 0.5),    # added to the mood's energy
     "blink_rate": (1.0, 0.2, 3.0),
 }
+# Motion (Appearance → Motion): the numbers in the motions drawn by code, as
+# (default, min, max). Each default is the motion as it always was; the card
+# reads them through alfie-face.js motionOf, which holds the same defaults.
+MOTION = {
+    "speak_rate": (1.0, 0.3, 3.0),          # syllables, faster or slower
+    "speak_pauses": (0.45, 0.0, 1.0),       # how deep the pauses between phrases dip
+    "speak_contrast": (1.0, 0.3, 3.0),      # > 1 punchy syllables, < 1 a steady hum
+    "pulse_depth": (0.045, 0.0, 0.3),       # pulse: how far the ring swells, in radii
+    "eye_grow": (0.16, 0.0, 0.6),           # eyes: how much they grow on a syllable
+    "eye_lift": (0.04, 0.0, 0.2),           # eyes: how far they lift
+    "both_share": (0.7, 0.2, 1.0),          # both: each half's share
+    "wave_depth": (0.028, 0.0, 0.25),       # wave: the ripple's reach, in radii
+    "wave_bumps": (7.0, 2.0, 24.0),         # wave: bumps around the ring
+    "wave_speed": (1.6, -5.0, 5.0),         # wave: turns a second; negative runs backwards
+    "wave_detail": (0.0, 0.0, 1.0),         # wave: a finer ripple on top, like an audio trace
+    "breath_depth": (1.0, 0.0, 4.0),        # breathing, times the usual
+    "breath_seconds": (3.6, 1.0, 12.0),     # one breath at full energy
+    "blink_seconds": (0.16, 0.05, 0.6),     # one blink (the rate is Personality's)
+    "blink_min_gap": (1.6, 0.5, 8.0),       # never blinks more often than this
+    "sag_below": (0.5, 0.0, 1.0),           # tiredness starts under this energy
+    "sag_droop": (0.35, 0.0, 1.0),          # tired: how far the lids drop
+    "sag_drop": (0.035, 0.0, 0.2),          # tired: how far the eyes sink
+    "transition_speed": (1.0, 0.25, 4.0),   # every screen transition, faster or slower
+    "outro_share": (0.6, 0.2, 1.5),         # a badge leaves in this share of its entrance
+    "overshoot": (1.0, 0.0, 3.0),           # zoom, slide and flip springing past
+    "corner_seconds": (0.8, 0.1, 3.0),      # his move to or from the corner
+}
+TRANSITION_SECONDS = (0.0, 5.0)   # look.motion.transition_seconds: {style: seconds}
+
 CUSTOM = "custom"
 NOTICE = "notice"     # motion sensor action: one of behaviour.notice at random
 
@@ -136,7 +165,12 @@ def default_look() -> dict[str, Any]:
             "text_color": "", "accent_color": "", "line_color": "", "line_width": 0.035,
             "screen_line_width": 0.02, "glow": None, "eye_fill": False, "padding": 0.08,
             "aspect": 1.0,
-            "shapes": {"head": {"type": "circle"}, "eye": {"type": "circle"}}}
+            "shapes": {"head": {"type": "circle"}, "eye": {"type": "circle"}},
+            "motion": default_motion()}
+
+
+def default_motion() -> dict[str, Any]:
+    return {**{k: _num(d) for k, (d, _, _) in MOTION.items()}, "transition_seconds": {}}
 
 
 # What voice screens leave out unless told otherwise: things with no state
@@ -624,7 +658,7 @@ def _voice(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
                                           v["processing_animation"] or "", ("", *animations), ""),
         "speak_style": ck.choice("voice speaking style", v["speak_style"], SPEAK_STYLES, "pulse"),
         "speak_strength": _num(ck.number("voice speaking strength", v["speak_strength"],
-                                         0.2, 3, 1.0)),
+                                         0.2, 5, 1.0)),
         "after": ck.choice("voice after a reply", v["after"] or "", ("", *animations), ""),
         "persona": bool(v["persona"]),
         "persona_prompt": prompt[:4000] or defaults.PERSONA_PROMPT,
@@ -798,7 +832,33 @@ def _look(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str,
         "padding": ck.number("look padding", lk.get("padding"), 0, 0.45, base["padding"]),
         "aspect": ck.number("look aspect", lk.get("aspect"), 0.5, 3, base["aspect"]),
         "shapes": shapes,
+        "motion": _motion(lk.get("motion"), base.get("motion") or default_motion(), ck),
     }
+
+
+def _motion(raw: Any, base: dict[str, Any], ck: _Check) -> dict[str, Any]:
+    if raw is not None and not isinstance(raw, Mapping):
+        ck.bad("look motion", "must be a mapping")
+        raw = None
+    got = {**base, **(raw or {})}
+    for k in got:
+        if k not in MOTION and k != "transition_seconds":
+            ck.bad("look motion", f"unknown setting {k!r}")
+    out: dict[str, Any] = {k: _num(ck.number(f"look motion {k}", got.get(k, d), lo, hi, d))
+                           for k, (d, lo, hi) in MOTION.items()}
+    out["wave_bumps"] = round(out["wave_bumps"])
+    secs = got.get("transition_seconds") or {}
+    if not isinstance(secs, Mapping):
+        ck.bad("look motion transition_seconds", "must be a mapping")
+        secs = {}
+    lo, hi = TRANSITION_SECONDS
+    out["transition_seconds"] = {
+        k: _num(ck.number(f"look motion transition_seconds {k}", v, lo, hi, 0.0))
+        for k, v in secs.items() if isinstance(k, str) and _ID.match(k) and v not in (None, "")}
+    for k in secs:
+        if not (isinstance(k, str) and _ID.match(k)):
+            ck.bad("look motion transition_seconds", f"{k!r} is not a transition")
+    return out
 
 
 def _num(x: float) -> int | float:

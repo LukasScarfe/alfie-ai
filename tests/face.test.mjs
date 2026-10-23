@@ -170,5 +170,40 @@ for (const [name, p] of Object.entries(face.personalities)) {
     "strength 0 is still");
 }
 
+// Motion: the defaults are the motion as it always was, and each knob moves
+// what it says.
+{
+  const oldLevel = (t) => {
+    const s = Math.sin(2 * Math.PI * 4.1 * t) * 0.55 + Math.sin(2 * Math.PI * 6.7 * t + 1.3) * 0.3
+      + Math.sin(2 * Math.PI * 1.3 * t + 0.4) * 0.35;
+    const phrase = 0.55 + 0.45 * Math.sin(2 * Math.PI * 0.37 * t + 2.1);
+    return Math.max(0, Math.min(1, (s * 0.5 + 0.45) * phrase));
+  };
+  const ts = Array.from({ length: 500 }, (_, i) => i / 37);
+  check(ts.every((t) => Math.abs(F.speechLevel(t) - oldLevel(t)) < 1e-12), "default rhythm is the old one");
+  const ring = F.faceShapes(F.poseOf(face.expressions.neutral)).head;
+  const peak = ts.reduce((a, t) => (F.speechLevel(t) > F.speechLevel(a) ? t : a), 0);
+  const oldWave = ring.map(([x, y]) => {
+    const k = 1 + 0.028 * oldLevel(peak) * Math.sin(7 * Math.atan2(y, x) + 2 * Math.PI * 1.6 * peak);
+    return [x * k, y * k];
+  });
+  close(F.speakingHead(ring, [0, 0], "wave", 1, peak, F.motionOf()).flat(), oldWave.flat(), "default wave is the old one");
+  check(F.motionOf({ wave_depth: "0.1", nonsense: 3 }, { wave_bumps: 12 }).wave_depth === 0.1
+    && F.motionOf({ wave_bumps: 5 }, { wave_bumps: 12 }).wave_bumps === 12 && !("nonsense" in F.motionOf({ nonsense: 3 })),
+    "motionOf: later wins, unknown keys dropped");
+  const reach = (m) => Math.max(...F.speakingHead(ring, [0, 0], "wave", 1, peak, F.motionOf(m)).map(([x, y]) => Math.hypot(x, y)));
+  check(reach({ wave_depth: 0.1 }) > reach({}) + 0.03, "wave_depth widens the ripple");
+  check(reach({ wave_detail: 1 }) !== reach({}), "wave_detail adds a ripple");
+  const bumps = (n) => {
+    const r = F.speakingHead(ring, [0, 0], "wave", 1, peak, F.motionOf({ wave_bumps: n })).map(([x, y]) => Math.hypot(x, y) - 1);
+    return r.filter((v, i) => v > 0 && r[(i + r.length - 1) % r.length] <= 0).length;
+  };
+  check(bumps(12) === 12 && bumps(7) === 7, "wave_bumps is the number of bumps");
+  const spiky = ts.map((t) => F.speechLevel(t, F.motionOf({ speak_contrast: 2 })));
+  check(spiky.every((v, i) => v <= F.speechLevel(ts[i]) + 1e-12), "punch quietens the quiet");
+  check(F.speakingChannels("eyes", 1, peak, F.motionOf({ eye_grow: 0.5 })).size > F.speakingChannels("eyes", 1, peak).size * 2,
+    "eye_grow grows the eyes");
+}
+
 console.log(`face maths: ${checks - failures}/${checks} checks pass (xy-bench golden + shapes + personality)`);
 process.exit(failures ? 1 : 0);

@@ -10,7 +10,8 @@
        sheet=intros[&only=draw,zoom][&kind=screen|face][&us=0,.5,1]   every intro style at u = 0, .25, .5, .75, 1 (or us): a label screen arriving, and
                                     the face leaving as strokes (morph from the face); about SIZE=2000x1900 at both kinds
        sheet=font                   every glyph of the vector font, large
-       sheet=voice[&strength=1]     listening, thinking, then each speaking style at rest, mid and a peak syllable
+       sheet=voice[&strength=1][&styles=wave,pulse]   listening, thinking, then each speaking style at rest, mid and a peak
+                                    syllable (cfg={"motion": {...}} tunes them, as Appearance → Motion does)
        sheet=icons[&icon=mdi:heart]  an icon in each style: transform (whole, ring) and beside at u = 0 .. 1, badges
                                     at their places (icons from devenv/icons.json)
        expr=happy[&anim=X&u=0.3]    one face
@@ -131,11 +132,12 @@
     const strength = Number(q.get("strength") || 1);
     // Speech times where the rhythm is at rest, about half, and at a peak.
     const ts = Array.from({ length: 400 }, (_, i) => i / 100);
-    const at = (lv) => ts.reduce((b, t) => Math.abs(F.speechLevel(t) - lv) < Math.abs(F.speechLevel(b) - lv) ? t : b, 0);
+    const mo = F.motionOf(cfg.motion), lvAt = (t) => F.speechLevel(t, mo);
+    const at = (lv) => ts.reduce((b, t) => Math.abs(lvAt(t) - lv) < Math.abs(lvAt(b) - lv) ? t : b, 0);
     frames.push({ label: "listening (surprised)", expression: "surprised" });
     for (const u of [0.4, 1.0]) frames.push({ label: `thinking ${u}s`, expression: "surprised", animation: "processing", u });
     frames.push({ label: "answering: mood face", expression: "neutral" });
-    for (const style of F.SPEAK_STYLES) {
+    for (const style of q.get("styles") ? q.get("styles").split(",") : F.SPEAK_STYLES) {
       for (const [name, lv] of [["rest", 0], ["mid", 0.5], ["peak", 1]]) {
         frames.push({ label: `${style} ${name}`, expression: "neutral", speak: { style, strength }, t: at(lv) });
       }

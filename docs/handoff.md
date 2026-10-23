@@ -18,7 +18,17 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.16.3.
+Version 0.17.0.
+
+**Latest (0.17.0, 2026-10-23, Lukas): Motion settings** (plan.md M12, design.md "The
+character" → Editors 5). Every motion drawn by code is tunable in `look.motion`, on the new
+Appearance → Motion tab (`panel/motion.js`): talking (rhythm, pulse, eyes, both, wave),
+breathing, blinking, tiredness and screen transitions. Defaults equal the old constants (tests
+check the default speaking motion against the old formula, and the Python and JS defaults are
+kept equal). The dock tries each one (`previewVoice` responding, `previewEnergy`, the new card
+`previewTransition`). A card's own `motion:` YAML overrides. `speak_strength` goes up to 5.
+Harness: `sheet=voice&styles=wave&cfg={"motion":{...}}`. Only Lukas's review is open (PNGs
+sent).
 
 **Latest (0.16.3, 2026-10-23, Lukas): voice screens carry words only where they add
 something.** `voice.screen_text` minimal (default): a single switch is its icon and switch, a

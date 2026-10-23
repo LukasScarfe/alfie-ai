@@ -141,6 +141,27 @@ card is off screen, and sizes its canvas to the device pixel ratio once per resi
          moment that key ends.
      - **Cards:** they get them with the expressions (`face_rev`, `alfie/face`).
   4. **Personality presets**: decided, see "Personality (decided)" below.
+  5. **Motion** (Appearance → Motion; Lukas, 2026-10-23: "I want all available animations to
+     be customizeable in the interface"). The motions drawn by code rather than keyframes get
+     their numbers as settings in `look.motion`. Every default is the old constant, so an
+     untouched install moves as before.
+     - **Ranges:** `config.py` `MOTION`, `(default, min, max)`. `alfie-face.js` `MOTION` holds the same
+       defaults (a test keeps them equal), and `motionOf(...)` merges partial dicts.
+     - **Talking:** `speak_rate`, `speak_pauses`, `speak_contrast` (the syllable rhythm). Pulse
+       has `pulse_depth`, eyes has `eye_grow` and `eye_lift`, both has `both_share`, and wave
+       has `wave_depth`, `wave_bumps`, `wave_speed` (negative runs backwards) and
+       `wave_detail` (a finer counter-ripple, like an audio trace).
+     - **Breathing:** `breath_depth` and `breath_seconds`. **Blinking:** `blink_seconds` and
+       `blink_min_gap` (the rate stays Personality's `blink_rate`).
+     - **Tiredness:** `sag_below` (the energy where it starts), `sag_droop` and `sag_drop`.
+     - **Screen transitions:** `transition_speed` scales every length, `transition_seconds`
+       `{style: s}` replaces one style's length (empty means `alfie-intros.js` `SECONDS`), and
+       `overshoot` scales the zoom, slide and flip spring. `corner_seconds` times his corner
+       move, and `outro_share` is a badge's exit.
+     - **Cards:** `look` reaches them in the scene, and a card's own `motion:` YAML is laid
+       over it. The dock under the tab tries each one: talk in a style, hold him tired, or play
+       a sample screen in with any transition (`previewTransition`). Big values can carry the
+       ring past the card's padding. That is allowed: the user is exaggerating on purpose.
 - **Very lively.** He is over-exaggerated and bubbly when nothing is wrong, and gets more sluggish
   and sadder as things get worse. Mood drives both the baseline expression and the energy of all
   motion.
@@ -684,8 +705,10 @@ Built in M6. Config section `voice`; the panel's Voice section (Assistants, Agen
 - **Speaking without a mouth** (Lukas, 2026-10-20: all of them as options): `speak_style` is
   **pulse** (the ring breathes out on each syllable; the default), **eyes** (the eyes grow and lift
   a little), **both**, or **wave** (the ring ripples like a sound wave). `speak_strength` scales
-  it, and a card's `speak_style` / `speak_strength` override Alfie's. The rhythm (`speechLevel` in
-  alfie-face.js) is a few incommensurate sines with phrase pauses, so it never visibly repeats.
+  it (0.2 to 5), and a card's `speak_style` / `speak_strength` override Alfie's. Each style's
+  own numbers (depth, bumps, rhythm…) are under Appearance → Motion (see "Motion" above). The
+  rhythm (`speechLevel` in alfie-face.js) is a few incommensurate sines with phrase pauses, so
+  it never visibly repeats.
   When the satellite goes back to idle he plays `after` (default nod).
 - A trigger kind `voice` fires a story when chosen (or any) satellites start a phase or are done.
 - **What's wrong for voice agents**, all opt-in so installing Alfie changes no one's assistant:

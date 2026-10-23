@@ -1,6 +1,7 @@
 // The panel's Appearance section: Look (how Alfie is drawn on every card),
-// Personality (how all his motion feels) and Playground (try him out). They
-// all play on the shell's dock face (p.face); Look and Personality add their
+// Expressions and Animations (his keyframes), Motion (the motions drawn by
+// code, in motion.js), Personality (how all his motion feels) and Playground
+// (try him out). They all play on the shell's dock face (p.face); some add
 // extras under it with dock().
 
 const V = new URL(import.meta.url).search;
@@ -11,11 +12,12 @@ const SvgP = await import(`../alfie-svg.js${V}`);
 const IC = await import(`../alfie-icons.js${V}`);
 const PE = await import(`./shape-editor.js${V}`);
 const Scr = await import(`./screens.js${V}`);
+const Mo = await import(`./motion.js${V}`);
 
 export const id = "appearance";
 export const title = "Appearance";
-export const subs = [["look", "Look"], ["expressions", "Expressions"], ["animations", "Animations"], ["personality", "Personality"], ["playground", "Playground"]];
-export const resets = { look: ["look"], expressions: ["expressions"], animations: ["animations"], personality: ["personality"] };
+export const subs = [["look", "Look"], ["expressions", "Expressions"], ["animations", "Animations"], ["motion", "Motion"], ["personality", "Personality"], ["playground", "Playground"]];
+export const resets = { look: ["look"], expressions: ["expressions"], animations: ["animations"], motion: ["look.motion"], personality: ["personality"] };
 
 // The shipped expressions (and animations), which the draft's own replace by id.
 const FACE = await fetch(new URL(`../alfie-face.json${V}`, import.meta.url)).then((r) => r.json());
@@ -49,6 +51,7 @@ export function render(p, sub) {
   if (sub === "playground") return playground(p);
   if (sub === "expressions") return expressions(p);
   if (sub === "animations") return animations(p);
+  if (sub === "motion") return Mo.render(p);
   return look(p);
 }
 
@@ -88,6 +91,7 @@ function look(p) {
 // Under the dock face: Look's four stills and expression picks, and
 // Personality's animations (they play on this page only).
 export function dock(p, sub) {
+  if (sub === "motion") return Mo.dock(p);
   if (sub === "personality") {
     return `<div class="chips">${PREVIEW_ANIMS.map((a) => `<button class="chip pick" data-action="play" data-name="${a}">${U.human(a)}</button>`).join("")}</div>`;
   }
@@ -588,6 +592,7 @@ function drawLookMini(p, m) {
 export function mount(p, sub) {
   p.root.querySelectorAll(".lookmini").forEach((m) => { m.setConfig?.({ card: false, padding: 0.06 }); });
   if (sub === "expressions") showExpr(p);
+  if (sub === "motion") Mo.mount(p);
   if (sub === "look") {
     applyLook(p);
     if (!Scr.pics(p).list && !Scr.pics(p).loading) Scr.loadPictures(p);
@@ -614,6 +619,7 @@ function pathHooks(p, part) {
 // The shell lets go of the dock face after this (faceHold off, syncFace(true)),
 // so here only the picks are forgotten, to match.
 export function leave(p) {
+  Mo.leave(p);
   p.face?.previewExpression?.(null);
   p.face?.previewAnimationAt?.(null);
   if (p.pg) Object.assign(p.pg, { level: null, expr: "", lookExpr: "", energy: 0.8 });
@@ -623,6 +629,7 @@ export function leave(p) {
 
 // Sliders and switches that are not a draft path: the playground's, and the shape editor.
 export function tool(p, ev) {
+  if (Mo.tool(p, ev)) return true;
   if (ev.target.matches?.(".an-scrub")) {
     const u = Number(ev.target.value);
     ev.target.parentElement.querySelector("output").textContent = p.fmt(u);
@@ -705,6 +712,7 @@ export function beforeInput(p, path, v) {
 export function click(p, a, el) {
   if (a.startsWith("ex-")) return exprClick(p, a, el);
   if (a.startsWith("an-")) return animClick(p, a, el);
+  if (a.startsWith("mo-")) return Mo.click(p, a, el);
   switch (a) {
     case "pg": pgClick(p, el); return true;
     case "play": p.face?.playLocal?.(el.dataset.name); return true;

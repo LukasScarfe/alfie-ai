@@ -40,6 +40,7 @@ from .config import (
     SPEAK_STYLES,
     STYLES,
     CUSTOM,
+    MOTION,
     PERSONALITY,
     SECTIONS,
     ConfigError,
@@ -110,6 +111,7 @@ def ws_config_get(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
             "personalities": {**face.get("personalities", {}), CUSTOM: None},
             "sliders": {k: {"default": d, "min": lo, "max": hi}
                         for k, (d, lo, hi) in PERSONALITY.items()},
+            "motion": {k: {"default": d, "min": lo, "max": hi} for k, (d, lo, hi) in MOTION.items()},
             "levels": list(reversed(LEVELS)),      # best first, as the panel lists them
             "operators": list(OPERATORS),
             "severities": list(SEVERITIES),

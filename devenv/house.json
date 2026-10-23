@@ -231,6 +231,31 @@
    "eye": {
     "type": "circle"
    }
+  },
+  "motion": {
+   "speak_rate": 1,
+   "speak_pauses": 0.45,
+   "speak_contrast": 1,
+   "pulse_depth": 0.045,
+   "eye_grow": 0.16,
+   "eye_lift": 0.04,
+   "both_share": 0.7,
+   "wave_depth": 0.028,
+   "wave_bumps": 7,
+   "wave_speed": 1.6,
+   "wave_detail": 0,
+   "breath_depth": 1,
+   "breath_seconds": 3.6,
+   "blink_seconds": 0.16,
+   "blink_min_gap": 1.6,
+   "sag_below": 0.5,
+   "sag_droop": 0.35,
+   "sag_drop": 0.035,
+   "transition_speed": 1,
+   "outro_share": 0.6,
+   "overshoot": 1,
+   "corner_seconds": 0.8,
+   "transition_seconds": {}
   }
  },
  "expressions": [],

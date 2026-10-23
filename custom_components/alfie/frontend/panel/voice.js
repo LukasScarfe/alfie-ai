@@ -62,7 +62,8 @@ function assistants(p) {
         ${U.field("As he starts listening", U.select("voice.listening_animation", v.listening_animation, anims("Nothing")))}
         ${U.field("Thinking", U.select("voice.processing_animation", v.processing_animation, anims("Nothing")), "Played again until the answer starts.")}
         ${U.field("Answering", U.select("voice.speak_style", v.speak_style, styles), "He has no mouth: the ring, the eyes or both keep a talking rhythm.")}
-        ${U.field("How much it shows", U.num("voice.speak_strength", v.speak_strength, { min: 0.2, max: 3, step: 0.1, unit: "×" }))}
+        ${U.field("How much it shows", U.num("voice.speak_strength", v.speak_strength, { min: 0.2, max: 5, step: 0.1, unit: "×" }),
+          `<button class="link" data-action="go" data-section="appearance" data-sub="motion">Fine-tune each style in Appearance → Motion</button>`)}
         ${U.field("After a reply", U.select("voice.after", v.after, anims("Nothing")))}</div>
         <div class="row tryrow"><span class="muted">Try it here:</span>${TRY.map(([ph, t]) =>
           `<button class="chip pick ${p.voiceTry === ph ? "on" : ""}" data-action="voice-try" data-name="${ph}">${t}</button>`).join("")}

@@ -671,8 +671,10 @@ class AlfiePanel extends HTMLElement {
     return s < 60 ? `${Math.round(s)} s ago` : s < 3600 ? `${Math.round(s / 60)} min ago` : `${Math.round(s / 3600)} h ago`;
   }
 
+  // Two decimals, three under 0.1 (a line width of 0.035, a ripple of 0.028).
   fmt(v) {
-    return Number(v).toFixed(2).replace(/\.?0+$/, "") || "0";
+    const x = Number(v);
+    return x.toFixed(x !== 0 && Math.abs(x) < 0.1 ? 3 : 2).replace(/\.?0+$/, "") || "0";
   }
 
   // ------------------------------------------------------------ shared pickers (they read the draft)

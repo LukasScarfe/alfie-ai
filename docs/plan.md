@@ -241,6 +241,13 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         volume intents show it for one player (the playing one), `volume_screen` on. Tests
         (`tests/screens/volume.test.mjs`, layout, text size, converse). PNGs to Lukas.
   - [ ] B. Lukas's review.
+- [~] **12. Motion settings.** Asked by Lukas 2026-10-23 ("I want all available animations to be
+      customizeable in the interface"); built 2026-10-23 (0.17.0), see design.md "Motion".
+  - [x] A. `look.motion`: talking (rhythm, pulse, eyes, both, wave), breathing, blinking,
+        tiredness and screen transitions, with defaults equal to the old constants. Appearance →
+        Motion with dock tries (talk, tired, a sample screen per transition). `speak_strength` up to
+        5. Card `motion:` override. Tests (face maths, intros, `test_look`). PNGs to Lukas.
+  - [ ] B. Lukas's review.
 
 ## How an agent continues development
 

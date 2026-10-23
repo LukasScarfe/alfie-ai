@@ -48,10 +48,23 @@ const EASE = {
   tune: (t) => t, condense: (t) => 1 - (1 - t) ** 3,
 };
 
-export function presence(style, u, leaving = false) {
+// `overshoot` scales how far zoom, slide and flip spring past (Motion's
+// `overshoot`; 1 is xy-bench's, 0 none).
+export function presence(style, u, leaving = false, overshoot = 1) {
   u = clamp01(u);
   if (style === "cut") { const p = u >= 1 ? 1 : 0; return leaving ? 1 - p : p; }
-  return (EASE[style] || easeOut)(leaving ? 1 - u : u);
+  const x = leaving ? 1 - u : u;
+  if (EASE[style] === back && overshoot !== 1) return back(x, 1.5 * Math.max(0, overshoot));
+  return (EASE[style] || easeOut)(x);
+}
+
+// How long a style takes with a motion (alfie-face.js motionOf): its own
+// length from `transition_seconds`, else SECONDS, over `transition_speed`.
+// Undefined for an unknown style, so callers keep their fallback.
+export function secondsOf(style, m = null) {
+  const own = m?.transition_seconds?.[style];
+  const s = Number.isFinite(own) ? own : SECONDS[style];
+  return s === undefined ? undefined : s / Math.max(0.05, m?.transition_speed ?? 1);
 }
 
 // How visible the face is while a screen arrives with presence `p`.
