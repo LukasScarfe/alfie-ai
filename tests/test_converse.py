@@ -221,16 +221,25 @@ def test_music_screen_is_now_playing_for_the_named_players():
     states = {"media_player.kitchen": ("playing", {}), "light.a": ("on", {})}
     s = music_screen(["media_player.kitchen", "light.a", "media_player.gone"], states.get,
                      {"music_icon": "mdi:music"})
+    assert s is not None
     assert s["type"] == "nowplaying"
     assert s["options"] == {"players": ["media_player.kitchen"], "empty": "mdi:music",
-                            "show_title": True, "show_artist": True, "show_album": False, "bar": "none", "times": "none", "state_icon": False,
+                            "show_title": True, "show_artist": True, "show_album": False,
+                            "show_paused": False, "bar": "none", "times": "none", "state_icon": False,
                             "text_size": 1.5}
     # None named: any Music Assistant player; no badge set: the note.
-    o = music_screen([], states.get, {"music_icon": ""})["options"]
+    o = music_screen([], states.get, {"music_icon": ""}, ["media_player.kitchen"])["options"]
     assert o["players"] == [] and o["empty"] == "mdi:music-note"
     # Which of the song, artist and album show are settings.
-    o = music_screen([], states.get, {"music_show_title": False, "music_show_album": True})["options"]
+    o = music_screen([], states.get, {"music_show_title": False, "music_show_album": True},
+                     ["media_player.kitchen"])["options"]
     assert o["show_title"] is False and o["show_artist"] is True and o["show_album"] is True
+    # Only while something plays ("pause the music" shows nothing), unless asked.
+    paused = {"media_player.kitchen": ("paused", {}), "media_player.ma": ("idle", {})}
+    assert music_screen(["media_player.kitchen"], paused.get, {}) is None
+    assert music_screen([], paused.get, {}, ["media_player.kitchen", "media_player.ma"]) is None
+    o = music_screen(["media_player.kitchen"], paused.get, {"music_show_paused": True})["options"]
+    assert o["show_paused"] is True
 
 
 def test_a_volume_change_is_one_player_on_a_volume_screen():

@@ -269,19 +269,28 @@ def screen_for(kind: str, ids: list[str], state_of: State,
 SONG_AND_ARTIST = {"bar": "none", "times": "none", "state_icon": False, "text_size": 1.5}
 
 
-def music_screen(ids: list[str], state_of: State,
-                 settings: Mapping[str, Any]) -> dict[str, Any]:
+PLAYING = ("playing", "buffering")
+
+
+def music_screen(ids: list[str], state_of: State, settings: Mapping[str, Any],
+                 others: list[str] | None = None) -> dict[str, Any] | None:
     """The now playing screen for a music request: the players it named (any
-    Music Assistant player when it named none). Until one plays it shows the
-    music badge rather than "Nothing playing", as the music is on its way.
+    Music Assistant player, `others`, when it named none). Only while one of
+    them is playing (Lukas, 2026-10-23: "pause the music" must not bring it
+    up), unless `music_show_paused` is on: then a paused track shows too, and
+    until one plays the music badge rather than "Nothing playing".
     By default just the song and the artist (Lukas, 2026-10-22): no album, bar
     or times. Which of the song, artist and album show are settings."""
     players = [e for e in ids if e.startswith("media_player.") and state_of(e) is not None]
+    paused = bool(settings.get("music_show_paused", False))
+    if not paused and not any((state_of(e) or ("",))[0] in PLAYING for e in players or others or ()):
+        return None
     return {"type": "nowplaying", "title": "",
             "options": {"players": players, "empty": settings.get("music_icon") or "mdi:music-note",
                         "show_title": settings.get("music_show_title", True),
                         "show_artist": settings.get("music_show_artist", True),
                         "show_album": settings.get("music_show_album", False),
+                        "show_paused": paused,
                         **SONG_AND_ARTIST}}
 
 

@@ -1,7 +1,7 @@
 {"type": "nowplaying", "title": "Now playing", "needs": null,
  "options": [
    {"key": "players", "kind": "entities", "label": "Players", "domain": ["media_player"], "hint": "Empty: every Music Assistant player. The one playing shows; of several, the one started last."},
-   {"key": "show_paused", "kind": "bool", "label": "Show a paused track", "default": true, "hint": "With a pause mark, when nothing else is playing."},
+   {"key": "show_paused", "kind": "bool", "label": "Show a paused track", "default": false, "hint": "With a pause mark, when nothing else is playing. Off: only a playing track shows; in a rotation it is skipped otherwise."},
    {"key": "show_title", "kind": "bool", "label": "Song name", "default": true},
    {"key": "show_artist", "kind": "bool", "label": "Artist", "default": true},
    {"key": "show_album", "kind": "bool", "label": "Album", "default": true},
