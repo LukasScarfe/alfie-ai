@@ -574,8 +574,9 @@ built types:
     `media_position_updated_at` while playing, worked out each frame; the player is looked for
     once a second and the text is cached. Nothing playing: it skips in a rotation
     (`skip_empty`, on), else reads `empty` ("Nothing playing").
-  - Layout elements: title, artist, album, state, bar, times. No automatic hooks yet (voice
-    music requests still get the music reaction).
+  - The elements sit as one centred block, so fewer of them stay together. Layout elements:
+    title, artist, album, state, bar, times. A voice music request shows one (see "Voice
+    screens", Music).
 - **picture** (Lukas, 2026-10-20): an uploaded SVG (a floor plan, a logo, a drawing). Drawn in
   Alfie's line style: filled shapes as their outlines (closed, as icons are), stroke-only shapes as
   their lines.
@@ -737,8 +738,10 @@ in the panel's Voice → Screens (and Agents for the find tool).
   (a tool named like play_music, Spotify, a playlist or radio; or the words music, songs, a
   playlist... with something done or looked up) gets a reaction instead of a screen: his
   `music_expression` (happy) for a while, `music_animation` (groove: a sway and bob, three
-  times, ending on a wink; 4.8 s) and a `music_icon` badge (a note, top right). `music_screen`
-  shows the player's screen as well.
+  times, ending on a wink; 4.8 s) and a `music_icon` badge (a note, top right). With
+  `music_screen` (on) it also shows a `nowplaying` screen for `music_seconds` (15): just the song
+  and the artist (Lukas, 2026-10-22: no album, bar or times; text size 1.5), for the players the
+  turn named or any Music Assistant player. Until one plays it shows the badge's icon, large.
 - **The `toggle` type** (also a normal screen type): the entity's icon (its own, else by name
   words — coffee, lamp, grow, tv... — then by kind), a switch whose knob slides from `from` to the
   state (waits 0.45 s, then eases; exact at any frame rate), the name and the state ("On now"

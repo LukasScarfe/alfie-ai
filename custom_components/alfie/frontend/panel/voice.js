@@ -15,7 +15,7 @@ const ASSIST_KEYS = ["enabled", "satellites", "while_asleep", "listening_express
 const AGENT_KEYS = ["persona", "persona_prompt", "mood_aware", "assist_tool", "intent", "sentences", "find_entity"];
 const SCREEN_KEYS = ["screens", "action_screens", "answer_screens", "screen_present", "screen_seconds",
   "hold_while_speaking", "linger_seconds", "plot_hours", "plot_title", "plot_text_size", "max_grid", "screen_skip",
-  "music_animation", "music_expression", "music_icon", "music_screen"];
+  "music_animation", "music_expression", "music_icon", "music_screen", "music_seconds"];
 export const resets = { assistants: ASSIST_KEYS.map((k) => `voice.${k}`), agents: AGENT_KEYS.map((k) => `voice.${k}`),
   screens: SCREEN_KEYS.map((k) => `voice.${k}`) };
 
@@ -119,7 +119,8 @@ function screens(p) {
         ${U.field("He plays", U.select("voice.music_animation", v.music_animation, anims))}
         ${U.field("His face", U.select("voice.music_expression", v.music_expression, exprs))}
         ${U.field("Badge", U.text("voice.music_icon", v.music_icon, { placeholder: "None, or mdi:music-note" }))}</div>
-        ${U.check("voice.music_screen", v.music_screen, "A screen too", "Off: just his reaction, so it can be seen. On: the player's screen as well.")}`)}
+        ${U.check("voice.music_screen", v.music_screen, "Now playing too", "The title, artist, album and play bar of the player it started (any Music Assistant player if it named none). Off: just his reaction.")}
+        ${v.music_screen ? U.field("Now playing for", U.num("voice.music_seconds", v.music_seconds, { min: 1, max: 120, step: 1, unit: "s" })) : ""}`)}
     ${U.card("Last voice screen", peek)}`;
 }
 

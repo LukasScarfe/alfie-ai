@@ -18,9 +18,14 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.15.0.
+Version 0.15.1.
 
-**Latest (0.15.0, 2026-10-22, Lukas): the `nowplaying` screen type** (plan.md M10, design.md
+**Latest (0.15.1, 2026-10-22, Lukas): a voice music request shows Now playing**, just the song
+and the artist (`converse.music_screen`, `SONG_AND_ARTIST`), for `music_seconds` (15);
+`music_screen` now defaults on (set on in production's config too). The type's elements are
+now one centred block.
+
+**0.15.0: the `nowplaying` screen type** (plan.md M10, design.md
 "Screens"): title, artist, album and a play bar for the playing Music Assistant player, drawn
 client side from the media_player attributes. Built, tested and deployed; only Lukas's review is
 open (PNGs sent: playing, paused with blocks, long title in the corner, nothing playing). No

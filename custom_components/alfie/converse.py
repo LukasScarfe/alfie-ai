@@ -257,6 +257,22 @@ def screen_for(kind: str, ids: list[str], state_of: State,
                         "action": kind == "action"}}
 
 
+SONG_AND_ARTIST = {"show_album": False, "bar": "none", "times": "none", "state_icon": False,
+                   "text_size": 1.5}
+
+
+def music_screen(ids: list[str], state_of: State,
+                 settings: Mapping[str, Any]) -> dict[str, Any]:
+    """The now playing screen for a music request: the players it named (any
+    Music Assistant player when it named none). Until one plays it shows the
+    music badge rather than "Nothing playing", as the music is on its way.
+    Just the song and the artist (Lukas, 2026-10-22): no album, bar or times."""
+    players = [e for e in ids if e.startswith("media_player.") and state_of(e) is not None]
+    return {"type": "nowplaying", "title": "",
+            "options": {"players": players, "empty": settings.get("music_icon") or "mdi:music-note",
+                        **SONG_AND_ARTIST}}
+
+
 def speech_seconds(text: str) -> float:
     """About how long a reply takes to say (design.md: ~14 characters a second)."""
     return len(text or "") / 14.0

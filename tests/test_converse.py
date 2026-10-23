@@ -214,3 +214,17 @@ def test_music_requests_are_spotted():
     chat = turn_of({"role": "user", "content": "who wrote that song"},
                    {"role": "assistant", "agent_id": "x", "content": "Someone."})
     assert not is_music(chat)
+
+
+def test_music_screen_is_now_playing_for_the_named_players():
+    from alfie.converse import music_screen
+    states = {"media_player.kitchen": ("playing", {}), "light.a": ("on", {})}
+    s = music_screen(["media_player.kitchen", "light.a", "media_player.gone"], states.get,
+                     {"music_icon": "mdi:music"})
+    assert s["type"] == "nowplaying"
+    assert s["options"] == {"players": ["media_player.kitchen"], "empty": "mdi:music",
+                            "show_album": False, "bar": "none", "times": "none", "state_icon": False,
+                            "text_size": 1.5}
+    # None named: any Music Assistant player; no badge set: the note.
+    o = music_screen([], states.get, {"music_icon": ""})["options"]
+    assert o["players"] == [] and o["empty"] == "mdi:music-note"
