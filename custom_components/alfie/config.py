@@ -167,7 +167,7 @@ def default_voice() -> dict[str, Any]:
             "answer_screens": True, "screen_present": "corner", "screen_seconds": 5,
             "hold_while_speaking": False, "linger_seconds": 6,
             "plot_hours": 24, "plot_title": "icon", "plot_text_size": 2, "max_grid": 6,
-            "screen_skip": list(SCREEN_SKIP),
+            "screen_skip": list(SCREEN_SKIP), "volume_screen": True,
             # A request for music: an animation and a badge, and the now playing screen.
             "music_animation": "groove", "music_expression": "happy",
             "music_icon": "mdi:music-note", "music_screen": True, "music_seconds": 15}
@@ -648,6 +648,7 @@ def _voice(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
         "plot_text_size": _num(ck.number("voice plot text size", v["plot_text_size"], 0.5, 2, 2)),
         "max_grid": int(ck.number("voice screen grid size", v["max_grid"], 1, 12, 6)),
         "screen_skip": _skip_list(v["screen_skip"], ck),
+        "volume_screen": bool(v["volume_screen"]),
         "music_animation": ck.choice("voice music animation", v["music_animation"] or "",
                                      ("", *animations), ""),
         "music_expression": ck.choice("voice music expression", v["music_expression"] or "",

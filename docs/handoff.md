@@ -18,7 +18,17 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.15.1.
+Version 0.16.0.
+
+**Latest (0.16.0, 2026-10-22, Lukas): voice volume changes show the `volume` screen** (plan.md
+M11, design.md "Voice screens" Volume and "Screens" volume): a speaker icon and a slider for
+one player (the playing one), not a toggle grid of every player the intent set. Volume intents
+beat the music reaction. Setting `volume_screen` (on). Only Lukas's review is open (PNGs sent).
+`devenv/icons.json` gained the four mdi:volume-* paths for the harness.
+Same day, on production outside the repo: `script.play_music` with no query (or "music",
+"some music"...) plays the "Michelle + Lukas" Blend (`library://playlist/39`, the tangerine-red
+one Lukas picked); HA's own agent matches "play music" as turning that script on. Not run for
+real yet (it would start music in the house); its templates were rendered on production.
 
 **Latest (0.15.1, 2026-10-22, Lukas): a voice music request shows Now playing**, just the song
 and the artist (`converse.music_screen`, `SONG_AND_ARTIST`), for `music_seconds` (15);

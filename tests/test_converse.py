@@ -228,3 +228,24 @@ def test_music_screen_is_now_playing_for_the_named_players():
     # None named: any Music Assistant player; no badge set: the note.
     o = music_screen([], states.get, {"music_icon": ""})["options"]
     assert o["players"] == [] and o["empty"] == "mdi:music-note"
+
+
+def test_a_volume_change_is_one_player_on_a_volume_screen():
+    from alfie.converse import is_volume, volume_screen
+    ids = ["media_player.tv", "media_player.all", "media_player.record", "light.a"]
+    turn = turn_of({"role": "user", "content": "set the volume to 40%"},
+                   {"role": "assistant", "agent_id": "x", "tool_calls": [Call("HassSetVolume", {}, "1")]},
+                   intent_result("HassSetVolume", "1", "action_done", ids),
+                   {"role": "assistant", "agent_id": "x", "content": "Done"})
+    assert is_volume(turn) and turn.acted == ids
+    states = {"media_player.tv": ("off", {}), "media_player.all": ("idle", {"volume_level": 0.4}),
+              "media_player.record": ("playing", {"volume_level": 0.4}), "light.a": ("on", {})}
+    # The playing one, not a grid of every player it set.
+    assert volume_screen(ids, states.get) == {"type": "volume", "title": "",
+                                              "options": {"entity": "media_player.record"}}
+    assert volume_screen(["light.a"], states.get) is None
+    lights = turn_of({"role": "user", "content": "turn on the lights"},
+                     {"role": "assistant", "agent_id": "x", "tool_calls": [Call("HassTurnOn", {}, "1")]},
+                     intent_result("HassTurnOn", "1", "action_done", ["light.a"]),
+                     {"role": "assistant", "agent_id": "x", "content": "Done"})
+    assert not is_volume(lights)

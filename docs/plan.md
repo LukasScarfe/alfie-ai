@@ -229,6 +229,14 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] B. Voice music requests show it (song and artist only, `music_screen` on by default,
         `music_seconds`), 0.15.1. PNGs to Lukas.
   - [ ] C. Lukas's review.
+- [~] **11. Volume screen.** Asked by Lukas 2026-10-22 (the volume screen was "way overloaded":
+      a toggle grid of every player a volume intent set); built 2026-10-22 (0.16.0), see
+      design.md "Voice screens" (Volume) and "Screens" (volume).
+  - [x] A. Type `volume` (client only): a speaker icon by level and a slider (line, dotted,
+        blocks) whose knob eases to the volume; percentage and name off by default. Voice
+        volume intents show it for one player (the playing one), `volume_screen` on. Tests
+        (`tests/screens/volume.test.mjs`, layout, text size, converse). PNGs to Lukas.
+  - [ ] B. Lukas's review.
 
 ## How an agent continues development
 

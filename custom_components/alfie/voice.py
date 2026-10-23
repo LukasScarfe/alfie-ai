@@ -374,11 +374,15 @@ class Voice:
         def state_of(eid: str) -> tuple[str, dict[str, Any]] | None:
             st = self.hass.states.get(eid)
             return None if st is None else (st.state, dict(st.attributes))
-        music = converse.is_music(turn)
+        # "Turn the music up" changes a volume: the slider, not a music reaction.
+        volume = kind == "action" and v["volume_screen"] and converse.is_volume(turn)
+        music = not volume and converse.is_music(turn)
         if music:
             engine.music_reaction()
         if music:
             scr = converse.music_screen(ids, state_of, v) if v["music_screen"] else None
+        elif volume:
+            scr = converse.volume_screen(ids, state_of) if v["action_screens"] else None
         else:
             scr = converse.screen_for(kind, ids, state_of, v, turn.froms)
         self.last = {"at": time.time(), "said": turn.said, "reply": turn.reply, "kind": kind,

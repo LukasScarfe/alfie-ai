@@ -577,6 +577,11 @@ built types:
   - The elements sit as one centred block, so fewer of them stay together. Layout elements:
     title, artist, album, state, bar, times. A voice music request shows one (see "Voice
     screens", Music).
+- **volume** (Lukas, 2026-10-22): a media player's volume as a speaker icon (high, medium, low
+  or off by the level; any icon instead) and a slider, `line` (the set part bold in the accent,
+  a knob, the rest thin), `dotted` or `blocks`. The knob eases to a new level as the player
+  reports it. `show_percent` and `show_name` are off by default. Client only. Layout elements:
+  name, icon, slider, percent. Voice volume changes show one (see "Voice screens", Volume).
 - **picture** (Lukas, 2026-10-20): an uploaded SVG (a floor plan, a logo, a drawing). Drawn in
   Alfie's line style: filled shapes as their outlines (closed, as icons are), stroke-only shapes as
   their lines.
@@ -742,6 +747,16 @@ in the panel's Voice → Screens (and Agents for the find tool).
   `music_screen` (on) it also shows a `nowplaying` screen for `music_seconds` (15): just the song
   and the artist (Lukas, 2026-10-22: no album, bar or times; text size 1.5), for the players the
   turn named or any Music Assistant player. Until one plays it shows the badge's icon, large.
+- **Volume** (Lukas, 2026-10-22: "just a volume icon with a slider that is at the current volume
+  amount"): a turn whose intents change a volume (HassSetVolume, HassSetVolumeRelative,
+  HassMediaPlayerMute / Unmute) shows the `volume` screen for one player instead of a toggle
+  grid of every player it set (an unnamed "set the volume to 40%" sets all of them): the
+  playing one, else one that is on, else any with a volume (`converse.volume_screen`). It beats
+  the music reaction ("turn the music up"). `volume_screen` (on) turns it off; it is an action
+  screen, so `action_screens` off hides it too.
+- **Default music** (production's `script.play_music`, outside the repo): "play music" with no
+  particular music plays the "Michelle + Lukas" Spotify Blend. HA's own agent runs "play music"
+  as turning that script on; Gemini is told to leave its query empty.
 - **The `toggle` type** (also a normal screen type): the entity's icon (its own, else by name
   words — coffee, lamp, grow, tv... — then by kind), a switch whose knob slides from `from` to the
   state (waits 0.45 s, then eases; exact at any frame rate), the name and the state ("On now"

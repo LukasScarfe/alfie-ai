@@ -25,8 +25,12 @@ ACTION_INTENTS = frozenset({
     "HassTurnOn", "HassTurnOff", "HassToggle", "HassLightSet", "HassSetPosition",
     "HassOpenCover", "HassCloseCover", "HassLockDoor", "HassUnlockDoor",
     "HassFanSetSpeed", "HassClimateSetTemperature", "HassMediaPause", "HassMediaUnpause",
-    "HassMediaNext", "HassMediaPrevious", "HassSetVolume", "HassVacuumStart",
+    "HassMediaNext", "HassMediaPrevious", "HassSetVolume", "HassSetVolumeRelative",
+    "HassMediaPlayerMute", "HassMediaPlayerUnmute", "HassVacuumStart",
     "HassVacuumReturnToBase", "HassValveOpen", "HassValveClose"})
+# Intents that change a volume: their turn shows the volume screen.
+VOLUME_INTENTS = frozenset({"HassSetVolume", "HassSetVolumeRelative", "HassMediaPlayerMute",
+                            "HassMediaPlayerUnmute"})
 # The state a switch was in before the intent, for the knob to slide from.
 FROM_STATE = {"HassTurnOn": "off", "HassTurnOff": "on", "HassOpenCover": "closed",
               "HassCloseCover": "open", "HassLockDoor": "unlocked", "HassUnlockDoor": "locked",
@@ -156,6 +160,11 @@ def is_music(turn: Turn) -> bool:
     return bool(MUSIC_WORDS.search(turn.said)) and (media or bool(turn.tools))
 
 
+def is_volume(turn: Turn) -> bool:
+    """Whether the turn changed a volume (and played no music)."""
+    return any(t in VOLUME_INTENTS for t in turn.tools)
+
+
 def plot_icon(attrs: Mapping[str, Any]) -> str:
     """An icon for a sensor's kind: its device class's, else its own, else a chart."""
     return CLASS_ICONS.get(str(attrs.get("device_class") or "")) or str(
@@ -271,6 +280,28 @@ def music_screen(ids: list[str], state_of: State,
     return {"type": "nowplaying", "title": "",
             "options": {"players": players, "empty": settings.get("music_icon") or "mdi:music-note",
                         **SONG_AND_ARTIST}}
+
+
+# Which player a volume screen shows when a turn changed several: one playing,
+# then one that is on, then any with a volume.
+_LIVE = {"playing": 3, "paused": 2, "on": 2, "idle": 1, "buffering": 3}
+
+
+def volume_screen(ids: list[str], state_of: State) -> dict[str, Any] | None:
+    """The volume screen for a turn that changed a volume: a speaker icon and a
+    slider for one player (Lukas, 2026-10-22: "just a volume icon with a
+    slider"), not a grid of every player it set."""
+    best, rank = None, -1
+    for e in ids:
+        st = state_of(e) if e.startswith("media_player.") else None
+        if st is None:
+            continue
+        r = _LIVE.get(st[0], 0) * 2 + (st[1].get("volume_level") is not None)
+        if r > rank:
+            best, rank = e, r
+    if best is None:
+        return None
+    return {"type": "volume", "title": "", "options": {"entity": best}}
 
 
 def speech_seconds(text: str) -> float:
