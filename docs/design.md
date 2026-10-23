@@ -566,7 +566,8 @@ built types:
   (each turns off: `show_title`, `show_artist`, `show_album`; Lukas, 2026-10-22), then a play or pause mark (`state_icon`), the play bar and the times.
   - Players: the ones picked, or with none every Music Assistant player (`app_id`
     music_assistant) but its groups. The playing one shows; of several, the one updated last;
-    a paused one when nothing plays (`show_paused`, on).
+    a paused one only with `show_paused` (Lukas, 2026-10-23: off by default, it shows only
+    while something is playing, and a rotation skips it otherwise).
   - Bar: `line` (the played part bold in the accent, a knob, the rest thin), `dotted`, `blocks`
     or `none`. Times: elapsed and total, elapsed and remaining, elapsed, or none. A stream with
     no length shows only the elapsed time.
@@ -747,7 +748,9 @@ in the panel's Voice → Screens (and Agents for the find tool).
   `music_screen` (on) it also shows a `nowplaying` screen for `music_seconds` (15): just the song
   and the artist (Lukas, 2026-10-22: no album, bar or times; text size 1.5; the song, artist
   and album are each a setting, `music_show_title` / `_artist` / `_album`), for the players the
-  turn named or any Music Assistant player. Until one plays it shows the badge's icon, large.
+  turn named or any Music Assistant player. Only if one of them is playing when the turn ends
+  (Lukas, 2026-10-23: "pause the music" must not bring it up); `music_show_paused` (off) shows
+  a paused track too, and the badge's icon, large, until one plays.
 - **Volume** (Lukas, 2026-10-22: "just a volume icon with a slider that is at the current volume
   amount"): a turn whose intents change a volume (HassSetVolume, HassSetVolumeRelative,
   HassMediaPlayerMute / Unmute) shows the `volume` screen for one player instead of a toggle

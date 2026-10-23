@@ -380,7 +380,10 @@ class Voice:
         if music:
             engine.music_reaction()
         if music:
-            scr = converse.music_screen(ids, state_of, v) if v["music_screen"] else None
+            # With no player named, any Music Assistant player (its groups too) may be the one.
+            others = [s.entity_id for s in self.hass.states.async_all("media_player")
+                      if s.attributes.get("app_id") == "music_assistant"]
+            scr = converse.music_screen(ids, state_of, v, others) if v["music_screen"] else None
         elif volume:
             scr = converse.volume_screen(ids, state_of) if v["action_screens"] else None
         else:

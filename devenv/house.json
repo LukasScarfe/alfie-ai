@@ -1164,7 +1164,7 @@
     "screen_present": "corner", "screen_seconds": 5, "hold_while_speaking": false, "linger_seconds": 6,
     "plot_hours": 24, "plot_title": "icon", "plot_text_size": 2, "max_grid": 6,
     "screen_skip": ["script", "scene", "automation", "todo", "schedule", "button", "conversation", "tts", "stt", "update", "event"],
-    "volume_screen": true, "music_animation": "groove", "music_expression": "happy", "music_icon": "mdi:music-note", "music_screen": true, "music_seconds": 15, "music_show_title": true, "music_show_artist": true, "music_show_album": false
+    "volume_screen": true, "music_animation": "groove", "music_expression": "happy", "music_icon": "mdi:music-note", "music_screen": true, "music_seconds": 15, "music_show_title": true, "music_show_artist": true, "music_show_album": false, "music_show_paused": false
  },
  "overview": {
   "dismissed": true,

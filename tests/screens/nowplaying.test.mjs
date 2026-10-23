@@ -32,8 +32,9 @@ check(choose(states, defaults) === "media_player.kitchen", "every MA player but 
 check(choose(states, { ...defaults, players: ["media_player.all", "media_player.kitchen"] }) === "media_player.all", "a named group counts; the later one wins");
 check(choose(states, { ...defaults, players: ["media_player.bedroom"] }) === null, "an idle player isn't shown");
 const paused = { "media_player.kitchen": player("paused") };
-check(choose(paused, defaults) === "media_player.kitchen", "paused shows by default");
-check(choose(paused, { ...defaults, show_paused: false }) === null, "paused left out when asked");
+check(choose(paused, defaults) === null, "paused left out by default: only a playing track shows");
+check(choose(paused, { ...defaults, show_paused: true }) === "media_player.kitchen", "paused shows when asked");
+check(mod.rotation({ data: null, options: defaults, states: paused, S }).skip === true, "skips in a rotation while paused");
 check(choose({ a: player("paused"), "media_player.b": player("playing", {}, "2026-01-01T00:00:00Z"), "media_player.a": player("paused") }, defaults) === "media_player.b", "playing beats a later paused");
 
 // Where in the song.
@@ -57,7 +58,7 @@ for (const [w, h] of [[1.6, 1], [1, 1], [0.7, 1], [1.6, 0.6]]) {
 // The bar's filled part (accent, w > 2) grows with time.
 const fill = (t) => { const s = draw({}, { t }).find((x) => x.role === "accent" && x.w > 2); return s ? s.pts[1][0] - s.pts[0][0] : 0; };
 check(fill(T0 + 200) > fill(T0 + 50) && fill(T0 + 50) > 0, "the bar fills as the song goes");
-const pausedFill = (t) => draw({}, { t, st: paused }).find((x) => x.role === "accent" && x.w > 2).pts[1][0];
+const pausedFill = (t) => draw({ show_paused: true }, { t, st: paused }).find((x) => x.role === "accent" && x.w > 2).pts[1][0];
 check(pausedFill(T0 + 50) === pausedFill(T0 + 200), "a paused bar holds");
 // Missing parts close up.
 const noAlbum = draw({}, { st: { "media_player.k": player("playing", { media_album_name: "", media_duration: 0 }) } });

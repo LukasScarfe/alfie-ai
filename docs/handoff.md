@@ -18,7 +18,13 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.16.1.
+Version 0.16.2.
+
+**Latest (0.16.2, 2026-10-23, Lukas): Now playing shows only while something is PLAYING.**
+The type's `show_paused` defaults off (a rotation skips it while paused), and a voice music
+turn makes no screen unless a named player (or, none named, any Music Assistant player) is
+playing; `music_show_paused` (Voice → Screens → Music, off) brings back paused tracks and the
+waiting badge. Lukas's production nowplaying screen had `show_paused: true` stored; set off.
 
 **Latest (0.16.1, 2026-10-22, Lukas):** the nowplaying type's song name, artist and album each
 turn off (`show_title`, `show_artist`, `show_album`), and the voice music screen has the same

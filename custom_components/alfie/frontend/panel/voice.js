@@ -16,7 +16,7 @@ const AGENT_KEYS = ["persona", "persona_prompt", "mood_aware", "assist_tool", "i
 const SCREEN_KEYS = ["screens", "action_screens", "answer_screens", "screen_present", "screen_seconds",
   "hold_while_speaking", "linger_seconds", "plot_hours", "plot_title", "plot_text_size", "max_grid", "screen_skip",
   "volume_screen", "music_animation", "music_expression", "music_icon", "music_screen", "music_seconds",
-  "music_show_title", "music_show_artist", "music_show_album"];
+  "music_show_title", "music_show_artist", "music_show_album", "music_show_paused"];
 export const resets = { assistants: ASSIST_KEYS.map((k) => `voice.${k}`), agents: AGENT_KEYS.map((k) => `voice.${k}`),
   screens: SCREEN_KEYS.map((k) => `voice.${k}`) };
 
@@ -125,7 +125,8 @@ function screens(p) {
         ${v.music_screen ? `${U.field("Now playing for", U.num("voice.music_seconds", v.music_seconds, { min: 1, max: 120, step: 1, unit: "s" }))}
         ${U.check("voice.music_show_title", v.music_show_title, "Song name")}
         ${U.check("voice.music_show_artist", v.music_show_artist, "Artist")}
-        ${U.check("voice.music_show_album", v.music_show_album, "Album")}` : ""}`)}
+        ${U.check("voice.music_show_album", v.music_show_album, "Album")}
+        ${U.check("voice.music_show_paused", v.music_show_paused, "Also when nothing is playing", "A paused track, or the badge while the music starts. Off: only while a player is playing, so pausing the music shows nothing.")}` : ""}`)}
     ${U.card("Last voice screen", peek)}`;
 }
 
