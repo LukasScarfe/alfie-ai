@@ -731,6 +731,10 @@ in the panel's Voice → Screens (and Agents for the find tool).
     conversation that goes on ends with an UPDATED event carrying the whole log.
 - **The screen** (`converse.screen_for`):
   - an action: the `toggle` type, its knob starting at the state before (HassTurnOn → off);
+  - words only where they add something (Lukas, 2026-10-23: `screen_text` minimal, the
+    default): one switch is its icon and its switch, with no name or "On now"; a grid keeps
+    its names to tell the cells apart. `full` brings the name and state back. Music's song
+    and artist are the kind of text that adds something;
   - an answer: numbers with one unit → `plot` over `plot_hours` (default 24), titled by
     `plot_title` (Lukas, 2026-10-22: default `icon`, an MDI icon for the sensor's kind from its
     device class, e.g. a thermometer; or icon_name, name, none) at `plot_text_size` 2;
@@ -766,6 +770,8 @@ in the panel's Voice → Screens (and Agents for the find tool).
   state (waits 0.45 s, then eases; exact at any frame rate), the name and the state ("On now"
   after an action). One entity fills the screen with layout boxes (title, icon, switch, name,
   state); several are a grid of cells. Things that aren't on or off show their state, no switch.
+  `show_name` and `show_state` (on) turn the names and the state in words off; a thing that
+  isn't on or off keeps its state.
 - **Presenting**:
   - The scene's `screen` is `{"id": "@voice:<seq>", "inline": {type, title, options}, "present",
     "hold"}`, and cards register it like an icon screen.

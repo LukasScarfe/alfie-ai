@@ -18,7 +18,13 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.16.2.
+Version 0.16.3.
+
+**Latest (0.16.3, 2026-10-23, Lukas): voice screens carry words only where they add
+something.** `voice.screen_text` minimal (default): a single switch is its icon and switch, a
+grid keeps names, no "On now"; `full` restores them. The toggle type gained `show_name` and
+`show_state`. PNGs sent. Lukas also asked whether he can create and customise the screens a
+voice command shows; a proposal (voice screen rules) was put to him, not built yet.
 
 **Latest (0.16.2, 2026-10-23, Lukas): Now playing shows only while something is PLAYING.**
 The type's `show_paused` defaults off (a rotation skips it while paused), and a voice music

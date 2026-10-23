@@ -42,6 +42,13 @@ const live = {}, a = knobX(draw(o, { shown: 0.2, memo: live }));
 check(Math.abs(a - start) < 1e-9, "knob waits at from before sliding");
 check(knobX(draw({ entities: ["switch.c"] }, { shown: 0 })) === home, "no from: the knob starts home");
 
+// Words off: a switch alone draws less, and a sensor still shows its state.
+const words = draw({ entities: ["switch.c"] }), bare = draw({ entities: ["switch.c"], show_name: false, show_state: false });
+check(valid(bare) && inBox(bare, 1.6, 1) && bare.length < words.length, "names and state off draw less");
+check(knobX(bare) !== null, "the switch stays");
+const sensorBare = draw({ entities: ["sensor.t"], show_name: false, show_state: false });
+check(sensorBare.length > draw({ entities: ["sensor.t"], show_name: false, show_state: false, layout: { state: { show: false } } }).length, "a sensor keeps its state");
+
 // A number has no switch, just its state.
 const t = draw({ entities: ["sensor.t"] });
 check(knobX(t) === null, "a sensor shows no switch");
