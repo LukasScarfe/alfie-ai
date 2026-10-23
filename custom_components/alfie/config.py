@@ -168,9 +168,9 @@ def default_voice() -> dict[str, Any]:
             "hold_while_speaking": False, "linger_seconds": 6,
             "plot_hours": 24, "plot_title": "icon", "plot_text_size": 2, "max_grid": 6,
             "screen_skip": list(SCREEN_SKIP),
-            # A request for music: an animation and a badge instead of a screen.
+            # A request for music: an animation and a badge, and the now playing screen.
             "music_animation": "groove", "music_expression": "happy",
-            "music_icon": "mdi:music-note", "music_screen": False}
+            "music_icon": "mdi:music-note", "music_screen": True, "music_seconds": 15}
 
 
 def default_config() -> dict[str, Any]:
@@ -654,6 +654,7 @@ def _voice(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
                                       ("", *expressions), ""),
         "music_icon": _music_icon(v["music_icon"], ck),
         "music_screen": bool(v["music_screen"]),
+        "music_seconds": _num(ck.number("voice music screen time", v["music_seconds"], 1, 120, 15)),
     }
 
 

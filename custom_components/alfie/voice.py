@@ -377,8 +377,10 @@ class Voice:
         music = converse.is_music(turn)
         if music:
             engine.music_reaction()
-        scr = None if music and not v["music_screen"] else converse.screen_for(
-            kind, ids, state_of, v, turn.froms)
+        if music:
+            scr = converse.music_screen(ids, state_of, v) if v["music_screen"] else None
+        else:
+            scr = converse.screen_for(kind, ids, state_of, v, turn.froms)
         self.last = {"at": time.time(), "said": turn.said, "reply": turn.reply, "kind": kind,
                      "entities": ids, "screen": scr["type"] if scr else None, "music": music}
         meta = engine.types.get(scr["type"]) if scr else None
@@ -389,7 +391,7 @@ class Voice:
         except ConfigError as e:
             _LOGGER.debug("voice screen not shown: %s", e)
             return
-        engine.show_voice_screen(scr, v["screen_seconds"],
+        engine.show_voice_screen(scr, v["music_seconds"] if music else v["screen_seconds"],
                                  hold=v["hold_while_speaking"] and bool(engine.voice))
 
     @callback

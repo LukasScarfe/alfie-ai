@@ -90,14 +90,19 @@ function lay(w, h, o, st, S) {
   const nTitle = Math.min(max, S.wrap(title, full.w / th).length || 1);
   const timesOn = o.times !== "none", barOn = o.bar !== "none";
   const rowOn = (barOn && L.flow("bar")) || (o.state_icon && L.flow("state"));
-  const bands = S.stack(full, [
+  // The elements as one block, centred: with fewer of them (just the song and
+  // the artist) they stay together rather than spreading over the screen.
+  const gap = h * 0.09;
+  const list = [
     title && L.flow("title") && { key: "title", h: th * (1 + PITCH * (nTitle - 1)) },
     artist && L.flow("artist") && { key: "artist", h: Math.min(0.22, h * 0.13) * ts * L.size("artist") },
     album && L.flow("album") && { key: "album", h: Math.min(0.18, h * 0.11) * ts * L.size("album") },
     rowOn && { key: "gap", h: h * 0.06 },
     rowOn && { key: "row", h: Math.min(0.14, h * 0.09) },
     timesOn && L.flow("times") && { key: "times", h: Math.min(0.13, h * 0.08) * ts * L.size("times") },
-  ], h * 0.045, { spread: true });
+  ].filter(Boolean);
+  const tall = Math.min(full.h, list.reduce((t, x) => t + x.h, 0) + gap * Math.max(0, list.length - 1));
+  const bands = S.stack(S.rect(full.x0, full.cy - tall / 2, full.x1, full.cy + tall / 2), list, gap);
   const out = [];
   if (title && L.show("title")) {
     const r = L.box("title", bands.title || null);
@@ -144,8 +149,9 @@ export default {
     const st = memo.id ? states[memo.id] : null;
     if (!st) {
       memo.boxes = {};
-      const msg = S.title(o.empty) || "--";
-      return S.fitText(msg, S.inset(S.rect(-w, -h, w, h), w * 0.1, h * 0.1), Math.min(0.3, h * 0.25) * (Number(o.text_size) || 1), { role: "dim" });
+      // A lone icon (a voice music request's badge, while the music starts) is drawn large.
+      const msg = S.title(o.empty) || "--", big = S.isIcon(msg) ? Math.min(0.9, h * 0.6) / S.ICON_W : Math.min(0.3, h * 0.25);
+      return S.fitText(msg, S.inset(S.rect(-w, -h, w, h), w * 0.1, h * 0.1), big * (Number(o.text_size) || 1), { role: "dim" });
     }
     const a = st.attributes;
     const key = [memo.id, a.media_title, a.media_artist, a.media_album_name, w.toFixed(3), h.toFixed(3), o.text_size,
