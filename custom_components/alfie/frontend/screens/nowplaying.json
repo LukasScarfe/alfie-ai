@@ -1,0 +1,21 @@
+{"type": "nowplaying", "title": "Now playing", "needs": null,
+ "options": [
+   {"key": "players", "kind": "entities", "label": "Players", "domain": ["media_player"], "hint": "Empty: every Music Assistant player. The one playing shows; of several, the one started last."},
+   {"key": "show_paused", "kind": "bool", "label": "Show a paused track", "default": true, "hint": "With a pause mark, when nothing else is playing."},
+   {"key": "show_album", "kind": "bool", "label": "Album", "default": true},
+   {"key": "times", "kind": "choice", "label": "Times", "default": "elapsed_total", "choices": ["elapsed_total", "elapsed_remaining", "elapsed", "none"]},
+   {"key": "bar", "kind": "choice", "label": "Play bar", "default": "line", "choices": ["line", "dotted", "blocks", "none"], "hint": "dotted: the rest of the song dotted. blocks: a row of segments."},
+   {"key": "state_icon", "kind": "bool", "label": "Play or pause mark", "default": true},
+   {"key": "title_lines", "kind": "number", "label": "Title lines", "default": 2, "min": 1, "max": 3, "hint": "A long title wraps onto this many lines before it shrinks.", "more": true},
+   {"key": "skip_empty", "kind": "bool", "label": "Skip it in a rotation while nothing is playing", "default": true, "more": true},
+   {"key": "empty", "kind": "text", "label": "When nothing is playing", "default": "Nothing playing", "more": true},
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×"},
+   {"key": "layout", "kind": "layout", "label": "Layout", "default": {}, "elements": [
+     {"key": "title", "label": "Title", "text": true},
+     {"key": "artist", "label": "Artist", "text": true},
+     {"key": "album", "label": "Album", "text": true},
+     {"key": "state", "label": "Play or pause mark"},
+     {"key": "bar", "label": "Play bar"},
+     {"key": "times", "label": "Times", "text": true}
+   ]}
+ ]}

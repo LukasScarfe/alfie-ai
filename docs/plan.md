@@ -220,6 +220,13 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
   - [x] G. Tests (find_entity scoring, chat-log fixtures from real turns, mapping, toggle boxes),
         design.md, screens-contract.md, release, prod check.
   - [ ] H. Lukas's review (PNGs sent 2026-10-22: action toggle, answer plot, grid).
+- [~] **10. Now playing screen.** Asked by Lukas 2026-10-22; built 2026-10-22 (0.15.0), see
+      design.md "Screens" (nowplaying).
+  - [x] A. Type `nowplaying` (client only, `needs: null`): title (wraps), artist, album, a
+        play/pause mark, a play bar (line, dotted, blocks) and times; the playing Music
+        Assistant player (or picked players), paused shown, skips in a rotation while idle.
+        Tests (`tests/screens/nowplaying.test.mjs`, layout, text size). PNGs to Lukas.
+  - [ ] B. Lukas's review.
 
 ## How an agent continues development
 

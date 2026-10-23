@@ -21,6 +21,8 @@ const states = {
   "sensor.b": { state: "17", attributes: { friendly_name: "Fern", unit_of_measurement: "%" } },
   "sensor.in": { state: "21.4", attributes: {} }, "sensor.out": { state: "8.2", attributes: {} },
   "device_tracker.a": { state: "home", attributes: { latitude: 51.5002, longitude: -0.1198, friendly_name: "Anna" } },
+  "media_player.m": { state: "playing", attributes: { app_id: "music_assistant", media_title: "Mr. Blue Sky", media_artist: "ELO",
+    media_album_name: "Out of the Blue", media_duration: 303, media_position: 40, media_position_updated_at: "2026-10-23T00:35:21Z" } },
 };
 const config = { latitude: 51.5, longitude: -0.12, time_zone: "Europe/London" };
 const hourly = { type: "hourly", unit: "°C", times: Array.from({ length: 24 }, (_, i) => T0 + 3600 * i),
@@ -42,6 +44,7 @@ const cases = [
   ["sky", { moon_times: true }, null],
   ["stars", {}, null],
   ["map", { trackers: ["device_tracker.a"], title: "Anna" }, null],
+  ["nowplaying", {}, null],
 ];
 
 for (const [type, o, data] of cases) {

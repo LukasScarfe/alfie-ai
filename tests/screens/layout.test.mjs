@@ -23,6 +23,8 @@ const states = {
   "sensor.in": { state: "21.4", attributes: {} }, "sensor.out": { state: "8.2", attributes: {} },
   "device_tracker.a": { state: "home", attributes: { latitude: 51.5002, longitude: -0.1198, friendly_name: "Anna" } },
   "switch.c": { state: "on", attributes: { friendly_name: "Coffee maker" } },
+  "media_player.m": { state: "playing", attributes: { app_id: "music_assistant", media_title: "Mr. Blue Sky", media_artist: "ELO",
+    media_album_name: "Out of the Blue", media_duration: 303, media_position: 40, media_position_updated_at: "2026-10-23T00:35:21Z" } },
 };
 const config = { latitude: 51.5, longitude: -0.12, time_zone: "Europe/London" };
 const hourly = { type: "hourly", unit: "°C", times: Array.from({ length: 24 }, (_, i) => T0 + 3600 * i),
@@ -48,7 +50,8 @@ const cases = [
 
 cases.push(["label", { text: "Hello there" }, null], ["text", { source: "fixed", fixed: "Happy birthday Anna" }, null],
   ["value", { entity: "sensor.a", label: "Basil" }, null], ["picture", { picture: "p", caption: "Plan" }, { svg: '<svg viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8"/></svg>' }],
-  ["weather", { forecast: "daily", title: "Home" }, daily], ["toggle", { entities: ["switch.c"], title: "Kitchen", action: true, from: "off" }, null]);
+  ["weather", { forecast: "daily", title: "Home" }, daily], ["toggle", { entities: ["switch.c"], title: "Kitchen", action: true, from: "off" }, null],
+  ["nowplaying", {}, null]);
 const BOX = [55, 10, 40, 30];   // % of the screen from the top left
 for (const [type, o, data] of cases) {
   const mod = (await import(`../../custom_components/alfie/frontend/screens/${type}.js`)).default;

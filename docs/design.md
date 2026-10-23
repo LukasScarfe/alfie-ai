@@ -561,6 +561,21 @@ built types:
 - **label**: plain text, the reference type.
 - **toggle** (2026-10-22): an icon with a sliding switch, the name and the state, for one
   entity or a grid of them. Made by voice screens (see "Voice screens"), usable as any screen.
+- **nowplaying** (Lukas, 2026-10-22): what a Music Assistant player is playing. Stacked and
+  centred: the title (wraps onto `title_lines`, 2, before it shrinks), the artist, the album
+  (`show_album`), then a play or pause mark (`state_icon`), the play bar and the times.
+  - Players: the ones picked, or with none every Music Assistant player (`app_id`
+    music_assistant) but its groups. The playing one shows; of several, the one updated last;
+    a paused one when nothing plays (`show_paused`, on).
+  - Bar: `line` (the played part bold in the accent, a knob, the rest thin), `dotted`, `blocks`
+    or `none`. Times: elapsed and total, elapsed and remaining, elapsed, or none. A stream with
+    no length shows only the elapsed time.
+  - Client only (`needs: null`): the position is `media_position` plus the time since
+    `media_position_updated_at` while playing, worked out each frame; the player is looked for
+    once a second and the text is cached. Nothing playing: it skips in a rotation
+    (`skip_empty`, on), else reads `empty` ("Nothing playing").
+  - Layout elements: title, artist, album, state, bar, times. No automatic hooks yet (voice
+    music requests still get the music reaction).
 - **picture** (Lukas, 2026-10-20): an uploaded SVG (a floor plan, a logo, a drawing). Drawn in
   Alfie's line style: filled shapes as their outlines (closed, as icons are), stroke-only shapes as
   their lines.

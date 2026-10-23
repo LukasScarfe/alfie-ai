@@ -18,7 +18,13 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.14.1.
+Version 0.15.0.
+
+**Latest (0.15.0, 2026-10-22, Lukas): the `nowplaying` screen type** (plan.md M10, design.md
+"Screens"): title, artist, album and a play bar for the playing Music Assistant player, drawn
+client side from the media_player attributes. Built, tested and deployed; only Lukas's review is
+open (PNGs sent: playing, paused with blocks, long title in the corner, nothing playing). No
+nowplaying screen is configured on production yet; one has to be built in the panel to use it.
 
 **Latest (0.14.1, 2026-10-22, Lukas):** voice plots are titled by an MDI icon for the sensor's
 kind (`converse.plot_icon`, setting `plot_title`) at `plot_text_size` 2; voice screens show
