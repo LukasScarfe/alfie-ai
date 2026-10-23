@@ -82,7 +82,8 @@ function titleLines(s, max, hh, r, S) {
 function lay(w, h, o, st, S) {
   const L = S.layout(w, h, o.layout);
   const a = st.attributes, ts = Number(o.text_size) || 1;
-  const title = S.title(a.media_title || ""), artist = S.title(a.media_artist || a.media_album_artist || "");
+  const title = o.show_title !== false ? S.title(a.media_title || "") : "";
+  const artist = o.show_artist !== false ? S.title(a.media_artist || a.media_album_artist || "") : "";
   const album = o.show_album ? S.title(a.media_album_name || "") : "";
   const full = S.inset(S.rect(-w, -h, w, h), w * 0.08, h * 0.1);
   const max = Math.max(1, Math.min(3, Math.round(Number(o.title_lines) || 2)));
@@ -155,7 +156,7 @@ export default {
     }
     const a = st.attributes;
     const key = [memo.id, a.media_title, a.media_artist, a.media_album_name, w.toFixed(3), h.toFixed(3), o.text_size,
-      o.show_album, o.title_lines, o.times, o.bar, o.state_icon, JSON.stringify(o.layout || {}), S.iconStamp()].join("|");
+      o.show_title, o.show_artist, o.show_album, o.title_lines, o.times, o.bar, o.state_icon, JSON.stringify(o.layout || {}), S.iconStamp()].join("|");
     if (memo.key !== key) {
       memo.key = key;
       memo.lay = lay(w, h, o, st, S);

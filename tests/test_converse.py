@@ -223,11 +223,14 @@ def test_music_screen_is_now_playing_for_the_named_players():
                      {"music_icon": "mdi:music"})
     assert s["type"] == "nowplaying"
     assert s["options"] == {"players": ["media_player.kitchen"], "empty": "mdi:music",
-                            "show_album": False, "bar": "none", "times": "none", "state_icon": False,
+                            "show_title": True, "show_artist": True, "show_album": False, "bar": "none", "times": "none", "state_icon": False,
                             "text_size": 1.5}
     # None named: any Music Assistant player; no badge set: the note.
     o = music_screen([], states.get, {"music_icon": ""})["options"]
     assert o["players"] == [] and o["empty"] == "mdi:music-note"
+    # Which of the song, artist and album show are settings.
+    o = music_screen([], states.get, {"music_show_title": False, "music_show_album": True})["options"]
+    assert o["show_title"] is False and o["show_artist"] is True and o["show_album"] is True
 
 
 def test_a_volume_change_is_one_player_on_a_volume_screen():

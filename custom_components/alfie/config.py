@@ -170,7 +170,8 @@ def default_voice() -> dict[str, Any]:
             "screen_skip": list(SCREEN_SKIP), "volume_screen": True,
             # A request for music: an animation and a badge, and the now playing screen.
             "music_animation": "groove", "music_expression": "happy",
-            "music_icon": "mdi:music-note", "music_screen": True, "music_seconds": 15}
+            "music_icon": "mdi:music-note", "music_screen": True, "music_seconds": 15,
+            "music_show_title": True, "music_show_artist": True, "music_show_album": False}
 
 
 def default_config() -> dict[str, Any]:
@@ -656,6 +657,9 @@ def _voice(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
         "music_icon": _music_icon(v["music_icon"], ck),
         "music_screen": bool(v["music_screen"]),
         "music_seconds": _num(ck.number("voice music screen time", v["music_seconds"], 1, 120, 15)),
+        "music_show_title": bool(v["music_show_title"]),
+        "music_show_artist": bool(v["music_show_artist"]),
+        "music_show_album": bool(v["music_show_album"]),
     }
 
 
