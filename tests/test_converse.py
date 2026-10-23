@@ -60,7 +60,11 @@ def test_a_local_intent_turn_is_an_action_with_its_from_state():
     assert t.froms == {"switch.coffee": "off"}
     s = screen_for(*subject(t, INDEX), state_of, SETTINGS, t.froms)
     assert s["type"] == "toggle"
-    assert s["options"] == {"entities": ["switch.coffee"], "from": ["off"], "more": 0, "action": True}
+    # Minimal words: one switch is its icon and its switch, no name or "On now".
+    assert s["options"] == {"entities": ["switch.coffee"], "show_name": False, "show_state": False,
+                            "from": ["off"], "more": 0, "action": True}
+    full = screen_for("action", ["switch.coffee"], state_of, {**SETTINGS, "screen_text": "full"})
+    assert full["options"]["show_name"] is True and full["options"]["show_state"] is True
 
 
 def test_an_llm_turn_with_namespaced_tools_and_a_query():
@@ -135,8 +139,9 @@ def test_weather_gets_the_weather_screen():
 def test_many_switches_are_a_grid_with_the_rest_counted():
     ids = ["light.a", "light.b", "switch.coffee"]
     s = screen_for("action", ids, state_of, {**SETTINGS, "max_grid": 2}, {"light.a": "on", "light.b": "on"})
-    assert s["options"] == {"entities": ["light.a", "light.b"], "from": ["on", "on"], "more": 1,
-                            "action": True}
+    # A grid keeps its names, to tell the cells apart.
+    assert s["options"] == {"entities": ["light.a", "light.b"], "show_name": True, "show_state": False,
+                            "from": ["on", "on"], "more": 1, "action": True}
 
 
 def test_settings_and_skips_turn_screens_off():

@@ -98,7 +98,7 @@ function cell(r, e, o, ctx, L, S) {
   const st = states[e.id], live = !!st && !DEAD.has(String(st.state));
   const on = live && isOn(st.state), switchy = SWITCHY.has(e.id.split(".")[0]) && !(S.number(st?.state) !== null);
   const iconName = e.icon && e.icon !== "auto" ? e.icon : iconFor(e.id, st, on);
-  const name = S.title(e.label || st?.attributes?.friendly_name || e.id.split(".")[1]?.replace(/_/g, " ") || "");
+  const name = o.show_name === false ? "" : S.title(e.label || st?.attributes?.friendly_name || e.id.split(".")[1]?.replace(/_/g, " ") || "");
   const ts = Number(o.text_size) || 1, single = !!L;
   const has = (k) => !L || L.flow(k);
   const nameH = Math.min(r.h * 0.13, 0.3) * ts * (L ? L.size("name") : 1);
@@ -107,7 +107,7 @@ function cell(r, e, o, ctx, L, S) {
     has("icon") && { key: "icon", grow: 1, min: r.h * 0.2 },
     switchy && has("switch") && { key: "switch", h: r.h * (single ? 0.17 : 0.2) },
     name && has("name") && { key: "name", h: nameH },
-    (single || !switchy) && has("state") && { key: "state", h: stateH },
+    (single || !switchy) && (!switchy || o.show_state !== false) && has("state") && { key: "state", h: stateH },
   ], r.h * 0.05);
   const box = (k) => (L ? L.box(k, bands[k] || null) : bands[k] || null);
   const out = [];
@@ -124,7 +124,7 @@ function cell(r, e, o, ctx, L, S) {
   }
   const bn = box("name");
   if (bn && name && (!L || L.show("name"))) out.push(...S.fitText(name, bn, bn.h, { role, align: L ? L.align("name") : "centre" }));
-  const bt = box("state");
+  const bt = !switchy || o.show_state !== false ? box("state") : null;
   if (bt && (!L || L.show("state"))) out.push(...S.fitText(stateText(st, o.action && switchy, S), bt, bt.h, { role: "dim", align: L ? L.align("state") : "centre" }));
   return out;
 }

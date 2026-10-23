@@ -15,7 +15,7 @@ const ASSIST_KEYS = ["enabled", "satellites", "while_asleep", "listening_express
 const AGENT_KEYS = ["persona", "persona_prompt", "mood_aware", "assist_tool", "intent", "sentences", "find_entity"];
 const SCREEN_KEYS = ["screens", "action_screens", "answer_screens", "screen_present", "screen_seconds",
   "hold_while_speaking", "linger_seconds", "plot_hours", "plot_title", "plot_text_size", "max_grid", "screen_skip",
-  "volume_screen", "music_animation", "music_expression", "music_icon", "music_screen", "music_seconds",
+  "volume_screen", "screen_text", "music_animation", "music_expression", "music_icon", "music_screen", "music_seconds",
   "music_show_title", "music_show_artist", "music_show_album", "music_show_paused"];
 export const resets = { assistants: ASSIST_KEYS.map((k) => `voice.${k}`), agents: AGENT_KEYS.map((k) => `voice.${k}`),
   screens: SCREEN_KEYS.map((k) => `voice.${k}`) };
@@ -85,6 +85,7 @@ function assistants(p) {
 
 // ------------------------------------------------------------ screens
 
+const SCREEN_TEXT = [["minimal", "Minimal: only words that add something"], ["full", "Full: names and states"]];
 const PRESENTS = [["corner", "Corner: he stays, small, while it shows"], ["handover", "Hand over: he leaves for it"],
   ["card", "Each card's own setting"]];
 const PLOT_TITLES = [["icon", "An icon for its kind"], ["icon_name", "The icon and its name"], ["name", "Its name"], ["none", "None"]];
@@ -107,6 +108,7 @@ function screens(p) {
         ${U.check("voice.answer_screens", v.answer_screens, "When asked about something", "Sensors as a plot, several with one unit on one plot or as bars; things that are on or off as their switch.")}`)}
       ${U.card("How", `<div class="grid">
         ${U.field("Presenting", U.select("voice.screen_present", v.screen_present, PRESENTS))}
+        ${U.field("Words", U.select("voice.screen_text", v.screen_text, SCREEN_TEXT), "Minimal: a switch is its icon and the switch, with names only on a grid. Full: the name and \"On now\" too.")}
         ${U.field("On screen for", U.num("voice.screen_seconds", v.screen_seconds, { min: 1, max: 120, step: 1, unit: "s" }))}
         ${U.field("Plot span", U.num("voice.plot_hours", v.plot_hours, { min: 1, max: 720, step: 1, unit: "h" }))}
         ${U.field("Plot title", U.select("voice.plot_title", v.plot_title, PLOT_TITLES), "The icon goes by the sensor's kind: a thermometer for a temperature, a drop for humidity.")}

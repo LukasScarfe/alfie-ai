@@ -259,8 +259,11 @@ def screen_for(kind: str, ids: list[str], state_of: State,
                 "entities": nums[:max_grid], "range": "auto"}}
     froms = froms or {}
     shown = ids[:max_grid]
+    # Words only where they add something (Lukas, 2026-10-23): the icon and the
+    # switch say what was done; a grid keeps names to tell its cells apart.
+    full = settings.get("screen_text", "minimal") == "full"
     return {"type": "toggle", "title": title(shown[0]) if len(shown) == 1 else "",
-            "options": {"entities": shown,
+            "options": {"entities": shown, "show_name": full or len(shown) > 1, "show_state": full,
                         "from": [froms.get(e, "") for e in shown] if kind == "action" else [],
                         "more": max(0, len(ids) - len(shown)),
                         "action": kind == "action"}}
