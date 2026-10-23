@@ -124,6 +124,12 @@ check(S.span([[]]).join() === "0,1", "span of nothing");
 check(I.STYLES.includes("cut") && I.STYLES.includes("fade"), "intros: cut and fade");
 check(I.presence("fade", 0) === 0 && I.presence("fade", 1) === 1 && I.presence("fade", 0, true) === 1, "fade presence ends");
 check(I.apply("cut", I.presence("cut", 0.5), false, [], null).alpha === 0, "cut stays gone until it arrives");
+check(I.presence("zoom", 0.5, false, 1) === I.presence("zoom", 0.5) && I.presence("zoom", 0.7, false, 3) > I.presence("zoom", 0.7),
+  "overshoot 1 is the usual spring, more springs further");
+check(I.presence("zoom", 0.7, false, 0) <= 1 && I.presence("fade", 0.3, false, 3) === I.presence("fade", 0.3), "no overshoot: no spring past");
+check(I.secondsOf("zoom") === I.SECONDS.zoom && I.secondsOf("zoom", { transition_speed: 2, transition_seconds: {} }) === I.SECONDS.zoom / 2
+  && I.secondsOf("zoom", { transition_speed: 1, transition_seconds: { zoom: 3 } }) === 3 && I.secondsOf("nonsense") === undefined,
+  "secondsOf: own length over speed");
 
 console.log(`screens: ${checks - failures}/${checks} checks pass`);
 process.exit(failures ? 1 : 0);

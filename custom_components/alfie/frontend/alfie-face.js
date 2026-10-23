@@ -550,6 +550,40 @@ export function faceShapes(pose, eyes = [[0, 0], [0, 0]], face = [0, 0], g = GEO
   };
 }
 
+// ------------------------------------------------------------ motion
+// The motions drawn by code, as numbers the user can tune (Appearance →
+// Motion; config.py MOTION holds the ranges). Every default is the motion as
+// it always was, so an untouched look changes nothing.
+
+export const MOTION = {
+  speak_rate: 1, speak_pauses: 0.45, speak_contrast: 1,
+  pulse_depth: 0.045, eye_grow: 0.16, eye_lift: 0.04, both_share: 0.7,
+  wave_depth: 0.028, wave_bumps: 7, wave_speed: 1.6, wave_detail: 0,
+  breath_depth: 1, breath_seconds: 3.6, blink_seconds: 0.16, blink_min_gap: 1.6,
+  sag_below: 0.5, sag_droop: 0.35, sag_drop: 0.035,
+  transition_speed: 1, outro_share: 0.6, overshoot: 1, corner_seconds: 0.8,
+};
+
+// A motion from any number of partial dicts, later ones winning; unknown
+// keys and non-numbers fall back quietly. `transition_seconds` ({style: s})
+// is kept as a dict.
+export function motionOf(...specs) {
+  const out = { ...MOTION, transition_seconds: {} };
+  for (const spec of specs) {
+    if (!spec || typeof spec !== "object") continue;
+    for (const k of Object.keys(MOTION)) {
+      const v = spec[k];
+      if (v !== null && v !== "" && v !== undefined && Number.isFinite(Number(v))) out[k] = Number(v);
+    }
+    if (spec.transition_seconds && typeof spec.transition_seconds === "object") {
+      for (const [k, v] of Object.entries(spec.transition_seconds)) {
+        if (v !== null && v !== "" && Number.isFinite(Number(v))) out.transition_seconds[k] = Number(v);
+      }
+    }
+  }
+  return out;
+}
+
 // ------------------------------------------------------------ speaking
 // He has no mouth, so speaking shows in the ring, the eyes, or both
 // (design.md "Voice"). `speechLevel` is a syllable-like rhythm, 0..1, from
@@ -557,33 +591,41 @@ export function faceShapes(pose, eyes = [[0, 0], [0, 0]], face = [0, 0], g = GEO
 
 export const SPEAK_STYLES = ["pulse", "eyes", "both", "wave"];
 
-export function speechLevel(t) {
-  const s = Math.sin(2 * Math.PI * 4.1 * t) * 0.55 + Math.sin(2 * Math.PI * 6.7 * t + 1.3) * 0.3
-    + Math.sin(2 * Math.PI * 1.3 * t + 0.4) * 0.35;
-  const phrase = 0.55 + 0.45 * Math.sin(2 * Math.PI * 0.37 * t + 2.1);   // pauses between phrases
-  return Math.max(0, Math.min(1, (s * 0.5 + 0.45) * phrase));
+export function speechLevel(t, m = MOTION) {
+  const r = t * m.speak_rate;
+  const s = Math.sin(2 * Math.PI * 4.1 * r) * 0.55 + Math.sin(2 * Math.PI * 6.7 * r + 1.3) * 0.3
+    + Math.sin(2 * Math.PI * 1.3 * r + 0.4) * 0.35;
+  // Pauses between phrases: `speak_pauses` is how far the phrase envelope dips.
+  const phrase = 1 - m.speak_pauses + m.speak_pauses * Math.sin(2 * Math.PI * 0.37 * r + 2.1);
+  const v = Math.max(0, Math.min(1, (s * 0.5 + 0.45) * phrase));
+  return m.speak_contrast === 1 ? v : v ** m.speak_contrast;
 }
 
 // Channels added to the face for the eye styles (eyes, both): the eyes grow
 // and lift a little on each syllable.
-export function speakingChannels(style, strength, t) {
+export function speakingChannels(style, strength, t, m = MOTION) {
   if (style !== "eyes" && style !== "both") return {};
-  const v = speechLevel(t) * strength * (style === "both" ? 0.7 : 1);
-  return { size: 0.16 * v, dy: 0.04 * v };
+  const v = speechLevel(t, m) * strength * (style === "both" ? m.both_share : 1);
+  return { size: m.eye_grow * v, dy: m.eye_lift * v };
 }
 
 // The head outline while speaking (pulse, both, wave): `pts` around `centre`,
-// breathed out on each syllable, or rippled like a sound wave.
-export function speakingHead(pts, centre, style, strength, t) {
+// breathed out on each syllable, or rippled like a sound wave (`wave_detail`
+// adds a finer ripple running the other way, more like an audio trace).
+export function speakingHead(pts, centre, style, strength, t, m = MOTION) {
   if (style === "eyes" || !SPEAK_STYLES.includes(style)) return pts;
-  const v = speechLevel(t) * strength;
+  const v = speechLevel(t, m) * strength;
   const [cx, cy] = centre;
   if (style === "wave") {
+    const n = Math.round(m.wave_bumps), d = m.wave_detail, w = 2 * Math.PI * m.wave_speed * t;
     return pts.map(([x, y]) => {
-      const k = 1 + 0.028 * v * Math.sin(7 * Math.atan2(y - cy, x - cx) + 2 * Math.PI * 1.6 * t);
+      const a = Math.atan2(y - cy, x - cx);
+      let ripple = Math.sin(n * a + w);
+      if (d) ripple += d * 0.5 * Math.sin(Math.round(2.3 * n) * a - 2.7 * w);
+      const k = 1 + m.wave_depth * v * ripple;
       return [cx + (x - cx) * k, cy + (y - cy) * k];
     });
   }
-  const k = 1 + 0.045 * v * (style === "both" ? 0.7 : 1);
+  const k = 1 + m.pulse_depth * v * (style === "both" ? m.both_share : 1);
   return pts.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k]);
 }

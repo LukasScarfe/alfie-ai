@@ -149,7 +149,8 @@ const DEFAULTS = {
   voice_satellites: null, // for voice: chosen, a list of assist_satellite entity ids
   voice_screens: true,    // show the screens Alfie makes from voice turns (design.md "Voice screens")
   speak_style: null,      // pulse | eyes | both | wave while a satellite answers; null takes Alfie's Voice setting
-  speak_strength: null,   // how much speaking shows, 0.2..3; null takes Alfie's
+  speak_strength: null,   // how much speaking shows, 0.2..5; null takes Alfie's
+  motion: null,           // {key: value} over Alfie's Appearance → Motion (alfie-face.js MOTION); null follows Alfie's
   vector_out: false,      // true: each frame's strokes go out as an "alfie-vector" event (the oscilloscope feed)
   paint: true,            // false: draw nothing on the canvas (a headless vector feed skips the cost)
   vector_order: "tour",   // tour: the feed's strokes in the order with the shortest beam jumps; drawn: as painted
@@ -166,7 +167,6 @@ const TOUR_MAX = 200;   // a frame with more strokes than this goes out as drawn
 const DISPLAYS = ["companion", "rotation"];
 const PRESENTS = ["handover", "corner"];
 const CORNERS = ["bottom_right", "bottom_left", "top_right", "top_left"];
-const CORNER_SECONDS = 0.8;   // how long the face takes to move to or from its corner
 const ICON_FIT = 0.8;         // an icon at size 1 fills this share of its box (or of his ring)
 const BADGE_STYLE = "zoom";   // how a badge comes and goes when its icon names no transition
 const DATA_STALE = 300;       // seconds before a shown screen's data is fetched again
@@ -533,6 +533,21 @@ class AlfieCard extends HTMLElement {
     return true;
   }
 
+  // The motions drawn by code: Alfie's Motion settings (the look), under the
+  // card's own `motion`. Rebuilt only when the config object is replaced.
+  _motion() {
+    if (this._motionFor !== this._config) {
+      this._motionFor = this._config;
+      this._motionNow = F.motionOf(this._lookNow()?.motion, this._config.motion);
+    }
+    return this._motionNow;
+  }
+
+  // How long a transition style takes here (alfie-intros.js SECONDS, retimed by Motion).
+  _seconds(style) {
+    return I.secondsOf(style, this._motion());
+  }
+
   // The card's `personality` option over Alfie's own (`base`, from the scene).
   _personality(face, base = this._global || F.PERSONALITY) {
     const p = this._config.personality == null ? base
@@ -813,7 +828,7 @@ class AlfieCard extends HTMLElement {
     const look = this._voiceTry?.look || this._scene?.voice?.look || {}, c = this._config;
     const style = c.speak_style ?? look.speak_style ?? "pulse";
     return { style: F.SPEAK_STYLES.includes(style) ? style : "pulse",
-      strength: clamp(Number(c.speak_strength ?? look.speak_strength ?? 1) || 1, 0, 3) };
+      strength: clamp(Number(c.speak_strength ?? look.speak_strength ?? 1) || 1, 0, 5) };
   }
 
   // The house mode's rotation for this card: "" (the card's own), "pause", or a rotation id.
@@ -846,33 +861,33 @@ class AlfieCard extends HTMLElement {
 
   // The face at `t`: expression pose, energy sag, animation, breath, blink.
   _frame(t, opts = {}) {
-    const f = this._face, c = this._config;
+    const f = this._face, c = this._config, m = this._motion();
     const e = f.energy;
     const pose = opts.pose || f.poseAt(t);
     const parts = opts.parts || f.partsAt(t);
     const ch = opts.channels || f.channels(t);
     // Low energy weighs on him: lids heavier, eyes lower.
-    const sag = clamp(0.5 - e, 0, 0.5) * 2;
+    const sag = m.sag_below > 0 ? clamp(m.sag_below - e, 0, m.sag_below) / m.sag_below : 0;
     if (sag > 0) {
-      ch.droop = Math.max(ch.droop || 0, 0.35 * sag);
-      ch.dy = (ch.dy || 0) - 0.035 * sag;
+      ch.droop = Math.max(ch.droop || 0, m.sag_droop * sag);
+      ch.dy = (ch.dy || 0) - m.sag_drop * sag;
     }
     // Answering: no mouth, so the ring and / or the eyes keep a talking rhythm.
     const sp = opts.speaking ?? (this._voicePhase === "responding" ? this._speaking() : null);
-    if (sp) for (const [k, v] of Object.entries(F.speakingChannels(sp.style, sp.strength, t))) ch[k] = (ch[k] || 0) + v;
+    if (sp) for (const [k, v] of Object.entries(F.speakingChannels(sp.style, sp.strength, t, m))) ch[k] = (ch[k] || 0) + v;
     if (c.breathing && !opts.noBreath) {
-      const period = 3.6 / (0.6 + 0.6 * e);
-      ch.fy = (ch.fy || 0) + (0.006 + 0.012 * e) * Math.sin((2 * Math.PI * t) / period);
+      const period = m.breath_seconds / (0.6 + 0.6 * e);
+      ch.fy = (ch.fy || 0) + m.breath_depth * (0.006 + 0.012 * e) * Math.sin((2 * Math.PI * t) / period);
     }
     const shape = F.animated(pose, ch);
     let p = shape.pose;
     if (c.blinking && !opts.noBlink) {
       const slow = 1.5 - 0.5 * clamp(e, 0, 1);
       const slot = (F.GEOMETRY.blink_slot * slow) / clamp(f.personality.blink_rate, 0.2, 3);
-      p = F.blinked(p, F.blink(t, Math.max(slot, 1.6), F.GEOMETRY.blink * slow));
+      p = F.blinked(p, F.blink(t, Math.max(slot, m.blink_min_gap, 1.5), m.blink_seconds * slow));
     }
     const out = F.faceShapes(p, shape.eyes, shape.face, F.GEOMETRY, parts);
-    if (sp) out.head = F.speakingHead(out.head, out.ring, sp.style, sp.strength, t);
+    if (sp) out.head = F.speakingHead(out.head, out.ring, sp.style, sp.strength, t, m);
     return out;
   }
 
@@ -1332,11 +1347,12 @@ class AlfieCard extends HTMLElement {
         else b.at = now;    // its clock starts once the path is in
         continue;
       }
-      const din = I.SECONDS[b.style] || 0.6, dout = din * I.OUTRO_SHARE;
+      const mo = this._motion(), din = this._seconds(b.style) || 0.6, dout = din * mo.outro_share;
       const left = b.until - now;
       if (left <= 0) { this._badges.delete(key); continue; }
       const leaving = left < dout;
-      const p = leaving ? I.presence(b.style, 1 - left / dout, true) : I.presence(b.style, (now - b.at) / din, false);
+      const p = leaving ? I.presence(b.style, 1 - left / dout, true, mo.overshoot)
+        : I.presence(b.style, (now - b.at) / din, false, mo.overshoot);
       const at = G.badgeAt(b.v, w, h, R, face, m);
       const s = at.s / R;
       const out = I.apply(b.style, p, leaving, IC.placed(strokes, s), { w: s, h: s }, null, this._introOpts());
@@ -1351,6 +1367,17 @@ class AlfieCard extends HTMLElement {
     if (a.kind === "icon") { this._syncBadges([a.value], true); return; }
     this._endLocal(false);
     this._local = { actions: [a], t0: this._now(), tick: null, last: -1, expression: null, blend: 0, place: null, screen: null };
+    this._wake();
+  }
+
+  // For the panel's Motion tab: a sample screen (an icon) comes in by `style`,
+  // stays a moment and leaves again, on this card only.
+  previewTransition(style, present = "handover", seconds = 2.5) {
+    const value = { id: G.ICON_SCREEN, icon: { name: "mdi:weather-partly-cloudy", size: 1, color: "line", fill: "soft",
+      ...(present === "corner" ? { corner: "card" } : {}) }, seconds, present, transition: style };
+    this._endLocal(false);
+    this._local = { actions: [{ kind: "screen", value, seconds }], t0: this._now(), tick: null, last: -1,
+      expression: null, blend: 0, place: null, screen: null };
     this._wake();
   }
 
@@ -1491,19 +1518,20 @@ class AlfieCard extends HTMLElement {
       cur = this._enter(want.id, t, presentOf(want.id));
       // In hand over Alfie leaves first and then the screen comes in, as one screen
       // hands over to the next, so his turn ends on the beat. Morph is both at once.
-      cur.pre = cur.present !== "corner" && cur.style !== "morph" && (I.SECONDS[cur.style] ?? 0.6) > 0;
+      cur.pre = cur.present !== "corner" && cur.style !== "morph" && (this._seconds(cur.style) ?? 0.6) > 0;
     }
     if (!cur) return null;
     let corner = cur.present === "corner";
     let leaving = cur.tOut != null;
-    let durS = I.SECONDS[cur.style] ?? 0.6, durM = corner && !(leaving ? cur.swap : cur.held) ? CORNER_SECONDS : 0;
+    const mo = this._motion(), os = mo.overshoot, cornerS = mo.corner_seconds;
+    let durS = this._seconds(cur.style) ?? 0.6, durM = corner && !(leaving ? cur.swap : cur.held) ? cornerS : 0;
     if (cur.pre) {
       const u = (t - cur.tIn) / durS;
       if (leaving) {   // wanted away again before it came in: Alfie stays
         this._cur = null;
         return null;
       }
-      if (u < 1) return this._describe(cur.id, cur.style, 1 - I.presence(cur.style, u, true), false, 0, t, cur.present, false, true);
+      if (u < 1) return this._describe(cur.id, cur.style, 1 - I.presence(cur.style, u, true, os), false, 0, t, cur.present, false, true);
       cur.pre = false;
       cur.tIn += durS;
       cur.held = true;
@@ -1512,14 +1540,14 @@ class AlfieCard extends HTMLElement {
     // Alfie taking the stage back waits for the screen to be gone, as the next screen
     // would, then springs out of his corner, or in hand over comes in by the transition.
     const back = leaving && !cur.swap && cur.style !== "morph" && (corner || durS > 0);
-    const durBack = back ? (corner ? CORNER_SECONDS : durS) : 0;
+    const durBack = back ? (corner ? cornerS : durS) : 0;
     if (leaving && age >= (back ? durS + durBack : Math.max(durS, durM))) {
       this._cur = null;
       if (!(cur.swap && want.id)) return null;
       cur = this._enter(want.id, t, presentOf(want.id), cur.style, { held: true });
       corner = cur.present === "corner";
       leaving = false;
-      durS = I.SECONDS[cur.style] ?? 0.6;
+      durS = this._seconds(cur.style) ?? 0.6;
       durM = 0;
       age = 0;
     }
@@ -1527,12 +1555,12 @@ class AlfieCard extends HTMLElement {
       // The screen is gone; Alfie comes out of his corner, or in by the transition.
       const u = clamp((age - durS) / durBack, 0, 1);
       if (corner) return this._describe(cur.id, cur.style, 0, true, 1 - F.spring(u), t, cur.present, false, true);
-      return this._describe(cur.id, cur.style, 1 - I.presence(cur.style, u, false), true, 0, t, cur.present, false, true);
+      return this._describe(cur.id, cur.style, 1 - I.presence(cur.style, u, false, os), true, 0, t, cur.present, false, true);
     }
     // Alfie stays away while one screen hands over to the next, or leaves before he comes back.
     const away = leaving ? (!!cur.swap || back) : !!cur.held;
     const uS = durS ? clamp(age / durS, 0, 1) : 1, uM = durM ? clamp(age / durM, 0, 1) : 1;
-    const p = I.presence(cur.style, uS, leaving);
+    const p = I.presence(cur.style, uS, leaving, os);
     const k = corner ? (away ? 1 : leaving ? 1 - F.spring(uM) : F.spring(uM)) : 0;
     return this._describe(cur.id, cur.style, p, leaving, k, t, cur.present, away);
   }
@@ -1687,9 +1715,10 @@ class AlfieCard extends HTMLElement {
 
   // For tests and the dev harness: draw one still frame, no clock, no HA.
   // {expression, animation, u (seconds in), energy, blink (0..1), speak
-  // ({style, strength}: answering, at speech time t)}
-  async renderStill({ expression = "neutral", animation = null, u = 0, energy = 0.8, blink = 0, speak = null, t = 0 } = {}) {
+  // ({style, strength}: answering, at speech time t), motion (the card's `motion`)}
+  async renderStill({ expression = "neutral", animation = null, u = 0, energy = 0.8, blink = 0, speak = null, t = 0, motion } = {}) {
     const face = await loadFace();
+    if (motion !== undefined) this._config = { ...this._config, motion };
     this._still = true;
     this._running = false;
     this._face = new FaceState();
@@ -1725,7 +1754,7 @@ class AlfieCard extends HTMLElement {
     this._stillScr = null;
     if (a.kind === "icon") {
       const b = a.value, st = transition || BADGE_STYLE, now = Date.now() / 1000;
-      this._badges.set("still", { v: b, at: now - u * (I.SECONDS[st] || 0.6), until: now + 100, style: st });
+      this._badges.set("still", { v: b, at: now - u * (this._seconds(st) || 0.6), until: now + 100, style: st });
     } else {
       const v = this._iconScreen("@icon:still", a.value.icon);
       v.__mod = ICON_MODULE;
