@@ -217,6 +217,7 @@ def test_voice_screen_timing_plot_and_music_settings():
     assert v["plot_title"] == "icon" and v["plot_text_size"] == 2
     assert v["music_animation"] == "groove" and v["music_expression"] == "happy"
     assert v["music_icon"] == "mdi:music-note" and v["music_screen"] is True and v["music_seconds"] == 15
+    assert v["volume_screen"] is True
     assert valid(with_voice(music_icon="", music_animation=""))["voice"]["music_icon"] == ""
     assert "voice music icon" in errors(with_voice(music_icon="note"))
     assert "voice music animation" in errors(with_voice(music_animation="boogie"))

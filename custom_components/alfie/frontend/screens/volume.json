@@ -1,0 +1,15 @@
+{"type": "volume", "title": "Volume", "needs": null,
+ "options": [
+   {"key": "entity", "kind": "entity", "label": "Player", "required": true, "domain": ["media_player"]},
+   {"key": "icon", "kind": "icon", "label": "Icon", "default": "auto", "presets": ["auto"], "hint": "Auto: a speaker with as many waves as the volume (crossed out when muted). Or any icon such as mdi:speaker."},
+   {"key": "slider", "kind": "choice", "label": "Slider", "default": "line", "choices": ["line", "dotted", "blocks"], "hint": "dotted: the rest of the slider dotted. blocks: a row of segments."},
+   {"key": "show_percent", "kind": "bool", "label": "Percentage", "default": false, "hint": "The volume as a number after the slider."},
+   {"key": "show_name", "kind": "bool", "label": "Player name", "default": false},
+   {"key": "text_size", "kind": "number", "label": "Text size", "default": 1, "min": 0.5, "max": 2, "unit": "×"},
+   {"key": "layout", "kind": "layout", "label": "Layout", "default": {}, "elements": [
+     {"key": "name", "label": "Player name", "text": true},
+     {"key": "icon", "label": "Icon"},
+     {"key": "slider", "label": "Slider"},
+     {"key": "percent", "label": "Percentage", "text": true}
+   ]}
+ ]}

@@ -15,7 +15,7 @@ const ASSIST_KEYS = ["enabled", "satellites", "while_asleep", "listening_express
 const AGENT_KEYS = ["persona", "persona_prompt", "mood_aware", "assist_tool", "intent", "sentences", "find_entity"];
 const SCREEN_KEYS = ["screens", "action_screens", "answer_screens", "screen_present", "screen_seconds",
   "hold_while_speaking", "linger_seconds", "plot_hours", "plot_title", "plot_text_size", "max_grid", "screen_skip",
-  "music_animation", "music_expression", "music_icon", "music_screen", "music_seconds"];
+  "volume_screen", "music_animation", "music_expression", "music_icon", "music_screen", "music_seconds"];
 export const resets = { assistants: ASSIST_KEYS.map((k) => `voice.${k}`), agents: AGENT_KEYS.map((k) => `voice.${k}`),
   screens: SCREEN_KEYS.map((k) => `voice.${k}`) };
 
@@ -102,6 +102,7 @@ function screens(p) {
     ${U.cards(`${U.card("Voice screens", `
         ${U.check("voice.screens", v.screens, "Show what a voice request was about")}
         ${U.check("voice.action_screens", v.action_screens, "When something is switched", "Its icon and a switch sliding to its new state; a grid for several.")}
+        ${v.action_screens ? U.check("voice.volume_screen", v.volume_screen, "A volume change as a slider", "A speaker icon and a slider at the new volume, for the playing player. Off: its switch, like anything else.") : ""}
         ${U.check("voice.answer_screens", v.answer_screens, "When asked about something", "Sensors as a plot, several with one unit on one plot or as bars; things that are on or off as their switch.")}`)}
       ${U.card("How", `<div class="grid">
         ${U.field("Presenting", U.select("voice.screen_present", v.screen_present, PRESENTS))}

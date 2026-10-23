@@ -21,6 +21,7 @@ const states = {
   "sensor.b": { state: "17", attributes: { friendly_name: "Fern", unit_of_measurement: "%" } },
   "sensor.in": { state: "21.4", attributes: {} }, "sensor.out": { state: "8.2", attributes: {} },
   "device_tracker.a": { state: "home", attributes: { latitude: 51.5002, longitude: -0.1198, friendly_name: "Anna" } },
+  "media_player.v": { state: "playing", attributes: { friendly_name: "Record player", volume_level: 0.4 } },
   "media_player.m": { state: "playing", attributes: { app_id: "music_assistant", media_title: "Mr. Blue Sky", media_artist: "ELO",
     media_album_name: "Out of the Blue", media_duration: 303, media_position: 40, media_position_updated_at: "2026-10-23T00:35:21Z" } },
 };
@@ -45,6 +46,7 @@ const cases = [
   ["stars", {}, null],
   ["map", { trackers: ["device_tracker.a"], title: "Anna" }, null],
   ["nowplaying", {}, null],
+  ["volume", { entity: "media_player.v", show_percent: true, show_name: true }, null],
 ];
 
 for (const [type, o, data] of cases) {
