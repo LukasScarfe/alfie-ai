@@ -729,8 +729,9 @@ Built in M6. Config section `voice`; the panel's Voice section (Assistants, Agen
 - Lukas's setup today: the Android Companion app's native pipeline exposes **no** satellite states.
   The current face uses a hack that triggers on `conversation.*` entity state timestamps at reply
   time. His tablet will move to the voice-satellite card to become a real `assist_satellite`. His
-  pipeline is Whisper and Piper (local) plus a Gemini brain with a SearXNG search tool; see
-  `~/Documents/superintendent-plan.md`.
+  pipeline, "Alfie (local)", is Whisper and Piper plus a local Ollama brain
+  (`conversation.alfie_desktop`, `alfie-qwen3:8b` on raccoon) using Assist, with search and
+  music scripts as its tools; the Gemini pipeline is no longer used.
 
 ## Voice screens
 
@@ -787,7 +788,10 @@ in the panel's Voice → Screens (and Agents for the find tool).
   screen, so `action_screens` off hides it too.
 - **Default music** (production's `script.play_music`, outside the repo): "play music" with no
   particular music plays the "Michelle + Lukas" Spotify Blend. HA's own agent runs "play music"
-  as turning that script on; Gemini is told to leave its query empty.
+  as turning that script on; the LLM agent is told to leave its query empty.
+- **Shuffle and repeat** (production's `script.shuffle_music`, outside the repo, 2026-10-28): HA
+  has no shuffle or repeat intent, so this exposed script sets them on the playing speaker
+  (else a paused one). No fields means shuffle on. Its name matches the music reaction.
 - **The `toggle` type** (also a normal screen type): the entity's icon (its own, else by name
   words — coffee, lamp, grow, tv... — then by kind), a switch whose knob slides from `from` to the
   state (waits 0.45 s, then eases; exact at any frame rate), the name and the state ("On now"

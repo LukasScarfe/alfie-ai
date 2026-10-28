@@ -94,8 +94,8 @@ review, is open** (design.md "Voice screens", plan.md M9).
 - Dev HA now has an Ollama agent (`conversation.ollama_conversation`, qwen2.5:3b on raccoon)
   and a pipeline "LLM test" with prefer-local, for testing LLM turns; `input_boolean.espresso_machine`
   exposed. `./dev shot` needs the `alfie-dev/alfie` path (not `lovelace/0`).
-- Production house (2026-10-22, outside the repo): voice runs on Gemini 3.5 Flash-Lite (free
-  tier); every exposed entity has a plain name and aliases (backup
+- Production house (2026-10-22, outside the repo): voice ran on Gemini; since then it runs
+  on the local Ollama pipeline "Alfie (local)" (`conversation.alfie_desktop`); every exposed entity has a plain name and aliases (backup
   `devenv/out/registry_backup_2026-10-22.json`); see `~/claude/docs/homeassistant.md`.
 
 **Latest (0.13.0, 2026-10-22, Lukas): layout boxes, Edit as YAML, plot axes** (design.md
