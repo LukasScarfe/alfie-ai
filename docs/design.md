@@ -878,8 +878,25 @@ requirements, light enough for a Pi.
     by default; `brain.exposed_only` limits it to Assist's exposed ones). State, attributes,
     areas and device classes, when it last changed, history (highest, lowest, average, how many
     times) and comparisons. Two equal fits: he asks which.
-  - Weather and sky (`brain.weather`, "" the first weather entity, or a place after "in");
-    time, dates and maths (pure); people, media, calendar and lists; fun and Alfie himself.
+  - Weather and sky (`outside.py`, pure; five commands: `weather_now`, `weather_forecast`,
+    `weather_gear`, `sun`, `moon`). They run before HA's intents, so his richer answer beats
+    HassGetWeather.
+    - Which weather entity: `brain.weather`; "" means the house's, the first one with "home" in its
+      id (met.no's default), else the first. "In Whistler" picks a weather entity by name; no
+      match goes to the delegate.
+    - Where the data comes from: the state, plus the hourly and daily forecasts from
+      `providers/forecast.raw_forecast`. That is the same throttled `weather.get_forecasts` the
+      weather screen uses: an hour's cache, refreshed early when the entity changes.
+    - The sun: HA's astral helper (`get_astral_event_date`, no I/O).
+    - The moon: Meeus's new and full moon formulas, to a few minutes. Production has no moon
+      entity, so he computes it.
+    - Settings, in °C and km/h and converted to the entity's units: `cold_below` (10),
+      `warm_above` (22), `windy_speed` (30), `rain_chance` (40 %) and `rain_mm` (0.3, for
+      met.no, which gives only the amount), and `sun_uv` (3). The panel has them under Voice →
+      Brain → Outside.
+    - How he says it: temperatures in whole degrees, and spans like "tonight", "on Saturday" or
+      "this weekend". Days within the hourly forecast are answered from its hours.
+  - Time, dates and maths (pure); people, media, calendar and lists; fun and Alfie himself.
   - Wikipedia: kiwix-serve directly (`brain.wiki_url`), only "who/what/where is X" and "tell me
     about X", only when a top hit's title matches X; the lead's first `wiki_sentences`
     sentences. Otherwise the delegate.

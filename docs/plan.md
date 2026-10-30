@@ -280,8 +280,8 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
       2026-10-30, catalogue in design.md "Brain" → Local answers.)
   - [x] A. Any entity: `answers.py` (pure) + the entity index; state, attributes, areas and
         device classes, last changed, history today/yesterday/week, comparisons. 0.20.2.
-  - [ ] B. Weather and sky: conditions now, rain later from the cached forecast, highs and
-        lows, umbrella/coat, sunrise and sunset, the moon.
+  - [x] B. Weather and sky: conditions now, rain later from the cached forecast, highs and
+        lows, umbrella/coat, sunrise and sunset, the moon. `outside.py`, 0.21.1.
   - [ ] C. Time, dates and maths: world clocks, days until, weekdays, arithmetic, conversions.
   - [ ] D. People, media, calendar and lists.
   - [ ] E. Fun and Alfie himself (coin, dice, jokes, say that again, what can you do).

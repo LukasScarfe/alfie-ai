@@ -18,61 +18,91 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.20.2.
+Version 0.21.1.
 
 **Now: Alfie's brain, M13 to M18** (agreed with Lukas 2026-10-30; plan.md, design.md "Brain").
 A local-first voice pipeline inside Alfie, meant for the HA community too. Done: M13 Speech
 (`tts.alfie_voice`), M14 Brain (`conversation.alfie`; on production "Alfie (local)" uses it with
 "prefer local" off and `brain.delegate` = `conversation.alfie_desktop`, the Ollama LLM).
 
-**In progress: M15 Local answers, step A done (0.20.2, on production).** Lukas (2026-10-30)
-wants tier 1 to answer as much as it can without the LLM: "any relevant question that could be
-answered by a Home Assistant entity", plus weather, dates, maths, offline Wikipedia. The full
-question catalogue is in the approved plan, summarised in plan.md M15 and design.md "Brain" →
+**In progress: M15 Local answers, steps A and B done (0.21.1, on production).** Lukas
+(2026-10-30) wants tier 1 to answer as much as it can without the LLM: "any relevant question that
+could be answered by a Home Assistant entity", plus weather, dates, maths, offline Wikipedia. The
+full question catalogue is in the approved plan, summarised in plan.md M15 and design.md "Brain" →
 Local answers.
 - How it works: each answer is a command in `brain.COMMANDS` with sentences, hassil lists
-  (`lists`, `things`) and rules in `lang/en/brain.json`; `{name}`, `{area}`, `{value}` are
-  wildcards. `conversation.py` collects every hassil reading (`recognize_all`), shortest name
-  first, `TRIES` per command, in `ORDER`. Commands in `brain.LATE` (entity, entity_count) run
-  after HA's intents, the rest before. `local.py` (HA side) resolves names with `finder.py`'s
-  index (from `voice.index()`), reads states and recorder history; `answers.py` (pure) says
-  the reply. A reply of None means "not mine", and the turn goes on.
-- Step A commands: `entity` (state, yes/no, attribute, compare; "the X's volume" tries the
-  attribute first), `entity_count` (how many/which/all, by area or by the name when an entity
-  has no area), `entity_when` (when/how long, from history: `settled_since` skips restarts),
-  `entity_history` (highest/lowest/average, how many times, was it on, per period).
-- Settings (`brain`): `off_commands` (replaced `commands`; config migrates the old list),
-  `exposed_only` (off), `match_floor` 70, `ask_which` (a tie asks "which one?" and the next turn
-  answers it, `_which` in conversation.py), `say_unknown` (house-only questions about nothing
-  known say so, because the LLM invented "the front door opened 14 times"), `count_skip`
-  (`adaptive_lighting`). The panel's Voice → Brain has toggles for each, a stopgap until step G.
-- Checked on production with the scratch script below: state, compare, attribute, when, how
-  long, history max/min/mean, times, unknown names. 10-100 ms (history queries ~250 ms).
+  (`lists`, `things`) and rules in `lang/en/brain.json`.
+  - `{name}`, `{area}`, `{value}` and `{place}` are wildcards. `{list:slot}` works (hassil
+    3.12), so one list can fill a differently named slot, like `{feel:aspect}`.
+  - `conversation.py` collects every hassil reading (`recognize_all`), sorted by the length of
+    all wildcards (shortest first), `TRIES` per command, in `ORDER`.
+  - Commands in `brain.LATE` (entity, entity_count) run after HA's intents; the rest run before.
+  - `local.py` (the HA side) resolves names with `finder.py`'s index (from `voice.index()`),
+    reads states, recorder history, forecasts and sun times.
+  - `answers.py` (entities) and `outside.py` (weather, sun, moon) are pure and say the reply.
+    A reply of None means "not mine", and the turn goes on.
+- Step A (entities): `entity`, `entity_count`, `entity_when`, `entity_history`; settings
+  `off_commands`, `exposed_only`, `match_floor`, `ask_which`, `say_unknown`, `count_skip`.
+- Step B (outside, design.md has the detail): `weather_now`, `weather_forecast`, `weather_gear`,
+  `sun`, `moon`, all in `brain.OUTSIDE`.
+  - `local._outside` picks the weather entity: a place by name, else `brain.weather`, else the
+    first with "home" in its id. A span said after the place ("in whistler tomorrow") lands in
+    the wildcard; `_split_span` moves it back.
+  - Forecasts come from `providers/forecast.raw_forecast`, cached per (entity, kind) with the
+    screen's throttle rules.
+  - The sun comes from `homeassistant.helpers.sun.get_astral_event_date` for days -1 to 2. The
+    moon is Meeus, tested against known 2000 and 2024 phases.
+  - Thresholds: `cold_below`, `warm_above`, `windy_speed`, `rain_chance`, `rain_mm`, `sun_uv`.
+    The panel's new Outside card (Voice → Brain) has them. PNG sent: the panel's Brain tab.
+  - Checked on production with `./dev prod ask`, each question answered locally in 2 to 70 ms:
+    the weather now, is it raining or windy, will it rain tomorrow, when the rain stops, the
+    high tomorrow (in Whistler too), the weekend, tonight, the umbrella and the coat, sunset,
+    time until sunrise, is it dark, daylight, the moon phase and the next full moon.
 
-**Next: M15 step B, weather and sky** ("is it raining?", will it rain later, highs and lows,
-umbrella, sunrise and sunset, the moon). Reuse `providers/forecast.py`'s cached
-`weather.get_forecasts`; production's weather entities are `weather.home_forecast_home_forecast`
-(use as the default), `weather.vancouver_forecast`, `weather.whistler_forecast_home`; there is
-no rain gauge. Then C (time, dates, maths), D (people, media, calendar, lists), E (fun), F
-(Wikipedia from kiwix-serve :8091 directly, port `wiki_api.py`'s parser from
-`~/Documents/containers/assistant/wiki-api/`), G (panel: every command with toggle, sentences,
-try box; PNGs for Lukas). Bump the version each deploy.
+**Next: M15 step C, time, dates and maths** (pure, in a new module like `outside.py`):
+- world clocks;
+- days until a date or holiday;
+- what weekday a date falls on;
+- arithmetic and unit conversions.
+
+HA's own HassGetCurrentTime and HassGetCurrentDate intents already answer "what time is it", so
+check what they cover before duplicating it.
+
+After C:
+- D: people, media, calendar and lists.
+- E: fun.
+- F: Wikipedia, from kiwix-serve :8091 directly. Port `wiki_api.py`'s parser from
+  `~/Documents/containers/assistant/wiki-api/`.
+- G: the panel. Every command with its toggle, sentences and a try box; PNGs for Lukas.
+
+Bump the version on each deploy.
 
 Gotchas:
-- Asking him: `./dev` has no conversation command. A scratch script posted
-  `/api/conversation/process` with `agent_id: conversation.alfie` through `prodtool.rest`
-  (dev HA: `devtool.token()[0]` at :8125). Worth adding as `./dev prod ask "..."`.
-- `./dev test` now installs `hassil==3.12.1` (HA 2026.10's) so `tests/test_answers.py` checks
-  which command and slots each sentence gets. Keep it equal to HA's hassil.
+- `./dev prod ask "..."` asks `conversation.alfie` on production and prints the reply and the turn
+  log's source, time and why. The dev HA has no equivalent yet; `devtool.token()[0]` works there.
+- The prodtool WebSocket client now answers HA's heartbeat pings. Before, a long HACS call died
+  with a JSONDecodeError on the ping's empty payload.
+- `./dev test` installs `hassil==3.12.1` (HA 2026.10's) so the sentence tests check which command
+  and slots each sentence gets. Keep it equal to HA's hassil.
+- A new `brain` setting needs adding in four places:
+  - `brain.default_settings`, with whole numbers as ints (a test compares the JSON text);
+  - `config._brain`, in the same key order;
+  - `devenv/house.json`, written with indent 1;
+  - the panel.
+- Rewriting `lang/en/brain.json` with `json.dumps(indent=2)` explodes its compact lists. Edit it
+  as text, or with a formatter that keeps leaf lists inline.
 - HACS can fail partway through an install and leave production's folder half-written (Alfie
-  then won't load). Deploy now carries on to its download-again loop instead of stopping, and
-  waits for Alfie's device version after the restart. If a deploy still stops, check
-  `/mnt/homeassistant/custom_components/alfie` against the local copy before anything else.
-- Production has no door or window sensors; several kitchen lights have no area.
+  then won't load). Deploy carries on to its download-again loop and waits for Alfie's version.
+  If a deploy still stops, check `/mnt/homeassistant/custom_components/alfie` against the local
+  copy before anything else.
+- Production has no door or window sensors, and several kitchen lights have no area. It has
+  three weather entities. `weather.whistler_forecast_home` reads about -25°C, so its location
+  is probably wrong (outside Alfie). `weather.vancouver_forecast` (Environment Canada) has the
+  chance of rain; met.no's `weather.home_forecast_home_forecast` has only the amount.
+- After `./dev restart`, wait about 20 s more before `./dev shot` of the panel (it 404s at first).
 - Dev HA's seeded states have no registry entries, so most answers are best checked on
-  production.
-- On dev HA `conversation.alfie_desktop` is unavailable; `conversation.ollama_conversation`
-  works as a delegate. A pipeline's own "prefer local" matches never reach Alfie's turn log.
+  production. On dev HA `conversation.alfie_desktop` is unavailable;
+  `conversation.ollama_conversation` works as a delegate.
 
 **Latest (0.17.0, 2026-10-23, Lukas): Motion settings** (plan.md M12, design.md "The
 character" → Editors 5). Every motion drawn by code is tunable in `look.motion`, on the new
