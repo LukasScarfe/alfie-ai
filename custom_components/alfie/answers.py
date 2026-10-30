@@ -33,6 +33,9 @@ class Thing:
     attributes: Mapping[str, Any] = field(default_factory=dict)
     last_changed: datetime | None = None
     area: str = ""
+    # In its state for all the history read (a week): last_changed is only
+    # when that history starts.
+    long_ago: bool = False
 
     @property
     def domain(self) -> str:
@@ -251,10 +254,15 @@ def attribute_reply(thing: Thing, attr: str, words: Mapping[str, Any],
 
 # ------------------------------------------------------------ how many
 
-def in_area(thing_area: str, area: str) -> bool:
-    """Whether an entity's area is the one named ("the kitchen" in "Kitchen")."""
+def in_area(thing_area: str, area: str, name: str = "") -> bool:
+    """Whether an entity's area is the one named ("the kitchen" in "Kitchen").
+    With no area, its name may say it ("Kitchen lights")."""
     want, have = set(_key(area)), set(_key(thing_area))
-    return bool(want) and bool(have) and (want <= have or have <= want)
+    if not want:
+        return False
+    if not have:
+        return bool(name) and want <= set(_key(name))
+    return want <= have or have <= want
 
 
 def counts(thing: Thing, kind: Mapping[str, Any]) -> bool:
@@ -270,8 +278,8 @@ def count_reply(things: Iterable[Thing], kind_key: str, state: str, area: str, a
     """How many (or which) of a kind are in a state, optionally in an area.
     `ask` is "all" for "are all the doors closed?", else counting."""
     kind = ((words or {}).get("things") or {}).get(kind_key or "anything") or {}
-    pool = [t for t in things if counts(t, kind) and (not area or in_area(t.area, area))
-            and t.state not in ("unavailable", "unknown")]
+    pool = [t for t in things if counts(t, kind) and (not area or in_area(t.area, area, t.name))
+            and t.state not in GONE]
     match = sorted((t for t in pool if same_state(state, say_state(t, words, now), t.state, words)),
                    key=lambda t: t.name.lower())
     where = _t(words, "where", area=area.removeprefix("the ")) if area else ""
@@ -311,6 +319,8 @@ def when_reply(thing: Thing, asked: str, words: Mapping[str, Any], now: datetime
     and `history` says it hasn't been read yet."""
     said = say_state(thing, words, now)
     since = thing.last_changed or now
+    if thing.long_ago and (not asked or same_state(asked, said, thing.state, words)):
+        return _t(words, "changed_long", name=thing.name, state=said)
     if not asked:
         return _t(words, "changed", name=thing.name, state=said,
                   ago=say_ago((now - since).total_seconds(), words), when=say_when(since, now, words))
@@ -332,6 +342,10 @@ def how_long_reply(thing: Thing, asked: str, words: Mapping[str, Any], now: date
     said = say_state(thing, words, now)
     since = thing.last_changed or now
     ago = say_ago((now - since).total_seconds(), words)
+    if thing.long_ago:
+        ago = _t(words, "over_week")
+        if not asked or same_state(asked, said, thing.state, words):
+            return _t(words, "since_long", name=thing.name, state=said)
     if asked and not same_state(asked, said, thing.state, words):
         return _t(words, "not_now", name=thing.name, asked=_say_asked(asked, words), state=said,
                   ago=ago)
@@ -340,6 +354,25 @@ def how_long_reply(thing: Thing, asked: str, words: Mapping[str, Any], now: date
 
 
 # ------------------------------------------------------------ history
+
+GONE = ("unavailable", "unknown")
+
+
+def settled_since(changes: Sequence[Change], state: str) -> datetime | None:
+    """When a thing really went into its current state: the history's last
+    change to it, skipping the restarts and dropouts (unavailable, then the
+    same state again) that reset a state's last_changed. None when it was in
+    that state for the whole history read."""
+    since = None
+    before = None
+    for t, s in changes:
+        if s in GONE:
+            continue
+        if s != before:
+            since = t if before is not None else None
+        before = s
+    return since if before == state else None
+
 
 PERIODS = ("today", "yesterday", "week", "7d", "morning", "night", "1h", "24h")
 
@@ -405,6 +438,8 @@ def times_in(changes: Sequence[Change], asked: str, thing: Thing, words: Mapping
     change is the state at the start: counted only if it began then)."""
     out, before = [], None
     for t, s in changes:
+        if s in GONE:               # a dropout or restart isn't a change
+            continue
         said = say_state(thing, words, None, s)
         now_in = same_state(asked, said, s, words)
         if now_in and before is not True and t > start:
@@ -440,6 +475,10 @@ def times_reply(thing: Thing, asked: str, period: str, changes: Sequence[Change]
         return _t(words, "times_one", name=thing.name, asked=asked_said, period=when_said, when=last)
     return _t(words, "times", name=thing.name, asked=asked_said, count=len(hits),
               period=when_said, when=last)
+
+
+def unknown_reply(name: str, words: Mapping[str, Any]) -> str:
+    return _t(words, "unknown", name=name)
 
 
 def which_reply(names: Sequence[str], words: Mapping[str, Any]) -> str:

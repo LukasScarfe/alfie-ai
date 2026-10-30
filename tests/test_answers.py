@@ -199,6 +199,8 @@ def test_count_reply(kind, state, area, ask, said):
 
 
 def test_in_area():
+    assert answers.in_area("", "kitchen", "Kitchen lights")
+    assert not answers.in_area("Office", "kitchen", "Kitchen lights")
     assert answers.in_area("Living Room", "the living room")
     assert answers.in_area("Kitchen", "kitchen")
     assert not answers.in_area("Kitchen", "office")
@@ -274,3 +276,32 @@ def test_times():
 def test_which_reply():
     assert answers.which_reply(["Kitchen Light", "Kitchen Lamp"], EN) == \
         "Which one: Kitchen Light or Kitchen Lamp?"
+
+
+def test_settled_since():
+    # a restart (unavailable, then the same state) isn't a change
+    home = [(at(0, days=-1), "not_home"), (at(16, days=-1), "home"), (at(15), "unavailable"),
+            (at(15, 1), "home")]
+    assert answers.settled_since(home, "home") == at(16, days=-1)
+    assert answers.settled_since(home[1:], "home") is None          # home all along
+    assert answers.settled_since([(at(1), "home"), (at(2), "not_home")], "home") is None
+    assert answers.settled_since([], "home") is None
+
+
+def test_long_ago_replies():
+    t = thing("person.lukas", "home", "Lukas")
+    t.long_ago = True
+    assert answers.how_long_reply(t, "home", EN, NOW) == "Lukas has been home for over a week."
+    assert answers.when_reply(t, "", EN, NOW) == "Lukas has been home for over a week."
+    assert answers.how_long_reply(t, "away", EN, NOW) == \
+        "Lukas isn't away, it's home, and has been for over a week."
+
+
+def test_unknown_reply():
+    assert answers.unknown_reply("front door", EN) == "I don't know anything called front door."
+
+
+def test_times_skip_restarts():
+    door = thing("binary_sensor.front_door", "on", "Front Door", device_class="door")
+    day = [(at(0), "off"), (at(7), "on"), (at(8), "unavailable"), (at(8, 1), "on")]
+    assert answers.times_in(day, "open", door, EN, at(0)) == [at(7)]

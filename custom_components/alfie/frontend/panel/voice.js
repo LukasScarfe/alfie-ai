@@ -284,6 +284,8 @@ function brainTab(p) {
         ${b.own_sentences ? `${cmds}
         ${U.check("brain.exposed_only", b.exposed_only, "Only things exposed to Assist", "Off: he answers about every entity (the answer stays in the house). On: only those exposed in Settings → Voice assistants → Expose.")}
         ${U.check("brain.ask_which", b.ask_which, "Ask which one", "When two things fit a name equally, he asks. Off: the delegate gets the question.")}
+        ${U.check("brain.say_unknown", b.say_unknown, "Say when he doesn't know a thing", "\"When was the front door last opened?\" with no front door: he says so. Off: the delegate gets it (an LLM may make up an answer).")}
+        ${U.wide("\"How many\" ignores these integrations", `<textarea data-path="brain.count_skip" data-kind="lines" rows="2">${U.esc((b.count_skip || []).join("\n"))}</textarea>`, "One integration per line, like adaptive_lighting: their switches aren't things that are \"on\".")}
         ${U.field("How sure a name must be", U.num("brain.match_floor", b.match_floor, { min: 30, max: 120, step: 5 }), "70: the whole name was said. Lower finds more, and guesses more.")}` : ""}`)}
       ${U.card("Face and log", `<div class="grid">
         ${U.field("Local badge", U.text("brain.local_icon", b.local_icon, { placeholder: "None, or mdi:lightning-bolt" }))}

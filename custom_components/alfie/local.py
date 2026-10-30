@@ -19,7 +19,9 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
-from . import answers, finder
+from homeassistant.helpers import entity_registry as er
+
+from . import answers, brain, finder
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -92,16 +94,25 @@ class LocalAnswers:
         attr = slots.get("attr", "")
         if entity_id is None:
             name = slots.get("name", "")
-            entity_id, choices = await self.resolve(name, s)
-            if entity_id is None and not choices and not attr and cmd == "entity":
-                # "the kitchen light's brightness": a thing and one of its attributes.
+            entity_id, choices = None, []
+            if cmd == "entity" and not attr:
+                # "the Scope Echo's volume": a thing and one of its attributes,
+                # when that thing has it; else the whole name is the thing.
                 attr, rest = _split_attribute(name, words)
                 if attr:
                     entity_id, choices = await self.resolve(rest, s)
+                    t = self.thing(entity_id) if entity_id else None
+                    unit = self.hass.config.units.temperature_unit
+                    if t is None or answers.attribute(t, attr, unit) is None:
+                        entity_id, choices, attr = None, [], ""
+            if entity_id is None and not choices:
+                entity_id, choices = await self.resolve(name, s)
             if entity_id is None:
                 if choices and s["ask_which"]:
                     return Reply(answers.which_reply(self._names(choices), words),
                                  choices=choices)
+                if cmd in brain.HOUSE_ONLY and s["say_unknown"] and _clean(name):
+                    return Reply(answers.unknown_reply(_clean(name), words))
                 return None
             if attr:
                 slots = {**slots, "attr": attr}
@@ -124,14 +135,19 @@ class LocalAnswers:
                 return answers.yes_no_reply(t, slots["state"], words, now)
             return answers.state_reply(t, words, now)
         if cmd == "entity_when":
+            # A restart resets every state's last_changed: the history says
+            # when it really changed.
+            start = now - timedelta(days=WHEN_DAYS)
+            changes = await self._history(t.entity_id, start, now)
+            if changes:
+                since = answers.settled_since(changes, t.state)
+                t.last_changed, t.long_ago = (since, False) if since else (start, True)
             if slots.get("state"):           # how long has it been ...
                 return answers.how_long_reply(t, slots["state"], words, now)
             asked = slots.get("event", "")
             got = answers.when_reply(t, asked, words, now)
             if got is not None:
                 return got
-            start = now - timedelta(days=WHEN_DAYS)
-            changes = await self._history(t.entity_id, start, now)
             hits = answers.times_in(changes, asked, t, words, start)
             return answers.when_reply(t, asked, words, now, hits[-1] if hits else None, True)
         if cmd == "entity_history":
@@ -151,9 +167,11 @@ class LocalAnswers:
         if idx is None:
             return None
         area = _clean(slots.get("area", ""))
+        reg, skip = er.async_get(self.hass), set(s["count_skip"])
         things = [t for e in idx.entries if (e.exposed or not s["exposed_only"])
+                  and not (skip and (r := reg.async_get(e.entity_id)) and r.platform in skip)
                   and (t := self.thing(e.entity_id)) is not None]
-        if area and not any(answers.in_area(t.area, area) for t in things):
+        if area and not any(answers.in_area(t.area, area, t.name) for t in things):
             return None              # not a room he knows: maybe the delegate does
         text = slots.get("_text", "").lower()
         ask = "all" if " all " in f" {text} " else "count"

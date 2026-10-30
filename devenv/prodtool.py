@@ -178,7 +178,12 @@ def deploy():
         pass
     _wait_up()
     st = rest("GET", "/api/states/" + UPDATE)["attributes"]
-    running = running_version(WS())
+    # HA answers before Alfie has set up and updated his device's version.
+    for _ in range(30):
+        running = running_version(WS())
+        if running == local_version():
+            break
+        time.sleep(2)
     print(f"HA is back with {st['installed_version']}, running Alfie {running}")
     if running != local_version():
         raise SystemExit(f"HA runs Alfie {running}, not {local_version()}")
