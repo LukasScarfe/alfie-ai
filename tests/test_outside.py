@@ -85,12 +85,12 @@ def test_will_it():
     assert outside.forecast_reply(w, "rain", "tonight", "", "", EN, NOW, S) == \
         "Yes, rain is likely tonight, from about 6 pm (80% chance)."
     assert outside.forecast_reply(weather("cloudy", DRY, DAYS), "rain", "tomorrow", "", "", EN, NOW, S) == \
-        "No rain is forecast tomorrow: mostly cloudy."
+        "No rain is forecast tomorrow. It should be cloudy."
     # Beyond the hourly forecast: the daily one.
     assert outside.forecast_reply(w, "rain", "mon", "", "", EN, NOW, S) == \
         "Yes, rain is likely on Monday (70% chance)."
     assert outside.forecast_reply(w, "snow", "sun", "", "", EN, NOW, S) == \
-        "No snow is forecast on Sunday: mostly sunny."
+        "No snow is forecast on Sunday. It should be sunny."
 
 
 def test_start_and_stop():
@@ -143,6 +143,14 @@ def test_gear():
     sunny = [hour(h, cond="sunny", uv=5) for h in range(15, 20)]
     assert outside.gear_reply(weather("sunny", sunny), "sun", "", EN, NOW, S) == \
         "Yes, the UV index reaches 5 in the next 12 hours."
+
+
+def test_place_and_whole_degrees():
+    w = weather("cloudy", DRY, [day(1, cond="partlycloudy", temp=11.4, low=4.2)], place="Whistler")
+    assert outside.forecast_reply(w, "", "tomorrow", "max", "", EN, NOW, S) == \
+        "The high tomorrow in Whistler is 11°C."
+    assert outside.forecast_reply(w, "snow", "tomorrow", "", "", EN, NOW, S) == \
+        "No snow is forecast tomorrow in Whistler. It should be cloudy."
 
 
 def test_fahrenheit_thresholds():
