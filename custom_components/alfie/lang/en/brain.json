@@ -1,0 +1,27 @@
+{
+  "_": "Alfie's brain in English (brain.py): the sentences of his own commands, in Home Assistant's sentence syntax ([optional], (this|that)), and his replies. Keys starting with _ are notes.",
+  "commands": {
+    "whats_wrong": [
+      "(is|are) [there] (anything|something|things) wrong [in the house|at home]",
+      "(what is|what's|whats) wrong [in the house|at home]",
+      "how is the house [doing]",
+      "(any|anything) to worry about"
+    ],
+    "how_are_you": [
+      "how are you [doing|feeling] [today]",
+      "how (do|are) you feel[ing] [today]",
+      "(are you|you) (ok|okay|alright|all right|happy|sad)",
+      "how's it going",
+      "what's (up|your mood)"
+    ]
+  },
+  "how_are_you": {
+    "bubbly": "I'm feeling great!",
+    "content": "I'm good, thanks.",
+    "uneasy": "A little uneasy.",
+    "sad": "Not great, to be honest.",
+    "miserable": "Pretty miserable, honestly.",
+    "because": "{feeling} Mostly because of {reason}."
+  },
+  "fallback": "Sorry, I don't know that one."
+}

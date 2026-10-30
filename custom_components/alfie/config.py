@@ -33,7 +33,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from . import defaults, speech
+from . import brain, defaults, speech
 from .mood import (
     COMBINE_MODES,
     DEFAULT_COUNT_THRESHOLDS,
@@ -57,7 +57,7 @@ from .triggers import validate_triggers
 # 6: label and text screens' size became text_size, a multiplier (migrate_v5).
 CONFIG_VERSION = 6
 SECTIONS = ("signals", "mood", "behaviour", "personality", "look", "expressions", "animations",
-            "screens", "rotations", "stories", "triggers", "modes", "voice", "speech",
+            "screens", "rotations", "stories", "triggers", "modes", "voice", "speech", "brain",
             "overview")
 # An expression's numbers: lids [height, slant] in eye radii, size, and look.
 LID_RANGE = (-1.5, 1.5)
@@ -219,6 +219,12 @@ def default_speech() -> dict[str, Any]:
     return {"engine": "", **speech.default_settings()}
 
 
+def default_brain() -> dict[str, Any]:
+    """Alfie's brain (design.md "Brain"): conversation.alfie's delegate and
+    what it answers locally (brain.py)."""
+    return brain.default_settings()
+
+
 def default_config() -> dict[str, Any]:
     return {
         "version": CONFIG_VERSION,
@@ -253,6 +259,7 @@ def default_config() -> dict[str, Any]:
         "modes": copy.deepcopy(list(defaults.MODES)),
         "voice": default_voice(),
         "speech": default_speech(),
+        "brain": default_brain(),
         "overview": {"dismissed": False, "done": []},
     }
 
@@ -754,6 +761,64 @@ def _speech(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[st
     return {k: out[k] for k in base}    # the defaults' key order
 
 
+BRAIN_AGENT = "conversation.alfie"   # the brain can't delegate to itself
+
+
+def _sentence(where: str, v: Any, ck: _Check) -> str | None:
+    """A sentence template (HA's syntax): text, brackets balanced."""
+    t = " ".join(str(v or "").split())[:200]
+    depth: list[str] = []
+    for ch in t:
+        if ch in "([":
+            depth.append(")" if ch == "(" else "]")
+        elif ch in ")]" and (not depth or depth.pop() != ch):
+            depth.append("x")
+            break
+    if depth:
+        ck.bad(where, f"{t!r} has unbalanced brackets")
+        return None
+    return t or None
+
+
+def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str, Any]:
+    v = _section(raw, "brain", base)
+    delegate = str(v["delegate"] or "").strip()
+    if delegate and (not delegate.startswith("conversation.") or delegate == BRAIN_AGENT):
+        ck.bad("brain delegate", f"{delegate!r} is not another conversation agent")
+        delegate = ""
+    extra = v["extra_sentences"] if isinstance(v["extra_sentences"], Mapping) else {}
+    sentences = {}
+    for cmd in brain.COMMANDS:
+        got = extra.get(cmd) or []
+        got = got if isinstance(got, list) else [got]
+        sentences[cmd] = [t for i, x in enumerate(got[:50])
+                          if (t := _sentence(f"brain {cmd} sentence {i + 1}", x, ck))]
+    icons = {}
+    for key in ("local_icon", "delegate_icon"):
+        icon = str(v[key] or "").strip()
+        icons[key] = icon if not icon or _is_icon(icon) else ""
+        if icon and not icons[key]:
+            ck.bad(f"brain {key.replace('_', ' ')}", f"{icon!r} is not an icon name")
+    return {
+        "delegate": delegate,
+        "own_sentences": bool(v["own_sentences"]),
+        "commands": ck.names("brain commands", v["commands"], brain.COMMANDS),
+        "extra_sentences": sentences,
+        "local_intents": bool(v["local_intents"]),
+        "local_states": bool(v["local_states"]),
+        "local_media_search": bool(v["local_media_search"]),
+        "fallback": str(v["fallback"] or "").strip()[:300],
+        "log_size": int(ck.number("brain log size", v["log_size"], 1, brain.LOG_MAX, 50)),
+        **icons,
+        "icon_seconds": _num(ck.number("brain icon time", v["icon_seconds"], 0, 60, 3)),
+    }
+
+
+def _is_icon(icon: str) -> bool:
+    from .stories import is_icon_name   # lazy: stories imports this module
+    return is_icon_name(icon)
+
+
 def _music_icon(v: Any, ck: _Check) -> str:
     from .stories import is_icon_name   # lazy: stories imports this module
     icon = str(v or "").strip()
@@ -1152,6 +1217,7 @@ def validate(raw: Any, face: Mapping[str, Any],
                                   {r["id"] for r in cfg["rotations"]})
     cfg["voice"] = _voice(raw, base["voice"], expressions, animations, ck)
     cfg["speech"] = _speech(raw, base["speech"], ck)
+    cfg["brain"] = _brain(raw, base["brain"], ck)
     cfg["overview"] = _overview(raw.get("overview"), ck)
     trigger_ids = {t["id"] for t in cfg["triggers"]}
     for m in cfg["modes"]:
