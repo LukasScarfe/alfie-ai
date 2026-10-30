@@ -18,7 +18,9 @@ states per call.
 
 `alfie/voice/status` shows the panel what voice agents get from Alfie (the
 satellites he follows, the prompt, the tool's answer, the intent's), and
-`alfie/voice/say` says a line out loud. Both are admin only.
+`alfie/voice/say` says a line out loud, and `alfie/speech/preview` shows how
+Alfie's voice would say a text with the panel's draft speech rules. All admin
+only.
 
 `alfie/screen/yaml` turns a screen's options into YAML and back, for the
 panel's text editor. Admin only.
@@ -46,6 +48,7 @@ from .config import (
     ConfigError,
     default_config,
     face_extras,
+    validate_speech,
 )
 from .config import _Check
 from .const import DOMAIN, HOUSE_MODES
@@ -64,7 +67,7 @@ def async_register(hass: HomeAssistant) -> None:
         return
     for cmd in (ws_subscribe, ws_config_get, ws_config_set, ws_config_reset, ws_config_preview,
                 ws_screens, ws_screen_data, ws_story_play, ws_story_expand, ws_triggers_status, ws_suggest,
-                ws_voice_status, ws_voice_say, ws_pictures_list, ws_picture_get,
+                ws_voice_status, ws_voice_say, ws_speech_preview, ws_pictures_list, ws_picture_get,
                 ws_picture_upload, ws_picture_rename, ws_picture_delete, ws_face, ws_screen_yaml):
         websocket_api.async_register_command(hass, cmd)
     data["_ws_registered"] = True
@@ -381,6 +384,25 @@ def ws_voice_say(hass: HomeAssistant, connection: websocket_api.ActiveConnection
         return
     went = engine.speak(msg["message"], msg.get("speakers"), msg.get("tts_entity", ""))
     connection.send_result(msg["id"], {"speakers": went})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "alfie/speech/preview",
+                                  vol.Required("text"): str,
+                                  vol.Optional("speech"): dict})
+@callback
+def ws_speech_preview(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+                      msg: dict[str, Any]) -> None:
+    if (engine := _engine(hass, connection, msg["id"])) is None:
+        return
+    rules = msg.get("speech")
+    if rules is not None:
+        try:
+            rules = validate_speech(rules)
+        except ConfigError as e:
+            connection.send_error(msg["id"], "invalid_config", str(e))
+            return
+    connection.send_result(msg["id"], {"text": engine.spoken(msg["text"][:2000], rules=rules)})
 
 
 # ------------------------------------------------------------- pictures

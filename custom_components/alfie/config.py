@@ -12,6 +12,8 @@ PURE (no HA import), so the tests run under plain python. Its sections:
   stories      what Alfie does when a trigger fires (stories.py)
   triggers     when he does it (triggers.py)
   modes        house modes (modes.py)
+  voice        following satellites, the Alfie LLM API, voice screens
+  speech       how Alfie's voice says numbers, times and dates (speech.py)
   overview     the panel's Get started state
 
 `default_config()` is the generic starter (defaults.py); Lukas's own house is
@@ -31,7 +33,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from . import defaults
+from . import defaults, speech
 from .mood import (
     COMBINE_MODES,
     DEFAULT_COUNT_THRESHOLDS,
@@ -55,7 +57,8 @@ from .triggers import validate_triggers
 # 6: label and text screens' size became text_size, a multiplier (migrate_v5).
 CONFIG_VERSION = 6
 SECTIONS = ("signals", "mood", "behaviour", "personality", "look", "expressions", "animations",
-            "screens", "rotations", "stories", "triggers", "modes", "voice", "overview")
+            "screens", "rotations", "stories", "triggers", "modes", "voice", "speech",
+            "overview")
 # An expression's numbers: lids [height, slant] in eye radii, size, and look.
 LID_RANGE = (-1.5, 1.5)
 SIZE_RANGE = (0.3, 2.0)
@@ -177,6 +180,7 @@ def default_motion() -> dict[str, Any]:
 # worth a screen (a script running, a scene set) and Alfie's own plumbing.
 SCREEN_SKIP = ("script", "scene", "automation", "todo", "schedule", "button", "conversation",
                "tts", "stt", "update", "event")
+SPEECH_ENTITY = "tts.alfie_voice"   # Alfie's own voice can't hand words to itself
 VOICE_PRESENTS = ("corner", "handover", "card")
 PLOT_TITLES = ("icon", "icon_name", "name", "none")   # a voice plot's title
 
@@ -207,6 +211,12 @@ def default_voice() -> dict[str, Any]:
             "music_icon": "mdi:music-note", "music_screen": True, "music_seconds": 15,
             "music_show_title": True, "music_show_artist": True, "music_show_album": False,
             "music_show_paused": False}
+
+
+def default_speech() -> dict[str, Any]:
+    """Alfie's voice (design.md "Brain", Speech): the TTS engine tts.alfie_voice
+    hands the rewritten text to ("" the first other one), and the rules."""
+    return {"engine": "", **speech.default_settings()}
 
 
 def default_config() -> dict[str, Any]:
@@ -242,6 +252,7 @@ def default_config() -> dict[str, Any]:
         "triggers": copy.deepcopy(list(defaults.TRIGGERS)),
         "modes": copy.deepcopy(list(defaults.MODES)),
         "voice": default_voice(),
+        "speech": default_speech(),
         "overview": {"dismissed": False, "done": []},
     }
 
@@ -700,6 +711,49 @@ def _voice(raw: Mapping[str, Any], base: dict[str, Any], expressions: Any,
     }
 
 
+def validate_speech(rules: Any) -> dict[str, Any]:
+    """A checked speech section on its own (the panel's preview of a draft)."""
+    ck = _Check()
+    out = _speech({"speech": rules}, default_speech(), ck)
+    if ck.errors:
+        raise ConfigError(ck.errors)
+    return out
+
+
+def _speech(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str, Any]:
+    v = _section(raw, "speech", base)
+    engine = str(v["engine"] or "").strip()
+    if engine and (not engine.startswith("tts.") or engine == SPEECH_ENTITY):
+        ck.bad("speech engine", f"{engine!r} is not another tts entity")
+        engine = ""
+    pairs = []
+    for p in v["replacements"] if isinstance(v["replacements"], list) else []:
+        if not isinstance(p, Mapping):
+            ck.bad("speech replacements", f"{p!r} is not a from and a to")
+        elif str(p.get("from") or "").strip():     # a row still empty is dropped
+            pairs.append({"from": str(p["from"]).strip()[:100], "to": str(p.get("to") or "")[:200]})
+    flags = ("numbers", "and", "temperature_unit", "units", "currency", "abbreviations",
+             "markdown", "links", "emoji")
+    out = {
+        "engine": engine,
+        "decimals": int(ck.number("speech decimals", v["decimals"], 0, 3, 1)),
+        "years": ck.choice("speech years", v["years"], speech.YEARS, "pairs"),
+        "years_2000": ck.choice("speech years after 2000", v["years_2000"], speech.YEARS_2000,
+                                "twenty"),
+        "time_style": ck.choice("speech times", v["time_style"], speech.TIME_STYLES, "clock"),
+        "time_period": ck.choice("speech time of day", v["time_period"], speech.TIME_PERIODS,
+                                 "words"),
+        "date_style": ck.choice("speech dates", v["date_style"], speech.DATE_STYLES, "month_day"),
+        "numeric_dates": ck.choice("speech numeric dates", v["numeric_dates"],
+                                   speech.NUMERIC_DATES, "month_first"),
+        "date_year": ck.choice("speech date year", v["date_year"], speech.DATE_YEARS,
+                               "not_this_year"),
+        **{k: bool(v[k]) for k in flags},
+        "replacements": pairs[:200],
+    }
+    return {k: out[k] for k in base}    # the defaults' key order
+
+
 def _music_icon(v: Any, ck: _Check) -> str:
     from .stories import is_icon_name   # lazy: stories imports this module
     icon = str(v or "").strip()
@@ -1097,6 +1151,7 @@ def validate(raw: Any, face: Mapping[str, Any],
     cfg["modes"] = validate_modes(raw_modes, ck, tuple(face.get("personalities") or ()),
                                   {r["id"] for r in cfg["rotations"]})
     cfg["voice"] = _voice(raw, base["voice"], expressions, animations, ck)
+    cfg["speech"] = _speech(raw, base["speech"], ck)
     cfg["overview"] = _overview(raw.get("overview"), ck)
     trigger_ids = {t["id"] for t in cfg["triggers"]}
     for m in cfg["modes"]:

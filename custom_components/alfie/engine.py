@@ -22,8 +22,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_STATE_CHANGED
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.helpers.event import async_call_later
+from homeassistant.util import dt as dt_util
 
-from . import modes as md
+from . import modes as md, speech
 from . import triggers as trig
 from .config import NOTICE, build, face_extras, reset, validate
 from .config import _Check as Check
@@ -403,12 +404,24 @@ class AlfieEngine:
                                                 "speak_strength")}}
 
     @callback
+    def spoken(self, text: str, language: str = "", rules: dict[str, Any] | None = None) -> str:
+        """`text` the way Alfie's voice says it (speech.py), in `language` (else
+        Voice's, else HA's), by `rules` (else the saved speech section). A
+        language whose words aren't read yet stays as is."""
+        lang = language or self.config["voice"]["language"] or self.hass.config.language
+        if not speech.language_ready(lang):
+            self.hass.async_add_executor_job(speech.load_language, lang)
+            return text
+        return speech.speak(text, rules or self.config["speech"], lang, today=dt_util.now().date())
+
+    @callback
     def speak(self, text: str, targets: list[str] | None = None,
               tts_entity: str = "", language: str = "") -> list[str]:
         """Say `text` out loud, without waiting: satellites announce it, media
         players get TTS. With no targets, the Voice settings' speakers, else
         every satellite he follows. Returns where it went."""
         v = self.config["voice"]
+        text = self.spoken(text, language)
         targets = list(targets or v["speak_targets"])
         if not targets:
             targets = [e for e in self.hass.states.async_entity_ids("assist_satellite")
