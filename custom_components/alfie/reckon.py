@@ -251,6 +251,7 @@ def sum_reply(text: str, words: Mapping[str, Any]) -> str | None:
     if toks is None:
         return None
     said = _clean(text).removeprefix("the ")
+    said = said[:1].upper() + said[1:]
     try:
         v = evaluate(toks)
     except ZeroDivisionError:

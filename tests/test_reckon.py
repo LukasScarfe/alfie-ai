@@ -21,10 +21,10 @@ def test_numbers(text, value):
 
 @pytest.mark.parametrize("text,said", [
     ("12 times 7", "12 times 7 is 84."), ("15% of 80", "15% of 80 is 12."),
-    ("the square root of 144", "square root of 144 is 12."),
+    ("the square root of 144", "Square root of 144 is 12."),
     ("2 plus 3 times 4", "2 plus 3 times 4 is 14."), ("10 divided by 3", "10 divided by 3 is 3.33."),
-    ("2 to the power of 10", "2 to the power of 10 is 1024."), ("five squared", "five squared is 25."),
-    ("minus 4 plus 10", "minus 4 plus 10 is 6."), ("half of 90", "half of 90 is 45."),
+    ("2 to the power of 10", "2 to the power of 10 is 1024."), ("five squared", "Five squared is 25."),
+    ("minus 4 plus 10", "Minus 4 plus 10 is 6."), ("half of 90", "Half of 90 is 45."),
     ("7 x 6", "7 x 6 is 42."), ("12*12", "12*12 is 144.")])
 def test_sums(text, said):
     assert reckon.sum_reply(text, EN) == said
