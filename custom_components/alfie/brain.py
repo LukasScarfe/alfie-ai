@@ -40,6 +40,8 @@ LABELS = {"whats_wrong": "what's wrong", "how_are_you": "how are you",
           "entity_when": "when a thing changed", "entity_history": "a thing's history"}
 # Tried after HA's intents: a built-in intent knows its own entities better.
 LATE = frozenset({"entity", "entity_count"})
+# Questions only the house can answer: a name that names nothing is said so.
+HOUSE_ONLY = frozenset({"entity_when", "entity_history"})
 WILDCARDS = ("name", "area", "value")
 # HA intents that only read a state: local unless `local_states` is off (HA's
 # own pipeline hands HassGetState to an LLM agent; the weather was invented).
@@ -59,6 +61,9 @@ def default_settings() -> dict[str, Any]:
             "exposed_only": False,          # entities: only those exposed to Assist
             "match_floor": 70,              # finder score a name needs (0-120)
             "ask_which": True,              # two equal fits: ask, else hand on
+            "say_unknown": True,            # a house-only question about no known thing:
+                                            # say so, not the delegate (it may invent it)
+            "count_skip": ["adaptive_lighting"],   # integrations "how many" ignores
             "local_intents": True, "local_states": True, "local_media_search": False,
             "fallback": "",                 # "" the language's
             "log_size": 50,
