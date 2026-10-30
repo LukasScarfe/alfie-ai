@@ -56,6 +56,11 @@ def default_settings() -> dict[str, Any]:
 _LANGS: dict[str, dict[str, Any] | None] = {}
 
 
+def language_ready(language: str) -> bool:
+    """Whether `load_language` has read this language already."""
+    return _code(language) in _LANGS
+
+
 def load_language(language: str) -> dict[str, Any] | None:
     """The brain's words for a language ("en-GB" -> en), or None. Reads a file
     the first time: in HA, call it from an executor."""

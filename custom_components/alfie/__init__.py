@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
-from . import speech
+from . import brain, speech
 from .const import DOMAIN, HOUSE_MODES
 from .engine import AlfieEngine
 from .frontend import async_register_frontend, async_remove_panel
@@ -16,7 +16,7 @@ from .services import async_describe, async_setup_services
 from .voice import Voice
 from .websocket_api import async_register as async_register_ws
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.TTS,
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.TTS, Platform.CONVERSATION,
                              *([Platform.SELECT] if HOUSE_MODES else [])]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -30,6 +30,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # The words Alfie's voice speaks with (speech.py), read off the event loop.
     await hass.async_add_executor_job(speech.load_language, hass.config.language)
+    await hass.async_add_executor_job(brain.load_language, hass.config.language)
     engine = AlfieEngine(hass, entry)
     await engine.async_start()
     hass.data[DOMAIN]["engine"] = engine
