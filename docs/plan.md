@@ -261,9 +261,18 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
         try box (`alfie/speech/preview`). 0.18.0.
   - [x] C. On production (0.18.2): `speech.engine` is `tts.piper`, and with Lukas's OK
         (2026-10-30) "Alfie (local)" speaks through `tts.alfie_voice` (voice kusal, en_US).
-- [ ] **14. Brain.** An "Alfie" conversation agent: tier 1 Alfie's own sentences then HA's
+- [~] **14. Brain.** An "Alfie" conversation agent: tier 1 Alfie's own sentences then HA's
       built-in intents, tier 3 any LLM agent picked as the delegate. The face shows the tier;
-      a turn log says why.
+      a turn log says why. (Plan agreed with Lukas 2026-10-30.)
+  - [ ] A. `brain.py` (pure, table tests) and `lang/en/brain.json`: own commands (what's wrong,
+        how are you), the turn log and its "why", the `brain` config section.
+  - [ ] B. `conversation.py`: `conversation.alfie`. Sentence triggers, Alfie's sentences, HA's
+        intents (strict; state questions local by `brain.local_states`), then the delegate in
+        the same chat log so it still streams; with none, the fallback reply.
+  - [ ] C. The tier badge (local bolt, delegate brain) and Voice → Brain (delegate, options,
+        live turn log via `alfie/brain/turns`). 0.19.0.
+  - [ ] D. Dev HA checks and PNGs; on production, with Lukas's OK, "Alfie (local)" uses
+        `conversation.alfie` (delegate Alfie desktop) with "prefer local" off.
 - [ ] **15. Timers and alarms.** Persistent, ring on the satellite that set them; named timers,
       add/remove time, pause, status, one-off and repeating alarms, snooze, stop (voice or the
       Dot's button). `sensor.alfie_timers` and a `custom:alfie-timers` badge with live
