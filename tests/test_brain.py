@@ -102,6 +102,8 @@ def test_turn_log_keeps_the_newest():
     log.resize(1)
     assert [t["said"] for t in log.as_list()] == ["q2"]
     assert brain.Turn("x", source="delegate").tier == 3
+    long = log.add(brain.Turn(said="q", reply="word " * 100)).reply
+    assert len(long) <= brain.MAX_SAID and long.endswith("word…")
 
 
 def test_config_brain_defaults_and_checks():
