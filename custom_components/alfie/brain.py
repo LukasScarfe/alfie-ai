@@ -3,7 +3,9 @@ conversation.alfie (conversation.py) answers a turn from the first tier that
 can:
 
   tier 1  an automation's sentence trigger, then Alfie's own commands (what's
-          wrong, how are you), then Home Assistant's built-in intents;
+          wrong, how are you), then Home Assistant's built-in intents, then his
+          local answers that a built-in intent may know better (any entity's
+          state, how many lights are on: `LATE`);
   tier 3  the delegate: any other conversation agent, usually an LLM.
 
 Tier 2, the matcher, comes in M16. Tier 1 replies come from templates, so the
@@ -28,9 +30,17 @@ from typing import Any
 
 from .speech import LANG_DIR, _code
 
-COMMANDS = ("whats_wrong", "how_are_you")
-INTENTS = {"whats_wrong": "AlfieWhatsWrong", "how_are_you": "AlfieHowAreYou"}
-LABELS = {"whats_wrong": "what's wrong", "how_are_you": "how are you"}
+COMMANDS = ("whats_wrong", "how_are_you", "entity", "entity_count", "entity_when",
+            "entity_history")
+INTENTS = {"whats_wrong": "AlfieWhatsWrong", "how_are_you": "AlfieHowAreYou",
+           "entity": "AlfieEntity", "entity_count": "AlfieEntityCount",
+           "entity_when": "AlfieEntityWhen", "entity_history": "AlfieEntityHistory"}
+LABELS = {"whats_wrong": "what's wrong", "how_are_you": "how are you",
+          "entity": "a thing's state", "entity_count": "how many things",
+          "entity_when": "when a thing changed", "entity_history": "a thing's history"}
+# Tried after HA's intents: a built-in intent knows its own entities better.
+LATE = frozenset({"entity", "entity_count"})
+WILDCARDS = ("name", "area", "value")
 # HA intents that only read a state: local unless `local_states` is off (HA's
 # own pipeline hands HassGetState to an LLM agent; the weather was invented).
 STATE_INTENTS = frozenset({"HassGetState", "HassGetWeather"})
@@ -44,8 +54,11 @@ MAX_SAID = 300     # characters of a question or reply kept in the log
 def default_settings() -> dict[str, Any]:
     """The `brain` config section."""
     return {"delegate": "",                 # a conversation entity; "" none
-            "own_sentences": True, "commands": list(COMMANDS),
+            "own_sentences": True, "off_commands": [],
             "extra_sentences": {c: [] for c in COMMANDS},
+            "exposed_only": False,          # entities: only those exposed to Assist
+            "match_floor": 70,              # finder score a name needs (0-120)
+            "ask_which": True,              # two equal fits: ask, else hand on
             "local_intents": True, "local_states": True, "local_media_search": False,
             "fallback": "",                 # "" the language's
             "log_size": 50,
@@ -82,15 +95,32 @@ def own_intents(words: Mapping[str, Any] | None, settings: Mapping[str, Any],
     Intents.from_dict), or None when there are none to match."""
     if not settings["own_sentences"]:
         return None
-    lang_cmds = (words or {}).get("commands") or {}
+    words = words or {}
+    lang_cmds = words.get("commands") or {}
     intents = {}
-    for cmd in settings["commands"]:
+    for cmd in COMMANDS:
+        if cmd in settings["off_commands"]:
+            continue
         sentences = [*lang_cmds.get(cmd, []), *settings["extra_sentences"].get(cmd, [])]
-        if cmd in INTENTS and sentences:
+        if sentences:
             intents[INTENTS[cmd]] = {"data": [{"sentences": sentences}]}
     if not intents:
         return None
-    return {"language": _code(language), "intents": intents}
+    lists: dict[str, Any] = {w: {"wildcard": True} for w in WILDCARDS}
+    for name, values in (words.get("lists") or {}).items():
+        if isinstance(values, dict):
+            lists[name] = {"values": [{"in": k, "out": v} for k, v in values.items()
+                                      if not k.startswith("_")]}
+    things = [{"in": w, "out": key} for key, t in (words.get("things") or {}).items()
+              if isinstance(t, dict) for w in t.get("words", [])]
+    if things:
+        lists["thing"] = {"values": things}
+    return {"language": _code(language), "intents": intents, "lists": lists,
+            "expansion_rules": dict(words.get("rules") or {})}
+
+
+def commands_on(settings: Mapping[str, Any]) -> list[str]:
+    return [c for c in COMMANDS if c not in settings["off_commands"]]
 
 
 def command_of(intent_name: str) -> str | None:

@@ -1246,14 +1246,18 @@
  "brain": {
   "delegate": "",
   "own_sentences": true,
-  "commands": [
-   "whats_wrong",
-   "how_are_you"
-  ],
+  "off_commands": [],
   "extra_sentences": {
    "whats_wrong": [],
-   "how_are_you": []
+   "how_are_you": [],
+   "entity": [],
+   "entity_count": [],
+   "entity_when": [],
+   "entity_history": []
   },
+  "exposed_only": false,
+  "match_floor": 70,
+  "ask_which": true,
   "local_intents": true,
   "local_states": true,
   "local_media_search": false,

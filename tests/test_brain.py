@@ -20,17 +20,23 @@ def test_own_intents_from_language_and_extras():
     s = {**DEFAULTS, "extra_sentences": {"whats_wrong": [], "how_are_you": ["you good"]}}
     data = brain.own_intents(EN, s, "en-US")
     assert data["language"] == "en"
-    assert set(data["intents"]) == {"AlfieWhatsWrong", "AlfieHowAreYou"}
+    assert set(data["intents"]) == set(brain.INTENTS.values())
+    assert data["lists"]["name"] == {"wildcard": True}
+    assert {"in": "turned on", "out": "on"} in data["lists"]["event"]["values"]
+    assert {"in": "lamps", "out": "light"} in data["lists"]["thing"]["values"]
+    assert "what_is" in data["expansion_rules"]
     assert "you good" in data["intents"]["AlfieHowAreYou"]["data"][0]["sentences"]
 
 
-@pytest.mark.parametrize("change", [{"own_sentences": False}, {"commands": []}])
+@pytest.mark.parametrize("change", [{"own_sentences": False},
+                                    {"off_commands": list(brain.COMMANDS)}])
 def test_own_intents_off(change):
     assert brain.own_intents(EN, {**DEFAULTS, **change}, "en") is None
 
 
 def test_own_intents_only_chosen_commands():
-    data = brain.own_intents(EN, {**DEFAULTS, "commands": ["how_are_you"]}, "en")
+    off = [c for c in brain.COMMANDS if c != "how_are_you"]
+    data = brain.own_intents(EN, {**DEFAULTS, "off_commands": off}, "en")
     assert list(data["intents"]) == ["AlfieHowAreYou"]
     assert brain.command_of("AlfieHowAreYou") == "how_are_you"
     assert brain.command_of("HassTurnOn") is None
@@ -114,7 +120,24 @@ def test_config_brain_defaults_and_checks():
                     "extra_sentences": {"how_are_you": ["  you   good  "]}}
     got = validate_config(raw)["brain"]
     assert got["delegate"] == "conversation.ollama"
-    assert got["extra_sentences"] == {"whats_wrong": [], "how_are_you": ["you good"]}
+    assert got["extra_sentences"] == {**{c: [] for c in brain.COMMANDS},
+                                      "how_are_you": ["you good"]}
+
+
+@pytest.mark.parametrize("old,off", [
+    (["whats_wrong", "how_are_you"], []),
+    (["how_are_you"], ["whats_wrong"]),
+    ([], ["whats_wrong", "how_are_you"]),
+])
+def test_config_brain_old_commands_list(old, off):
+    """Before 0.20 the section listed the commands that were on; the newer
+    ones come on."""
+    raw = default_config()
+    raw["brain"] = {k: v for k, v in DEFAULTS.items() if k != "off_commands"}
+    raw["brain"]["commands"] = old
+    got = validate_config(raw)["brain"]
+    assert got["off_commands"] == off
+    assert "commands" not in got
 
 
 @pytest.mark.parametrize("change,where", [
@@ -122,7 +145,8 @@ def test_config_brain_defaults_and_checks():
     ({"delegate": "tts.piper"}, "brain delegate"),
     ({"extra_sentences": {"how_are_you": ["how (are you"]}}, "how_are_you sentence 1"),
     ({"extra_sentences": {"how_are_you": ["how are] you"]}}, "how_are_you sentence 1"),
-    ({"commands": ["dance"]}, "brain commands"),
+    ({"off_commands": ["dance"]}, "brain commands off"),
+    ({"match_floor": 5}, "brain match floor"),
     ({"local_icon": "bolt"}, "brain local icon"),
     ({"log_size": 0}, "brain log size"),
 ])

@@ -782,6 +782,12 @@ def _sentence(where: str, v: Any, ck: _Check) -> str | None:
 
 def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str, Any]:
     v = _section(raw, "brain", base)
+    old = (raw.get("brain") or {}) if isinstance(raw.get("brain"), Mapping) else {}
+    if "commands" in old and "off_commands" not in old:
+        # Before 0.20 the section listed the commands that were on: the ones
+        # it knew then and left out stay off; newer ones come on.
+        on = old["commands"] if isinstance(old["commands"], list) else []
+        v["off_commands"] = [c for c in ("whats_wrong", "how_are_you") if c not in on]
     delegate = str(v["delegate"] or "").strip()
     if delegate and (not delegate.startswith("conversation.") or delegate == BRAIN_AGENT):
         ck.bad("brain delegate", f"{delegate!r} is not another conversation agent")
@@ -802,8 +808,11 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
     return {
         "delegate": delegate,
         "own_sentences": bool(v["own_sentences"]),
-        "commands": ck.names("brain commands", v["commands"], brain.COMMANDS),
+        "off_commands": ck.names("brain commands off", v["off_commands"], brain.COMMANDS),
         "extra_sentences": sentences,
+        "exposed_only": bool(v["exposed_only"]),
+        "match_floor": int(ck.number("brain match floor", v["match_floor"], 30, 120, 70)),
+        "ask_which": bool(v["ask_which"]),
         "local_intents": bool(v["local_intents"]),
         "local_states": bool(v["local_states"]),
         "local_media_search": bool(v["local_media_search"]),
