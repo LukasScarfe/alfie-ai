@@ -264,7 +264,7 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
 - [~] **14. Brain.** An "Alfie" conversation agent: tier 1 Alfie's own sentences then HA's
       built-in intents, tier 3 any LLM agent picked as the delegate. The face shows the tier;
       a turn log says why. (Plan agreed with Lukas 2026-10-30.)
-  - [ ] A. `brain.py` (pure, table tests) and `lang/en/brain.json`: own commands (what's wrong,
+  - [x] A. `brain.py` (pure, table tests) and `lang/en/brain.json`: own commands (what's wrong,
         how are you), the turn log and its "why", the `brain` config section.
   - [ ] B. `conversation.py`: `conversation.alfie`. Sentence triggers, Alfie's sentences, HA's
         intents (strict; state questions local by `brain.local_states`), then the delegate in

@@ -1243,6 +1243,26 @@
   "emoji": true,
   "replacements": []
  },
+ "brain": {
+  "delegate": "",
+  "own_sentences": true,
+  "commands": [
+   "whats_wrong",
+   "how_are_you"
+  ],
+  "extra_sentences": {
+   "whats_wrong": [],
+   "how_are_you": []
+  },
+  "local_intents": true,
+  "local_states": true,
+  "local_media_search": false,
+  "fallback": "",
+  "log_size": 50,
+  "local_icon": "mdi:lightning-bolt",
+  "delegate_icon": "mdi:brain",
+  "icon_seconds": 3
+ },
  "overview": {
   "dismissed": true,
   "done": []

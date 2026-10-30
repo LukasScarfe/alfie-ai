@@ -1,0 +1,181 @@
+"""Alfie's brain (design.md "Brain"): the conversation agent's decisions.
+conversation.alfie (conversation.py) answers a turn from the first tier that
+can:
+
+  tier 1  an automation's sentence trigger, then Alfie's own commands (what's
+          wrong, how are you), then Home Assistant's built-in intents;
+  tier 3  the delegate: any other conversation agent, usually an LLM.
+
+Tier 2, the matcher, comes in M16. Tier 1 replies come from templates, so the
+LLM is used only when nothing local is sure.
+
+PURE (no HA import), so the tests run under plain python. The sentences and
+replies are lang/<language>/brain.json; which commands are on, the extra
+sentences and everything else are the `brain` config section
+(`default_settings`). Each turn is kept in a small in-memory log with why it
+went where it did (never entity state).
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import time
+from collections import deque
+from collections.abc import Iterable, Mapping
+from dataclasses import asdict, dataclass
+from typing import Any
+
+from .speech import LANG_DIR, _code
+
+COMMANDS = ("whats_wrong", "how_are_you")
+INTENTS = {"whats_wrong": "AlfieWhatsWrong", "how_are_you": "AlfieHowAreYou"}
+LABELS = {"whats_wrong": "what's wrong", "how_are_you": "how are you"}
+# HA intents that only read a state: local unless `local_states` is off (HA's
+# own pipeline hands HassGetState to an LLM agent; the weather was invented).
+STATE_INTENTS = frozenset({"HassGetState", "HassGetWeather"})
+MEDIA_SEARCH = "HassMediaSearchAndPlay"
+# Where a turn's answer came from, by tier.
+SOURCES = {"trigger": 1, "own": 1, "intent": 1, "delegate": 3, "none": 0, "error": 0}
+LOG_MAX = 200
+MAX_SAID = 300     # characters of a question or reply kept in the log
+
+
+def default_settings() -> dict[str, Any]:
+    """The `brain` config section."""
+    return {"delegate": "",                 # a conversation entity; "" none
+            "own_sentences": True, "commands": list(COMMANDS),
+            "extra_sentences": {c: [] for c in COMMANDS},
+            "local_intents": True, "local_states": True, "local_media_search": False,
+            "fallback": "",                 # "" the language's
+            "log_size": 50,
+            "local_icon": "mdi:lightning-bolt", "delegate_icon": "mdi:brain",
+            "icon_seconds": 3}
+
+
+_LANGS: dict[str, dict[str, Any] | None] = {}
+
+
+def load_language(language: str) -> dict[str, Any] | None:
+    """The brain's words for a language ("en-GB" -> en), or None. Reads a file
+    the first time: in HA, call it from an executor."""
+    code = _code(language)
+    if code not in _LANGS:
+        try:
+            with open(os.path.join(LANG_DIR, code, "brain.json"), encoding="utf-8") as f:
+                data = json.load(f)
+            data["code"] = code
+            _LANGS[code] = data
+        except (OSError, ValueError):
+            _LANGS[code] = None
+    return _LANGS[code]
+
+
+def own_intents(words: Mapping[str, Any] | None, settings: Mapping[str, Any],
+                language: str) -> dict[str, Any] | None:
+    """Alfie's own commands as Home Assistant sentence data (hassil's
+    Intents.from_dict), or None when there are none to match."""
+    if not settings["own_sentences"]:
+        return None
+    lang_cmds = (words or {}).get("commands") or {}
+    intents = {}
+    for cmd in settings["commands"]:
+        sentences = [*lang_cmds.get(cmd, []), *settings["extra_sentences"].get(cmd, [])]
+        if cmd in INTENTS and sentences:
+            intents[INTENTS[cmd]] = {"data": [{"sentences": sentences}]}
+    if not intents:
+        return None
+    return {"language": _code(language), "intents": intents}
+
+
+def command_of(intent_name: str) -> str | None:
+    return next((c for c, n in INTENTS.items() if n == intent_name), None)
+
+
+def leave_to_delegate(intent_name: str, settings: Mapping[str, Any]) -> bool:
+    """Whether an HA intent that matched is left to the delegate instead."""
+    if intent_name in STATE_INTENTS:
+        return not settings["local_states"]
+    if intent_name == MEDIA_SEARCH:
+        return not settings["local_media_search"]
+    return False
+
+
+def how_are_you(words: Mapping[str, Any] | None, level: str, reason: str = "") -> str:
+    """How he feels, said: the level's line, and the reason behind it when
+    there is one."""
+    lines = (words or {}).get("how_are_you") or {}
+    feeling = lines.get(level) or lines.get("content") or "I'm fine."
+    if reason and level != "content" and lines.get("because"):
+        return lines["because"].format(feeling=feeling, reason=reason.rstrip("."))
+    return feeling
+
+
+def fallback(words: Mapping[str, Any] | None, settings: Mapping[str, Any]) -> str:
+    return settings["fallback"] or (words or {}).get("fallback") or "Sorry, I don't know that one."
+
+
+# ---------------------------------------------------------------- the turn log
+
+@dataclass
+class Turn:
+    """One question, where its answer came from, and why."""
+
+    said: str
+    reply: str = ""
+    source: str = "none"       # SOURCES
+    detail: str = ""           # the command, intent or agent that answered
+    why: str = ""
+    ms: int = 0
+    satellite: str = ""
+    at: float = 0.0            # epoch seconds
+
+    @property
+    def tier(self) -> int:
+        return SOURCES.get(self.source, 0)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {**asdict(self), "tier": self.tier}
+
+
+def why(source: str, detail: str = "", delegate: str = "",
+        passed: Iterable[str] = (), error: str = "") -> str:
+    """Why a turn went where it did, in a sentence for the turn log. `passed`
+    are HA intents that matched but were left to the delegate."""
+    left = list(passed)
+    note = (f" Home Assistant matched {', '.join(left)}, left to the delegate by the "
+            "settings." if left else "")
+    if source == "trigger":
+        return "An automation's sentence trigger matched."
+    if source == "own":
+        return f"Alfie's own sentence for {LABELS.get(detail, detail)} matched."
+    if source == "intent":
+        return f"Home Assistant's {detail} intent matched."
+    if source == "delegate":
+        return f"Nothing local matched, so {delegate or detail} answered." + note
+    if source == "error":
+        return f"Nothing local matched and {delegate or detail} failed: {error}".rstrip(": ") + "."
+    return "Nothing local matched and no delegate is set." + note
+
+
+class TurnLog:
+    """The last turns, newest last, in memory only."""
+
+    def __init__(self, size: int = 50) -> None:
+        self.turns: deque[Turn] = deque(maxlen=max(1, min(int(size), LOG_MAX)))
+
+    def resize(self, size: int) -> None:
+        size = max(1, min(int(size), LOG_MAX))
+        if size != self.turns.maxlen:
+            self.turns = deque(self.turns, maxlen=size)
+
+    def add(self, turn: Turn) -> Turn:
+        turn.said = turn.said.strip()[:MAX_SAID]
+        turn.reply = turn.reply.strip()[:MAX_SAID]
+        turn.at = turn.at or time.time()
+        self.turns.append(turn)
+        return turn
+
+    def as_list(self) -> list[dict[str, Any]]:
+        """Newest first."""
+        return [t.as_dict() for t in reversed(self.turns)]
