@@ -35,6 +35,8 @@ class Reply:
     text: str
     detail: str = ""                      # the entity it was about, for the turn log
     choices: list[str] = field(default_factory=list)   # asked "which one?"
+    unknown: bool = False                 # "I don't know a thing called ...": only
+                                          # when no other reading answers
 
 
 class LocalAnswers:
@@ -112,7 +114,7 @@ class LocalAnswers:
                     return Reply(answers.which_reply(self._names(choices), words),
                                  choices=choices)
                 if cmd in brain.HOUSE_ONLY and s["say_unknown"] and _clean(name):
-                    return Reply(answers.unknown_reply(_clean(name), words))
+                    return Reply(answers.unknown_reply(_clean(name), words), unknown=True)
                 return None
             if attr:
                 slots = {**slots, "attr": attr}

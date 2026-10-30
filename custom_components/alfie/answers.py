@@ -179,6 +179,8 @@ def yes_no_reply(thing: Thing, asked: str, words: Mapping[str, Any], now: dateti
 def compare_reply(thing: Thing, how: str, value: str, words: Mapping[str, Any],
                   now: datetime) -> str:
     v, limit = number(thing.state), number(str(value).strip().rstrip("%°"))
+    if thing.state in GONE:
+        return state_reply(thing, words, now)
     if v is None:
         return _t(words, "not_number", name=thing.name, state=say_state(thing, words, now))
     if limit is None:

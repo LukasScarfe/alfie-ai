@@ -134,36 +134,43 @@ class AlfieAgent(conversation.ConversationEntity):
             slots = {k: str(v.value) for k, v in result.entities.items()}
             slots["_text"] = text
             got = found.setdefault(cmd, [])
-            if slots not in got and len(got) < TRIES:
+            if slots not in got:
                 got.append(slots)
-        return [(c, sl) for c in ORDER for sl in found.get(c, [])]
+        # The reading that understood most of the sentence leaves the least to
+        # the name: "front door", not "front door last".
+        return [(c, sl) for c in ORDER
+                for sl in sorted(found.get(c, []), key=lambda x: len(x.get("name", "")))[:TRIES]]
 
     async def _answer_own(self, cmd: str, slots: dict[str, str], language: str
                           ) -> tuple[str, str, list[str]] | None:
-        """(reply, detail, choices), or None when the command can't answer
-        this after all (the turn goes on)."""
+        """(reply, detail, choices, unknown), or None when the command can't
+        answer this after all (the turn goes on)."""
         mood = self.engine.mood
         if cmd == "whats_wrong":
-            return tell.spoken(mood, _lookup(self.hass)), cmd, []
+            return tell.spoken(mood, _lookup(self.hass)), cmd, [], False
         if cmd == "how_are_you":
             reason = mood.reason if mood and (mood.bad or mood.good) else ""
             return brain.how_are_you(brain.load_language(language),
-                                     mood.level if mood else "content", reason), cmd, []
+                                     mood.level if mood else "content", reason), cmd, [], False
         try:
             got = await self.local.answer(cmd, slots, brain.load_language(language) or {})
         except Exception:  # one bad answer must not stop the turn
             _LOGGER.exception("Alfie couldn't answer %s locally", cmd)
             return None
-        return None if got is None else (got.text, got.detail or cmd, got.choices)
+        return None if got is None else (got.text, got.detail or cmd, got.choices, got.unknown)
 
     async def _try_own(self, matches: list[tuple[str, dict[str, str]]], language: str,
                        turn: brain.Turn, chat_log: conversation.ChatLog
                        ) -> conversation.ConversationResult | None:
+        unknown = None
         for cmd, slots in matches:
             got = await self._answer_own(cmd, slots, language)
             if got is None:
                 continue
-            text, detail, choices = got
+            if got[3]:
+                unknown = unknown or (cmd, got[0])
+                continue
+            text, detail, choices, _ = got
             turn.source, turn.detail = "own", detail
             turn.why = brain.why("own", cmd)
             result = self._reply(text, language, chat_log)
@@ -173,6 +180,10 @@ class AlfieAgent(conversation.ConversationEntity):
                 self._which[chat_log.conversation_id] = (cmd, slots, choices, now)
                 result.continue_conversation = True
             return result
+        if unknown:
+            turn.source, turn.detail = "own", unknown[0]
+            turn.why = brain.why("own", unknown[0])
+            return self._reply(unknown[1], language, chat_log)
         return None
 
     async def _answer_which(self, text: str, language: str, turn: brain.Turn,
