@@ -36,9 +36,13 @@ raining; HA's pipeline hands HassGetState-type questions to an LLM agent.
 Checked on dev HA through a real pipeline ("Brain test", agent `conversation.alfie`, TTS
 `tts.alfie_voice`): own 3 ms, intents 8-200 ms, the delegate streamed (59 deltas,
 `tts_start_streaming`), voice screens still show for local actions. PNGs sent.
-**Next: step D**, Lukas's OK to point "Alfie (local)" at `conversation.alfie` with "prefer local"
-off (delegate `conversation.alfie_desktop` is set in Alfie's config on production). Then tick
-M14 and plan M15 (timers) in plan mode.
+**M14 is done.** With Lukas's OK (2026-10-30) "Alfie (local)" uses `conversation.alfie` with
+"prefer local" off; Alfie's `brain.delegate` on production is `conversation.alfie_desktop`.
+Checked through that pipeline: the weather 7.4 °C and raining (local), how are you (own), the
+Eiffel Tower (delegate, streamed to `tts.alfie_voice`). "Is it raining?" has no HA sentence and
+still reaches the LLM: M16's matcher should catch it.
+**Next: plan M15 (Timers and alarms) in plan mode** and get Lukas's OK (open: a timer screen on
+the card, and the ring sound).
 Gotchas: `./dev` still has no dev-HA WebSocket command (the session used a scratch script that
 points `prodtool.WS` at :8125 with `devtool.token()[0]`). On dev HA `conversation.alfie_desktop`
 is unavailable; `conversation.ollama_conversation` works as a delegate. A pipeline's own
