@@ -38,7 +38,10 @@ def rest(method, path, body=None):
                                           "Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=60) as r:
         text = r.read().decode()
-    return json.loads(text) if text else None
+    try:
+        return json.loads(text) if text.strip() else None
+    except ValueError:
+        raise RuntimeError(f"{method} {path} answered {text.strip()[:80]!r}") from None
 
 
 class WS:
@@ -155,7 +158,12 @@ def deploy():
             raise SystemExit("nothing new (pushed?)")
         print(f"HA runs {running_version(ws)}, the files are {local_version()}: restarting")
     if st["installed_version"] != st["latest_version"]:
-        rest("POST", "/api/services/update/install", {"entity_id": UPDATE})
+        try:
+            rest("POST", "/api/services/update/install", {"entity_id": UPDATE})
+        except Exception as e:
+            # HACS can fail partway (HA answers a plain-text 500), leaving a
+            # half-written folder: the loop below downloads it again.
+            print(f"the install failed ({e}); checking the files")
     # Never restart onto files that aren't the pushed ones: wait for them, and
     # have HACS download the commit again while they are stale.
     for attempt in range(4):
