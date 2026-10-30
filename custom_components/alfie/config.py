@@ -827,6 +827,8 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
         "rain_chance": int(ck.number("brain rain chance", v["rain_chance"], 1, 100, 40)),
         "rain_mm": _num(ck.number("brain rain amount", v["rain_mm"], 0, 50, 0.3)),
         "sun_uv": _num(ck.number("brain sun uv", v["sun_uv"], 0, 15, 3)),
+        "dates": _brain_dates(v["dates"], ck),
+        "imperial": v["imperial"] if v["imperial"] in ("us", "uk") else "us",
         "local_intents": bool(v["local_intents"]),
         "local_states": bool(v["local_states"]),
         "local_media_search": bool(v["local_media_search"]),
@@ -835,6 +837,23 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
         **icons,
         "icon_seconds": _num(ck.number("brain icon time", v["icon_seconds"], 0, 60, 3)),
     }
+
+
+DATE_LINE = re.compile(r"^(.+?):\s*(\d{4}-)?\d{1,2}-\d{1,2}$")
+
+
+def _brain_dates(raw: Any, ck: _Check) -> list[str]:
+    """The user's own named dates, one "name: MM-DD" (or YYYY-MM-DD) each."""
+    out = []
+    for i, line in enumerate((raw if isinstance(raw, list) else [])[:100]):
+        line = " ".join(str(line).split())
+        if not line:
+            continue
+        if DATE_LINE.match(line):
+            out.append(line)
+        else:
+            ck.bad(f"brain date {i + 1}", f"{line!r} is not \"name: MM-DD\"")
+    return out
 
 
 def _is_icon(icon: str) -> bool:

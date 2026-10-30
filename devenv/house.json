@@ -1258,7 +1258,11 @@
    "weather_forecast": [],
    "weather_gear": [],
    "sun": [],
-   "moon": []
+   "moon": [],
+   "world_time": [],
+   "dates": [],
+   "convert": [],
+   "maths": []
   },
   "exposed_only": false,
   "match_floor": 70,
@@ -1274,6 +1278,8 @@
   "rain_chance": 40,
   "rain_mm": 0.3,
   "sun_uv": 3,
+  "dates": [],
+  "imperial": "us",
   "local_intents": true,
   "local_states": true,
   "local_media_search": false,

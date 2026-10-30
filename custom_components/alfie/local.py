@@ -21,7 +21,7 @@ from homeassistant.util import dt as dt_util
 
 from homeassistant.helpers import entity_registry as er
 
-from . import answers, brain, finder, outside
+from . import answers, brain, finder, outside, reckon
 from .const import DOMAIN
 from .providers.forecast import raw_forecast
 
@@ -43,6 +43,8 @@ class Reply:
 class LocalAnswers:
     def __init__(self, hass: HomeAssistant, engine: Any) -> None:
         self.hass, self.engine = hass, engine
+        self._zones: dict[str, str] | None = None     # place -> IANA zone, read once
+        self._tz: dict[str, Any] = {}                 # IANA zone -> tzinfo
 
     # ------------------------------------------------------------ finding
 
@@ -92,6 +94,9 @@ class LocalAnswers:
     async def answer(self, cmd: str, slots: dict[str, str], words: dict[str, Any],
                      entity_id: str | None = None) -> Reply | None:
         s = self.engine.config["brain"]
+        if cmd in brain.RECKON:
+            text = await self._reckon(cmd, slots, words, s)
+            return Reply(text, detail=cmd) if text else None
         if cmd in brain.OUTSIDE:
             text = await self._outside(cmd, slots, words, s)
             return Reply(text, detail=cmd) if text else None
@@ -184,6 +189,47 @@ class LocalAnswers:
         return Reply(answers.count_reply(things, slots.get("thing", "anything"),
                                          slots.get("state", "on"), area, ask, words,
                                          dt_util.now()))
+
+    # ------------------------------------------------------------ time, dates, sums
+
+    async def _reckon(self, cmd: str, slots: dict[str, str], words: dict[str, Any],
+                      s: dict[str, Any]) -> str | None:
+        if cmd == "maths":
+            return reckon.sum_reply(slots.get("expr", ""), words)
+        if cmd == "convert":
+            return reckon.convert_reply(slots.get("value", ""), slots.get("src", ""),
+                                        slots.get("dst", ""), words, s["imperial"])
+        now = dt_util.now()
+        if cmd == "dates":
+            ask = slots.get("ask", "")
+            if ask in ("week", "year_left", "month_left", "leap"):
+                return reckon.calendar_reply(ask, slots.get("date", ""), now.date(), words)
+            named = reckon.holidays(words, s["dates"])
+            return reckon.date_reply(ask, slots.get("date", ""), now.date(), words, named)
+        if cmd == "world_time":
+            tz = await self._zone(slots.get("place", ""), words)
+            if tz is None:
+                return None
+            return reckon.world_reply(slots.get("wt", "time"), slots.get("place", ""), now,
+                                      now.astimezone(tz), words)
+        return None
+
+    async def _zone(self, place: str, words: dict[str, Any]) -> Any:
+        """The time zone a place names, or None. zoneinfo reads files: the
+        list and each zone are read once, off the event loop."""
+        from zoneinfo import ZoneInfo, available_timezones  # noqa: PLC0415
+        if self._zones is None:
+            zones = await self.hass.async_add_executor_job(available_timezones)
+            self._zones = reckon.zone_names(zones)
+        name = reckon.find_zone(place, self._zones, words)
+        if name is None:
+            return None
+        if name not in self._tz:
+            try:
+                self._tz[name] = await self.hass.async_add_executor_job(ZoneInfo, name)
+            except (ValueError, OSError):
+                return None
+        return self._tz[name]
 
     # ------------------------------------------------------------ outside
 

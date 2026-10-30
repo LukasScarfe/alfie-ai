@@ -249,7 +249,11 @@ const COMMANDS = [["whats_wrong", "What's wrong", "\"Is anything wrong?\": the s
   ["weather_forecast", "Forecast", "\"Will it rain tomorrow?\", \"When will the rain stop?\", \"What's the high on Saturday?\", \"What's the forecast for the weekend?\""],
   ["weather_gear", "What to wear", "\"Do I need an umbrella?\", \"Should I wear a coat tomorrow?\", \"Do I need sunscreen?\""],
   ["sun", "The sun", "\"When is sunset?\", \"How long until sunrise?\", \"Is it dark outside?\", \"How much daylight is there today?\""],
-  ["moon", "The moon", "\"What's the moon phase?\", \"Is it a full moon tonight?\", \"When is the next full moon?\""]];
+  ["moon", "The moon", "\"What's the moon phase?\", \"Is it a full moon tonight?\", \"When is the next full moon?\""],
+  ["world_time", "The time somewhere", "\"What time is it in London?\", \"What's the time difference with Tokyo?\""],
+  ["dates", "Dates", "\"How many days until Christmas?\", \"What day is the 25th?\", \"What's the date in 3 weeks?\", \"What week is it?\", \"Is 2028 a leap year?\""],
+  ["convert", "Converting units", "\"Convert 5 miles to km\", \"How many cups in a litre?\", \"What's 30 Celsius in Fahrenheit?\""],
+  ["maths", "Sums", "\"What's 12 times 7?\", \"What is 15% of 80?\", \"What's the square root of 144?\""]];
 const TIER = { 1: ["mdi:lightning-bolt", "Local"], 3: ["mdi:brain", "Delegate"], 0: ["mdi:help-circle-outline", "Unanswered"] };
 const SOURCE = { trigger: "Sentence trigger", own: "Alfie", intent: "Home Assistant", delegate: "Delegate",
   none: "Fallback", error: "Delegate failed" };
@@ -306,6 +310,11 @@ function brainTab(p) {
         ${U.field("Or with no chance given", U.num("brain.rain_mm", b.rain_mm, { min: 0, max: 50, step: 0.1, unit: "mm" }), "Some forecasts (met.no) give only the amount.")}
         ${U.field("Sunscreen from UV", U.num("brain.sun_uv", b.sun_uv, { min: 0, max: 15, step: 1 }), "\"Do I need sunscreen?\"")}</div>
         <p class="muted">Converted when the weather is in °F or mph. The sun and the moon need no entity: Home Assistant's location is enough.</p>`) : ""}
+      ${b.own_sentences ? U.card("Dates and units", `
+        ${U.wide("Your own dates", `<textarea data-path="brain.dates" data-kind="lines" rows="3" placeholder="Lukas's birthday: 03-14&#10;Our anniversary: 2019-06-01">${U.esc((b.dates || []).join("\n"))}</textarea>`,
+          "One per line, \"name: MM-DD\" (or YYYY-MM-DD). Then \"How many days until Lukas's birthday?\" works. Holidays like Christmas, Easter and Thanksgiving he knows already.")}
+        ${U.field("Cups, pints and gallons", U.select("brain.imperial", b.imperial, [["us", "US"], ["uk", "UK (imperial)"]]),
+          "A UK pint is 568 ml, a US one 473 ml.")}`) : ""}
       ${U.card("Face and log", `<div class="grid">
         ${U.field("Local badge", U.text("brain.local_icon", b.local_icon, { placeholder: "None, or mdi:lightning-bolt" }))}
         ${U.field("Delegate badge", U.text("brain.delegate_icon", b.delegate_icon, { placeholder: "None, or mdi:brain" }))}

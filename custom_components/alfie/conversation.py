@@ -41,7 +41,8 @@ _LOGGER = logging.getLogger(__name__)
 
 # The order his matched commands are tried in: the more particular first.
 ORDER = ("whats_wrong", "how_are_you", "moon", "sun", "weather_gear", "weather_forecast",
-         "weather_now", "entity_when", "entity_history", "entity_count", "entity")
+         "weather_now", "world_time", "dates", "convert", "maths", "entity_when",
+         "entity_history", "entity_count", "entity")
 TRIES = 4           # readings of one command tried (hassil splits a sentence several ways)
 WHICH_FOR = 60.0    # seconds a "which one?" waits for its answer
 
