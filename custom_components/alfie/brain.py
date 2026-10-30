@@ -163,6 +163,11 @@ def why(source: str, detail: str = "", delegate: str = "",
     return "Nothing local matched and no delegate is set." + note
 
 
+def _cut(text: str) -> str:
+    text = text.strip()
+    return text if len(text) <= MAX_SAID else text[:MAX_SAID - 1].rstrip() + "…"
+
+
 class TurnLog:
     """The last turns, newest last, in memory only."""
 
@@ -175,8 +180,7 @@ class TurnLog:
             self.turns = deque(self.turns, maxlen=size)
 
     def add(self, turn: Turn) -> Turn:
-        turn.said = turn.said.strip()[:MAX_SAID]
-        turn.reply = turn.reply.strip()[:MAX_SAID]
+        turn.said, turn.reply = _cut(turn.said), _cut(turn.reply)
         turn.at = turn.at or time.time()
         self.turns.append(turn)
         return turn

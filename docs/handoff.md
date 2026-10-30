@@ -18,27 +18,32 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.18.2.
+Version 0.19.0.
 
 **Now: Alfie's brain, M13 to M17** (agreed with Lukas 2026-10-30; plan.md, design.md "Brain").
 A local-first voice pipeline inside Alfie, meant for the HA community too: speech, then the
-brain (conversation agent), timers and alarms, the matcher, the Echo Dot extras.
+brain (conversation agent), timers and alarms, the matcher, the Echo Dot extras. M13 (Speech) is
+done; "Alfie (local)" speaks through `tts.alfie_voice`.
 
-**Latest (0.18.0, 2026-10-30, Lukas): M13 Speech, steps A and B.** `speech.py` (pure, table
-tests in `tests/test_speech.py`) and `lang/en/speech.json`; `tts.alfie_voice` (`tts.py`)
-rewrites text then hands it to `speech.engine`; panel Voice → Speech with a live try box
-(`alfie/speech/preview`) and which assistants use it. Checked on dev HA: Piper and Whisper from
-raccoon are added there (wyoming, :10200 / :10300); a Whisper round trip of raw Piper vs Alfie's
-voice heard "18 degrees C ... 12 km slash h" vs "18 degrees ... 12 kilometers an hour".
-**M13 is done.** With Lukas's OK the "Alfie (local)" pipeline's TTS is `tts.alfie_voice`
-(language en_US, voice kusal; before: `tts.piper` directly). **Next: plan M14 (Brain) in plan
-mode** and get Lukas's OK.
-Production runs 0.18.2 with `speech.engine` = `tts.piper`.
-Gotchas: `./dev prod deploy` once restarted HA onto stale files (HACS said 6046ce6, the disk had
-0.18.0); it now checks file by file and the running version (CLAUDE.md "Dev loop"). Whisper
-writes spoken years back as digits, so a round trip can't show year wording;
-`./dev` has no dev-HA WebSocket command (the session used a scratch script that points
-`prodtool.WS` at :8125 with `devtool.token()[0]`).
+**Latest (0.19.0, 2026-10-30, Lukas): M14 Brain, steps A to C.** `conversation.alfie`
+(`conversation.py`, decisions in pure `brain.py`, words in `lang/en/brain.json`, tests in
+`tests/test_brain.py`). Tier 1: sentence triggers, Alfie's own commands (what's wrong, how are
+you), HA's intents (state questions local, `brain.local_states`); tier 3: `brain.delegate`, run
+in the same chat log so it streams. A bolt or brain badge by the face; the turn log in memory,
+streamed by `alfie/brain/turns` to the new Voice → Brain tab (delegate, options, "Ask him").
+Why: on 2026-10-30 the local LLM said "18°C and clear" (no tool call) while it was 7.4°C and
+raining; HA's pipeline hands HassGetState-type questions to an LLM agent.
+Checked on dev HA through a real pipeline ("Brain test", agent `conversation.alfie`, TTS
+`tts.alfie_voice`): own 3 ms, intents 8-200 ms, the delegate streamed (59 deltas,
+`tts_start_streaming`), voice screens still show for local actions. PNGs sent.
+**Next: step D**, Lukas's OK to point "Alfie (local)" at `conversation.alfie` with "prefer local"
+off (delegate `conversation.alfie_desktop` is set in Alfie's config on production). Then tick
+M14 and plan M15 (timers) in plan mode.
+Gotchas: `./dev` still has no dev-HA WebSocket command (the session used a scratch script that
+points `prodtool.WS` at :8125 with `devtool.token()[0]`). On dev HA `conversation.alfie_desktop`
+is unavailable; `conversation.ollama_conversation` works as a delegate. A pipeline's own
+"prefer local" matches happen before Alfie and never reach his turn log. Whisper writes spoken
+years back as digits, so a round trip can't show year wording.
 
 **Latest (0.17.0, 2026-10-23, Lukas): Motion settings** (plan.md M12, design.md "The
 character" → Editors 5). Every motion drawn by code is tunable in `look.motion`, on the new

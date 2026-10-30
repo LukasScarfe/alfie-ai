@@ -848,9 +848,26 @@ requirements, light enough for a Pi.
   - `alfie.say` and Speak steps say the rewritten text too (`engine.spoken`).
   - To use it, a voice assistant's text-to-speech is set to "Alfie Voice"; the panel says which
     assistants do.
-- **Brain** (`conversation.alfie`): tier 1 is Alfie's own sentences, then HA's built-in intents;
-  tier 2 the matcher; tier 3 a delegate LLM agent (any conversation entity). Tiers 1 and 2 reply
-  from templates, so the LLM is used only when nothing local is confident.
+- **Brain** (`conversation.alfie`, `conversation.py`; decisions pure in `brain.py`; built 0.19.0):
+  tier 1 is local, tier 2 the matcher (M16), tier 3 a delegate agent. Tiers 1 and 2 reply from
+  templates, so the LLM is used only when nothing local is confident.
+  - Tier 1, in order: an automation's sentence trigger; Alfie's own commands (what's wrong, how
+    are you: sentences in `lang/<code>/brain.json`, matched with hassil, extra ones per command
+    in settings); HA's built-in intents, matched strictly against exposed entities.
+  - State questions (HassGetState, HassGetWeather) stay local (`local_states`, default on). HA's
+    own pipeline hands them to an LLM agent, which invented the weather (2026-10-30: "18°C and
+    clear" while it was 7.4°C and raining). "Play ..." searches go to the delegate by default
+    (`local_media_search`), which has its own music tools.
+  - The delegate (`brain.delegate`, any other conversation entity) runs in the same chat log, so
+    it has the conversation so far and its reply still streams to TTS. With none, or when it
+    fails, the fallback reply (`brain.fallback`, "" the language's).
+  - A pipeline using Alfie should have "Prefer handling commands locally" off: Alfie does that
+    himself, and the pipeline's own matches never reach his turn log. The Brain tab says so.
+  - The face: a badge by him for `icon_seconds` (a bolt when he answered, a brain while the
+    delegate works; either icon empty for none).
+  - The turn log: the last `log_size` turns in memory (never entity state), each with its tier,
+    source, reply, time taken and why. `alfie/brain/turns` streams it to Voice → Brain, which
+    also picks the delegate and has an "Ask him" box.
 - **Matcher** (tier 2): example phrases per command, scored by word and part-word similarity
   with synonyms (pure Python); slots filled by parsers and `finder.py`. Below `threshold`, tier 3.
   An embeddings URL may come later.

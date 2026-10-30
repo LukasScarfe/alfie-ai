@@ -269,7 +269,7 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
   - [x] B. `conversation.py`: `conversation.alfie`. Sentence triggers, Alfie's sentences, HA's
         intents (strict; state questions local by `brain.local_states`), then the delegate in
         the same chat log so it still streams; with none, the fallback reply.
-  - [ ] C. The tier badge (local bolt, delegate brain) and Voice → Brain (delegate, options,
+  - [x] C. The tier badge (local bolt, delegate brain) and Voice → Brain (delegate, options,
         live turn log via `alfie/brain/turns`). 0.19.0.
   - [ ] D. Dev HA checks and PNGs; on production, with Lukas's OK, "Alfie (local)" uses
         `conversation.alfie` (delegate Alfie desktop) with "prefer local" off.

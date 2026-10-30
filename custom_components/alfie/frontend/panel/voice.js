@@ -3,14 +3,16 @@
 // and where he speaks), Agents (what voice agents get from him: the Alfie
 // LLM API, the what's-wrong and find tools, the intent, the persona and his
 // mood), Screens (design.md "Voice screens": what he shows of a voice turn)
-// and Speech (design.md "Brain": how tts.alfie_voice says numbers, times, dates).
+// Speech (design.md "Brain": how tts.alfie_voice says numbers, times, dates)
+// and Brain (conversation.alfie: what he answers himself, the delegate, the
+// turn log).
 
 const V = new URL(import.meta.url).search;
 const U = await import(`./ui.js${V}`);
 
 export const id = "voice";
 export const title = "Voice";
-export const subs = [["assistants", "Assistants"], ["agents", "Agents"], ["screens", "Screens"], ["speech", "Speech"]];
+export const subs = [["assistants", "Assistants"], ["agents", "Agents"], ["screens", "Screens"], ["speech", "Speech"], ["brain", "Brain"]];
 const ASSIST_KEYS = ["enabled", "satellites", "while_asleep", "listening_expression", "listening_animation",
   "processing_animation", "speak_style", "speak_strength", "after", "speak_targets", "tts_entity", "language"];
 const AGENT_KEYS = ["persona", "persona_prompt", "mood_aware", "assist_tool", "intent", "sentences", "find_entity"];
@@ -19,14 +21,15 @@ const SCREEN_KEYS = ["screens", "action_screens", "answer_screens", "screen_pres
   "volume_screen", "screen_text", "music_animation", "music_expression", "music_icon", "music_screen", "music_seconds",
   "music_show_title", "music_show_artist", "music_show_album", "music_show_paused"];
 export const resets = { assistants: ASSIST_KEYS.map((k) => `voice.${k}`), agents: AGENT_KEYS.map((k) => `voice.${k}`),
-  screens: SCREEN_KEYS.map((k) => `voice.${k}`), speech: ["speech"] };
+  screens: SCREEN_KEYS.map((k) => `voice.${k}`), speech: ["speech"], brain: ["brain"] };
 
 const STYLE_TEXT = { pulse: "Ring pulse", eyes: "Eye rhythm", both: "Ring and eyes", wave: "Waveform ring" };
 const TRY = [["listening", "Listening"], ["processing", "Thinking"], ["responding", "Answering"]];
 const SENTENCE_HINT = "One per line, in HA's sentence syntax: (a|b) picks one, [x] is optional. No punctuation.";
 
 export function render(p, sub) {
-  return sub === "agents" ? agents(p) : sub === "screens" ? screens(p) : sub === "speech" ? speech(p) : assistants(p);
+  return sub === "agents" ? agents(p) : sub === "screens" ? screens(p) : sub === "speech" ? speech(p)
+    : sub === "brain" ? brainTab(p) : assistants(p);
 }
 
 // A datalist of the house's entities in `domains`, for an entity input.
@@ -233,7 +236,98 @@ function agents(p) {
     <style>.vprompt { white-space: pre-wrap; font: inherit; background: var(--secondary-background-color); padding: 8px 10px; border-radius: 8px; }</style>`;
 }
 
+// ------------------------------------------------------------ brain
+
+const BRAIN_ENTITY = "conversation.alfie";
+const COMMANDS = [["whats_wrong", "What's wrong", "\"Is anything wrong?\": the same answer as the intent."],
+  ["how_are_you", "How are you", "\"How are you?\": his mood, and why."]];
+const TIER = { 1: ["mdi:lightning-bolt", "Local"], 3: ["mdi:brain", "Delegate"], 0: ["mdi:help-circle-outline", "Unanswered"] };
+const SOURCE = { trigger: "Sentence trigger", own: "Alfie", intent: "Home Assistant", delegate: "Delegate",
+  none: "Fallback", error: "Delegate failed" };
+
+function brainTab(p) {
+  const b = p.draft.brain, using = p.brainPipelines;
+  const where = using == null ? "" : using.length
+    ? `In use by ${using.map((x) => `<b>${U.esc(x.name)}</b>${x.prefer_local_intents ? " (turn its \"Prefer handling commands locally\" off: Alfie does that himself, and logs it)" : ""}`).join(", ")}.`
+    : `<b>Not used by any voice assistant yet.</b> Pick <b>${U.esc(p.name || "Alfie")}</b> as the conversation agent in Settings → Voice assistants.`;
+  const st = p.hass?.states || {};
+  const agents = Object.keys(st).filter((e) => e.startsWith("conversation.") && e !== BRAIN_ENTITY).sort()
+    .map((e) => [e, st[e].attributes?.friendly_name || e]);
+  const delegates = [["", "None: unknown questions get the reply below"], ...agents];
+  if (b.delegate && !agents.some(([e]) => e === b.delegate)) delegates.push([b.delegate, `${b.delegate} (not found)`]);
+  const cmds = COMMANDS.map(([k, name, hint]) => `
+      <label class="check"><input type="checkbox" class="switch" data-action="brain-cmd" data-name="${k}"${b.commands.includes(k) ? " checked" : ""}>
+        <span><b>${U.esc(name)}</b><small>${U.esc(hint)}</small></span></label>
+      ${b.commands.includes(k) ? U.wide("Also these sentences", `<textarea data-path="brain.extra_sentences.${k}" data-kind="lines" rows="2">${U.esc((b.extra_sentences[k] || []).join("\n"))}</textarea>`,
+        `${SENTENCE_HINT} His own English ones always work.`) : ""}`).join("");
+  return `${U.intro("Make Alfie your voice assistant's agent and he answers what he can himself, instantly and from the real states, and passes only the rest to an LLM.",
+      `He is the conversation agent <code>${BRAIN_ENTITY}</code>. Each request tries, in order: an automation's sentence trigger, his own sentences, Home Assistant's built-in intents (lights, timers, the weather, \"is the door locked\"), and only then the delegate, any other agent you have, like Ollama or Google. The delegate's reply still streams to the speaker. ${where}`)}
+    ${U.card("Ask him", `
+      <div class="row"><input id="brain-ask" class="grow" placeholder="What's the weather?" value="${U.esc(p.brainAsk ?? "")}">
+        <button class="flat" data-action="brain-ask">${U.icon("mdi:send")}Ask</button></div>
+      <p class="brain-said muted">${U.esc(p.brainReply || "Saved settings answer. Nothing is spoken; actions do happen.")}</p>`)}
+    ${U.cards(`${U.card("Delegate", `
+        ${U.field("Everything else goes to", U.select("brain.delegate", b.delegate, delegates, { rerender: true }),
+          "Usually an LLM agent. It gets the conversation so far, so follow-ups work.")}
+        ${U.field("When nothing answers", U.text("brain.fallback", b.fallback, { placeholder: "Sorry, I don't know that one." }),
+          "Also when the delegate fails.")}`)}
+      ${U.card("Answered locally", `
+        ${U.check("brain.local_intents", b.local_intents, "Home Assistant's intents", "Turn on, set, timers, the time, the weather… matched strictly against exposed entities. Off: only his own sentences are local.")}
+        ${b.local_intents ? `${U.check("brain.local_states", b.local_states, "Questions about states", "\"Is the door locked?\", \"What's the weather?\" from the real state. Off: the delegate answers them (an LLM may guess).")}
+        ${U.check("brain.local_media_search", b.local_media_search, "\"Play …\" searches", "Home Assistant's media search. Off: the delegate, with its own music tools.")}` : ""}`)}
+      ${U.card("His own sentences", `
+        ${U.check("brain.own_sentences", b.own_sentences, "Answer his own sentences")}
+        ${b.own_sentences ? cmds : ""}`)}
+      ${U.card("Face and log", `<div class="grid">
+        ${U.field("Local badge", U.text("brain.local_icon", b.local_icon, { placeholder: "None, or mdi:lightning-bolt" }))}
+        ${U.field("Delegate badge", U.text("brain.delegate_icon", b.delegate_icon, { placeholder: "None, or mdi:brain" }))}
+        ${U.field("Badge for", U.num("brain.icon_seconds", b.icon_seconds, { min: 0, max: 60, step: 1, unit: "s" }), "0: no badge.")}
+        ${U.field("Turns kept", U.num("brain.log_size", b.log_size, { min: 1, max: 200, step: 1 }), "In memory only: a restart clears them.")}</div>`)}`)}
+    ${U.card("Turn log", `<div class="brain-log">${brainLog(p)}</div>`)}
+    <style>.brain-said { margin: 8px 0 0; } .turn { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 10px; padding: 8px 0; border-top: 1px solid var(--divider-color); }
+      .turn:first-child { border-top: 0; } .turn ha-icon { --mdc-icon-size: 20px; grid-row: span 3; color: var(--secondary-text-color); }
+      .turn.t1 ha-icon { color: var(--success-color, #43a047); } .turn.t3 ha-icon { color: var(--info-color, #039be5); }
+      .turn .said { font-weight: 500; } .turn .meta, .turn .why { grid-column: 2 / 4; } .turn .ms { color: var(--secondary-text-color); font-size: .85em; }</style>`;
+}
+
+function brainLog(p) {
+  const turns = p.brainTurns;
+  if (turns == null) return `<p class="muted">Loading…</p>`;
+  if (!turns.length) return `<p class="muted">No turns since Home Assistant started. Ask him something.</p>`;
+  return turns.map((t) => {
+    const [ic, tier] = TIER[t.tier] || TIER[0];
+    const at = new Date(t.at * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    return `<div class="turn t${t.tier}" title="${U.esc(tier)}">${U.icon(ic)}
+      <span class="said">“${U.esc(t.said)}”</span><span class="ms">${at} · ${t.ms} ms</span>
+      <span class="meta">${U.esc(SOURCE[t.source] || t.source)}: ${U.esc(t.reply || "(no reply)")}</span>
+      <small class="why muted">${U.esc(t.why)}</small></div>`;
+  }).join("");
+}
+
+// The live turn log: the brain's turns, then each new one (alfie/brain/turns).
+function brainWatch(p) {
+  if (p.brainUnsub) return;
+  p.brainUnsub = p.hass.connection.subscribeMessage((m) => {
+    if (m.turns) p.brainTurns = m.turns;
+    if (m.turn) p.brainTurns = [m.turn, ...(p.brainTurns || [])].slice(0, 200);
+    const box = p.root.querySelector(".brain-log");
+    if (box) box.innerHTML = brainLog(p);
+  }, { type: "alfie/brain/turns" }).catch(() => { p.brainUnsub = null; p.brainTurns = []; });
+}
+
 export function mount(p, sub) {
+  if (sub === "brain") {
+    brainWatch(p);
+    p.hass.callWS({ type: "assist_pipeline/pipeline/list" })
+      .then((r) => {
+        const using = (r.pipelines || []).filter((x) => x.conversation_engine === BRAIN_ENTITY)
+          .map((x) => ({ name: x.name, prefer_local_intents: x.prefer_local_intents }));
+        const changed = JSON.stringify(using) !== JSON.stringify(p.brainPipelines);
+        p.brainPipelines = using;
+        if (changed && p.sec === "voice" && p.sub === "brain") p.render();
+      })
+      .catch(() => {});
+  }
   if (sub === "speech") {
     speechPreview(p);
     p.hass.callWS({ type: "assist_pipeline/pipeline/list" })
@@ -267,6 +361,8 @@ function look(p) {
 
 export function leave(p) {
   p.voiceTry = null;
+  p.brainUnsub?.then((u) => u()).catch(() => {});
+  p.brainUnsub = null;
   p.face?.previewVoice?.(null);
 }
 
@@ -279,6 +375,10 @@ export function tool(p, ev) {
   if (ev.target.id === "speech-try") {
     p.speechLine = ev.target.value;
     speechPreview(p);
+    return true;
+  }
+  if (ev.target.id === "brain-ask") {
+    p.brainAsk = ev.target.value;
     return true;
   }
   if (ev.target.id !== "voice-line") return false;
@@ -298,6 +398,22 @@ export function click(p, a, el) {
     case "voice-rm-sat": v.satellites.splice(Number(el.dataset.j), 1); p.edited(true); return true;
     case "voice-add-spk": add("speak_targets"); return true;
     case "voice-rm-spk": v.speak_targets.splice(Number(el.dataset.j), 1); p.edited(true); return true;
+    case "brain-cmd": {
+      const b = p.draft.brain, k = el.dataset.name;
+      b.commands = b.commands.includes(k) ? b.commands.filter((x) => x !== k) : [...b.commands, k];
+      p.edited(true);
+      return true;
+    }
+    case "brain-ask": {
+      const text = (p.brainAsk ?? "").trim(), out = p.root.querySelector(".brain-said");
+      if (!text) return true;
+      if (out) out.textContent = "…";
+      p.hass.callWS({ type: "conversation/process", text, agent_id: BRAIN_ENTITY })
+        .then((r) => { p.brainReply = r.response?.speech?.plain?.speech || "(no reply)"; })
+        .catch((e) => { p.brainReply = `Couldn't: ${e?.message || e}`; })
+        .finally(() => { const o = p.root.querySelector(".brain-said"); if (o) o.textContent = p.brainReply; });
+      return true;
+    }
     case "speech-add": p.draft.speech.replacements.push({ from: "", to: "" }); p.edited(true); return true;
     case "speech-rm": p.draft.speech.replacements.splice(Number(el.dataset.j), 1); p.edited(true); return true;
     case "speech-say": {
