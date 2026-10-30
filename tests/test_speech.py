@@ -19,6 +19,8 @@ SAID = [
     # years
     ("It was published in 1884.", "It was published in eighteen eighty-four."),
     ("1884 was a good year.", "eighteen eighty-four was a good year."),
+    ("Born in 1884, he", "Born in eighteen eighty-four, he"),
+    ("In 1884; then 1990.", "In eighteen eighty-four; then nineteen ninety."),
     ("The year 2005 and 2026.", "The year two thousand five and twenty twenty-six."),
     ("in 1905 and 1900", "in nineteen oh five and nineteen hundred"),
     ("in 800 AD", "in eight hundred A.D."),

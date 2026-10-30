@@ -500,7 +500,7 @@ class Speaker:
             if prev in cues or 1100 <= n <= 2099:
                 return self._year_words(n)
             return m[0]
-        return re.sub(r"(?<![\w.,$£€-])(?P<n>\d{3,4})(?![\w,/-]|\.\d)", say, text)
+        return re.sub(r"(?<![\w.,$£€-])(?P<n>\d{3,4})(?![\w/-]|[.,]\d)", say, text)
 
     def ranges(self, text: str) -> str:
         return re.sub(rf"(?<![\w.,-])(?P<a>{_NUM})\s?[-–]\s?(?P<b>{_NUM})(?![\w.-]|\.\d)",
