@@ -79,14 +79,26 @@ class WS:
                 n = struct.unpack(">H", self._read(2))[0]
             elif n == 127:
                 n = struct.unpack(">Q", self._read(8))[0]
-            data += self._read(n)
+            payload = self._read(n)
+            op = b0 & 0x0F
+            if op == 0x8:
+                raise ConnectionError("HA closed the WebSocket")
+            if op == 0x9:              # HA's heartbeat ping (long HACS calls): pong
+                self._frame(0x8A, payload)
+                continue
+            if op == 0xA:
+                continue
+            data += payload
             if b0 & 0x80:
                 return json.loads(data)
 
     def send(self, msg):
-        data, mask = json.dumps(msg).encode(), os.urandom(4)
+        self._frame(0x81, json.dumps(msg).encode())
+
+    def _frame(self, first, data):
+        mask = os.urandom(4)
         n = len(data)
-        head = bytes([0x81]) + (bytes([0x80 | n]) if n < 126 else
+        head = bytes([first]) + (bytes([0x80 | n]) if n < 126 else
                                 bytes([0x80 | 126]) + struct.pack(">H", n) if n < 65536 else
                                 bytes([0x80 | 127]) + struct.pack(">Q", n))
         self.s.sendall(head + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(data)))
