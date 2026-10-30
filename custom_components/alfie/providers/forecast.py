@@ -142,3 +142,31 @@ class ForecastProvider(Provider):
             raise RuntimeError(f"{entity} gave no {kind} forecast: {e}") from e
         items = ((resp or {}).get(entity) or {}).get("forecast") or []
         return parse_forecast(items, kind, limit)
+
+
+# (entity, kind) -> (entity stamp, fetched at, the raw forecast entries)
+_RAW: dict[tuple[str, str], tuple[tuple | None, float, list]] = {}
+
+
+async def raw_forecast(hass: Any, entity: str, kind: str,
+                       clock: Callable[[], float] = time.monotonic) -> list[dict[str, Any]]:
+    """The raw `weather.get_forecasts` entries for the brain's weather answers,
+    throttled like a screen's (MAX_AGE, MIN_GAP); [] when the entity has no
+    forecast of that kind."""
+    stamp = entity_stamp(hass.states.get(entity))
+    now = clock()
+    last = _RAW.get((entity, kind))
+    if last is not None:
+        age = now - last[1]
+        if age < MAX_AGE and (stamp == last[0] or age < MIN_GAP):
+            return last[2]
+    try:
+        resp = await hass.services.async_call(
+            "weather", "get_forecasts", {"entity_id": entity, "type": kind},
+            blocking=True, return_response=True)
+        items = ((resp or {}).get(entity) or {}).get("forecast") or []
+    except Exception:  # an unsupported kind raises: answer without it
+        items = []
+    items = [r for r in items if isinstance(r, dict)] if isinstance(items, list) else []
+    _RAW[(entity, kind)] = (stamp, now, items)
+    return items

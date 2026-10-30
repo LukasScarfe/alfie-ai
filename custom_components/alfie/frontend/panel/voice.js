@@ -244,7 +244,12 @@ const COMMANDS = [["whats_wrong", "What's wrong", "\"Is anything wrong?\": the s
   ["entity", "Any thing's state", "\"What's the office temperature?\", \"Is the back door open?\", \"What's the kitchen light's brightness?\", \"Is the freezer above -15?\" Tried after Home Assistant's intents."],
   ["entity_count", "How many", "\"How many lights are on?\", \"Which windows are open upstairs?\", \"Is anything on in the kitchen?\", \"Are all the doors locked?\" Tried after Home Assistant's intents."],
   ["entity_when", "When", "\"When was the front door last opened?\", \"How long has the TV been on?\""],
-  ["entity_history", "History", "\"What was the highest office temperature today?\", \"How many times did the door open today?\", \"Was the heater on last night?\""]];
+  ["entity_history", "History", "\"What was the highest office temperature today?\", \"How many times did the door open today?\", \"Was the heater on last night?\""],
+  ["weather_now", "Weather now", "\"What's the weather?\", \"Is it raining?\", \"How cold is it outside?\", \"What's the weather in Whistler?\" Before Home Assistant's own weather intent."],
+  ["weather_forecast", "Forecast", "\"Will it rain tomorrow?\", \"When will the rain stop?\", \"What's the high on Saturday?\", \"What's the forecast for the weekend?\""],
+  ["weather_gear", "What to wear", "\"Do I need an umbrella?\", \"Should I wear a coat tomorrow?\", \"Do I need sunscreen?\""],
+  ["sun", "The sun", "\"When is sunset?\", \"How long until sunrise?\", \"Is it dark outside?\", \"How much daylight is there today?\""],
+  ["moon", "The moon", "\"What's the moon phase?\", \"Is it a full moon tonight?\", \"When is the next full moon?\""]];
 const TIER = { 1: ["mdi:lightning-bolt", "Local"], 3: ["mdi:brain", "Delegate"], 0: ["mdi:help-circle-outline", "Unanswered"] };
 const SOURCE = { trigger: "Sentence trigger", own: "Alfie", intent: "Home Assistant", delegate: "Delegate",
   none: "Fallback", error: "Delegate failed" };
@@ -259,6 +264,9 @@ function brainTab(p) {
     .map((e) => [e, st[e].attributes?.friendly_name || e]);
   const delegates = [["", "None: unknown questions get the reply below"], ...agents];
   if (b.delegate && !agents.some(([e]) => e === b.delegate)) delegates.push([b.delegate, `${b.delegate} (not found)`]);
+  const weathers = [["", "The house's (one named like home, else the first)"], ...Object.keys(st).filter((e) => e.startsWith("weather.")).sort()
+    .map((e) => [e, st[e].attributes?.friendly_name || e])];
+  if (b.weather && !weathers.some(([e]) => e === b.weather)) weathers.push([b.weather, `${b.weather} (not found)`]);
   const cmds = COMMANDS.map(([k, name, hint]) => `
       <label class="check"><input type="checkbox" class="switch" data-action="brain-cmd" data-name="${k}"${b.off_commands.includes(k) ? "" : " checked"}>
         <span><b>${U.esc(name)}</b><small>${U.esc(hint)}</small></span></label>
@@ -287,6 +295,17 @@ function brainTab(p) {
         ${U.check("brain.say_unknown", b.say_unknown, "Say when he doesn't know a thing", "\"When was the front door last opened?\" with no front door: he says so. Off: the delegate gets it (an LLM may make up an answer).")}
         ${U.wide("\"How many\" ignores these integrations", `<textarea data-path="brain.count_skip" data-kind="lines" rows="2">${U.esc((b.count_skip || []).join("\n"))}</textarea>`, "One integration per line, like adaptive_lighting: their switches aren't things that are \"on\".")}
         ${U.field("How sure a name must be", U.num("brain.match_floor", b.match_floor, { min: 30, max: 120, step: 5 }), "70: the whole name was said. Lower finds more, and guesses more.")}` : ""}`)}
+      ${b.own_sentences ? U.card("Outside", `
+        ${U.field("Weather from", U.select("brain.weather", b.weather, weathers),
+          "For the weather, the forecast and what to wear. \"In Whistler\" picks the weather entity with that name.")}
+        <div class="grid">
+        ${U.field("Cold below", U.num("brain.cold_below", b.cold_below, { min: -40, max: 40, step: 1, unit: "°C" }), "\"Is it cold?\", \"Do I need a coat?\"")}
+        ${U.field("Warm from", U.num("brain.warm_above", b.warm_above, { min: -20, max: 50, step: 1, unit: "°C" }), "\"Is it warm?\", \"Do I need shorts?\"")}
+        ${U.field("Windy from", U.num("brain.windy_speed", b.windy_speed, { min: 1, max: 200, step: 1, unit: "km/h" }), "\"Is it windy?\"")}
+        ${U.field("Rain when the chance is", U.num("brain.rain_chance", b.rain_chance, { min: 1, max: 100, step: 5, unit: "%" }), "An hour this likely to rain counts as rain.")}
+        ${U.field("Or with no chance given", U.num("brain.rain_mm", b.rain_mm, { min: 0, max: 50, step: 0.1, unit: "mm" }), "Some forecasts (met.no) give only the amount.")}
+        ${U.field("Sunscreen from UV", U.num("brain.sun_uv", b.sun_uv, { min: 0, max: 15, step: 1 }), "\"Do I need sunscreen?\"")}</div>
+        <p class="muted">Converted when the weather is in °F or mph. The sun and the moon need no entity: Home Assistant's location is enough.</p>`) : ""}
       ${U.card("Face and log", `<div class="grid">
         ${U.field("Local badge", U.text("brain.local_icon", b.local_icon, { placeholder: "None, or mdi:lightning-bolt" }))}
         ${U.field("Delegate badge", U.text("brain.delegate_icon", b.delegate_icon, { placeholder: "None, or mdi:brain" }))}

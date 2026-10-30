@@ -31,18 +31,24 @@ from typing import Any
 from .speech import LANG_DIR, _code
 
 COMMANDS = ("whats_wrong", "how_are_you", "entity", "entity_count", "entity_when",
-            "entity_history")
+            "entity_history", "weather_now", "weather_forecast", "weather_gear", "sun", "moon")
 INTENTS = {"whats_wrong": "AlfieWhatsWrong", "how_are_you": "AlfieHowAreYou",
            "entity": "AlfieEntity", "entity_count": "AlfieEntityCount",
-           "entity_when": "AlfieEntityWhen", "entity_history": "AlfieEntityHistory"}
+           "entity_when": "AlfieEntityWhen", "entity_history": "AlfieEntityHistory",
+           "weather_now": "AlfieWeatherNow", "weather_forecast": "AlfieWeatherForecast",
+           "weather_gear": "AlfieWeatherGear", "sun": "AlfieSun", "moon": "AlfieMoon"}
 LABELS = {"whats_wrong": "what's wrong", "how_are_you": "how are you",
           "entity": "a thing's state", "entity_count": "how many things",
-          "entity_when": "when a thing changed", "entity_history": "a thing's history"}
+          "entity_when": "when a thing changed", "entity_history": "a thing's history",
+          "weather_now": "the weather now", "weather_forecast": "the forecast",
+          "weather_gear": "what to wear", "sun": "the sun", "moon": "the moon"}
+# Answered from a weather entity, the sun and the moon (outside.py).
+OUTSIDE = frozenset({"weather_now", "weather_forecast", "weather_gear", "sun", "moon"})
 # Tried after HA's intents: a built-in intent knows its own entities better.
 LATE = frozenset({"entity", "entity_count"})
 # Questions only the house can answer: a name that names nothing is said so.
 HOUSE_ONLY = frozenset({"entity_when", "entity_history"})
-WILDCARDS = ("name", "area", "value")
+WILDCARDS = ("name", "area", "value", "place")
 # HA intents that only read a state: local unless `local_states` is off (HA's
 # own pipeline hands HassGetState to an LLM agent; the weather was invented).
 STATE_INTENTS = frozenset({"HassGetState", "HassGetWeather"})
@@ -64,6 +70,13 @@ def default_settings() -> dict[str, Any]:
             "say_unknown": True,            # a house-only question about no known thing:
                                             # say so, not the delegate (it may invent it)
             "count_skip": ["adaptive_lighting"],   # integrations "how many" ignores
+            "weather": "",                  # a weather entity; "" the house's (local.py)
+            "cold_below": 10,               # °C: "do I need a coat?", "is it cold?"
+            "warm_above": 22,               # °C: "is it warm?", "do I need shorts?"
+            "windy_speed": 30,              # km/h: "is it windy?"
+            "rain_chance": 40,              # %: a forecast hour this likely to rain is rain
+            "rain_mm": 0.3,                 # mm: with no chance given, this much is rain
+            "sun_uv": 3,                    # UV index: "do I need sunscreen?"
             "local_intents": True, "local_states": True, "local_media_search": False,
             "fallback": "",                 # "" the language's
             "log_size": 50,

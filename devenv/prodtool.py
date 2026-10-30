@@ -4,6 +4,7 @@ WebSocket client (raccoon has no websocket library). The token is read from
 
   python3 devenv/prodtool.py ws TYPE [json]   one WebSocket command, result as JSON
   python3 devenv/prodtool.py get ENTITY       an entity's state as JSON
+  python3 devenv/prodtool.py ask TEXT...      ask conversation.alfie; his reply and the turn log's why
   python3 devenv/prodtool.py deploy           HACS fetches the pushed commit, installs it, HA restarts
 """
 
@@ -197,12 +198,29 @@ def deploy():
         raise SystemExit(f"HA runs Alfie {running}, not {local_version()}")
 
 
+def ask(text):
+    """One question to conversation.alfie, as a voice assistant would ask it."""
+    t = time.monotonic()
+    got = rest("POST", "/api/conversation/process",
+               {"text": text, "agent_id": "conversation.alfie", "language": "en"})
+    ms = int((time.monotonic() - t) * 1000)
+    print(got["response"]["speech"].get("plain", {}).get("speech", ""))
+    ws = WS()
+    ws.call("alfie/brain/turns")           # a subscription: the log comes as its first event
+    last = ws.recv().get("event", {}).get("turns") or []
+    if last:
+        print(f"  [{last[0].get('source')} {last[0].get('detail')}, {last[0].get('ms')} ms"
+              f" ({ms} ms round trip)] {last[0].get('why')}")
+
+
 def main(argv):
     cmd = argv[0] if argv else ""
     if cmd == "ws":
         print(json.dumps(WS().call(argv[1], **(json.loads(argv[2]) if len(argv) > 2 else {})), indent=1))
     elif cmd == "get":
         print(json.dumps(rest("GET", "/api/states/" + argv[1]), indent=1))
+    elif cmd == "ask":
+        ask(" ".join(argv[1:]))
     elif cmd == "deploy":
         deploy()
     else:
