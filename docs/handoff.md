@@ -18,7 +18,7 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.18.1.
+Version 0.18.2.
 
 **Now: Alfie's brain, M13 to M17** (agreed with Lukas 2026-10-30; plan.md, design.md "Brain").
 A local-first voice pipeline inside Alfie, meant for the HA community too: speech, then the
