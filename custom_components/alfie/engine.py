@@ -1082,6 +1082,22 @@ class AlfieEngine:
         self._push()
 
     @callback
+    def brain_badge(self, tier: int) -> None:
+        """His brain answered (conversation.py): a badge beside him for the
+        tier, a bolt when he knew it himself, a brain while the delegate
+        thinks. Off by leaving the brain settings' icon empty."""
+        b = self.config["brain"]
+        name = b["local_icon"] if tier == 1 else b["delegate_icon"]
+        if not name or not b["icon_seconds"]:
+            return
+        ck = Check()
+        icon = check_icon({"icon": name, "style": "overlay", "place": "top_right",
+                           "seconds": b["icon_seconds"]}, "brain", ck)
+        if not ck.errors:
+            self.show_icon(icon)
+            self._push()
+
+    @callback
     def _linger(self) -> None:
         """The satellite is done: the held voice screen stays its linger, then goes."""
         sc = self.screen

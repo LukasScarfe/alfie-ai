@@ -66,9 +66,10 @@ def async_register(hass: HomeAssistant) -> None:
     if data.get("_ws_registered"):
         return
     for cmd in (ws_subscribe, ws_config_get, ws_config_set, ws_config_reset, ws_config_preview,
-                ws_screens, ws_screen_data, ws_story_play, ws_story_expand, ws_triggers_status, ws_suggest,
-                ws_voice_status, ws_voice_say, ws_speech_preview, ws_pictures_list, ws_picture_get,
-                ws_picture_upload, ws_picture_rename, ws_picture_delete, ws_face, ws_screen_yaml):
+                ws_screens, ws_screen_data, ws_story_play, ws_story_expand, ws_triggers_status,
+                ws_suggest, ws_voice_status, ws_voice_say, ws_speech_preview, ws_brain_turns,
+                ws_pictures_list, ws_picture_get, ws_picture_upload, ws_picture_rename,
+                ws_picture_delete, ws_face, ws_screen_yaml):
         websocket_api.async_register_command(hass, cmd)
     data["_ws_registered"] = True
 
@@ -403,6 +404,30 @@ def ws_speech_preview(hass: HomeAssistant, connection: websocket_api.ActiveConne
             connection.send_error(msg["id"], "invalid_config", str(e))
             return
     connection.send_result(msg["id"], {"text": engine.spoken(msg["text"][:2000], rules=rules)})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "alfie/brain/turns"})
+@callback
+def ws_brain_turns(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+                   msg: dict[str, Any]) -> None:
+    """The brain's turn log (conversation.py), newest first, then each new
+    turn as it finishes."""
+    if _engine(hass, connection, msg["id"]) is None:
+        return
+    agent = hass.data[DOMAIN].get("brain")
+    if agent is None:
+        connection.send_error(msg["id"], "not_loaded", "Alfie's brain is not set up")
+        return
+
+    @callback
+    def forward(turn: dict[str, Any]) -> None:
+        connection.send_message(websocket_api.event_message(msg["id"], {"turn": turn}))
+
+    connection.subscriptions[msg["id"]] = agent.add_listener(forward)
+    connection.send_result(msg["id"])
+    connection.send_message(websocket_api.event_message(
+        msg["id"], {"turns": agent.log.as_list(), "agent": agent.entity_id}))
 
 
 # ------------------------------------------------------------- pictures
