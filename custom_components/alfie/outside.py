@@ -109,7 +109,8 @@ def _settings(s: Mapping[str, Any], w: Weather) -> dict[str, float]:
 # ------------------------------------------------------------ saying things
 
 def say_temp(v: float | None, w: Weather) -> str:
-    return "?" if v is None else say_number(v, w.unit)
+    """Whole degrees: a forecast is no more exact, and "11.2" is a mouthful."""
+    return "?" if v is None else say_number(round(v), w.unit)
 
 
 def say_cond(cond: str, words: Mapping[str, Any], how: str = "now") -> str:
@@ -394,7 +395,7 @@ def forecast_reply(w: Weather, ask: str, span: str, hilo: str, change: str,
 def _will(w: Weather, ask: str, span: str, words: Mapping[str, Any], now: datetime,
           lim: Mapping[str, float]) -> str:
     got, hourly = _span_rows(w, span, now)
-    when, asked = say_span(span, words, now), say_cond(ask, words, "noun")
+    when, asked = say_span(span, words, now) + _where(w, words), say_cond(ask, words, "noun")
     if not got:
         return _t(words, "no_forecast_for", span=when)
     hits = [r for r in got if is_kind(r, ask, words, lim)]
@@ -432,7 +433,7 @@ def _change(w: Weather, ask: str, change: str, words: Mapping[str, Any], now: da
 
 
 def _hilo(w: Weather, span: str, hilo: str, words: Mapping[str, Any], now: datetime) -> str:
-    when = say_span(span, words, now)
+    when = say_span(span, words, now) + _where(w, words)
     start, end, by_day = span_window(span, now)
     days = days_in(w, start, end) if by_day else []
     hi = lo = None
@@ -472,7 +473,7 @@ def _summary(w: Weather, span: str, words: Mapping[str, Any], now: datetime,
              lim: Mapping[str, float]) -> str:
     start, end, by_day = span_window(span, now)
     name = cap(((_w(words).get("span_names") or {}).get(span))
-               or (_day_name(span) if span in DAYS else say_span(span, words, now)))
+               or (_day_name(span) if span in DAYS else say_span(span, words, now))) + _where(w, words)
     if by_day:
         days = days_in(w, start, end)
         if len(days) > 1:
@@ -519,7 +520,7 @@ def _range(temps: Sequence[float], w: Weather, words: Mapping[str, Any]) -> str:
     lo, hi = min(temps), max(temps)
     if round(lo) == round(hi):
         return _t(words, "range_one", temp=say_temp(hi, w))
-    return _t(words, "range", lo=say_number(lo), hi=say_temp(hi, w))
+    return _t(words, "range", lo=say_number(round(lo)), hi=say_temp(hi, w))
 
 
 # ------------------------------------------------------------ what to wear
