@@ -240,7 +240,11 @@ function agents(p) {
 
 const BRAIN_ENTITY = "conversation.alfie";
 const COMMANDS = [["whats_wrong", "What's wrong", "\"Is anything wrong?\": the same answer as the intent."],
-  ["how_are_you", "How are you", "\"How are you?\": his mood, and why."]];
+  ["how_are_you", "How are you", "\"How are you?\": his mood, and why."],
+  ["entity", "Any thing's state", "\"What's the office temperature?\", \"Is the back door open?\", \"What's the kitchen light's brightness?\", \"Is the freezer above -15?\" Tried after Home Assistant's intents."],
+  ["entity_count", "How many", "\"How many lights are on?\", \"Which windows are open upstairs?\", \"Is anything on in the kitchen?\", \"Are all the doors locked?\" Tried after Home Assistant's intents."],
+  ["entity_when", "When", "\"When was the front door last opened?\", \"How long has the TV been on?\""],
+  ["entity_history", "History", "\"What was the highest office temperature today?\", \"How many times did the door open today?\", \"Was the heater on last night?\""]];
 const TIER = { 1: ["mdi:lightning-bolt", "Local"], 3: ["mdi:brain", "Delegate"], 0: ["mdi:help-circle-outline", "Unanswered"] };
 const SOURCE = { trigger: "Sentence trigger", own: "Alfie", intent: "Home Assistant", delegate: "Delegate",
   none: "Fallback", error: "Delegate failed" };
@@ -256,9 +260,9 @@ function brainTab(p) {
   const delegates = [["", "None: unknown questions get the reply below"], ...agents];
   if (b.delegate && !agents.some(([e]) => e === b.delegate)) delegates.push([b.delegate, `${b.delegate} (not found)`]);
   const cmds = COMMANDS.map(([k, name, hint]) => `
-      <label class="check"><input type="checkbox" class="switch" data-action="brain-cmd" data-name="${k}"${b.commands.includes(k) ? " checked" : ""}>
+      <label class="check"><input type="checkbox" class="switch" data-action="brain-cmd" data-name="${k}"${b.off_commands.includes(k) ? "" : " checked"}>
         <span><b>${U.esc(name)}</b><small>${U.esc(hint)}</small></span></label>
-      ${b.commands.includes(k) ? U.wide("Also these sentences", `<textarea data-path="brain.extra_sentences.${k}" data-kind="lines" rows="2">${U.esc((b.extra_sentences[k] || []).join("\n"))}</textarea>`,
+      ${!b.off_commands.includes(k) ? U.wide("Also these sentences", `<textarea data-path="brain.extra_sentences.${k}" data-kind="lines" rows="2">${U.esc((b.extra_sentences[k] || []).join("\n"))}</textarea>`,
         `${SENTENCE_HINT} His own English ones always work.`) : ""}`).join("");
   return `${U.intro("Make Alfie your voice assistant's agent and he answers what he can himself, instantly and from the real states, and passes only the rest to an LLM.",
       `He is the conversation agent <code>${BRAIN_ENTITY}</code>. Each request tries, in order: an automation's sentence trigger, his own sentences, Home Assistant's built-in intents (lights, timers, the weather, \"is the door locked\"), and only then the delegate, any other agent you have, like Ollama or Google. The delegate's reply still streams to the speaker. ${where}`)}
@@ -277,7 +281,10 @@ function brainTab(p) {
         ${U.check("brain.local_media_search", b.local_media_search, "\"Play …\" searches", "Home Assistant's media search. Off: the delegate, with its own music tools.")}` : ""}`)}
       ${U.card("His own sentences", `
         ${U.check("brain.own_sentences", b.own_sentences, "Answer his own sentences")}
-        ${b.own_sentences ? cmds : ""}`)}
+        ${b.own_sentences ? `${cmds}
+        ${U.check("brain.exposed_only", b.exposed_only, "Only things exposed to Assist", "Off: he answers about every entity (the answer stays in the house). On: only those exposed in Settings → Voice assistants → Expose.")}
+        ${U.check("brain.ask_which", b.ask_which, "Ask which one", "When two things fit a name equally, he asks. Off: the delegate gets the question.")}
+        ${U.field("How sure a name must be", U.num("brain.match_floor", b.match_floor, { min: 30, max: 120, step: 5 }), "70: the whole name was said. Lower finds more, and guesses more.")}` : ""}`)}
       ${U.card("Face and log", `<div class="grid">
         ${U.field("Local badge", U.text("brain.local_icon", b.local_icon, { placeholder: "None, or mdi:lightning-bolt" }))}
         ${U.field("Delegate badge", U.text("brain.delegate_icon", b.delegate_icon, { placeholder: "None, or mdi:brain" }))}
@@ -400,7 +407,7 @@ export function click(p, a, el) {
     case "voice-rm-spk": v.speak_targets.splice(Number(el.dataset.j), 1); p.edited(true); return true;
     case "brain-cmd": {
       const b = p.draft.brain, k = el.dataset.name;
-      b.commands = b.commands.includes(k) ? b.commands.filter((x) => x !== k) : [...b.commands, k];
+      b.off_commands = b.off_commands.includes(k) ? b.off_commands.filter((x) => x !== k) : [...b.off_commands, k];
       p.edited(true);
       return true;
     }
