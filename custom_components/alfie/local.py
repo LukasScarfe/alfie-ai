@@ -21,8 +21,9 @@ from homeassistant.util import dt as dt_util
 
 from homeassistant.helpers import entity_registry as er
 
-from . import answers, brain, finder
+from . import answers, brain, finder, outside
 from .const import DOMAIN
+from .providers.forecast import raw_forecast
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -91,6 +92,9 @@ class LocalAnswers:
     async def answer(self, cmd: str, slots: dict[str, str], words: dict[str, Any],
                      entity_id: str | None = None) -> Reply | None:
         s = self.engine.config["brain"]
+        if cmd in brain.OUTSIDE:
+            text = await self._outside(cmd, slots, words, s)
+            return Reply(text, detail=cmd) if text else None
         if cmd == "entity_count":
             return await self._count(slots, words, s)
         attr = slots.get("attr", "")
@@ -181,6 +185,75 @@ class LocalAnswers:
                                          slots.get("state", "on"), area, ask, words,
                                          dt_util.now()))
 
+    # ------------------------------------------------------------ outside
+
+    async def _outside(self, cmd: str, slots: dict[str, str], words: dict[str, Any],
+                       s: dict[str, Any]) -> str | None:
+        now = dt_util.now()
+        if cmd == "moon":
+            return outside.moon_reply(slots.get("phase", "") if not slots.get("when") else "",
+                                      slots.get("phase", "") if slots.get("when") else "",
+                                      words, now)
+        if cmd == "sun":
+            return outside.sun_reply(self._sun_times(now), slots.get("sun_event", ""),
+                                     slots.get("day", ""), slots.get("until", ""),
+                                     slots.get("light", ""), words, now)
+        place, span = _split_span(slots.get("place", ""), slots.get("span", ""), words)
+        w = await self._weather(place, s, now, hourly=True, daily=cmd != "weather_gear")
+        if w is None:
+            return None
+        if cmd == "weather_now":
+            return outside.now_reply(w, slots.get("ask", ""), slots.get("aspect", ""), words, now, s)
+        if cmd == "weather_gear":
+            return outside.gear_reply(w, slots.get("gear", ""), span, words, now, s)
+        return outside.forecast_reply(w, slots.get("ask", ""), span, slots.get("hilo", ""),
+                                      slots.get("change", ""), words, now, s)
+
+    def _weather_entity(self, place: str, s: dict[str, Any]) -> str | None:
+        """The weather entity a place means, else the chosen one, else the
+        house's: one named like home (met.no's default), else the first."""
+        if place:
+            voice = self.hass.data.get(DOMAIN, {}).get("voice")
+            idx = getattr(voice, "_index", None)
+            hit = idx.best(place, ("weather",), floor=50) if idx else None
+            return hit.entity_id if hit else None
+        if s["weather"] and self.hass.states.get(s["weather"]) is not None:
+            return s["weather"]
+        ids = sorted(self.hass.states.async_entity_ids("weather"))
+        return next((e for e in ids if "home" in e), ids[0] if ids else None)
+
+    async def _weather(self, place: str, s: dict[str, Any], now: datetime, hourly: bool,
+                       daily: bool) -> outside.Weather | None:
+        if place:
+            await self._index()             # built once, then kept
+        entity = self._weather_entity(place, s)
+        st = self.hass.states.get(entity) if entity else None
+        if st is None or st.state in answers.GONE:
+            return None
+        tz = now.tzinfo
+        return outside.Weather(
+            st.name, st.state, dict(st.attributes),
+            outside.rows(await raw_forecast(self.hass, entity, "hourly"), tz) if hourly else [],
+            outside.rows(await raw_forecast(self.hass, entity, "daily"), tz) if daily else [],
+            place=place.title() if place else "")
+
+    def _sun_times(self, now: datetime) -> dict[int, dict[str, datetime | None]]:
+        """Dawn, sunrise, noon, sunset and dusk yesterday, today and tomorrow,
+        from Home Assistant's own sun maths (no I/O)."""
+        from homeassistant.helpers.sun import get_astral_event_date  # noqa: PLC0415
+        out: dict[int, dict[str, datetime | None]] = {}
+        for off in (-1, 0, 1, 2):
+            day = now.date() + timedelta(days=off)
+            got = {}
+            for event in outside.SUN_EVENTS:
+                try:
+                    at = get_astral_event_date(self.hass, event, day)
+                except ValueError:          # the sun doesn't rise or set that day
+                    at = None
+                got[event] = dt_util.as_local(at) if at else None
+            out[off] = got
+        return out
+
     async def _history(self, entity_id: str, start: datetime, end: datetime
                        ) -> list[answers.Change]:
         if "recorder" not in self.hass.config.components:
@@ -206,6 +279,17 @@ def _clean(text: str) -> str:
         if t.lower().startswith(lead):
             t = t[len(lead):]
     return t
+
+
+def _split_span(place: str, span: str, words: dict[str, Any]) -> tuple[str, str]:
+    """("whistler tomorrow", "") -> ("whistler", "tomorrow"): a time said after
+    the place lands in the place's wildcard."""
+    p = _clean(place).lower()
+    spans = (words.get("lists") or {}).get("span") or {}
+    for phrase in sorted((k for k in spans if not k.startswith("_")), key=len, reverse=True):
+        if p.endswith(" " + phrase):
+            return p[:-len(phrase) - 1].strip(), span or spans[phrase]
+    return p, span
 
 
 def _split_attribute(name: str, words: dict[str, Any]) -> tuple[str, str]:

@@ -1253,7 +1253,12 @@
    "entity": [],
    "entity_count": [],
    "entity_when": [],
-   "entity_history": []
+   "entity_history": [],
+   "weather_now": [],
+   "weather_forecast": [],
+   "weather_gear": [],
+   "sun": [],
+   "moon": []
   },
   "exposed_only": false,
   "match_floor": 70,
@@ -1262,6 +1267,13 @@
   "count_skip": [
    "adaptive_lighting"
   ],
+  "weather": "",
+  "cold_below": 10,
+  "warm_above": 22,
+  "windy_speed": 30,
+  "rain_chance": 40,
+  "rain_mm": 0.3,
+  "sun_uv": 3,
   "local_intents": true,
   "local_states": true,
   "local_media_search": false,

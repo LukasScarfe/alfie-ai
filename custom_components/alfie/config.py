@@ -799,6 +799,10 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
         got = got if isinstance(got, list) else [got]
         sentences[cmd] = [t for i, x in enumerate(got[:50])
                           if (t := _sentence(f"brain {cmd} sentence {i + 1}", x, ck))]
+    weather = str(v["weather"] or "").strip()
+    if weather and not weather.startswith("weather."):
+        ck.bad("brain weather", f"{weather!r} is not a weather entity")
+        weather = ""
     icons = {}
     for key in ("local_icon", "delegate_icon"):
         icon = str(v[key] or "").strip()
@@ -816,6 +820,13 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
         "say_unknown": bool(v["say_unknown"]),
         "count_skip": [str(x).strip() for x in (v["count_skip"] if isinstance(v["count_skip"], list)
                                                  else []) if str(x).strip()][:50],
+        "weather": weather,
+        "cold_below": _num(ck.number("brain cold below", v["cold_below"], -40, 40, 10)),
+        "warm_above": _num(ck.number("brain warm above", v["warm_above"], -20, 50, 22)),
+        "windy_speed": _num(ck.number("brain windy speed", v["windy_speed"], 1, 200, 30)),
+        "rain_chance": int(ck.number("brain rain chance", v["rain_chance"], 1, 100, 40)),
+        "rain_mm": _num(ck.number("brain rain amount", v["rain_mm"], 0, 50, 0.3)),
+        "sun_uv": _num(ck.number("brain sun uv", v["sun_uv"], 0, 15, 3)),
         "local_intents": bool(v["local_intents"]),
         "local_states": bool(v["local_states"]),
         "local_media_search": bool(v["local_media_search"]),

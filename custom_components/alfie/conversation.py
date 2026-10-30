@@ -40,8 +40,8 @@ from .voice import _lookup
 _LOGGER = logging.getLogger(__name__)
 
 # The order his matched commands are tried in: the more particular first.
-ORDER = ("whats_wrong", "how_are_you", "entity_when", "entity_history", "entity_count",
-         "entity")
+ORDER = ("whats_wrong", "how_are_you", "moon", "sun", "weather_gear", "weather_forecast",
+         "weather_now", "entity_when", "entity_history", "entity_count", "entity")
 TRIES = 4           # readings of one command tried (hassil splits a sentence several ways)
 WHICH_FOR = 60.0    # seconds a "which one?" waits for its answer
 
@@ -137,9 +137,10 @@ class AlfieAgent(conversation.ConversationEntity):
             if slots not in got:
                 got.append(slots)
         # The reading that understood most of the sentence leaves the least to
-        # the name: "front door", not "front door last".
-        return [(c, sl) for c in ORDER
-                for sl in sorted(found.get(c, []), key=lambda x: len(x.get("name", "")))[:TRIES]]
+        # the wildcards: "front door", not "front door last".
+        def loose(x: dict[str, str]) -> int:
+            return sum(len(x.get(w, "")) for w in brain.WILDCARDS)
+        return [(c, sl) for c in ORDER for sl in sorted(found.get(c, []), key=loose)[:TRIES]]
 
     async def _answer_own(self, cmd: str, slots: dict[str, str], language: str
                           ) -> tuple[str, str, list[str]] | None:
