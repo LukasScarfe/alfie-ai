@@ -50,7 +50,11 @@ Only one agent works on this repo at a time.
 
 Changes go to production HA through HACS, the way users get them: commit and push, then
 `./dev prod deploy`. It has HACS fetch the pushed commit, installs it through `update.alfie_update`,
-restarts HA and waits for it to come back. Python and card changes both need it.
+restarts HA and waits for it to come back. Python and card changes both need it. HACS can report a
+commit installed while writing an older copy (GitHub served it stale), so deploy compares every
+installed file with the local one over the SMB mount, downloads again while they differ, refuses
+to restart until they match, and checks the version HA runs afterwards. Never bypass it; if it
+stops, find out why.
 
 ```bash
 ./dev prod deploy                    # after a push: install the new commit, restart HA
