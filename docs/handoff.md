@@ -30,9 +30,11 @@ rewrites text then hands it to `speech.engine`; panel Voice → Speech with a li
 (`alfie/speech/preview`) and which assistants use it. Checked on dev HA: Piper and Whisper from
 raccoon are added there (wyoming, :10200 / :10300); a Whisper round trip of raw Piper vs Alfie's
 voice heard "18 degrees C ... 12 km slash h" vs "18 degrees ... 12 kilometers an hour".
-**Next (C):** deploy, set production's `speech.engine` to `tts.piper`, and ask Lukas before
-switching the "Alfie (local)" pipeline's TTS to Alfie Voice. Then plan M14 in plan mode.
-Gotchas: Whisper writes spoken years back as digits, so a round trip can't show year wording;
+**Next (C):** ask Lukas before switching the "Alfie (local)" pipeline's TTS to Alfie Voice. Then plan M14 in plan mode.
+Production runs 0.18.2 with `speech.engine` = `tts.piper` (the pipeline's TTS is not switched).
+Gotchas: `./dev prod deploy` once restarted HA onto stale files (HACS said 6046ce6, the disk had
+0.18.0); it now checks file by file and the running version (CLAUDE.md "Dev loop"). Whisper
+writes spoken years back as digits, so a round trip can't show year wording;
 `./dev` has no dev-HA WebSocket command (the session used a scratch script that points
 `prodtool.WS` at :8125 with `devtool.token()[0]`).
 
