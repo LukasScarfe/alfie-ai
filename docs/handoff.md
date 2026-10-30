@@ -18,7 +18,23 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.17.0.
+Version 0.18.0.
+
+**Now: Alfie's brain, M13 to M17** (agreed with Lukas 2026-10-30; plan.md, design.md "Brain").
+A local-first voice pipeline inside Alfie, meant for the HA community too: speech, then the
+brain (conversation agent), timers and alarms, the matcher, the Echo Dot extras.
+
+**Latest (0.18.0, 2026-10-30, Lukas): M13 Speech, steps A and B.** `speech.py` (pure, table
+tests in `tests/test_speech.py`) and `lang/en/speech.json`; `tts.alfie_voice` (`tts.py`)
+rewrites text then hands it to `speech.engine`; panel Voice → Speech with a live try box
+(`alfie/speech/preview`) and which assistants use it. Checked on dev HA: Piper and Whisper from
+raccoon are added there (wyoming, :10200 / :10300); a Whisper round trip of raw Piper vs Alfie's
+voice heard "18 degrees C ... 12 km slash h" vs "18 degrees ... 12 kilometers an hour".
+**Next (C):** deploy, set production's `speech.engine` to `tts.piper`, and ask Lukas before
+switching the "Alfie (local)" pipeline's TTS to Alfie Voice. Then plan M14 in plan mode.
+Gotchas: Whisper writes spoken years back as digits, so a round trip can't show year wording;
+`./dev` has no dev-HA WebSocket command (the session used a scratch script that points
+`prodtool.WS` at :8125 with `devtool.token()[0]`).
 
 **Latest (0.17.0, 2026-10-23, Lukas): Motion settings** (plan.md M12, design.md "The
 character" → Editors 5). Every motion drawn by code is tunable in `look.motion`, on the new

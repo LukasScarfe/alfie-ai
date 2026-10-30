@@ -819,6 +819,47 @@ in the panel's Voice → Screens (and Agents for the find tool).
 - The panel's Voice → Screens shows the last voice screen: what was said, the reply, what it
   was about and which screen was made.
 
+## Brain (agreed 2026-10-30)
+
+Alfie as a local-first voice pipeline, shareable with the HA community. It lives inside the Alfie
+integration, but each part works without the face (Lukas, 2026-10-30: "integrate very cleanly
+into the current Alfie stuff"). English first; sentences, synonyms and speech rules live in
+per-language data files (`lang/<language>/`) so others can add languages. No new Python
+requirements, light enough for a Pi.
+
+- **Speech** (`speech.py`, pure; `tts.alfie_voice` in `tts.py`; built 0.18.0): TTS engines
+  read digits and symbols literally (Piper's espeak says 1884 as "one thousand eight hundred
+  eighty four", 18°C as "eighteen degrees C", 9:05 as "nine zero five", dates with
+  "dash"/"slash"). Alfie's TTS entity rewrites the text the way a person says it, then hands it
+  to `speech.engine` (any TTS entity, "" the first other one).
+  - The words are `lang/<code>/speech.json`; the grammar joining number words is per language
+    in `speech.SPELLERS` (English). Other languages get only the language-free passes.
+  - Passes, in order: markdown, links, emoji, the user's replacements, abbreviations, dates,
+    times, temperatures, money, percent, decades, units, fractions, ordinals, years, ranges,
+    other numbers. Each is a setting in the `speech` section (panel Voice → Speech, with a live
+    try box). Defaults: years in pairs (eighteen eighty-four, twenty twenty-six), clock times
+    with the time of day in words (nine forty-five in the evening) when the text says it,
+    month-day dates without this year, degrees without the unit, one decimal.
+  - A year is a 4-digit number after a cue word (in, since, born...), before an era (BC, AD), or
+    from 1100 to 2099 unless a count follows ("1500 years", "2000 people").
+  - Streams: a reply is cut into finished sentences (`split_ready`), each rewritten as it comes,
+    so Piper still starts early. The rules' hash is a default option, so changing them never
+    replays cached audio. The wrapped engine's languages, voices and options pass through.
+  - `alfie.say` and Speak steps say the rewritten text too (`engine.spoken`).
+  - To use it, a voice assistant's text-to-speech is set to "Alfie Voice"; the panel says which
+    assistants do.
+- **Brain** (`conversation.alfie`): tier 1 is Alfie's own sentences, then HA's built-in intents;
+  tier 2 the matcher; tier 3 a delegate LLM agent (any conversation entity). Tiers 1 and 2 reply
+  from templates, so the LLM is used only when nothing local is confident.
+- **Matcher** (tier 2): example phrases per command, scored by word and part-word similarity
+  with synonyms (pure Python); slots filled by parsers and `finder.py`. Below `threshold`, tier 3.
+  An embeddings URL may come later.
+- **Timers and alarms**: Alfie's own when he is the agent (HA's timers keep working for other
+  agents). Persistent, ring on the satellite that set them, shown by `sensor.alfie_timers`
+  (state written only on change) and a `custom:alfie-timers` badge that counts down in the
+  browser. Open: a timer screen on the card, and the ring sound.
+- **Dot extras**: start_conversation, action button, room light, mic mute.
+
 ## Card
 
 - **Render styles** (eight): neon, flat, CRT, theme colours, and (2026-10-21) four with an

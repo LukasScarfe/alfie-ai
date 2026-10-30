@@ -2,14 +2,15 @@
 // satellites he follows, how he looks while one listens, thinks and answers,
 // and where he speaks), Agents (what voice agents get from him: the Alfie
 // LLM API, the what's-wrong and find tools, the intent, the persona and his
-// mood) and Screens (design.md "Voice screens": what he shows of a voice turn).
+// mood), Screens (design.md "Voice screens": what he shows of a voice turn)
+// and Speech (design.md "Brain": how tts.alfie_voice says numbers, times, dates).
 
 const V = new URL(import.meta.url).search;
 const U = await import(`./ui.js${V}`);
 
 export const id = "voice";
 export const title = "Voice";
-export const subs = [["assistants", "Assistants"], ["agents", "Agents"], ["screens", "Screens"]];
+export const subs = [["assistants", "Assistants"], ["agents", "Agents"], ["screens", "Screens"], ["speech", "Speech"]];
 const ASSIST_KEYS = ["enabled", "satellites", "while_asleep", "listening_expression", "listening_animation",
   "processing_animation", "speak_style", "speak_strength", "after", "speak_targets", "tts_entity", "language"];
 const AGENT_KEYS = ["persona", "persona_prompt", "mood_aware", "assist_tool", "intent", "sentences", "find_entity"];
@@ -18,14 +19,14 @@ const SCREEN_KEYS = ["screens", "action_screens", "answer_screens", "screen_pres
   "volume_screen", "screen_text", "music_animation", "music_expression", "music_icon", "music_screen", "music_seconds",
   "music_show_title", "music_show_artist", "music_show_album", "music_show_paused"];
 export const resets = { assistants: ASSIST_KEYS.map((k) => `voice.${k}`), agents: AGENT_KEYS.map((k) => `voice.${k}`),
-  screens: SCREEN_KEYS.map((k) => `voice.${k}`) };
+  screens: SCREEN_KEYS.map((k) => `voice.${k}`), speech: ["speech"] };
 
 const STYLE_TEXT = { pulse: "Ring pulse", eyes: "Eye rhythm", both: "Ring and eyes", wave: "Waveform ring" };
 const TRY = [["listening", "Listening"], ["processing", "Thinking"], ["responding", "Answering"]];
 const SENTENCE_HINT = "One per line, in HA's sentence syntax: (a|b) picks one, [x] is optional. No punctuation.";
 
 export function render(p, sub) {
-  return sub === "agents" ? agents(p) : sub === "screens" ? screens(p) : assistants(p);
+  return sub === "agents" ? agents(p) : sub === "screens" ? screens(p) : sub === "speech" ? speech(p) : assistants(p);
 }
 
 // A datalist of the house's entities in `domains`, for an entity input.
@@ -133,6 +134,80 @@ function screens(p) {
     ${U.card("Last voice screen", peek)}`;
 }
 
+// ------------------------------------------------------------ speech
+
+const VOICE_ENTITY = "tts.alfie_voice";
+const SPEECH_SAMPLE = "It's 21:45 and 18°C. Rain at 2.5 mm/h until 2026-10-31. The house was built in 1884.";
+const YEARS = [["pairs", "In pairs: eighteen eighty-four"], ["number", "As a number: one thousand eight hundred…"], ["off", "Leave them"]];
+const YEARS_2000 = [["twenty", "Twenty twenty-six"], ["thousand", "Two thousand twenty-six"]];
+const TIMES = [["clock", "Clock: nine forty-five"], ["casual", "Casual: quarter to ten"], ["24h", "24-hour: twenty-one forty-five"], ["off", "Leave them"]];
+const PERIODS = [["words", "In words: in the evening"], ["ampm", "AM and PM"], ["none", "Nothing"]];
+const DATES = [["month_day", "October thirtieth"], ["day_month", "The thirtieth of October"], ["off", "Leave them"]];
+const NUMERIC = [["month_first", "Month first: 10/30/2026"], ["day_first", "Day first: 30/10/2026"]];
+const DATE_YEARS = [["not_this_year", "Only when it isn't this year"], ["always", "Always"]];
+
+function speech(p) {
+  const s = p.draft.speech, using = p.speechPipelines;
+  const where = using == null ? "" : using.length
+    ? `In use by ${using.map((n) => `<b>${U.esc(n)}</b>`).join(", ")}.`
+    : `<b>Not used by any voice assistant yet.</b> Pick <b>${U.esc(p.name || "Alfie")} Voice</b> as the text-to-speech in Settings → Voice assistants.`;
+  const reps = s.replacements.map((r, j) => `<div class="row rep">
+      <input class="grow" data-path="speech.replacements.${j}.from" value="${U.esc(r.from)}" placeholder="As written: Monstera">
+      <span class="muted">→</span>
+      <input class="grow" data-path="speech.replacements.${j}.to" value="${U.esc(r.to)}" placeholder="As said: mon stair uh">
+      <button class="icon" data-action="speech-rm" data-j="${j}" title="Remove">${U.icon("mdi:close")}</button></div>`).join("");
+  return `${U.intro("Voice engines read digits and symbols literally: 1884 becomes \"one thousand eight hundred eighty four\", 18°C \"eighteen degrees C\". Alfie's voice says them the way a person would, then hands the words to your TTS engine.",
+      `It is the TTS entity <code>${VOICE_ENTITY}</code>: use it in a voice assistant in place of your engine, and every answer is spoken this way, from HA's own intents, any LLM agent and announcements. ${where}`)}
+    ${U.card("Try it", `
+      <textarea id="speech-try" rows="2">${U.esc(p.speechLine ?? SPEECH_SAMPLE)}</textarea>
+      <p class="speech-out">${U.esc(p.speechOut || "…")}</p>
+      <div class="row"><button class="flat" data-action="speech-say">${U.icon("mdi:account-voice")}Say it</button>
+        <small class="speech-sent muted"></small></div>`)}
+    ${U.cards(`${U.card("Engine", `
+        ${U.field("Speaks with", U.text("speech.engine", s.engine, { list: "speech-tts", placeholder: "tts.piper" }),
+          "The TTS engine that makes the sound. Empty: the first one set up. Its voices and languages carry over.")}
+        ${domainList(p, "speech-tts", ["tts"]).replace(new RegExp(`<option value="${VOICE_ENTITY}">[^<]*</option>`), "")}`)}
+      ${U.card("Numbers", `<div class="grid">
+        ${U.field("Years", U.select("speech.years", s.years, YEARS))}
+        ${U.field("Years after 2009", U.select("speech.years_2000", s.years_2000, YEARS_2000))}
+        ${U.field("Decimals", U.num("speech.decimals", s.decimals, { min: 0, max: 3, step: 1 }), "21.37 with 1: twenty-one point four.")}</div>
+        ${U.check("speech.numbers", s.numbers, "Say other numbers in words", "Off: the engine reads them its own way.")}
+        ${U.check("speech.and", s.and, "With \"and\"", "One hundred and five, two thousand and twenty-six.")}`)}
+      ${U.card("Times and dates", `<div class="grid">
+        ${U.field("Times", U.select("speech.time_style", s.time_style, TIMES))}
+        ${U.field("Time of day", U.select("speech.time_period", s.time_period, PERIODS), "Only when the time says it: 21:45, 9 PM.")}
+        ${U.field("Dates", U.select("speech.date_style", s.date_style, DATES))}
+        ${U.field("Dates written with numbers", U.select("speech.numeric_dates", s.numeric_dates, NUMERIC), "When both could be a month.")}
+        ${U.field("A date's year", U.select("speech.date_year", s.date_year, DATE_YEARS))}</div>`)}
+      ${U.card("Units and symbols", `
+        ${U.check("speech.temperature_unit", s.temperature_unit, "Say Celsius or Fahrenheit", "Off: eighteen degrees.")}
+        ${U.check("speech.units", s.units, "Units in words", "km/h, kWh, µg/m³, hPa, %…")}
+        ${U.check("speech.currency", s.currency, "Money in words", "$5.20: five dollars twenty.")}
+        ${U.check("speech.abbreviations", s.abbreviations, "Abbreviations", "e.g., etc., AD, AQI…")}
+        ${U.check("speech.markdown", s.markdown, "Drop formatting", "An agent's **bold**, # headings and bullet lists.")}
+        ${U.check("speech.links", s.links, "Drop links")}
+        ${U.check("speech.emoji", s.emoji, "Drop emoji")}`)}`)}
+    ${U.card("Your words", `
+      <p class="muted">Names it says wrong, or anything else: the word as written, and how to say it. Whole words, any case.</p>
+      ${reps}
+      <button class="flat" data-action="speech-add">${U.icon("mdi:plus")}Add a word</button>`)}
+    <style>.speech-out { font-size: 1.1em; margin: 8px 0; } #speech-try { width: 100%; box-sizing: border-box; }
+      .rep { gap: 6px; align-items: center; margin-bottom: 6px; }</style>`;
+}
+
+// The try box's text as Alfie's voice says it, by the draft's rules.
+let previewSeq = 0;
+function speechPreview(p) {
+  const seq = ++previewSeq;
+  p.hass.callWS({ type: "alfie/speech/preview", text: p.speechLine ?? SPEECH_SAMPLE, speech: p.draft.speech })
+    .then((r) => { p.speechOut = r.text; })
+    .catch((e) => { p.speechOut = `(${e?.message || e})`; })
+    .finally(() => {
+      const out = p.root.querySelector(".speech-out");
+      if (out && seq === previewSeq) out.textContent = p.speechOut;
+    });
+}
+
 // ------------------------------------------------------------ agents
 
 function agents(p) {
@@ -159,6 +234,17 @@ function agents(p) {
 }
 
 export function mount(p, sub) {
+  if (sub === "speech") {
+    speechPreview(p);
+    p.hass.callWS({ type: "assist_pipeline/pipeline/list" })
+      .then((r) => {
+        const using = (r.pipelines || []).filter((x) => x.tts_engine === VOICE_ENTITY).map((x) => x.name);
+        const changed = JSON.stringify(using) !== JSON.stringify(p.speechPipelines);
+        p.speechPipelines = using;
+        if (changed && p.sec === "voice" && p.sub === "speech") p.render();
+      })
+      .catch(() => {});
+  }
   if (sub === "agents" || sub === "screens") {
     p.hass.callWS({ type: "alfie/voice/status" })
       .then((r) => {
@@ -185,10 +271,16 @@ export function leave(p) {
 }
 
 export function afterInput(p, path) {
+  if (path.startsWith("speech.")) speechPreview(p);
   if (p.voiceTry && path.startsWith("voice.")) p.face?.previewVoice?.(p.voiceTry, look(p));
 }
 
 export function tool(p, ev) {
+  if (ev.target.id === "speech-try") {
+    p.speechLine = ev.target.value;
+    speechPreview(p);
+    return true;
+  }
   if (ev.target.id !== "voice-line") return false;
   p.voiceLine = ev.target.value;
   return true;
@@ -206,6 +298,15 @@ export function click(p, a, el) {
     case "voice-rm-sat": v.satellites.splice(Number(el.dataset.j), 1); p.edited(true); return true;
     case "voice-add-spk": add("speak_targets"); return true;
     case "voice-rm-spk": v.speak_targets.splice(Number(el.dataset.j), 1); p.edited(true); return true;
+    case "speech-add": p.draft.speech.replacements.push({ from: "", to: "" }); p.edited(true); return true;
+    case "speech-rm": p.draft.speech.replacements.splice(Number(el.dataset.j), 1); p.edited(true); return true;
+    case "speech-say": {
+      const out = p.root.querySelector(".speech-sent");
+      p.hass.callWS({ type: "alfie/voice/say", message: p.speechLine ?? SPEECH_SAMPLE })
+        .then((r) => { if (out) out.textContent = r.speakers.length ? `Sent to ${r.speakers.join(", ")}, with the saved rules.` : "No speakers: pick some in Assistants."; })
+        .catch((e) => { if (out) out.textContent = `Couldn't: ${e?.message || e}`; });
+      return true;
+    }
     case "voice-try":
       p.voiceTry = el.dataset.name || null;
       p.render();

@@ -45,6 +45,11 @@
           "away": "Away"
         }
       }
+    },
+    "tts": {
+      "voice": {
+        "name": "Voice"
+      }
     }
   },
   "services": {

@@ -249,6 +249,29 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         5. Card `motion:` override. Tests (face maths, intros, `test_look`). PNGs to Lukas.
   - [ ] B. Lukas's review.
 
+Milestones 13 to 17 are Alfie's brain: a local-first voice pipeline inside Alfie, meant for the
+HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
+- [~] **13. Speech.** An "Alfie voice" TTS entity that says numbers, years, temperatures, times,
+      dates, units and abbreviations the way a person would, then hands the text to any TTS
+      engine.
+  - [x] A. `speech.py` (pure) and `lang/en/speech.json`: the normaliser, every rule a setting
+        (`speech` config section). Table tests (`tests/test_speech.py`).
+  - [x] B. `tts.py`: the `tts.alfie_voice` entity wrapping `speech.engine` (streams sentence by
+        sentence); `alfie.say` and Speak steps normalise too. Panel Voice → Speech with a live
+        try box (`alfie/speech/preview`). 0.18.0.
+  - [ ] C. Deploy, check on production with Piper; switch the pipeline's TTS only with Lukas's OK.
+- [ ] **14. Brain.** An "Alfie" conversation agent: tier 1 Alfie's own sentences then HA's
+      built-in intents, tier 3 any LLM agent picked as the delegate. The face shows the tier;
+      a turn log says why.
+- [ ] **15. Timers and alarms.** Persistent, ring on the satellite that set them; named timers,
+      add/remove time, pause, status, one-off and repeating alarms, snooze, stop (voice or the
+      Dot's button). `sensor.alfie_timers` and a `custom:alfie-timers` badge with live
+      countdowns. Discuss first: a timer screen on the card, and the ring sound.
+- [ ] **16. Matcher (tier 2).** Example phrases per command (editable), slot parsing (durations,
+      times, numbers, `finder.py` entities), a confidence threshold below which the LLM answers.
+- [ ] **17. Dot extras.** Alfie speaks first (start_conversation), action button mapping,
+      sleepiness from room light, a privacy face while the mic is muted.
+
 ## How an agent continues development
 
 1. Read `docs/handoff.md`, then the relevant parts of `docs/design.md`.
