@@ -22,6 +22,9 @@ SAID = [
     ("The year 2005 and 2026.", "The year two thousand five and twenty twenty-six."),
     ("in 1905 and 1900", "in nineteen oh five and nineteen hundred"),
     ("in 800 AD", "in eight hundred A.D."),
+    ("It ended in 500 BC. Then", "It ended in five hundred B.C. Then"),
+    ("the 2nd century BCE.", "the second century B.C.E."),
+    ("Well... maybe", "Well... maybe"),
     ("the 1980s and '90s", "the nineteen eighties and nineties"),
     ("We have 2000 people and 3 dogs.", "We have two thousand people and three dogs."),
     # times

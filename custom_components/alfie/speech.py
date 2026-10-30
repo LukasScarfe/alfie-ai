@@ -218,7 +218,7 @@ def _abbreviations(text: str, table: Mapping[str, str]) -> str:
     for src in sorted(table, key=len, reverse=True):
         dst = table[src]
         left = r"(?<!\w)" if src[0].isalnum() else r"(?<!\S)"
-        right = r"(?![\w.])" if src[-1].isalnum() else r"(?!\w)"
+        right = r"(?!\w|\.\w)" if src[-1].isalnum() else r"(?!\w)"   # not "AD" in "A.D.x"
         text = re.sub(left + re.escape(src) + right, lambda _m, d=dst: d, text)
     return text
 
@@ -539,6 +539,7 @@ class Speaker:
             text = self.ranges(text)
             if s["numbers"]:
                 text = self.numbers(text)
+        text = re.sub(r"(?<!\.)\.\.(?!\.)", ".", text)   # "B.C." ending a sentence; ... stays
         return re.sub(r"[ \t]{2,}", " ", text).strip()
 
 
