@@ -251,7 +251,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
 
 Milestones 13 to 17 are Alfie's brain: a local-first voice pipeline inside Alfie, meant for the
 HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
-- [~] **13. Speech.** An "Alfie voice" TTS entity that says numbers, years, temperatures, times,
+- [x] **13. Speech.** An "Alfie voice" TTS entity that says numbers, years, temperatures, times,
       dates, units and abbreviations the way a person would, then hands the text to any TTS
       engine.
   - [x] A. `speech.py` (pure) and `lang/en/speech.json`: the normaliser, every rule a setting
@@ -259,7 +259,8 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
   - [x] B. `tts.py`: the `tts.alfie_voice` entity wrapping `speech.engine` (streams sentence by
         sentence); `alfie.say` and Speak steps normalise too. Panel Voice → Speech with a live
         try box (`alfie/speech/preview`). 0.18.0.
-  - [ ] C. Deploy, check on production with Piper; switch the pipeline's TTS only with Lukas's OK.
+  - [x] C. On production (0.18.2): `speech.engine` is `tts.piper`, and with Lukas's OK
+        (2026-10-30) "Alfie (local)" speaks through `tts.alfie_voice` (voice kusal, en_US).
 - [ ] **14. Brain.** An "Alfie" conversation agent: tier 1 Alfie's own sentences then HA's
       built-in intents, tier 3 any LLM agent picked as the delegate. The face shows the tier;
       a turn log says why.
