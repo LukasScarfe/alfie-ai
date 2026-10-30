@@ -278,8 +278,8 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
       and maths, people, media, calendar and lists, fun, and offline Wikipedia (kiwix-serve).
       Each answer is a command with a toggle, sentences and reply templates. (Agreed with Lukas
       2026-10-30, catalogue in design.md "Brain" → Local answers.)
-  - [ ] A. Any entity: `answers.py` (pure) + the entity index; state, attributes, areas and
-        device classes, last changed, history today/yesterday/week, comparisons.
+  - [x] A. Any entity: `answers.py` (pure) + the entity index; state, attributes, areas and
+        device classes, last changed, history today/yesterday/week, comparisons. 0.20.2.
   - [ ] B. Weather and sky: conditions now, rain later from the cached forecast, highs and
         lows, umbrella/coat, sunrise and sunset, the moon.
   - [ ] C. Time, dates and maths: world clocks, days until, weekdays, arithmetic, conversions.

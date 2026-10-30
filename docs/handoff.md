@@ -18,36 +18,61 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.19.0.
+Version 0.20.2.
 
-**Now: Alfie's brain, M13 to M17** (agreed with Lukas 2026-10-30; plan.md, design.md "Brain").
-A local-first voice pipeline inside Alfie, meant for the HA community too: speech, then the
-brain (conversation agent), timers and alarms, the matcher, the Echo Dot extras. M13 (Speech) is
-done; "Alfie (local)" speaks through `tts.alfie_voice`.
+**Now: Alfie's brain, M13 to M18** (agreed with Lukas 2026-10-30; plan.md, design.md "Brain").
+A local-first voice pipeline inside Alfie, meant for the HA community too. Done: M13 Speech
+(`tts.alfie_voice`), M14 Brain (`conversation.alfie`; on production "Alfie (local)" uses it with
+"prefer local" off and `brain.delegate` = `conversation.alfie_desktop`, the Ollama LLM).
 
-**Latest (0.19.0, 2026-10-30, Lukas): M14 Brain, steps A to C.** `conversation.alfie`
-(`conversation.py`, decisions in pure `brain.py`, words in `lang/en/brain.json`, tests in
-`tests/test_brain.py`). Tier 1: sentence triggers, Alfie's own commands (what's wrong, how are
-you), HA's intents (state questions local, `brain.local_states`); tier 3: `brain.delegate`, run
-in the same chat log so it streams. A bolt or brain badge by the face; the turn log in memory,
-streamed by `alfie/brain/turns` to the new Voice → Brain tab (delegate, options, "Ask him").
-Why: on 2026-10-30 the local LLM said "18°C and clear" (no tool call) while it was 7.4°C and
-raining; HA's pipeline hands HassGetState-type questions to an LLM agent.
-Checked on dev HA through a real pipeline ("Brain test", agent `conversation.alfie`, TTS
-`tts.alfie_voice`): own 3 ms, intents 8-200 ms, the delegate streamed (59 deltas,
-`tts_start_streaming`), voice screens still show for local actions. PNGs sent.
-**M14 is done.** With Lukas's OK (2026-10-30) "Alfie (local)" uses `conversation.alfie` with
-"prefer local" off; Alfie's `brain.delegate` on production is `conversation.alfie_desktop`.
-Checked through that pipeline: the weather 7.4 °C and raining (local), how are you (own), the
-Eiffel Tower (delegate, streamed to `tts.alfie_voice`). "Is it raining?" has no HA sentence and
-still reaches the LLM: M16's matcher should catch it.
-**Next: plan M15 (Timers and alarms) in plan mode** and get Lukas's OK (open: a timer screen on
-the card, and the ring sound).
-Gotchas: `./dev` still has no dev-HA WebSocket command (the session used a scratch script that
-points `prodtool.WS` at :8125 with `devtool.token()[0]`). On dev HA `conversation.alfie_desktop`
-is unavailable; `conversation.ollama_conversation` works as a delegate. A pipeline's own
-"prefer local" matches happen before Alfie and never reach his turn log. Whisper writes spoken
-years back as digits, so a round trip can't show year wording.
+**In progress: M15 Local answers, step A done (0.20.2, on production).** Lukas (2026-10-30)
+wants tier 1 to answer as much as it can without the LLM: "any relevant question that could be
+answered by a Home Assistant entity", plus weather, dates, maths, offline Wikipedia. The full
+question catalogue is in the approved plan, summarised in plan.md M15 and design.md "Brain" →
+Local answers.
+- How it works: each answer is a command in `brain.COMMANDS` with sentences, hassil lists
+  (`lists`, `things`) and rules in `lang/en/brain.json`; `{name}`, `{area}`, `{value}` are
+  wildcards. `conversation.py` collects every hassil reading (`recognize_all`), shortest name
+  first, `TRIES` per command, in `ORDER`. Commands in `brain.LATE` (entity, entity_count) run
+  after HA's intents, the rest before. `local.py` (HA side) resolves names with `finder.py`'s
+  index (from `voice.index()`), reads states and recorder history; `answers.py` (pure) says
+  the reply. A reply of None means "not mine", and the turn goes on.
+- Step A commands: `entity` (state, yes/no, attribute, compare; "the X's volume" tries the
+  attribute first), `entity_count` (how many/which/all, by area or by the name when an entity
+  has no area), `entity_when` (when/how long, from history: `settled_since` skips restarts),
+  `entity_history` (highest/lowest/average, how many times, was it on, per period).
+- Settings (`brain`): `off_commands` (replaced `commands`; config migrates the old list),
+  `exposed_only` (off), `match_floor` 70, `ask_which` (a tie asks "which one?" and the next turn
+  answers it, `_which` in conversation.py), `say_unknown` (house-only questions about nothing
+  known say so, because the LLM invented "the front door opened 14 times"), `count_skip`
+  (`adaptive_lighting`). The panel's Voice → Brain has toggles for each, a stopgap until step G.
+- Checked on production with the scratch script below: state, compare, attribute, when, how
+  long, history max/min/mean, times, unknown names. 10-100 ms (history queries ~250 ms).
+
+**Next: M15 step B, weather and sky** ("is it raining?", will it rain later, highs and lows,
+umbrella, sunrise and sunset, the moon). Reuse `providers/forecast.py`'s cached
+`weather.get_forecasts`; production's weather entities are `weather.home_forecast_home_forecast`
+(use as the default), `weather.vancouver_forecast`, `weather.whistler_forecast_home`; there is
+no rain gauge. Then C (time, dates, maths), D (people, media, calendar, lists), E (fun), F
+(Wikipedia from kiwix-serve :8091 directly, port `wiki_api.py`'s parser from
+`~/Documents/containers/assistant/wiki-api/`), G (panel: every command with toggle, sentences,
+try box; PNGs for Lukas). Bump the version each deploy.
+
+Gotchas:
+- Asking him: `./dev` has no conversation command. A scratch script posted
+  `/api/conversation/process` with `agent_id: conversation.alfie` through `prodtool.rest`
+  (dev HA: `devtool.token()[0]` at :8125). Worth adding as `./dev prod ask "..."`.
+- `./dev test` now installs `hassil==3.12.1` (HA 2026.10's) so `tests/test_answers.py` checks
+  which command and slots each sentence gets. Keep it equal to HA's hassil.
+- HACS can fail partway through an install and leave production's folder half-written (Alfie
+  then won't load). Deploy now carries on to its download-again loop instead of stopping, and
+  waits for Alfie's device version after the restart. If a deploy still stops, check
+  `/mnt/homeassistant/custom_components/alfie` against the local copy before anything else.
+- Production has no door or window sensors; several kitchen lights have no area.
+- Dev HA's seeded states have no registry entries, so most answers are best checked on
+  production.
+- On dev HA `conversation.alfie_desktop` is unavailable; `conversation.ollama_conversation`
+  works as a delegate. A pipeline's own "prefer local" matches never reach Alfie's turn log.
 
 **Latest (0.17.0, 2026-10-23, Lukas): Motion settings** (plan.md M12, design.md "The
 character" → Editors 5). Every motion drawn by code is tunable in `look.motion`, on the new
