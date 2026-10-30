@@ -849,7 +849,7 @@ requirements, light enough for a Pi.
   - To use it, a voice assistant's text-to-speech is set to "Alfie Voice"; the panel says which
     assistants do.
 - **Brain** (`conversation.alfie`, `conversation.py`; decisions pure in `brain.py`; built 0.19.0):
-  tier 1 is local, tier 2 the matcher (M16), tier 3 a delegate agent. Tiers 1 and 2 reply from
+  tier 1 is local, tier 2 the matcher (M17), tier 3 a delegate agent. Tiers 1 and 2 reply from
   templates, so the LLM is used only when nothing local is confident.
   - Tier 1, in order: an automation's sentence trigger; Alfie's own commands (what's wrong, how
     are you: sentences in `lang/<code>/brain.json`, matched with hassil, extra ones per command
@@ -868,6 +868,21 @@ requirements, light enough for a Pi.
   - The turn log: the last `log_size` turns in memory (never entity state), each with its tier,
     source, reply, time taken and why. `alfie/brain/turns` streams it to Voice → Brain, which
     also picks the delegate and has an "Ask him" box.
+- **Local answers** (tier 1, M15; Lukas 2026-10-30: "the local intent should be able to do as
+  much as possible without hitting the LLM", and "any relevant question that could be answered
+  by a Home Assistant entity should be covered"). Each answer is a command in the `brain`
+  section with a toggle, sentences in `lang/<code>/brain.json` (hassil syntax with slots) and
+  reply templates; the logic is pure in `answers.py`. Checks stay cheap: entity state, the
+  forecast cache, one recorder query when asked, never polling.
+  - Any entity: a `{name}` wildcard resolved by `finder.py`'s name and area index (every entity
+    by default; `brain.exposed_only` limits it to Assist's exposed ones). State, attributes,
+    areas and device classes, when it last changed, history (highest, lowest, average, how many
+    times) and comparisons. Two equal fits: he asks which.
+  - Weather and sky (`brain.weather`, "" the first weather entity, or a place after "in");
+    time, dates and maths (pure); people, media, calendar and lists; fun and Alfie himself.
+  - Wikipedia: kiwix-serve directly (`brain.wiki_url`), only "who/what/where is X" and "tell me
+    about X", only when a top hit's title matches X; the lead's first `wiki_sentences`
+    sentences. Otherwise the delegate.
 - **Matcher** (tier 2): example phrases per command, scored by word and part-word similarity
   with synonyms (pure Python); slots filled by parsers and `finder.py`. Below `threshold`, tier 3.
   An embeddings URL may come later.

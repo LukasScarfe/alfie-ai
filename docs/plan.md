@@ -249,7 +249,7 @@ into smaller steps by the agent that claims it (in plan mode, with Lukas's OK) a
         5. Card `motion:` override. Tests (face maths, intros, `test_look`). PNGs to Lukas.
   - [ ] B. Lukas's review.
 
-Milestones 13 to 17 are Alfie's brain: a local-first voice pipeline inside Alfie, meant for the
+Milestones 13 to 18 are Alfie's brain: a local-first voice pipeline inside Alfie, meant for the
 HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
 - [x] **13. Speech.** An "Alfie voice" TTS entity that says numbers, years, temperatures, times,
       dates, units and abbreviations the way a person would, then hands the text to any TTS
@@ -273,13 +273,27 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
         live turn log via `alfie/brain/turns`). 0.19.0.
   - [x] D. Dev HA checks and PNGs; on production, with Lukas's OK, "Alfie (local)" uses
         `conversation.alfie` (delegate Alfie desktop) with "prefer local" off.
-- [ ] **15. Timers and alarms.** Persistent, ring on the satellite that set them; named timers,
+- [~] **15. Local answers.** Tier 1 answers quick factual questions without the LLM: any
+      entity (state, attributes, areas, when it changed, history), weather and sky, time, dates
+      and maths, people, media, calendar and lists, fun, and offline Wikipedia (kiwix-serve).
+      Each answer is a command with a toggle, sentences and reply templates. (Agreed with Lukas
+      2026-10-30, catalogue in design.md "Brain" → Local answers.)
+  - [ ] A. Any entity: `answers.py` (pure) + the entity index; state, attributes, areas and
+        device classes, last changed, history today/yesterday/week, comparisons.
+  - [ ] B. Weather and sky: conditions now, rain later from the cached forecast, highs and
+        lows, umbrella/coat, sunrise and sunset, the moon.
+  - [ ] C. Time, dates and maths: world clocks, days until, weekdays, arithmetic, conversions.
+  - [ ] D. People, media, calendar and lists.
+  - [ ] E. Fun and Alfie himself (coin, dice, jokes, say that again, what can you do).
+  - [ ] F. Wikipedia from kiwix-serve (who/what/where is X, lead sentences).
+  - [ ] G. Voice → Brain lists every command (toggle, sentences, try box); PNGs.
+- [ ] **16. Timers and alarms.** Persistent, ring on the satellite that set them; named timers,
       add/remove time, pause, status, one-off and repeating alarms, snooze, stop (voice or the
       Dot's button). `sensor.alfie_timers` and a `custom:alfie-timers` badge with live
       countdowns. Discuss first: a timer screen on the card, and the ring sound.
-- [ ] **16. Matcher (tier 2).** Example phrases per command (editable), slot parsing (durations,
+- [ ] **17. Matcher (tier 2).** Example phrases per command (editable), slot parsing (durations,
       times, numbers, `finder.py` entities), a confidence threshold below which the LLM answers.
-- [ ] **17. Dot extras.** Alfie speaks first (start_conversation), action button mapping,
+- [ ] **18. Dot extras.** Alfie speaks first (start_conversation), action button mapping,
       sleepiness from room light, a privacy face while the mic is muted.
 
 ## How an agent continues development
