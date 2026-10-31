@@ -43,7 +43,7 @@ _LOGGER = logging.getLogger(__name__)
 ORDER = ("whats_wrong", "how_are_you", "run", "repeat", "help", "coin", "dice", "number", "pick",
          "joke", "chat", "moon", "sun", "weather_gear", "weather_forecast",
          "weather_now", "world_time", "people", "media", "lists", "calendar", "dates", "convert",
-         "maths", "entity_when", "entity_history", "entity_count", "entity")
+         "maths", "entity_when", "entity_history", "entity_count", "entity", "wiki")
 TRIES = 4           # readings of one command tried (hassil splits a sentence several ways)
 WHICH_FOR = 60.0    # seconds a "which one?" waits for its answer
 

@@ -1279,7 +1279,8 @@
    "number": [],
    "pick": [],
    "joke": [],
-   "chat": []
+   "chat": [],
+   "wiki": []
   },
   "exposed_only": false,
   "match_floor": 70,
@@ -1313,6 +1314,12 @@
   "joke_animation": "laugh",
   "random_max": 10,
   "repeat_minutes": 10,
+  "wiki_url": "",
+  "wiki_book": "",
+  "wiki_sentences": 2,
+  "wiki_brackets": false,
+  "wiki_credit": false,
+  "wiki_seconds": 4,
   "local_intents": true,
   "local_states": true,
   "local_media_search": false,
