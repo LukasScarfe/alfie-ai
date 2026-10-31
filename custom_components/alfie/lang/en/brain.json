@@ -90,6 +90,13 @@
       "how many {unit:dst} (in|make|make up) (a|an|one) {unit:src}"
     ],
     "maths": ["{calc_q:calc} {expr}", "{expr} (equals|is) what"],
+    "run": [
+      "(turn on|switch on|start|run|launch|activate|trigger|begin|fire up|kick off|set off|do|play|start up|boot up|wake up|wake) [the|my|our] {name} [please]",
+      "(turn|switch|fire|boot) [the|my|our] {name} (on|up) [please]",
+      "(it's|its|it is) {name}",
+      "(time to|time for|let's|lets) {name}",
+      "{name}"
+    ],
     "people": [
       "{who_q:ask} [<now>]",
       "is {name} {home_w:ask} [<now>]",
@@ -774,7 +781,9 @@
       "list_items": "The {list} has {count}: {items}.",
       "has_yes": "Yes, {item} is on the {list}.",
       "has_no": "No, {item} isn't on the {list}.",
-      "no_list": "I can't find a list called {name}."
+      "no_list": "I can't find a list called {name}.",
+      "run_done": "OK, {name}.",
+      "run_failed": "{name} didn't start."
     }
   },
   "fallback": "Sorry, I don't know that one."

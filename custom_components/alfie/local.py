@@ -105,6 +105,8 @@ class LocalAnswers:
     async def answer(self, cmd: str, slots: dict[str, str], words: dict[str, Any],
                      entity_id: str | None = None) -> Reply | None:
         s = self.engine.config["brain"]
+        if cmd == "run":
+            return await self._run(slots, words, s, entity_id)
         if cmd in brain.RECKON:
             text = await self._reckon(cmd, slots, words, s)
             return Reply(text, detail=cmd) if text else None
@@ -254,6 +256,87 @@ class LocalAnswers:
             except (ValueError, OSError):
                 return None
         return self._tz[name]
+
+    # ------------------------------------------------------------ voice actions
+
+    def actions(self, s: dict[str, Any]) -> list[str]:
+        """What carries the voice label and can be started: scripts,
+        automations, scenes and buttons. The registry keeps an index by label,
+        so this is cheap and always current."""
+        from homeassistant.helpers import label_registry as lr  # noqa: PLC0415
+        name = s["voice_label"]
+        label = lr.async_get(self.hass).async_get_label_by_name(name) if name else None
+        if label is None:
+            return []
+        return sorted(e.entity_id for e in er.async_entries_for_label(er.async_get(self.hass),
+                                                                      label.label_id)
+                      if e.domain in brain.RUNNABLE and not e.disabled_by)
+
+    def ensure_label(self, s: dict[str, Any]) -> None:
+        """Create the voice label when it doesn't exist, so it shows in Home
+        Assistant's editors."""
+        from homeassistant.helpers import label_registry as lr  # noqa: PLC0415
+        name, reg = s["voice_label"], lr.async_get(self.hass)
+        if name and reg.async_get_label_by_name(name) is None:
+            try:
+                reg.async_create(name, icon="mdi:account-voice", description=(
+                    f"{self.engine.name} starts these by voice: \"turn on\" or \"run\" "
+                    "and the name, or the name alone."))
+            except ValueError:            # made meanwhile
+                pass
+
+    async def _run(self, slots: dict[str, str], words: dict[str, Any], s: dict[str, Any],
+                   entity_id: str | None) -> Reply | None:
+        if entity_id is None:
+            ids = self.actions(s)
+            if not ids:
+                return None
+            name = _clean(slots.get("name", ""))
+            if not name:
+                return None
+            await self._index()
+            voice = self.hass.data.get(DOMAIN, {}).get("voice")
+            idx = getattr(voice, "_index", None)
+            entries = [(idx.by_id.get(e) if idx else None) or
+                       finder.Entry(e, (st.name if (st := self.hass.states.get(e)) else e))
+                       for e in ids]
+            # Said alone, a name must be one of the thing's names, whole.
+            if _clean(slots.get("_text", "")).lower() == name.lower():
+                if not s["run_bare"]:
+                    return None
+                key = finder._key(name)
+                exact = [e for e in entries
+                         if key in (finder._key(e.name), *(finder._key(a) for a in e.aliases))]
+                if len(exact) != 1:
+                    return None
+                entity_id = exact[0].entity_id
+            else:
+                hits = finder.Index(entries).search(name, SEARCH)
+                if not hits or hits[0][0] < s["match_floor"]:
+                    return None
+                top = [e for sc, e in hits if sc == hits[0][0]]
+                if len(top) > 1:
+                    if s["ask_which"]:
+                        ids = [e.entity_id for e in top][:4]
+                        return Reply(answers.which_reply(self._names(ids), words), choices=ids)
+                    return None
+                entity_id = top[0].entity_id
+        st = self.hass.states.get(entity_id)
+        domain = entity_id.split(".", 1)[0]
+        if st is None or domain not in brain.RUNNABLE:
+            return None
+        service_domain, service = brain.RUNNABLE[domain]
+        data: dict[str, Any] = {"entity_id": entity_id}
+        if domain == "automation":
+            data["skip_condition"] = not s["run_conditions"]
+        try:
+            # Not blocking: a long script (wake the PC, wait for the TV) runs on
+            # while he answers.
+            await self.hass.services.async_call(service_domain, service, data, blocking=False)
+        except Exception:  # noqa: BLE001 (a bad action still gets an answer)
+            _LOGGER.exception("Alfie couldn't start %s", entity_id)
+            return Reply(household.run_reply(st.name, words, "", failed=True), detail=entity_id)
+        return Reply(household.run_reply(st.name, words, s["run_reply"]), detail=entity_id)
 
     # ------------------------------------------------------------ people, media, calendar, lists
 
