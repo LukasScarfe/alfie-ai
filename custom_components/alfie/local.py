@@ -321,7 +321,7 @@ class LocalAnswers:
                     continue
                 _title, paras, disamb = await self.hass.async_add_executor_job(wiki.read_lead, page)
                 if disamb:
-                    return ""
+                    continue    # "the meaning of life" is one; "Meaning of life" isn't
                 return wiki.lead_reply(paras, s["wiki_sentences"], s["wiki_brackets"]) or ""
         except (aiohttp.ClientError, asyncio.TimeoutError) as err:
             _LOGGER.debug("Alfie couldn't ask kiwix-serve at %s: %s", url, err)
