@@ -110,10 +110,11 @@ def test_chat():
 def test_help_follows_the_commands_on():
     on = brain.commands_on(brain.default_settings())
     said = fun.help_reply(on, EN, "Desktop")
-    assert said.startswith("I can tell you about the house and anything in it, the weather")
-    assert "I can also start your voice actions and flip a coin" in said
+    assert said.startswith("I can tell you about anything in the house, the weather, the sky, "
+                           "dates, sums, who's home, what's playing, your calendar and your lists. "
+                           "I can also start your voice actions, flip coins, roll dice and tell jokes.")
     assert said.endswith("For anything else, I ask my bigger brain.")
-    assert fun.help_reply(["joke"], EN) == "I can flip a coin, roll dice and tell jokes."
+    assert fun.help_reply(["joke", "coin"], EN) == "I can flip coins and tell jokes."
     assert fun.help_reply([], EN).startswith("Not much right now")
 
 

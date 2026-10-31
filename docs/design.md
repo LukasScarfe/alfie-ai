@@ -941,7 +941,23 @@ requirements, light enough for a Pi.
       `brain.todo_list` ("" `todo.shopping_list`). `todo.get_items`, unfinished items only,
       `list_max` (10) said.
     - The panel's Brain tab has a "Home and calendar" card for these settings.
-  - Fun and Alfie himself.
+  - Fun and Alfie himself (`fun.py`, pure; six commands in `brain.FUN` plus `repeat` and
+    `help`, tried right after voice actions). Chance comes from a `random.Random`, so tests fix it.
+    - `coin`; `dice` ("roll two dice", "a d20", "three twelve sided dice"; only when a die is
+      said, so "roll up the blinds" goes on; up to 10 dice of 1000 sides); `number` (1 to
+      `random_max`, 10, unless a range is said); `pick` ("pick between pizza and tacos": the raw
+      text's commas are kept, since hassil drops them).
+    - `joke`: the language's 30 clean jokes (`builtin_jokes`) and the user's own `jokes`
+      ("setup | punchline", said with a pause). No repeat until all are told. His face shows
+      `joke_expression` (happy) and plays `joke_animation` (laugh).
+    - `chat`: hello, good morning and night, thanks, praise, rudeness, are you there, his name,
+      how old (days since the config entry was made), his version, who made him, "I'm bored".
+      Lines are picked at random from the language's `fun.lines`.
+    - `repeat`: his last reply on that satellite (or the newest anywhere, from none), kept in
+      memory `repeat_minutes` (10). Not the turn log, which cuts long replies.
+    - `help`: the language's `fun.help` groups whose commands are on ("I can tell you about
+      the weather, the sky, … I can also flip coins…"), and that a delegate takes the rest.
+    - The panel's Brain tab has a "Fun" card for these settings.
   - **Voice actions** (`run`, Lukas 2026-10-31: "some kind of way to just trigger automation
     based on the intent"; he picked a Home Assistant label over a word in the name). What
     carries the label `brain.voice_label` ("Alfie voice") starts by voice: scripts

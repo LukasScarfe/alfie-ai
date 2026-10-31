@@ -288,7 +288,8 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
         `household.py`, 0.23.0.
   - [x] Voice actions: what carries the "Alfie voice" label starts by voice (asked by Lukas
         2026-10-31, between D and E). 0.24.0.
-  - [ ] E. Fun and Alfie himself (coin, dice, jokes, say that again, what can you do).
+  - [x] E. Fun and Alfie himself: coin, dice, a number, pick one, jokes, small talk, say that
+        again, what can you do. `fun.py`, 0.25.0.
   - [ ] F. Wikipedia from kiwix-serve (who/what/where is X, lead sentences).
   - [ ] G. Voice → Brain lists every command (toggle, sentences, try box); PNGs.
 - [ ] **16. Timers and alarms.** Persistent, ring on the satellite that set them; named timers,
