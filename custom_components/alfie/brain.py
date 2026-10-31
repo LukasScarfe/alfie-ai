@@ -33,7 +33,7 @@ from .speech import LANG_DIR, _code
 COMMANDS = ("whats_wrong", "how_are_you", "run", "entity", "entity_count", "entity_when",
             "entity_history", "weather_now", "weather_forecast", "weather_gear", "sun", "moon",
             "world_time", "dates", "convert", "maths", "people", "media", "calendar", "lists",
-            "repeat", "help", "coin", "dice", "number", "pick", "joke", "chat")
+            "repeat", "help", "coin", "dice", "number", "pick", "joke", "chat", "wiki")
 INTENTS = {"whats_wrong": "AlfieWhatsWrong", "how_are_you": "AlfieHowAreYou", "run": "AlfieRun",
            "entity": "AlfieEntity", "entity_count": "AlfieEntityCount",
            "entity_when": "AlfieEntityWhen", "entity_history": "AlfieEntityHistory",
@@ -43,7 +43,8 @@ INTENTS = {"whats_wrong": "AlfieWhatsWrong", "how_are_you": "AlfieHowAreYou", "r
            "maths": "AlfieMaths", "people": "AlfiePeople", "media": "AlfieMedia",
            "calendar": "AlfieCalendar", "lists": "AlfieLists", "repeat": "AlfieRepeat",
            "help": "AlfieHelp", "coin": "AlfieCoin", "dice": "AlfieDice",
-           "number": "AlfieNumber", "pick": "AlfiePick", "joke": "AlfieJoke", "chat": "AlfieChat"}
+           "number": "AlfieNumber", "pick": "AlfiePick", "joke": "AlfieJoke", "chat": "AlfieChat",
+           "wiki": "AlfieWiki"}
 LABELS = {"whats_wrong": "what's wrong", "how_are_you": "how are you", "run": "a voice action",
           "entity": "a thing's state", "entity_count": "how many things",
           "entity_when": "when a thing changed", "entity_history": "a thing's history",
@@ -54,7 +55,7 @@ LABELS = {"whats_wrong": "what's wrong", "how_are_you": "how are you", "run": "a
           "calendar": "the calendar", "lists": "a list", "repeat": "say that again",
           "help": "what can you do", "coin": "a coin", "dice": "dice",
           "number": "a random number", "pick": "picking one", "joke": "a joke",
-          "chat": "small talk"}
+          "chat": "small talk", "wiki": "Wikipedia"}
 # Answered from a weather entity, the sun and the moon (outside.py).
 OUTSIDE = frozenset({"weather_now", "weather_forecast", "weather_gear", "sun", "moon"})
 # Answered from the clock, the calendar and arithmetic (reckon.py).
@@ -68,10 +69,10 @@ RUNNABLE = {"script": ("script", "turn_on"), "automation": ("automation", "trigg
             "scene": ("scene", "turn_on"), "button": ("button", "press"),
             "input_button": ("input_button", "press")}
 # Tried after HA's intents: a built-in intent knows its own entities better.
-LATE = frozenset({"entity", "entity_count"})
+LATE = frozenset({"entity", "entity_count", "wiki"})
 # Questions only the house can answer: a name that names nothing is said so.
 HOUSE_ONLY = frozenset({"entity_when", "entity_history"})
-WILDCARDS = ("name", "area", "value", "place", "date", "expr", "what", "item")
+WILDCARDS = ("name", "area", "value", "place", "date", "expr", "what", "item", "topic")
 # HA intents that only read a state: local unless `local_states` is off (HA's
 # own pipeline hands HassGetState to an LLM agent; the weather was invented).
 STATE_INTENTS = frozenset({"HassGetState", "HassGetWeather"})
@@ -120,6 +121,12 @@ def default_settings() -> dict[str, Any]:
             "joke_animation": "laugh",      # and an animation after it ("" none)
             "random_max": 10,               # "pick a number": 1 to this
             "repeat_minutes": 10,           # "say that again" remembers this long
+            "wiki_url": "",                 # kiwix-serve, like http://192.168.1.10:8080; "" off
+            "wiki_book": "",                # its book by name; "" the first Wikipedia
+            "wiki_sentences": 2,            # of the article's lead, said
+            "wiki_brackets": False,         # say bracketed asides (dates, pronunciation)
+            "wiki_credit": False,           # "Wikipedia says: …"
+            "wiki_seconds": 4,              # kiwix-serve's time to answer
             "local_intents": True, "local_states": True, "local_media_search": False,
             "fallback": "",                 # "" the language's
             "log_size": 50,

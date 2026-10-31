@@ -11,19 +11,23 @@ goes on to the next tier.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import random
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
+import aiohttp
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from . import answers, brain, finder, fun, household, outside, reckon
+from . import answers, brain, finder, fun, household, outside, reckon, wiki
 from .const import DOMAIN, VERSION
 from .providers.forecast import raw_forecast
 
@@ -32,6 +36,7 @@ _LOGGER = logging.getLogger(__name__)
 WHEN_DAYS = 7       # "when was the door last opened": how far back to look
 CALENDAR_DAYS = 366 # events read ahead, so a birthday months away is found
 SEARCH = 8          # finder hits weighed per name
+WIKI_CACHE = 200    # Wikipedia answers kept (and names with no article)
 
 
 @dataclass
@@ -54,6 +59,8 @@ class LocalAnswers:
         self._unwatch: Any = None
         self._rng = random.Random()
         self._jokes = fun.JokeBag()
+        self._books: dict[tuple[str, str], str] = {}   # (url, wanted) -> kiwix book
+        self._wiki: OrderedDict[tuple[Any, ...], str] = OrderedDict()   # "" no article
 
     def close(self) -> None:
         if self._unwatch:
@@ -115,6 +122,9 @@ class LocalAnswers:
             return Reply(text, detail=cmd) if text else None
         if cmd in brain.HOUSEHOLD:
             text = await self._household(cmd, slots, words, s)
+            return Reply(text, detail=cmd) if text else None
+        if cmd == "wiki":
+            text = await self._wiki_answer(slots.get("topic", ""), words, s)
             return Reply(text, detail=cmd) if text else None
         if cmd in brain.FUN:
             text = self._fun(cmd, slots, words, s)
@@ -267,6 +277,72 @@ class LocalAnswers:
             return fun.chat_reply(slots.get("ask", ""), words, rng, self.engine.name, days,
                                   VERSION)
         return None
+
+    # ------------------------------------------------------------ Wikipedia
+
+    async def _wiki_answer(self, name: str, words: dict[str, Any], s: dict[str, Any]) -> str | None:
+        """The lead of the article called `name`, from kiwix-serve; None for no
+        such article (or a disambiguation page), and the turn goes on."""
+        url = s["wiki_url"].rstrip("/")
+        if not url or not wiki.asks_about(name, words):
+            return None
+        key = (url, s["wiki_book"], wiki.clean_name(name).lower(), s["wiki_sentences"],
+               s["wiki_brackets"])
+        if key in self._wiki:
+            self._wiki.move_to_end(key)
+            got = self._wiki[key]
+        else:
+            got = await self._wiki_fetch(url, name, s)
+            if got is None:          # kiwix down: ask again next time
+                return None
+            self._wiki[key] = got
+            while len(self._wiki) > WIKI_CACHE:
+                self._wiki.popitem(last=False)
+        if not got:
+            return None
+        return wiki.say(words, "credit", text=got) if s["wiki_credit"] else got
+
+    async def _wiki_fetch(self, url: str, name: str, s: dict[str, Any]) -> str | None:
+        """"" for no article, None when kiwix-serve can't be asked."""
+        session = async_get_clientsession(self.hass)
+        timeout = aiohttp.ClientTimeout(total=s["wiki_seconds"])
+        try:
+            book = self._books.get((url, s["wiki_book"]))
+            if book is None:
+                async with session.get(f"{url}/catalog/v2/entries?count=100", timeout=timeout) as r:
+                    book = wiki.book_of(await r.text(), s["wiki_book"]) if r.status == 200 else None
+                if book is None:
+                    _LOGGER.warning("Alfie found no book %s at %s", s["wiki_book"] or "", url)
+                    return None
+                self._books[(url, s["wiki_book"])] = book
+            for title in wiki.titles_for(name):
+                page = await self._wiki_page(session, url + wiki.path_of(book, title), timeout)
+                if page is None:
+                    continue
+                _title, paras, disamb = await self.hass.async_add_executor_job(wiki.read_lead, page)
+                if disamb:
+                    return ""
+                return wiki.lead_reply(paras, s["wiki_sentences"], s["wiki_brackets"]) or ""
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            _LOGGER.debug("Alfie couldn't ask kiwix-serve at %s: %s", url, err)
+            return None
+        return ""
+
+    @staticmethod
+    async def _wiki_page(session: Any, url: str, timeout: Any) -> str | None:
+        """An article's HTML up to its first section (redirects followed), or
+        None when there's no such article."""
+        async with session.get(url, timeout=timeout) as r:
+            if r.status != 200:
+                return None
+            buf = bytearray()
+            end = wiki.END.encode()
+            async for chunk in r.content.iter_chunked(65536):
+                tail = len(buf)
+                buf += chunk
+                if end in buf[max(0, tail - len(end)):] or len(buf) >= wiki.ENOUGH:
+                    break
+        return buf.decode("utf-8", "replace")
 
     async def _zone(self, place: str, words: dict[str, Any]) -> Any:
         """The time zone a place names, or None. zoneinfo reads files: the

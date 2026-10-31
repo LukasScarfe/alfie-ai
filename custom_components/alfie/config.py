@@ -848,6 +848,12 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
         "joke_animation": _face_name(v["joke_animation"]),
         "random_max": int(ck.number("brain random number most", v["random_max"], 2, 1000000, 10)),
         "repeat_minutes": int(ck.number("brain repeat minutes", v["repeat_minutes"], 1, 1440, 10)),
+        "wiki_url": _url("brain wikipedia server", v["wiki_url"], ck),
+        "wiki_book": str(v["wiki_book"] or "").strip()[:200],
+        "wiki_sentences": int(ck.number("brain wikipedia sentences", v["wiki_sentences"], 1, 10, 2)),
+        "wiki_brackets": bool(v["wiki_brackets"]),
+        "wiki_credit": bool(v["wiki_credit"]),
+        "wiki_seconds": _num(ck.number("brain wikipedia wait", v["wiki_seconds"], 1, 30, 4)),
         "local_intents": bool(v["local_intents"]),
         "local_states": bool(v["local_states"]),
         "local_media_search": bool(v["local_media_search"]),
@@ -868,6 +874,15 @@ def _jokes(raw: Any, ck: _Check) -> list[str]:
         elif line:
             out.append(line)
     return out
+
+
+def _url(where: str, v: Any, ck: _Check) -> str:
+    """An http(s) address, "" for none."""
+    u = str(v or "").strip().rstrip("/")
+    if u and not re.match(r"^https?://[^\s/]+", u):
+        ck.bad(where, f"{u!r} is not an http:// address")
+        return ""
+    return u
 
 
 def _face_name(v: Any) -> str:

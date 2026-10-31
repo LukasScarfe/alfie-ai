@@ -175,6 +175,17 @@
     "chat": [
       "{chat_q:ask} [alfie|buddy|mate|pal] [please]"
     ],
+    "wiki": [
+      "who (is|was|were|are) {topic}",
+      "(who's|whos) {topic}",
+      "what (is|was|are|were) {topic}",
+      "(what's|whats) {topic}",
+      "where (is|was|are|were) {topic}",
+      "(where's|wheres) {topic}",
+      "tell (me|us) [something|a bit|a little|more] about {topic}",
+      "what (do|can) you (know|tell me) about {topic}",
+      "(look up|search wikipedia for|wikipedia|search for) {topic}"
+    ],
     "entity": [
       "<what_is> {name}",
       "<what_is> {name} (at|on|reading|showing|set to|doing)",
@@ -923,6 +934,12 @@
       "I asked the house what it wanted for its birthday. | It said a new set of smart plugs. Very shocking.",
       "Why don't oysters share? | Because they're shellfish."
     ]
+  },
+  "wiki": {
+    "_": "wiki.py: Wikipedia answers. skip_first: a name starting with one of these is never an article (\"my name\"); skip: whole names that aren't.",
+    "replies": {"credit": "Wikipedia says: {text}"},
+    "skip_first": ["my", "our", "your", "his", "her", "their", "its", "it", "it's", "this", "that", "these", "those", "there", "here", "he", "she", "they", "we", "i", "you", "me", "him", "us", "them", "going", "happening", "wrong", "next", "left", "up", "on", "in", "for", "to", "today", "tonight", "tomorrow", "yesterday", "now", "someone", "somebody", "anyone", "anybody", "everyone", "everybody", "nobody", "something", "anything", "everything", "nothing", "which", "what", "who", "where", "how", "why", "when"],
+    "skip": ["the time", "the date", "the day", "the weather", "the forecast", "the temperature", "the matter", "the problem", "the plan", "the score", "the news", "the answer", "the point", "the deal", "the difference", "the best", "the worst", "the name", "the song", "the music", "new", "playing", "good", "best", "better", "worse", "home", "out", "outside", "inside", "dinner", "lunch", "breakfast", "for dinner", "the light", "the lights"]
   },
   "fallback": "Sorry, I don't know that one."
 }

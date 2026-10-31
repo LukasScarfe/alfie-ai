@@ -266,7 +266,8 @@ const COMMANDS = [["whats_wrong", "What's wrong", "\"Is anything wrong?\": the s
   ["number", "A random number", "\"Pick a number\", \"Give me a random number between 1 and 100\""],
   ["pick", "Pick one", "\"Pick between pizza and tacos\", \"Choose one of red, green or blue\""],
   ["joke", "Jokes", "\"Tell me a joke\", \"Make me laugh\": no repeats until he has told them all."],
-  ["chat", "Small talk", "\"Hello\", \"Thank you\", \"What's your name?\", \"How old are you?\", \"Are you there?\""]];
+  ["chat", "Small talk", "\"Hello\", \"Thank you\", \"What's your name?\", \"How old are you?\", \"Are you there?\""],
+  ["wiki", "Wikipedia", "\"Who was Albert Einstein?\", \"What is a quasar?\", \"Tell me about Vancouver\": from your own offline Wikipedia (the card below). Only an article with that very name; anything else goes to the delegate. Tried last."]];
 const TIER = { 1: ["mdi:lightning-bolt", "Local"], 3: ["mdi:brain", "Delegate"], 0: ["mdi:help-circle-outline", "Unanswered"] };
 const SOURCE = { trigger: "Sentence trigger", own: "Alfie", intent: "Home Assistant", delegate: "Delegate",
   none: "Fallback", error: "Delegate failed" };
@@ -370,6 +371,15 @@ function brainTab(p) {
         ${U.field("And plays", U.select("brain.joke_animation", b.joke_animation, [["", "Nothing"], ...(p.choices?.animations || []).map((a) => [a, U.human(a)])]))}
         ${U.field("\"Pick a number\" goes up to", U.num("brain.random_max", b.random_max, { min: 2, max: 1000000, step: 1 }), "Unless a range is said.")}
         ${U.field("\"Say that again\" remembers", U.num("brain.repeat_minutes", b.repeat_minutes, { min: 1, max: 1440, step: 1, unit: "min" }))}</div>`) : ""}
+      ${b.own_sentences && !b.off_commands.includes("wiki") ? U.card("Wikipedia", `
+        ${U.field("kiwix-serve", U.text("brain.wiki_url", b.wiki_url, { placeholder: "http://192.168.1.10:8080" }),
+          "An offline Wikipedia served by kiwix-serve (a Docker container with a Wikipedia .zim file). Empty: no Wikipedia answers.")}
+        ${b.wiki_url ? `${U.field("Book", U.text("brain.wiki_book", b.wiki_book, { placeholder: "The first Wikipedia it serves" }), "Its name in kiwix-serve, like wikipedia_en_all_nopic_2026-06, or the start of it.")}
+        <div class="grid">
+        ${U.field("Sentences said", U.num("brain.wiki_sentences", b.wiki_sentences, { min: 1, max: 10, step: 1 }), "From the start of the article.")}
+        ${U.field("Wait at most", U.num("brain.wiki_seconds", b.wiki_seconds, { min: 1, max: 30, step: 1, unit: "s" }), "Then the delegate answers.")}</div>
+        ${U.check("brain.wiki_brackets", b.wiki_brackets, "Say what's in brackets", "Birth dates, pronunciations, other names. Off: \"Paris (French pronunciation: …) is\" becomes \"Paris is\".")}
+        ${U.check("brain.wiki_credit", b.wiki_credit, "Say where it's from", "\"Wikipedia says: …\"")}` : ""}`) : ""}
       ${U.card("Face and log", `<div class="grid">
         ${U.field("Local badge", U.text("brain.local_icon", b.local_icon, { placeholder: "None, or mdi:lightning-bolt" }))}
         ${U.field("Delegate badge", U.text("brain.delegate_icon", b.delegate_icon, { placeholder: "None, or mdi:brain" }))}
