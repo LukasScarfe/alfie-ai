@@ -454,9 +454,9 @@ def _ordinal_day(tok: str) -> int | None:
     return ORDINALS.get(tok)
 
 
-def parse_when(text: str, today: date, named: Mapping[str, When]) -> When | None:
-    """A date said: "christmas", "next friday", "in 3 weeks", "100 days ago",
-    "25 december", "the 3rd of march 2027", "tomorrow"... or None."""
+def date_key(text: str) -> tuple[str, str, int]:
+    """A date said, split: ("next christmas 2027") -> ("christmas",
+    "next_strict", 2027). The first is what named dates are looked up by."""
     t = _clean(text)
     for lead in ("it ", "it'll be ", "it will be ", "on ", "the "):
         t = t.removeprefix(lead)
@@ -469,6 +469,13 @@ def parse_when(text: str, today: date, named: Mapping[str, When]) -> When | None
     year = 0
     if m := re.fullmatch(r"(.+?) (\d{4})", t):
         t, year = m[1], int(m[2])
+    return t, way, year
+
+
+def parse_when(text: str, today: date, named: Mapping[str, When]) -> When | None:
+    """A date said: "christmas", "next friday", "in 3 weeks", "100 days ago",
+    "25 december", "the 3rd of march 2027", "tomorrow"... or None."""
+    t, way, year = date_key(text)
     if t in named:
         w = named[t]
         if year and w.yearly:

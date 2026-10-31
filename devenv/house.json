@@ -1262,7 +1262,11 @@
    "world_time": [],
    "dates": [],
    "convert": [],
-   "maths": []
+   "maths": [],
+   "people": [],
+   "media": [],
+   "calendar": [],
+   "lists": []
   },
   "exposed_only": false,
   "match_floor": 70,
@@ -1280,6 +1284,16 @@
   "sun_uv": 3,
   "dates": [],
   "imperial": "us",
+  "calendars": [],
+  "calendar_dates": true,
+  "calendar_minutes": 60,
+  "event_max": 6,
+  "media_players": [],
+  "media_skip": [
+   "plex"
+  ],
+  "todo_list": "",
+  "list_max": 10,
   "local_intents": true,
   "local_states": true,
   "local_media_search": false,
