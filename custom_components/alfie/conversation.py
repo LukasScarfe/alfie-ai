@@ -40,7 +40,7 @@ from .voice import _lookup
 _LOGGER = logging.getLogger(__name__)
 
 # The order his matched commands are tried in: the more particular first.
-ORDER = ("whats_wrong", "how_are_you", "moon", "sun", "weather_gear", "weather_forecast",
+ORDER = ("whats_wrong", "how_are_you", "run", "moon", "sun", "weather_gear", "weather_forecast",
          "weather_now", "world_time", "people", "media", "lists", "calendar", "dates", "convert",
          "maths", "entity_when", "entity_history", "entity_count", "entity")
 TRIES = 4           # readings of one command tried (hassil splits a sentence several ways)
@@ -83,10 +83,12 @@ class AlfieAgent(conversation.ConversationEntity):
         self.engine.config_hooks.append(self._apply)   # the engine goes with the entry
         self.async_on_remove(lambda: self.hass.data[DOMAIN].pop("brain", None))
         self.async_on_remove(self.local.close)        # its calendar watch
+        self.local.ensure_label(self.engine.config["brain"])
 
     @callback
     def _apply(self) -> None:
         self.log.resize(self.engine.config["brain"]["log_size"])
+        self.local.ensure_label(self.engine.config["brain"])
 
     # ------------------------------------------------------------ listeners
 

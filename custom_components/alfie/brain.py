@@ -30,10 +30,10 @@ from typing import Any
 
 from .speech import LANG_DIR, _code
 
-COMMANDS = ("whats_wrong", "how_are_you", "entity", "entity_count", "entity_when",
+COMMANDS = ("whats_wrong", "how_are_you", "run", "entity", "entity_count", "entity_when",
             "entity_history", "weather_now", "weather_forecast", "weather_gear", "sun", "moon",
             "world_time", "dates", "convert", "maths", "people", "media", "calendar", "lists")
-INTENTS = {"whats_wrong": "AlfieWhatsWrong", "how_are_you": "AlfieHowAreYou",
+INTENTS = {"whats_wrong": "AlfieWhatsWrong", "how_are_you": "AlfieHowAreYou", "run": "AlfieRun",
            "entity": "AlfieEntity", "entity_count": "AlfieEntityCount",
            "entity_when": "AlfieEntityWhen", "entity_history": "AlfieEntityHistory",
            "weather_now": "AlfieWeatherNow", "weather_forecast": "AlfieWeatherForecast",
@@ -41,7 +41,7 @@ INTENTS = {"whats_wrong": "AlfieWhatsWrong", "how_are_you": "AlfieHowAreYou",
            "world_time": "AlfieWorldTime", "dates": "AlfieDates", "convert": "AlfieConvert",
            "maths": "AlfieMaths", "people": "AlfiePeople", "media": "AlfieMedia",
            "calendar": "AlfieCalendar", "lists": "AlfieLists"}
-LABELS = {"whats_wrong": "what's wrong", "how_are_you": "how are you",
+LABELS = {"whats_wrong": "what's wrong", "how_are_you": "how are you", "run": "a voice action",
           "entity": "a thing's state", "entity_count": "how many things",
           "entity_when": "when a thing changed", "entity_history": "a thing's history",
           "weather_now": "the weather now", "weather_forecast": "the forecast",
@@ -55,6 +55,10 @@ OUTSIDE = frozenset({"weather_now", "weather_forecast", "weather_gear", "sun", "
 RECKON = frozenset({"world_time", "dates", "convert", "maths"})
 # Answered from people, players, calendars and to-do lists (household.py).
 HOUSEHOLD = frozenset({"people", "media", "calendar", "lists"})
+# What a voice action can start, and how (the `voice_label` label marks them).
+RUNNABLE = {"script": ("script", "turn_on"), "automation": ("automation", "trigger"),
+            "scene": ("scene", "turn_on"), "button": ("button", "press"),
+            "input_button": ("input_button", "press")}
 # Tried after HA's intents: a built-in intent knows its own entities better.
 LATE = frozenset({"entity", "entity_count"})
 # Questions only the house can answer: a name that names nothing is said so.
@@ -74,6 +78,10 @@ def default_settings() -> dict[str, Any]:
     """The `brain` config section."""
     return {"delegate": "",                 # a conversation entity; "" none
             "own_sentences": True, "off_commands": [],
+            "voice_label": "Alfie voice",   # a label: what carries it, he starts by voice
+            "run_bare": True,               # its name alone ("movie time") starts it too
+            "run_conditions": False,        # an automation started by voice checks its conditions
+            "run_reply": "",                # "" the language's ("OK, {name}.")
             "extra_sentences": {c: [] for c in COMMANDS},
             "exposed_only": False,          # entities: only those exposed to Assist
             "match_floor": 70,              # finder score a name needs (0-120)

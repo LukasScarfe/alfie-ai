@@ -240,6 +240,7 @@ function agents(p) {
 
 const BRAIN_ENTITY = "conversation.alfie";
 const COMMANDS = [["whats_wrong", "What's wrong", "\"Is anything wrong?\": the same answer as the intent."],
+  ["run", "Voice actions", "\"Turn on the gaming PC\", \"Start movie night\", or just \"Goodnight\": starts what carries the voice label (the card below)."],
   ["how_are_you", "How are you", "\"How are you?\": his mood, and why."],
   ["entity", "Any thing's state", "\"What's the office temperature?\", \"Is the back door open?\", \"What's the kitchen light's brightness?\", \"Is the freezer above -15?\" Tried after Home Assistant's intents."],
   ["entity_count", "How many", "\"How many lights are on?\", \"Which windows are open upstairs?\", \"Is anything on in the kitchen?\", \"Are all the doors locked?\" Tried after Home Assistant's intents."],
@@ -279,6 +280,11 @@ function brainTab(p) {
   const todos = [["", "The shopping list (todo.shopping_list)"], ...Object.keys(st).filter((e) => e.startsWith("todo.")).sort()
     .map((e) => [e, st[e].attributes?.friendly_name || e])];
   if (b.todo_list && !todos.some(([e]) => e === b.todo_list)) todos.push([b.todo_list, `${b.todo_list} (not found)`]);
+  const RUNNABLE = ["script", "automation", "scene", "button", "input_button"];
+  const label = (p.brainLabels || []).find((l) => l.name.toLowerCase() === (b.voice_label || "").toLowerCase());
+  const acts = label ? Object.entries(p.hass?.entities || {})
+    .filter(([e, x]) => (x.labels || []).includes(label.label_id) && RUNNABLE.includes(e.split(".")[0]))
+    .map(([e]) => [e, st[e]?.attributes?.friendly_name || e]).sort((a, c) => a[1].localeCompare(c[1])) : [];
   const cmds = COMMANDS.map(([k, name, hint]) => `
       <label class="check"><input type="checkbox" class="switch" data-action="brain-cmd" data-name="${k}"${b.off_commands.includes(k) ? "" : " checked"}>
         <span><b>${U.esc(name)}</b><small>${U.esc(hint)}</small></span></label>
@@ -323,6 +329,16 @@ function brainTab(p) {
           "One per line, \"name: MM-DD\" (or YYYY-MM-DD). Then \"How many days until Lukas's birthday?\" works. Holidays like Christmas, Easter and Thanksgiving he knows already.")}
         ${U.field("Cups, pints and gallons", U.select("brain.imperial", b.imperial, [["us", "US"], ["uk", "UK (imperial)"]]),
           "A UK pint is 568 ml, a US one 473 ml.")}`) : ""}
+      ${b.own_sentences && !b.off_commands.includes("run") ? U.card("Voice actions", `
+        ${U.field("Label", U.text("brain.voice_label", b.voice_label, { placeholder: "Alfie voice" }),
+          "Give this label to a script, automation, scene or button in Home Assistant's own editor (its settings, Labels), and he starts it by voice: \"turn on\", \"start\" or \"run\" and its name or an alias. He makes the label if it's missing.")}
+        <p class="muted">${!b.voice_label ? "No label: voice actions are off." : p.brainLabels == null ? "Loading…"
+          : !label ? `No label called <b>${U.esc(b.voice_label)}</b> yet: he makes it when you save.`
+          : acts.length ? `Carrying it: ${acts.map(([e, n]) => `<b>${U.esc(n)}</b> <code>${U.esc(e)}</code>`).join(", ")}.`
+          : "Nothing carries it yet."}</p>
+        ${U.check("brain.run_bare", b.run_bare, "Its name alone starts it", "\"Movie night\" or \"Goodnight\" by itself. Only a whole name or alias counts.")}
+        ${U.check("brain.run_conditions", b.run_conditions, "Automations check their conditions", "Off: started by voice, an automation runs its actions whatever its conditions say, like its Run button.")}
+        ${U.field("He says", U.text("brain.run_reply", b.run_reply, { placeholder: "OK, {name}." }), "{name} is its name.")}`) : ""}
       ${b.own_sentences ? U.card("Home and calendar", `
         ${U.wide("\"What's on\" reads these calendars", `<textarea data-path="brain.calendars" data-kind="lines" rows="2" placeholder="Every calendar">${U.esc((b.calendars || []).join("\n"))}</textarea>`,
           `One calendar entity per line; empty reads every one. ${cals.length ? `You have ${cals.map((e) => `<code>${U.esc(e)}</code>`).join(", ")}.` : "You have no calendars."} \"When is …\" looks in all of them.`)}
@@ -377,6 +393,14 @@ function brainWatch(p) {
 export function mount(p, sub) {
   if (sub === "brain") {
     brainWatch(p);
+    p.hass.callWS({ type: "config/label_registry/list" })
+      .then((r) => {
+        const got = (r || []).map((l) => ({ label_id: l.label_id, name: l.name }));
+        const changed = JSON.stringify(got) !== JSON.stringify(p.brainLabels);
+        p.brainLabels = got;
+        if (changed && p.sec === "voice" && p.sub === "brain") p.render();
+      })
+      .catch(() => { p.brainLabels = []; });
     p.hass.callWS({ type: "assist_pipeline/pipeline/list" })
       .then((r) => {
         const using = (r.pipelines || []).filter((x) => x.conversation_engine === BRAIN_ENTITY)

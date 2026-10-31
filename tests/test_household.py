@@ -216,12 +216,27 @@ def test_list_cut():
         "thing 0, thing 1, thing 2 and 24 more.")
 
 
+# ------------------------------------------------------------ voice actions
+
+def test_run_reply():
+    assert H.run_reply("Gaming PC", EN) == "OK, Gaming PC."
+    assert H.run_reply("Gaming PC", EN, "Waking {name} up.") == "Waking Gaming PC up."
+    assert H.run_reply("Gaming PC", EN, "Bad {nope}") == "Bad {nope}"
+    assert H.run_reply("Gaming PC", EN, failed=True) == "Gaming PC didn't start."
+
+
 # ------------------------------------------------------------ sentences
 
 hassil = pytest.importorskip("hassil")
 INTENTS = hassil.Intents.from_dict(brain.own_intents(EN, brain.default_settings(), "en"))
 
 SENTENCES = [
+    ("turn on the gaming pc", "run", {"name": "gaming pc"}),
+    ("start movie night", "run", {"name": "movie night"}),
+    ("turn the gaming pc on", "run", {"name": "gaming pc"}),
+    ("it's movie time", "run", {"name": "movie time"}),
+    ("time for bed", "run", {"name": "bed"}),
+    ("goodnight", "run", {"name": "goodnight"}),
     ("who's home", "people", {"ask": "who"}),
     ("is anyone home", "people", {"ask": "anyone"}),
     ("is everyone home", "people", {"ask": "everyone"}),

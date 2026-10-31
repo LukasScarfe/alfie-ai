@@ -70,7 +70,8 @@ def test_sentences(text, cmd, want):
 @pytest.mark.parametrize("text", ["turn on the kitchen light", "play some jazz",
                                   "set a timer for 5 minutes"])
 def test_commands_are_not_questions(text):
-    assert read(text) == []
+    # Only a voice action may read a command (it starts nothing unlabelled).
+    assert [c for c, _s in read(text) if c != "run"] == []
 
 
 # ------------------------------------------------------------ saying things

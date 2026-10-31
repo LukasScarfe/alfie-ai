@@ -493,6 +493,19 @@ def list_name(name: str) -> str:
     return name if name.lower().rstrip().endswith("list") else f"{name} list"
 
 
+def run_reply(name: str, words: Mapping[str, Any], own: str = "", failed: bool = False) -> str:
+    """What he says when he starts a voice action: the user's own words
+    ({name} is its name) or the language's."""
+    if failed:
+        return _t(words, "run_failed", name=name)
+    if own:
+        try:
+            return own.format(name=name)
+        except (KeyError, IndexError, ValueError):
+            return own
+    return _t(words, "run_done", name=name)
+
+
 def no_list(name: str, words: Mapping[str, Any]) -> str:
     return _t(words, "no_list", name=name)
 
