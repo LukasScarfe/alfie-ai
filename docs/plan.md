@@ -286,6 +286,8 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
         `reckon.py`, 0.22.1.
   - [x] D. People, media, calendar and lists; named dates checked against the calendars.
         `household.py`, 0.23.0.
+  - [x] Voice actions: what carries the "Alfie voice" label starts by voice (asked by Lukas
+        2026-10-31, between D and E). 0.24.0.
   - [ ] E. Fun and Alfie himself (coin, dice, jokes, say that again, what can you do).
   - [ ] F. Wikipedia from kiwix-serve (who/what/where is X, lead sentences).
   - [ ] G. Voice → Brain lists every command (toggle, sentences, try box); PNGs.

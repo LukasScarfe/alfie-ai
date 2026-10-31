@@ -942,6 +942,20 @@ requirements, light enough for a Pi.
       `list_max` (10) said.
     - The panel's Brain tab has a "Home and calendar" card for these settings.
   - Fun and Alfie himself.
+  - **Voice actions** (`run`, Lukas 2026-10-31: "some kind of way to just trigger automation
+    based on the intent"; he picked a Home Assistant label over a word in the name). What
+    carries the label `brain.voice_label` ("Alfie voice") starts by voice: scripts
+    (`script.turn_on`), automations (`automation.trigger`), scenes, buttons and input buttons.
+    - Said as "turn on / start / run / launch / activate … X", "turn X on", "it's X", "time for
+      X", or X alone (`run_bare`, on: only a whole name or alias). Names and aliases come from
+      the registry, matched like any entity (`match_floor`, `ask_which`).
+    - Tried first among his commands, before HA's intents: HA's "turn on" doesn't match
+      scripts at all ("run X" does).
+    - Labels are read from the entity registry's index by label on each turn, so there is no
+      cache to go stale. He creates the label when it's missing.
+    - Started without waiting, so a long script runs on while he answers `run_reply` ("" the
+      language's "OK, {name}."). An automation skips its conditions unless `run_conditions`.
+    - The panel's Brain tab has a "Voice actions" card: the label, what carries it, the options.
   - Wikipedia: kiwix-serve directly (`brain.wiki_url`), only "who/what/where is X" and "tell me
     about X", only when a top hit's title matches X; the lead's first `wiki_sentences`
     sentences. Otherwise the delegate.

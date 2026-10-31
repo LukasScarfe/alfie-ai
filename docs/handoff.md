@@ -18,7 +18,7 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.23.0.
+Version 0.24.0.
 
 **Now: Alfie's brain, M13 to M18** (agreed with Lukas 2026-10-30; plan.md, design.md "Brain").
 A local-first voice pipeline inside Alfie, meant for the HA community too. Done: M13 Speech
@@ -95,6 +95,16 @@ Local answers.
   - Production's `todo.shopping_list` is empty; Groceries (`todo.shopping`) looks like the real
     one. `brain.todo_list` is left at "" until Lukas says.
 
+**Voice actions (0.24.0, on production)**, built between D and E at Lukas's request: the
+`run` command starts what carries the "Alfie voice" label (design.md "Brain" → Voice actions).
+On production `script.living_room_pc_on` ("Gaming PC": wake on LAN, TV on to HDMI 1) carries it,
+so "turn on the gaming PC" works again. HA's own "turn on" never matches scripts, so it had been
+going to the LLM. It hasn't been said for real yet: Lukas to try it.
+- Open: Lukas said "all voice should be centred on Alfie". The "Music by voice" automation's
+  `whats_playing` sentence trigger (`/mnt/homeassistant/automations.yaml`) still answers "what's
+  playing" before Alfie does. Removing it was stopped mid-step, so ask before trying again. The
+  HA config repo also has uncommitted changes from another session.
+
 **Next: M15 step E, fun and Alfie himself** (coin, dice, jokes, say that again, what can you
 do).
 
@@ -107,10 +117,8 @@ Bump the version on each deploy: `manifest.json` and `const.py` `VERSION` (the d
 sw_version, which deploy checks). Run `./dev test` after bumping.
 
 Gotchas:
-- **Deploys go through the raccoon session** (Lukas, 2026-10-30: it has more permissions for HA
-  restarts and updates). After pushing, SendMessage the session launched from `/home/lukas`
-  (`lukas-<n>` in ListAgents) to run `cd ~/Documents/alfie-ai && ./dev prod deploy`. Wait for its
-  report, then check with `./dev prod ask`. If deploy says "not restarting: production still
+- **Run `./dev prod deploy` yourself, always** (Lukas, 2026-10-31: full permission; never hand
+  it to the raccoon session). Then check with `./dev prod ask`. If deploy says "not restarting: production still
   differs", GitHub served HACS a stale copy; running it again fixes it.
 - `./dev prod ask "..."` asks `conversation.alfie` on production and prints the reply and the turn
   log's source, time and why. The dev HA has no equivalent yet; `devtool.token()[0]` works there.
