@@ -155,3 +155,11 @@ def test_config_brain_errors(change, where):
     raw["brain"] = {**DEFAULTS, **change}
     with pytest.raises(ConfigError, match=where):
         validate_config(raw)
+
+
+def test_whole_words():
+    assert brain.whole_words({"name": "ing of life", "stat": "mean"}, "What is the meaning of life?") is False
+    assert brain.whole_words({"name": "office temperature"}, "What's the office temperature?")
+    assert brain.whole_words({"value": "red green or blue"}, "Choose one of red, green or blue.")
+    assert brain.whole_words({"topic": "the beatles"}, "who are The Beatles")
+    assert brain.whole_words({}, "hello")

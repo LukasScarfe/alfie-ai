@@ -139,6 +139,8 @@ class AlfieAgent(conversation.ConversationEntity):
             if cmd is None:
                 continue
             slots = {k: str(v.value) for k, v in result.entities.items()}
+            if not brain.whole_words(slots, text):
+                continue        # "the mean{ing of life}": a wildcard cut a word
             slots["_text"] = text
             got = found.setdefault(cmd, [])
             if slots not in got:
@@ -172,31 +174,40 @@ class AlfieAgent(conversation.ConversationEntity):
         return None if got is None else (got.text, got.detail or cmd, got.choices, got.unknown)
 
     async def _try_own(self, matches: list[tuple[str, dict[str, str]]], language: str,
-                       turn: brain.Turn, chat_log: conversation.ChatLog
-                       ) -> conversation.ConversationResult | None:
-        unknown = None
+                       turn: brain.Turn, chat_log: conversation.ChatLog,
+                       held: list[Any], last: bool = True) -> conversation.ConversationResult | None:
+        """The first of his commands that answers. "Which one?" and "I don't
+        know a thing called …" are weak: they are `held` while any command
+        after them (`last` False: the late ones are still to come) may answer
+        properly, "which" before "don't know"."""
         for cmd, slots in matches:
             got = await self._answer_own(cmd, slots, language, turn.satellite)
             if got is None:
                 continue
-            if got[3]:
-                unknown = unknown or (cmd, got[0])
+            text, detail, choices, unknown = got
+            if choices or unknown:
+                rank = 0 if choices else 1
+                if not held or rank < held[0][0]:
+                    held[:] = [(rank, cmd, slots, text, detail, choices)]
                 continue
-            text, detail, choices, _ = got
-            turn.source, turn.detail = "own", detail
-            turn.why = brain.why("own", cmd)
-            result = self._reply(text, language, chat_log)
-            if choices:
-                now = time.monotonic()
-                self._which = {k: v for k, v in self._which.items() if now - v[3] < WHICH_FOR}
-                self._which[chat_log.conversation_id] = (cmd, slots, choices, now)
-                result.continue_conversation = True
-            return result
-        if unknown:
-            turn.source, turn.detail = "own", unknown[0]
-            turn.why = brain.why("own", unknown[0])
-            return self._reply(unknown[1], language, chat_log)
+            return self._own_reply(cmd, slots, text, detail, [], language, turn, chat_log)
+        if last and held:
+            _rank, cmd, slots, text, detail, choices = held.pop()
+            return self._own_reply(cmd, slots, text, detail, choices, language, turn, chat_log)
         return None
+
+    def _own_reply(self, cmd: str, slots: dict[str, str], text: str, detail: str,
+                   choices: list[str], language: str, turn: brain.Turn,
+                   chat_log: conversation.ChatLog) -> conversation.ConversationResult:
+        turn.source, turn.detail = "own", detail
+        turn.why = brain.why("own", cmd)
+        result = self._reply(text, language, chat_log)
+        if choices:
+            now = time.monotonic()
+            self._which = {k: v for k, v in self._which.items() if now - v[3] < WHICH_FOR}
+            self._which[chat_log.conversation_id] = (cmd, slots, choices, now)
+            result.continue_conversation = True
+        return result
 
     def _repeat(self, satellite: str, language: str) -> str:
         """His last reply on this satellite (or anywhere, from none), while
@@ -269,7 +280,10 @@ class AlfieAgent(conversation.ConversationEntity):
             return done(result)
         matches = await self._match_own(text, language)
         early = [m for m in matches if m[0] not in brain.LATE]
-        if early and (result := await self._try_own(early, language, turn, chat_log)):
+        late = [m for m in matches if m[0] in brain.LATE]
+        held: list[Any] = []
+        if early and (result := await self._try_own(early, language, turn, chat_log, held,
+                                                    last=not late)):
             return done(result)
 
         # 3. Home Assistant's intents
@@ -292,8 +306,7 @@ class AlfieAgent(conversation.ConversationEntity):
                 return done(conversation.ConversationResult(
                     response=response, conversation_id=chat_log.conversation_id))
 
-        late = [m for m in matches if m[0] in brain.LATE]
-        if late and (result := await self._try_own(late, language, turn, chat_log)):
+        if late and (result := await self._try_own(late, language, turn, chat_log, held)):
             return done(result)
 
         # 4. the delegate

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from collections import deque
 from collections.abc import Iterable, Mapping
@@ -185,6 +186,18 @@ def own_intents(words: Mapping[str, Any] | None, settings: Mapping[str, Any],
         lists["thing"] = {"values": things}
     return {"language": _code(language), "intents": intents, "lists": lists,
             "expansion_rules": dict(words.get("rules") or {})}
+
+
+def whole_words(slots: Mapping[str, str], text: str) -> bool:
+    """Whether every wildcard slot is whole words of the text. hassil can end
+    a list word inside a word ("what is the meaning of life" read as the stat
+    "mean" and the name "ing of life")."""
+    low = " ".join(re.sub(r"[^\w\s']", " ", text.lower()).split())
+    for w in WILDCARDS:
+        v = " ".join(re.sub(r"[^\w\s']", " ", str(slots.get(w) or "").lower()).split())
+        if v and not re.search(r"(?<![\w'])" + re.escape(v) + r"(?![\w'])", low):
+            return False
+    return True
 
 
 def commands_on(settings: Mapping[str, Any]) -> list[str]:
