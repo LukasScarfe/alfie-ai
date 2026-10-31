@@ -151,6 +151,19 @@ class AlfieAgent(conversation.ConversationEntity):
             return sum(len(x.get(w, "")) for w in brain.WILDCARDS)
         return [(c, sl) for c in ORDER for sl in sorted(found.get(c, []), key=loose)[:TRIES]]
 
+    async def readings(self, text: str, language: str) -> list[dict[str, Any]]:
+        """Every reading of a sentence by his commands, in the order a turn
+        tries them (the panel's try box): early ones, then those that wait for
+        Home Assistant's intents."""
+        if not brain.language_ready(language):
+            await self.hass.async_add_executor_job(brain.load_language, language)
+        words = brain.load_language(language)
+        text = text.strip()
+        matches = await self._match_own(text, language)
+        out = [{"command": c, "slots": {k: v for k, v in sl.items() if not k.startswith("_")},
+                "late": brain.is_late(c, text, words)} for c, sl in matches]
+        return sorted(out, key=lambda r: r["late"])
+
     async def _answer_own(self, cmd: str, slots: dict[str, str], language: str,
                           satellite: str = "") -> tuple[str, str, list[str], bool] | None:
         """(reply, detail, choices, unknown), or None when the command can't

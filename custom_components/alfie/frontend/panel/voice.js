@@ -297,8 +297,14 @@ function brainTab(p) {
   const cmds = COMMANDS.map(([k, name, hint]) => `
       <label class="check"><input type="checkbox" class="switch" data-action="brain-cmd" data-name="${k}"${b.off_commands.includes(k) ? "" : " checked"}>
         <span><b>${U.esc(name)}</b><small>${U.esc(hint)}</small></span></label>
-      ${!b.off_commands.includes(k) ? U.wide("Also these sentences", `<textarea data-path="brain.extra_sentences.${k}" data-kind="lines" rows="2">${U.esc((b.extra_sentences[k] || []).join("\n"))}</textarea>`,
-        `${SENTENCE_HINT} His own English ones always work.`) : ""}`).join("");
+      ${b.off_commands.includes(k) ? "" : (() => {
+        const his = p.brainSentences?.[k] || [], own = b.extra_sentences[k] || [];
+        const open = own.length || p.brainOpen?.has(k) ? " open" : "";
+        return `<details class="sents"${open}><summary data-action="brain-sents" data-name="${k}">Sentences: ${his.length} of his${own.length ? `, ${own.length} of yours` : ""}</summary>
+        <ul>${his.map((x) => `<li><code>${U.esc(x)}</code></li>`).join("")}</ul>
+        ${U.wide("Also these", `<textarea data-path="brain.extra_sentences.${k}" data-kind="lines" rows="2">${U.esc(own.join("\n"))}</textarea>`,
+          `${SENTENCE_HINT} His own always work.`)}</details>`;
+      })()}`).join("");
   return `${U.intro("Make Alfie your voice assistant's agent and he answers what he can himself, instantly and from the real states, and passes only the rest to an LLM.",
       `He is the conversation agent <code>${BRAIN_ENTITY}</code>. Each request tries, in order: an automation's sentence trigger, his own sentences, Home Assistant's built-in intents (lights, timers, the weather, \"is the door locked\"), and only then the delegate, any other agent you have, like Ollama or Google. The delegate's reply still streams to the speaker. ${where}`)}
     ${U.card("Ask him", `
@@ -316,7 +322,10 @@ function brainTab(p) {
         ${U.check("brain.local_media_search", b.local_media_search, "\"Play …\" searches", "Home Assistant's media search. Off: the delegate, with its own music tools.")}` : ""}`)}
       ${U.card("His own sentences", `
         ${U.check("brain.own_sentences", b.own_sentences, "Answer his own sentences")}
-        ${b.own_sentences ? `${cmds}
+        ${b.own_sentences ? `<div class="row"><input id="brain-try" class="grow" placeholder="Try a sentence: roll two dice" value="${U.esc(p.brainTry ?? "")}">
+          <button class="flat" data-action="brain-try">${U.icon("mdi:magnify")}Which one?</button></div>
+        <p class="brain-tried muted">${p.brainTried || "Which of his answers takes a sentence, with the saved settings. Nothing is answered or done."}</p>
+        ${cmds}
         ${U.check("brain.exposed_only", b.exposed_only, "Only things exposed to Assist", "Off: he answers about every entity (the answer stays in the house). On: only those exposed in Settings → Voice assistants → Expose.")}
         ${U.check("brain.ask_which", b.ask_which, "Ask which one", "When two things fit a name equally, he asks. Off: the delegate gets the question.")}
         ${U.check("brain.say_unknown", b.say_unknown, "Say when he doesn't know a thing", "\"When was the front door last opened?\" with no front door: he says so. Off: the delegate gets it (an LLM may make up an answer).")}
@@ -386,7 +395,8 @@ function brainTab(p) {
         ${U.field("Badge for", U.num("brain.icon_seconds", b.icon_seconds, { min: 0, max: 60, step: 1, unit: "s" }), "0: no badge.")}
         ${U.field("Turns kept", U.num("brain.log_size", b.log_size, { min: 1, max: 200, step: 1 }), "In memory only: a restart clears them.")}</div>`)}`)}
     ${U.card("Turn log", `<div class="brain-log">${brainLog(p)}</div>`)}
-    <style>.brain-said { margin: 8px 0 0; } .turn { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 10px; padding: 8px 0; border-top: 1px solid var(--divider-color); }
+    <style>.brain-said, .brain-tried { margin: 8px 0 12px; } .sents { margin: -4px 0 8px 52px; font-size: .9em; }
+      .sents summary { cursor: pointer; color: var(--secondary-text-color); } .sents ul { margin: 4px 0; padding-left: 18px; } .sents code { white-space: normal; } .turn { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 10px; padding: 8px 0; border-top: 1px solid var(--divider-color); }
       .turn:first-child { border-top: 0; } .turn ha-icon { --mdc-icon-size: 20px; grid-row: span 3; color: var(--secondary-text-color); }
       .turn.t1 ha-icon { color: var(--success-color, #43a047); } .turn.t3 ha-icon { color: var(--info-color, #039be5); }
       .turn .said { font-weight: 500; } .turn .meta, .turn .why { grid-column: 2 / 4; } .turn .ms { color: var(--secondary-text-color); font-size: .85em; }</style>`;
@@ -420,6 +430,9 @@ function brainWatch(p) {
 export function mount(p, sub) {
   if (sub === "brain") {
     brainWatch(p);
+    if (!p.brainSentences) p.hass.callWS({ type: "alfie/brain/sentences" })
+      .then((r) => { p.brainSentences = r.sentences; if (p.sec === "voice" && p.sub === "brain") p.render(); })
+      .catch(() => {});
     p.hass.callWS({ type: "config/label_registry/list" })
       .then((r) => {
         const got = (r || []).map((l) => ({ label_id: l.label_id, name: l.name }));
@@ -487,6 +500,10 @@ export function tool(p, ev) {
     speechPreview(p);
     return true;
   }
+  if (ev.target.id === "brain-try") {
+    p.brainTry = ev.target.value;
+    return true;
+  }
   if (ev.target.id === "brain-ask") {
     p.brainAsk = ev.target.value;
     return true;
@@ -522,6 +539,30 @@ export function click(p, a, el) {
         .then((r) => { p.brainReply = r.response?.speech?.plain?.speech || "(no reply)"; })
         .catch((e) => { p.brainReply = `Couldn't: ${e?.message || e}`; })
         .finally(() => { const o = p.root.querySelector(".brain-said"); if (o) o.textContent = p.brainReply; });
+      return true;
+    }
+    case "brain-sents": {
+      // The native toggle opens it; remember it across renders.
+      p.brainOpen ??= new Set();
+      const k = el.dataset.name;
+      if (p.brainOpen.has(k)) p.brainOpen.delete(k); else p.brainOpen.add(k);
+      return true;
+    }
+    case "brain-try": {
+      const text = (p.brainTry ?? "").trim();
+      if (!text) return true;
+      const name = (k) => COMMANDS.find(([c]) => c === k)?.[1] || k;
+      const slots = (s) => { const e = Object.entries(s); return e.length ? ` (${e.map(([k, v]) => `${k}: ${U.esc(v)}`).join(", ")})` : ""; };
+      p.hass.callWS({ type: "alfie/brain/match", text })
+        .then((r) => {
+          const seen = new Set(), rs = r.readings.filter((x) => !seen.has(x.command) && seen.add(x.command));
+          // Voice actions' bare "{name}" reads every sentence: only a real name answers it.
+          const bare = (x) => x.command === "run" && x.slots.name?.toLowerCase() === text.toLowerCase().replace(/[^\w\s']/g, "").trim();
+          p.brainTried = !rs.length ? "None of his sentences: Home Assistant's intents, then the delegate."
+            : `${rs.map((x, i) => `${i ? "" : "Tried first: "}<b>${U.esc(name(x.command))}</b>${bare(x) ? " (only if something is called that)" : slots(x.slots)}${x.late ? ", after Home Assistant's intents" : ""}`).join("; then ")}. The first that can answer does.`;
+        })
+        .catch((e) => { p.brainTried = `Couldn't: ${U.esc(e?.message || e)}`; })
+        .finally(() => { const o = p.root.querySelector(".brain-tried"); if (o) o.innerHTML = p.brainTried; });
       return true;
     }
     case "speech-add": p.draft.speech.replacements.push({ from: "", to: "" }); p.edited(true); return true;
