@@ -913,7 +913,35 @@ requirements, light enough for a Pi.
       gallons follow `brain.imperial` (us, the default, or uk).
     - `maths`: a sum said in words or digits, evaluated by a small parser, never `eval`.
       Anything that isn't all numbers and operators isn't a sum, so the turn goes on.
-  - People, media, calendar and lists; fun and Alfie himself.
+  - People, media, calendar and lists (`household.py`, pure; four commands, before HA's
+    intents; read-only, control stays with HA).
+    - `people`: who's home, is anyone or everyone home, is X home or out, where X is (home,
+      out, or the zone's name), how long X has been home or out, and when X got home or left.
+      The last two read a week of the person's recorder history, since a restart resets
+      `last_changed`.
+    - `media`: what's playing, the song, the artist, the album, is anything playing, and
+      what's on the TV (device class tv). One player by name ("on the record player"). The
+      same song on two players (Music Assistant and the speaker's own integration) is said
+      once. Players: `brain.media_players`, else every one but Music Assistant groups and the
+      integrations in `media_skip` (`plex`: it lists friends streaming from the server).
+    - `calendar`: what's on (today, tonight, tomorrow, a weekday, this weekend or week, next
+      week, this month, the coming week), anything on or free, what's next, and when or what
+      time an event is ("when is my next dance"). One `calendar.get_events` for a year of every
+      calendar, kept `calendar_minutes` (60) and until a calendar entity changes. "What's on"
+      reads `brain.calendars` ([] every one); "when is" looks in all. `event_max` (6) are said.
+      - An event is found by its words: every word asked must be in the title, the fewest
+        extra words win, then the soonest. Possessives, plurals, "bday" and "(regional
+        holiday)" don't count, and "Boxing Day / Christmas Holiday" is tried part by part.
+      - Named dates are checked against the calendars (Lukas, 2026-10-30): with
+        `calendar_dates` on, "how many sleeps until Christmas" takes the holidays calendar's
+        Christmas Day over the language's rule, and "Dad's birthday" finds "Scarfe Dad
+        Birthday". The user's own `brain.dates` still win.
+    - `lists`: what's on a list, how many things, is X on it, "do we need milk". A list by its
+      name ("the groceries list"); "the list", "to-do list" and "what do we need" mean
+      `brain.todo_list` ("" `todo.shopping_list`). `todo.get_items`, unfinished items only,
+      `list_max` (10) said.
+    - The panel's Brain tab has a "Home and calendar" card for these settings.
+  - Fun and Alfie himself.
   - Wikipedia: kiwix-serve directly (`brain.wiki_url`), only "who/what/where is X" and "tell me
     about X", only when a top hit's title matches X; the lead's first `wiki_sentences`
     sentences. Otherwise the delegate.
