@@ -54,7 +54,7 @@ from .config import _Check
 from .const import DOMAIN, HOUSE_MODES
 from .mood import COMBINE_MODES, LEVELS
 from .signals import OPERATORS, SEVERITIES
-from . import modes, stories, suggest, tell, triggers, voice
+from . import brain, modes, stories, suggest, tell, triggers, voice
 from .pictures import MAX_UPLOAD, PictureError
 from .screen_types import options_from_yaml, options_yaml
 from .providers.picture import store_for as picture_store
@@ -68,6 +68,7 @@ def async_register(hass: HomeAssistant) -> None:
     for cmd in (ws_subscribe, ws_config_get, ws_config_set, ws_config_reset, ws_config_preview,
                 ws_screens, ws_screen_data, ws_story_play, ws_story_expand, ws_triggers_status,
                 ws_suggest, ws_voice_status, ws_voice_say, ws_speech_preview, ws_brain_turns,
+                ws_brain_sentences, ws_brain_match,
                 ws_pictures_list, ws_picture_get, ws_picture_upload, ws_picture_rename,
                 ws_picture_delete, ws_face, ws_screen_yaml):
         websocket_api.async_register_command(hass, cmd)
@@ -428,6 +429,45 @@ def ws_brain_turns(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
     connection.send_result(msg["id"])
     connection.send_message(websocket_api.event_message(
         msg["id"], {"turns": agent.log.as_list(), "agent": agent.entity_id}))
+
+
+def _agent(hass: HomeAssistant, connection: websocket_api.ActiveConnection, mid: int) -> Any:
+    agent = hass.data[DOMAIN].get("brain")
+    if agent is None:
+        connection.send_error(mid, "not_loaded", "Alfie's brain is not set up")
+    return agent
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "alfie/brain/sentences",
+                                  vol.Optional("language"): str})
+@websocket_api.async_response
+async def ws_brain_sentences(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+                             msg: dict[str, Any]) -> None:
+    """His own sentences for each command, in the language (the panel lists them)."""
+    if _engine(hass, connection, msg["id"]) is None:
+        return
+    language = msg.get("language") or hass.config.language
+    words = await hass.async_add_executor_job(brain.load_language, language) or {}
+    cmds = words.get("commands") or {}
+    connection.send_result(msg["id"], {"sentences": {c: cmds.get(c, []) for c in brain.COMMANDS},
+                                       "labels": brain.LABELS})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "alfie/brain/match",
+                                  vol.Required("text"): vol.All(str, vol.Length(max=500)),
+                                  vol.Optional("language"): str})
+@websocket_api.async_response
+async def ws_brain_match(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+                         msg: dict[str, Any]) -> None:
+    """Which of his commands read a sentence, in the order he tries them, with
+    their slots. Nothing is answered or done (the panel's try box)."""
+    if _engine(hass, connection, msg["id"]) is None or \
+            (agent := _agent(hass, connection, msg["id"])) is None:
+        return
+    language = msg.get("language") or hass.config.language
+    connection.send_result(msg["id"], {"readings": await agent.readings(msg["text"], language)})
 
 
 # ------------------------------------------------------------- pictures
