@@ -12,6 +12,7 @@ goes on to the next tier.
 from __future__ import annotations
 
 import logging
+import random
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -22,8 +23,8 @@ from homeassistant.util import dt as dt_util
 
 from homeassistant.helpers import entity_registry as er
 
-from . import answers, brain, finder, household, outside, reckon
-from .const import DOMAIN
+from . import answers, brain, finder, fun, household, outside, reckon
+from .const import DOMAIN, VERSION
 from .providers.forecast import raw_forecast
 
 _LOGGER = logging.getLogger(__name__)
@@ -51,6 +52,8 @@ class LocalAnswers:
         self._events_until = 0.0                      # monotonic; 0 means fetch again
         self._events_of: tuple[str, ...] = ()         # the calendars read, and watched
         self._unwatch: Any = None
+        self._rng = random.Random()
+        self._jokes = fun.JokeBag()
 
     def close(self) -> None:
         if self._unwatch:
@@ -112,6 +115,9 @@ class LocalAnswers:
             return Reply(text, detail=cmd) if text else None
         if cmd in brain.HOUSEHOLD:
             text = await self._household(cmd, slots, words, s)
+            return Reply(text, detail=cmd) if text else None
+        if cmd in brain.FUN:
+            text = self._fun(cmd, slots, words, s)
             return Reply(text, detail=cmd) if text else None
         if cmd in brain.OUTSIDE:
             text = await self._outside(cmd, slots, words, s)
@@ -238,6 +244,28 @@ class LocalAnswers:
                 return None
             return reckon.world_reply(slots.get("wt", "time"), slots.get("place", ""), now,
                                       now.astimezone(tz), words)
+        return None
+
+    def _fun(self, cmd: str, slots: dict[str, str], words: dict[str, Any],
+             s: dict[str, Any]) -> str | None:
+        value, rng = slots.get("value", ""), self._rng
+        if cmd == "coin":
+            return fun.coin_reply(words, rng)
+        if cmd == "dice":
+            return fun.dice_reply(value or "a die", words, rng)
+        if cmd == "number":
+            return fun.number_reply(value, words, rng, s["random_max"])
+        if cmd == "pick":
+            return fun.pick_reply(fun.with_commas(value, slots.get("_text", "")), words, rng)
+        if cmd == "joke":
+            text = fun.joke_reply(self._jokes, words, s["jokes"], s["builtin_jokes"], rng)
+            self.engine.joke_reaction()
+            return text
+        if cmd == "chat":
+            made = getattr(self.engine.entry, "created_at", None)
+            days = (dt_util.now() - made).days if made else None
+            return fun.chat_reply(slots.get("ask", ""), words, rng, self.engine.name, days,
+                                  VERSION)
         return None
 
     async def _zone(self, place: str, words: dict[str, Any]) -> Any:

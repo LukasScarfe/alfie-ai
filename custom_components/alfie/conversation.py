@@ -31,7 +31,7 @@ from homeassistant.helpers import intent
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from . import brain, tell
+from . import brain, fun, tell
 from .const import DOMAIN, VERSION
 from .engine import AlfieEngine
 from .local import LocalAnswers
@@ -40,7 +40,8 @@ from .voice import _lookup
 _LOGGER = logging.getLogger(__name__)
 
 # The order his matched commands are tried in: the more particular first.
-ORDER = ("whats_wrong", "how_are_you", "run", "moon", "sun", "weather_gear", "weather_forecast",
+ORDER = ("whats_wrong", "how_are_you", "run", "repeat", "help", "coin", "dice", "number", "pick",
+         "joke", "chat", "moon", "sun", "weather_gear", "weather_forecast",
          "weather_now", "world_time", "people", "media", "lists", "calendar", "dates", "convert",
          "maths", "entity_when", "entity_history", "entity_count", "entity")
 TRIES = 4           # readings of one command tried (hassil splits a sentence several ways)
@@ -72,6 +73,8 @@ class AlfieAgent(conversation.ConversationEntity):
         self.local = LocalAnswers(engine.hass, engine)
         # conversation id -> (command, slots, choices, monotonic asked at)
         self._which: dict[str, tuple[str, dict[str, str], list[str], float]] = {}
+        # satellite ("" none) -> (his last reply there, monotonic said at): "say that again"
+        self._said: dict[str, tuple[str, float]] = {}
 
     @property
     def supported_languages(self) -> list[str] | Literal["*"]:
@@ -146,11 +149,15 @@ class AlfieAgent(conversation.ConversationEntity):
             return sum(len(x.get(w, "")) for w in brain.WILDCARDS)
         return [(c, sl) for c in ORDER for sl in sorted(found.get(c, []), key=loose)[:TRIES]]
 
-    async def _answer_own(self, cmd: str, slots: dict[str, str], language: str
-                          ) -> tuple[str, str, list[str]] | None:
+    async def _answer_own(self, cmd: str, slots: dict[str, str], language: str,
+                          satellite: str = "") -> tuple[str, str, list[str], bool] | None:
         """(reply, detail, choices, unknown), or None when the command can't
         answer this after all (the turn goes on)."""
         mood = self.engine.mood
+        if cmd == "repeat":
+            return self._repeat(satellite, language), cmd, [], False
+        if cmd == "help":
+            return self._help(language), cmd, [], False
         if cmd == "whats_wrong":
             return tell.spoken(mood, _lookup(self.hass)), cmd, [], False
         if cmd == "how_are_you":
@@ -169,7 +176,7 @@ class AlfieAgent(conversation.ConversationEntity):
                        ) -> conversation.ConversationResult | None:
         unknown = None
         for cmd, slots in matches:
-            got = await self._answer_own(cmd, slots, language)
+            got = await self._answer_own(cmd, slots, language, turn.satellite)
             if got is None:
                 continue
             if got[3]:
@@ -190,6 +197,28 @@ class AlfieAgent(conversation.ConversationEntity):
             turn.why = brain.why("own", unknown[0])
             return self._reply(unknown[1], language, chat_log)
         return None
+
+    def _repeat(self, satellite: str, language: str) -> str:
+        """His last reply on this satellite (or anywhere, from none), while
+        `repeat_minutes` lasts."""
+        words = brain.load_language(language) or {}
+        keep = self.engine.config["brain"]["repeat_minutes"] * 60
+        now = time.monotonic()
+        got = self._said.get(satellite)
+        if (got is None or now - got[1] > keep) and not satellite and self._said:
+            got = max(self._said.values(), key=lambda x: x[1])
+        if got is None or now - got[1] > keep:
+            return fun._t(words, "nothing_said")
+        return got[0]
+
+    def _help(self, language: str) -> str:
+        s = self.engine.config["brain"]
+        delegate = ""
+        if s["delegate"]:
+            st = self.hass.states.get(s["delegate"])
+            delegate = st.name if st else ""
+        return fun.help_reply(brain.commands_on(s) if s["own_sentences"] else [],
+                              brain.load_language(language) or {}, delegate)
 
     async def _answer_which(self, text: str, language: str, turn: brain.Turn,
                             chat_log: conversation.ChatLog) -> conversation.ConversationResult | None:
@@ -315,6 +344,8 @@ class AlfieAgent(conversation.ConversationEntity):
 
     @callback
     def _finish(self, turn: brain.Turn) -> None:
+        if turn.reply and turn.detail != "repeat":
+            self._said[turn.satellite] = (turn.reply, time.monotonic())
         self.log.add(turn)
         if turn.tier == 1:
             self.engine.brain_badge(1)

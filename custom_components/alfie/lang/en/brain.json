@@ -125,6 +125,56 @@
       "{has_q:ask} {item} on [the|my|our] list",
       "{need_has:ask} [more|any|some] {item}"
     ],
+    "repeat": [
+      "(say|repeat) (that|it) again [please]",
+      "repeat (that|it|yourself|the answer) [please]",
+      "what did you [just] say",
+      "(sorry|pardon) [what|me]",
+      "come again",
+      "say again",
+      "one more time",
+      "(i|we) didn't (catch|hear|get) (that|you|it|what you said)"
+    ],
+    "help": [
+      "what (can|do) you do [for me]",
+      "what (can|should) (i|we) ask [you]",
+      "what (do|can) you know [about]",
+      "what are you (able to do|good at|good for)",
+      "what are your (skills|abilities|features|commands)",
+      "what commands do you (know|understand)",
+      "how can you help [me|us]",
+      "help [me] [please]"
+    ],
+    "coin": [
+      "(flip|toss) [me] a coin [for me] [please]",
+      "[do] [a] coin (flip|toss) [please]",
+      "heads or tails"
+    ],
+    "dice": [
+      "(roll|throw) [me] {value}",
+      "dice roll [please]"
+    ],
+    "number": [
+      "(pick|choose|give me|say|think of|tell me|generate) a [random] number [{value}]",
+      "[give me] [a] random number [{value}]"
+    ],
+    "pick": [
+      "(pick|choose) [one|something] (between|from|out of|of) {value}",
+      "(pick|choose) one {value}",
+      "help (me|us) (pick|choose|decide) (between|from) {value}"
+    ],
+    "joke": [
+      "tell (me|us) [a|another] [funny|good|silly|dad|new] joke [please]",
+      "tell (me|us) something funny [please]",
+      "(do you know|know|got|have you got|you got) any [good|funny|new] jokes",
+      "make (me|us) laugh [please]",
+      "say something funny [please]",
+      "(i want|i'd like|i would like) [to hear] a joke",
+      "[another] joke [please]"
+    ],
+    "chat": [
+      "{chat_q:ask} [alfie|buddy|mate|pal] [please]"
+    ],
     "entity": [
       "<what_is> {name}",
       "<what_is> {name} (at|on|reading|showing|set to|doing)",
@@ -166,6 +216,7 @@
    "in_area": "[(in|on|at|around|inside)] [the] {area}", "outside": "(outside|out there|outdoors|out)",
    "now": "(now|right now|at the moment|currently)", "in_place": "in {place}"},
   "lists": {
+    "chat_q": {"what's your name": "name", "what is your name": "name", "whats your name": "name", "who are you": "name", "what are you": "name", "what should i call you": "name", "what do i call you": "name", "hello": "hello", "hi": "hello", "hey": "hello", "hey there": "hello", "hi there": "hello", "hello there": "hello", "howdy": "hello", "good morning": "morning", "morning": "morning", "good afternoon": "afternoon", "good evening": "evening", "good night": "night", "goodnight": "night", "night night": "night", "thank you": "thanks", "thanks": "thanks", "thanks a lot": "thanks", "thank you very much": "thanks", "cheers": "thanks", "ta": "thanks", "i love you": "praise", "you're the best": "praise", "you are the best": "praise", "you're great": "praise", "you're awesome": "praise", "you're amazing": "praise", "good job": "praise", "well done": "praise", "nice one": "praise", "good boy": "praise", "you're funny": "praise", "you're stupid": "rude", "you're useless": "rude", "you are useless": "rude", "you're dumb": "rude", "you suck": "rude", "bad alfie": "rude", "are you there": "there", "are you awake": "there", "are you listening": "there", "can you hear me": "there", "you there": "there", "how old are you": "age", "when were you born": "age", "what's your age": "age", "what version are you": "version", "what's your version": "version", "what version are you on": "version", "who made you": "maker", "who built you": "maker", "who created you": "maker", "who wrote you": "maker", "where do you come from": "maker", "i'm bored": "bored", "i am bored": "bored", "we're bored": "bored"},
     "_": "Each list: the words someone says -> what the answer code gets.",
     "state": {"on": "on", "off": "off", "open": "open", "opened": "open", "closed": "closed", "shut": "closed", "locked": "locked",
      "unlocked": "unlocked", "home": "home", "at home": "home", "away": "away", "out": "away", "not home": "away",
@@ -330,7 +381,7 @@
     "where_q": {"where is": "where", "where's": "where", "wheres": "where", "where are": "where"},
     "since_w": {"home": "how_long", "back": "how_long", "in": "how_long", "out": "how_long", "away": "how_long", "gone": "how_long", "there": "how_long", "at home": "how_long", "out of the house": "how_long"},
     "arrive_w": {"get home": "arrived", "come home": "arrived", "arrive home": "arrived", "arrive": "arrived", "get back": "arrived", "come back": "arrived", "get in": "arrived", "come in": "arrived", "leave": "left", "leave home": "left", "leave the house": "left", "go out": "left", "head out": "left", "go": "left"},
-    "media_q": {"what's playing": "playing", "what is playing": "playing", "whats playing": "playing", "what's playing right now": "playing", "what music is playing": "playing", "what music is on": "playing", "what's this music": "playing", "what are we listening to": "playing", "what am i listening to": "playing", "what song is this": "song", "what song is playing": "song", "what's this song": "song", "what is this song": "song", "whats this song": "song", "what song is that": "song", "what's the song": "song", "what is the song": "song", "what's this song called": "song", "what is this song called": "song", "name this song": "song", "what's the name of this song": "song", "what is the name of this song": "song", "what track is this": "song", "what's this track": "song", "who is this": "artist", "who's this": "artist", "whos this": "artist", "who sings this": "artist", "who sings this song": "artist", "who's singing": "artist", "who is singing": "artist", "who sang this": "artist", "who is this by": "artist", "who's this by": "artist", "who is the artist": "artist", "who's the artist": "artist", "who is playing": "artist", "who's playing": "artist", "what band is this": "artist", "who is this song by": "artist", "what album is this": "album", "what album is this from": "album", "what album is this on": "album", "what album is this song from": "album", "what album is playing": "album", "is anything playing": "anything", "is something playing": "anything", "is there anything playing": "anything", "is any music playing": "anything", "is music playing": "anything", "is there music on": "anything", "is there any music on": "anything", "is the music on": "anything", "is music on": "anything", "what's on the tv": "tv", "what's on tv": "tv", "what is on the tv": "tv", "whats on the tv": "tv", "what's on the telly": "tv", "what's on the television": "tv", "what is on tv": "tv", "what are we watching": "tv", "what am i watching": "tv", "what's this show": "tv", "what show is this": "tv", "what is the tv showing": "tv", "what's the tv showing": "tv", "what's on the tv right now": "tv"},
+    "media_q": {"what's playing": "playing", "what is playing": "playing", "whats playing": "playing", "what's playing right now": "playing", "what music is playing": "playing", "what music is on": "playing", "what's on": "playing", "what is on": "playing", "whats on": "playing", "what's this music": "playing", "what are we listening to": "playing", "what am i listening to": "playing", "what song is this": "song", "what song is playing": "song", "what's this song": "song", "what is this song": "song", "whats this song": "song", "what song is that": "song", "what song is on": "song", "what's that song": "song", "what is that song": "song", "whats that song": "song", "what's the song": "song", "what is the song": "song", "what's this song called": "song", "what is this song called": "song", "name this song": "song", "what's the name of this song": "song", "what is the name of this song": "song", "what track is this": "song", "what's this track": "song", "who is this": "artist", "who's this": "artist", "whos this": "artist", "who sings this": "artist", "who sings this song": "artist", "who's singing": "artist", "who is singing": "artist", "who sang this": "artist", "who is this by": "artist", "who's this by": "artist", "who is the artist": "artist", "who's the artist": "artist", "who is playing": "artist", "who's playing": "artist", "whos playing": "artist", "whos singing": "artist", "what band is this": "artist", "who is this song by": "artist", "what album is this": "album", "what album is this from": "album", "what album is this on": "album", "what album is this song from": "album", "what album is playing": "album", "is anything playing": "anything", "is something playing": "anything", "is there anything playing": "anything", "is any music playing": "anything", "is music playing": "anything", "is there music on": "anything", "is there any music on": "anything", "is the music on": "anything", "is music on": "anything", "what's on the tv": "tv", "what's on tv": "tv", "what is on the tv": "tv", "whats on the tv": "tv", "what's on the telly": "tv", "what's on the television": "tv", "what is on tv": "tv", "what are we watching": "tv", "what am i watching": "tv", "what's this show": "tv", "what show is this": "tv", "what is the tv showing": "tv", "what's the tv showing": "tv", "what's on the tv right now": "tv"},
     "doing_w": {"playing": "playing", "showing": "tv", "watching": "tv"},
     "playing_w": {"playing": "anything", "playing anything": "anything", "playing music": "anything", "playing something": "anything"},
     "cal_span": {"today": "today", "for today": "today", "tonight": "tonight", "this evening": "tonight", "tomorrow": "tomorrow", "for tomorrow": "tomorrow", "tomorrow night": "tomorrow_night", "tomorrow evening": "tomorrow_night", "this weekend": "weekend", "the weekend": "weekend", "at the weekend": "weekend", "on the weekend": "weekend", "over the weekend": "weekend", "this week": "week", "the rest of the week": "week", "the rest of this week": "week", "next week": "next_week", "this month": "month", "the rest of the month": "month", "this coming week": "coming", "the next few days": "coming", "the next week": "coming", "coming up": "coming", "soon": "coming", "monday": "mon", "on monday": "mon", "this monday": "mon", "tuesday": "tue", "on tuesday": "tue", "this tuesday": "tue", "wednesday": "wed", "on wednesday": "wed", "this wednesday": "wed", "thursday": "thu", "on thursday": "thu", "this thursday": "thu", "friday": "fri", "on friday": "fri", "this friday": "fri", "saturday": "sat", "on saturday": "sat", "this saturday": "sat", "sunday": "sun", "on sunday": "sun", "this sunday": "sun"},
@@ -785,6 +836,87 @@
       "run_done": "OK, {name}.",
       "run_failed": "{name} didn't start."
     }
+  },
+  "fun": {
+    "_": "fun.py: chance, jokes, small talk and help. Jokes are \"setup | punchline\"; lines are picked at random; help's groups are said when any of their commands is on.",
+    "replies": {
+      "heads": "Heads.",
+      "tails": "Tails.",
+      "rolled": "You rolled {n}.",
+      "rolled_many": "{rolls}. That's {total}.",
+      "too_many_dice": "I can roll up to {most} dice, with up to a thousand sides each.",
+      "number": "{n}.",
+      "picked": "I pick {thing}.",
+      "and": "and",
+      "no_jokes": "I don't know any jokes yet.",
+      "age": "I was set up {n} {days} ago.",
+      "age_today": "I was set up today.",
+      "day": "day",
+      "days": "days",
+      "version": "I'm version {version}.",
+      "help": "I can tell you about {things}.",
+      "help_do": "I can also {things}.",
+      "help_do_only": "I can {things}.",
+      "help_none": "Not much right now: my own answers are all switched off.",
+      "help_delegate": "For anything else, I ask my bigger brain.",
+      "nothing_said": "I haven't said anything yet."
+    },
+    "lines": {
+      "name": ["I'm {name}.", "My name's {name}. I look after the house."],
+      "age_unknown": "Young, I think.",
+      "hello": ["Hello!", "Hi there.", "Hey!"],
+      "morning": ["Good morning!", "Morning!"],
+      "afternoon": ["Good afternoon."],
+      "evening": ["Good evening."],
+      "night": ["Good night. Sleep well.", "Night night."],
+      "thanks": ["You're welcome.", "Any time.", "No problem."],
+      "praise": ["Thank you! That's nice to hear.", "Aw, thanks.", "You're not so bad yourself."],
+      "rude": ["I'm doing my best.", "Ouch.", "I'll try to do better."],
+      "there": ["I'm here.", "Yes, I'm listening."],
+      "maker": ["I'm Alfie, an app for Home Assistant, made by Lukas Scarfe."],
+      "bored": ["Want a joke? Just ask me for one.", "I could flip a coin for you. Thrilling, I know."]
+    },
+    "help": [
+      {"say": "the house and anything in it", "commands": ["entity", "entity_count", "entity_when", "entity_history", "whats_wrong"]},
+      {"say": "the weather, the sun and the moon", "commands": ["weather_now", "weather_forecast", "weather_gear", "sun", "moon"]},
+      {"say": "times, dates, sums and units", "commands": ["world_time", "dates", "convert", "maths"]},
+      {"say": "who's home and what's playing", "commands": ["people", "media"]},
+      {"say": "your calendar and lists", "commands": ["calendar", "lists"]},
+      {"do": "start your voice actions", "commands": ["run"]},
+      {"do": "flip a coin, roll dice and tell jokes", "commands": ["coin", "dice", "number", "pick", "joke"]}
+    ],
+    "jokes": [
+      "Why don't skeletons fight each other? | They don't have the guts.",
+      "What do you call a fake noodle? | An impasta.",
+      "Why did the scarecrow win an award? | He was outstanding in his field.",
+      "I'm reading a book about anti-gravity. | It's impossible to put down.",
+      "Why don't eggs tell jokes? | They'd crack each other up.",
+      "What do you call a bear with no teeth? | A gummy bear.",
+      "Why did the smart speaker go to therapy? | It had too many issues to process.",
+      "What's a light bulb's favourite game? | Hide and seek. It always switches off.",
+      "Why was the thermostat so calm? | It knew how to keep its cool.",
+      "I told the fridge a joke. | It gave me the cold shoulder.",
+      "Why did the robot go on holiday? | It needed to recharge its batteries.",
+      "What do you call a sleeping dinosaur? | A dino-snore.",
+      "How does a penguin build its house? | Igloos it together.",
+      "Why can't a bicycle stand up on its own? | It's two tired.",
+      "What did the ocean say to the beach? | Nothing, it just waved.",
+      "Why did the computer get cold? | It left its Windows open.",
+      "What do you call cheese that isn't yours? | Nacho cheese.",
+      "Why are ghosts bad at lying? | You can see right through them.",
+      "What did one wall say to the other? | I'll meet you at the corner.",
+      "Why did the cookie go to the doctor? | It was feeling crummy.",
+      "How do you organise a space party? | You planet.",
+      "Why did the math book look sad? | It had too many problems.",
+      "What do you call a deer with no eyes? | No idea.",
+      "Why do bees have sticky hair? | Because they use honeycombs.",
+      "What's orange and sounds like a parrot? | A carrot.",
+      "Why did the golfer bring two pairs of trousers? | In case he got a hole in one.",
+      "What kind of music do planets like? | Neptunes.",
+      "Why did the lamp get a promotion? | It was a bright idea.",
+      "I asked the house what it wanted for its birthday. | It said a new set of smart plugs. Very shocking.",
+      "Why don't oysters share? | Because they're shellfish."
+    ]
   },
   "fallback": "Sorry, I don't know that one."
 }

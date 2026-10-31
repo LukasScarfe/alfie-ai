@@ -258,7 +258,15 @@ const COMMANDS = [["whats_wrong", "What's wrong", "\"Is anything wrong?\": the s
   ["people", "Who's home", "\"Who's home?\", \"Where is Michelle?\", \"How long has Lukas been out?\", \"When did Michelle get home?\""],
   ["media", "What's playing", "\"What's playing?\", \"Who sings this?\", \"What's on the TV?\", \"Is anything playing in the kitchen?\""],
   ["calendar", "The calendar", "\"What's on tomorrow?\", \"Am I free on Friday?\", \"What's next?\", \"When is my next dance?\""],
-  ["lists", "Lists", "\"What's on the shopping list?\", \"How many things are on the to-do list?\", \"Do we need milk?\""]];
+  ["lists", "Lists", "\"What's on the shopping list?\", \"How many things are on the to-do list?\", \"Do we need milk?\""],
+  ["repeat", "Say that again", "\"Say that again\", \"What did you say?\", \"Sorry?\": his last reply on that speaker."],
+  ["help", "What can you do", "\"What can you do?\": what he answers himself, from the answers that are on."],
+  ["coin", "A coin", "\"Flip a coin\", \"Heads or tails?\""],
+  ["dice", "Dice", "\"Roll a die\", \"Roll two dice\", \"Roll a d20\", \"Roll three twelve sided dice\""],
+  ["number", "A random number", "\"Pick a number\", \"Give me a random number between 1 and 100\""],
+  ["pick", "Pick one", "\"Pick between pizza and tacos\", \"Choose one of red, green or blue\""],
+  ["joke", "Jokes", "\"Tell me a joke\", \"Make me laugh\": no repeats until he has told them all."],
+  ["chat", "Small talk", "\"Hello\", \"Thank you\", \"What's your name?\", \"How old are you?\", \"Are you there?\""]];
 const TIER = { 1: ["mdi:lightning-bolt", "Local"], 3: ["mdi:brain", "Delegate"], 0: ["mdi:help-circle-outline", "Unanswered"] };
 const SOURCE = { trigger: "Sentence trigger", own: "Alfie", intent: "Home Assistant", delegate: "Delegate",
   none: "Fallback", error: "Delegate failed" };
@@ -353,6 +361,15 @@ function brainTab(p) {
           "One media player per line; empty asks every one but Music Assistant groups.")}
         ${b.media_players?.length ? "" : U.wide("…but not these integrations'", `<textarea data-path="brain.media_skip" data-kind="lines" rows="1">${U.esc((b.media_skip || []).join("\n"))}</textarea>`,
           "One integration per line. Plex lists everyone streaming from your server, not just the house.")}`) : ""}
+      ${b.own_sentences ? U.card("Fun", `
+        ${U.check("brain.builtin_jokes", b.builtin_jokes, "His own jokes", "Thirty or so clean ones. Off: only yours below.")}
+        ${U.wide("Your jokes", `<textarea data-path="brain.jokes" data-kind="lines" rows="3" placeholder="Why did the robot go on holiday? | It needed to recharge.">${U.esc((b.jokes || []).join("\n"))}</textarea>`,
+          "One per line. A | splits the setup from the punchline, with a pause between.")}
+        <div class="grid">
+        ${U.field("Telling one, he looks", U.select("brain.joke_expression", b.joke_expression, [["", "Keep his face"], ...(p.choices?.expressions || []).map((e) => [e, U.human(e)])]))}
+        ${U.field("And plays", U.select("brain.joke_animation", b.joke_animation, [["", "Nothing"], ...(p.choices?.animations || []).map((a) => [a, U.human(a)])]))}
+        ${U.field("\"Pick a number\" goes up to", U.num("brain.random_max", b.random_max, { min: 2, max: 1000000, step: 1 }), "Unless a range is said.")}
+        ${U.field("\"Say that again\" remembers", U.num("brain.repeat_minutes", b.repeat_minutes, { min: 1, max: 1440, step: 1, unit: "min" }))}</div>`) : ""}
       ${U.card("Face and log", `<div class="grid">
         ${U.field("Local badge", U.text("brain.local_icon", b.local_icon, { placeholder: "None, or mdi:lightning-bolt" }))}
         ${U.field("Delegate badge", U.text("brain.delegate_icon", b.delegate_icon, { placeholder: "None, or mdi:brain" }))}
