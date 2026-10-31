@@ -877,13 +877,19 @@
       "bored": ["Want a joke? Just ask me for one.", "I could flip a coin for you. Thrilling, I know."]
     },
     "help": [
-      {"say": "the house and anything in it", "commands": ["entity", "entity_count", "entity_when", "entity_history", "whats_wrong"]},
-      {"say": "the weather, the sun and the moon", "commands": ["weather_now", "weather_forecast", "weather_gear", "sun", "moon"]},
-      {"say": "times, dates, sums and units", "commands": ["world_time", "dates", "convert", "maths"]},
-      {"say": "who's home and what's playing", "commands": ["people", "media"]},
-      {"say": "your calendar and lists", "commands": ["calendar", "lists"]},
+      {"say": "anything in the house", "commands": ["entity", "entity_count", "entity_when", "entity_history", "whats_wrong"]},
+      {"say": "the weather", "commands": ["weather_now", "weather_forecast", "weather_gear"]},
+      {"say": "the sky", "commands": ["sun", "moon"]},
+      {"say": "dates", "commands": ["world_time", "dates"]},
+      {"say": "sums", "commands": ["convert", "maths"]},
+      {"say": "who's home", "commands": ["people"]},
+      {"say": "what's playing", "commands": ["media"]},
+      {"say": "your calendar", "commands": ["calendar"]},
+      {"say": "your lists", "commands": ["lists"]},
       {"do": "start your voice actions", "commands": ["run"]},
-      {"do": "flip a coin, roll dice and tell jokes", "commands": ["coin", "dice", "number", "pick", "joke"]}
+      {"do": "flip coins", "commands": ["coin"]},
+      {"do": "roll dice", "commands": ["dice", "number", "pick"]},
+      {"do": "tell jokes", "commands": ["joke"]}
     ],
     "jokes": [
       "Why don't skeletons fight each other? | They don't have the guts.",
