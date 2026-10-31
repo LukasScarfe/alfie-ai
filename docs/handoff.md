@@ -23,95 +23,56 @@ Version 0.24.0.
 **Now: Alfie's brain, M13 to M18** (agreed with Lukas 2026-10-30; plan.md, design.md "Brain").
 A local-first voice pipeline inside Alfie, meant for the HA community too. Done: M13 Speech
 (`tts.alfie_voice`), M14 Brain (`conversation.alfie`; on production "Alfie (local)" uses it with
-"prefer local" off and `brain.delegate` = `conversation.alfie_desktop`, the Ollama LLM).
+"prefer local" off and `brain.delegate` = `conversation.alfie_desktop`, the Ollama LLM), and
+**M15 Local answers (0.27.0, on production)**.
 
-**In progress: M15 Local answers, steps A to D done (0.23.0, on production).** Lukas
-(2026-10-30) wants tier 1 to answer as much as it can without the LLM: "any relevant question that
-could be answered by a Home Assistant entity", plus weather, dates, maths, offline Wikipedia. The
-full question catalogue is in the approved plan, summarised in plan.md M15 and design.md "Brain" →
-Local answers.
-- How it works: each answer is a command in `brain.COMMANDS` with sentences, hassil lists
-  (`lists`, `things`) and rules in `lang/en/brain.json`.
-  - `{name}`, `{area}`, `{value}` and `{place}` are wildcards. `{list:slot}` works (hassil
-    3.12), so one list can fill a differently named slot, like `{feel:aspect}`.
-  - `conversation.py` collects every hassil reading (`recognize_all`), sorted by the length of
-    all wildcards (shortest first), `TRIES` per command, in `ORDER`.
-  - Commands in `brain.LATE` (entity, entity_count) run after HA's intents; the rest run before.
-  - `local.py` (the HA side) resolves names with `finder.py`'s index (from `voice.index()`),
-    reads states, recorder history, forecasts and sun times.
-  - `answers.py` (entities), `outside.py` (weather, sun, moon), `reckon.py` (time, dates,
-    sums) and `household.py` (people, media, calendar, lists) are pure and say the reply.
-    A reply of None means "not mine", and the turn goes on.
-- Step A (entities): `entity`, `entity_count`, `entity_when`, `entity_history`; settings
-  `off_commands`, `exposed_only`, `match_floor`, `ask_which`, `say_unknown`, `count_skip`.
-- Step B (outside, design.md has the detail): `weather_now`, `weather_forecast`, `weather_gear`,
-  `sun`, `moon`, all in `brain.OUTSIDE`.
-  - `local._outside` picks the weather entity: a place by name, else `brain.weather`, else the
-    first with "home" in its id. A span said after the place ("in whistler tomorrow") lands in
-    the wildcard; `_split_span` moves it back.
-  - Forecasts come from `providers/forecast.raw_forecast`, cached per (entity, kind) with the
-    screen's throttle rules.
-  - The sun comes from `homeassistant.helpers.sun.get_astral_event_date` for days -1 to 2. The
-    moon is Meeus, tested against known 2000 and 2024 phases.
-  - Thresholds: `cold_below`, `warm_above`, `windy_speed`, `rain_chance`, `rain_mm`, `sun_uv`.
-    The panel's new Outside card (Voice → Brain) has them. PNG sent: the panel's Brain tab.
-  - Checked on production with `./dev prod ask`, each question answered locally in 2 to 70 ms:
-    the weather now, is it raining or windy, will it rain tomorrow, when the rain stops, the
-    high tomorrow (in Whistler too), the weekend, tonight, the umbrella and the coat, sunset,
-    time until sunrise, is it dark, daylight, the moon phase and the next full moon.
+How local answers work (design.md "Brain" → Local answers has every command's detail):
+- Each answer is a command in `brain.COMMANDS` with sentences, hassil lists (`lists`, `things`)
+  and rules in `lang/en/brain.json`. Wildcards are `brain.WILDCARDS`; a list named like a
+  wildcard replaces it silently, so pick wildcard names not in `lists`.
+- `conversation.py` collects every hassil reading (`recognize_all`), drops readings whose
+  wildcard cuts a word (`brain.whole_words`), sorts by wildcard length, `TRIES` per command, in
+  `ORDER`. `brain.is_late` says which wait for HA's intents (entity, entity_count, and wiki
+  unless the question starts with `wiki.early`, like "who is").
+- "Which one?" and "I don't know a thing called …" are weak: held until every later command,
+  late ones included, has passed (`_try_own`'s `held`).
+- `local.py` (the HA side) resolves names (`finder.py`), reads states, history, forecasts, sun
+  times, calendars, lists, and fetches Wikipedia. Pure modules say the reply: `answers.py`
+  (entities), `outside.py`, `reckon.py`, `household.py`, `fun.py`, `wiki.py`. A reply of None
+  means "not mine", and the turn goes on.
+- Step E (0.25.0): `fun.py`, commands coin, dice, number, pick, joke, chat in `brain.FUN`;
+  `repeat` and `help` are conversation.py's (`_said` keeps the last reply per satellite).
+  Settings `jokes`, `builtin_jokes`, `joke_expression`, `joke_animation` (engine
+  `joke_reaction`), `random_max`, `repeat_minutes`; the panel's "Fun" card. PNG sent.
+- Step F (0.26.3): `wiki.py`, kiwix-serve directly. Production's `brain.wiki_url` is
+  `http://192.168.1.241:8091` (raccoon). Checked there: Einstein, a quasar, Timbuktu, the
+  Beatles, Vancouver, Taylor Swift and the meaning of life answer in 70-580 ms; Mercury (a
+  disambiguation) goes to the LLM. HA's own HassGetState still answers "who is in the kitchen"
+  with "Not any" (HA's, not changed).
+- Step G (0.27.0): the panel's command list folds each command's sentences, and a "Which one?"
+  try box (`alfie/brain/match`). PNG sent.
+- The media command also takes the "Music by voice" automation's phrasings now (bare "what's
+  on", "that song", "whos singing").
 
-- Step C (`reckon.py`, design.md has the detail): `world_time`, `dates`, `convert`, `maths`,
-  in `brain.RECKON`.
-  - Question types ride on lists bound to an `ask`, `wt` or `calc` slot (`{until_q:ask}`
-    `{date}`), so one command covers until, since, weekday, date, when, week, days left and
-    leap years.
-  - New wildcards: `{date}` and `{expr}`. Settings: `brain.dates` (lines "name: MM-DD"), and
-    `brain.imperial` (us or uk).
-  - The panel's Brain tab has four new toggles and a "Dates and units" card. PNG sent.
-  - Checked on production with `./dev prod ask`, all local in 2 to 120 ms: London, New York and
-    Tokyo, Christmas in days and sleeps, Easter, Thanksgiving, the date in 3 weeks, the week
-    number, days left, leap years, sums, percentages, square roots, miles to km, cups in a
-    litre, Celsius to Fahrenheit.
+**Voice actions (0.24.0)**: the `run` command starts what carries the "Alfie voice" label.
+On production `script.living_room_pc_on` ("Gaming PC") carries it. Not said for real yet.
 
-- Step D (`household.py`, design.md has the detail): `people`, `media`, `calendar`, `lists`,
-  in `brain.HOUSEHOLD`.
-  - New wildcards `{what}` (a calendar event) and `{item}` (a list item). `{event}` was taken:
-    it is the entity history's word list (opened, closed), and a list named like a wildcard
-    replaces it silently, so pick wildcard names not in `lists`.
-  - The calendar: one `calendar.get_events` for a year of every calendar, cached in
-    `LocalAnswers` (`calendar_minutes`, and a state listener on the calendars clears it).
-    Named dates in `dates` come from it too (`calendar_dates`): Lukas, 2026-10-30, "some of
-    those dates should be compared against the calendar". `reckon.date_key` is the key
-    `parse_when` looks named dates up by.
-  - Settings: `calendars`, `calendar_dates`, `calendar_minutes`, `event_max`, `media_players`,
-    `media_skip` (plex), `todo_list`, `list_max`; the panel's "Home and calendar" card.
-  - Checked on production with `./dev prod ask`, all local in 2 to 300 ms: who's home, is
-    anyone home, where, how long, when someone left; the TV; what's on tomorrow and this
-    weekend, free on Monday, what's next, the next dance, what time games is, when is
-    Christmas or Easter (from the holidays calendar), sleeps until Christmas, Dad's birthday;
-    the groceries list, how many on To Buy, do we need milk.
-  - On production "what's playing" is caught first by one of Lukas's automations' sentence
-    triggers ("Nothing is playing"); Alfie's answer only runs if that goes. Not changed.
-  - Production's `todo.shopping_list` is empty; Groceries (`todo.shopping`) looks like the real
-    one. `brain.todo_list` is left at "" until Lukas says.
+**Waiting on Lukas:**
+- "What's playing": the "Music by voice" automation's `whats_playing` sentence trigger
+  (`/mnt/homeassistant/automations.yaml`, the trigger and its `choose` branch) still answers
+  before Alfie. Lukas asked (2026-10-31) for it to go, but the session's permission classifier
+  blocked editing the HA config, so it is still there. Alfie's media answer covers all its
+  phrasings. The HA config repo also has uncommitted changes from another session: commit only
+  that hunk.
+- M16 Timers and alarms needs its plan agreed first (plan.md: a timer screen on the card, the
+  ring sound), then M17 Matcher, M18 Dot extras.
+- `brain.todo_list` stays "" (Lukas: forget it for now).
 
-**Voice actions (0.24.0, on production)**, built between D and E at Lukas's request: the
-`run` command starts what carries the "Alfie voice" label (design.md "Brain" → Voice actions).
-On production `script.living_room_pc_on` ("Gaming PC": wake on LAN, TV on to HDMI 1) carries it,
-so "turn on the gaming PC" works again. HA's own "turn on" never matches scripts, so it had been
-going to the LLM. It hasn't been said for real yet: Lukas to try it.
-- Open: Lukas said "all voice should be centred on Alfie". The "Music by voice" automation's
-  `whats_playing` sentence trigger (`/mnt/homeassistant/automations.yaml`) still answers "what's
-  playing" before Alfie does. Removing it was stopped mid-step, so ask before trying again. The
-  HA config repo also has uncommitted changes from another session.
-
-**Next: M15 step E, fun and Alfie himself** (coin, dice, jokes, say that again, what can you
-do).
-
-After E:
-- F: Wikipedia, from kiwix-serve :8091 directly. Port `wiki_api.py`'s parser from
-  `~/Documents/containers/assistant/wiki-api/`.
-- G: the panel. Every command with its toggle, sentences and a try box; PNGs for Lukas.
+**The oscilloscope sidecar** (`scope/`, on Numbat at `/home/lukas/alfie-ai/scope`, a git
+checkout: `git pull && docker compose up -d --build` there). On 2026-10-30 a deploy restart
+left it dead for 90 minutes: the page reloaded while HA was down, `createConnection` threw and
+nothing retried. Now page.html retries that, and bridge.js reopens a page whose card hasn't come
+up (`window.scopeUp`) for `CARD_WAIT` (90) s.
 
 Bump the version on each deploy: `manifest.json` and `const.py` `VERSION` (the device's
 sw_version, which deploy checks). Run `./dev test` after bumping.

@@ -273,7 +273,7 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
         live turn log via `alfie/brain/turns`). 0.19.0.
   - [x] D. Dev HA checks and PNGs; on production, with Lukas's OK, "Alfie (local)" uses
         `conversation.alfie` (delegate Alfie desktop) with "prefer local" off.
-- [~] **15. Local answers.** Tier 1 answers quick factual questions without the LLM: any
+- [x] **15. Local answers.** Tier 1 answers quick factual questions without the LLM: any
       entity (state, attributes, areas, when it changed, history), weather and sky, time, dates
       and maths, people, media, calendar and lists, fun, and offline Wikipedia (kiwix-serve).
       Each answer is a command with a toggle, sentences and reply templates. (Agreed with Lukas
@@ -292,7 +292,8 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
         again, what can you do. `fun.py`, 0.25.0.
   - [x] F. Wikipedia from kiwix-serve (who/what/where is X, lead sentences). `wiki.py`,
         0.26.3; on production `wiki_url` is raccoon's kiwix-serve.
-  - [ ] G. Voice → Brain lists every command (toggle, sentences, try box); PNGs.
+  - [x] G. Voice → Brain lists every command (toggle, its sentences folded with yours, a
+        "Which one?" try box); PNG sent. 0.27.0.
 - [ ] **16. Timers and alarms.** Persistent, ring on the satellite that set them; named timers,
       add/remove time, pause, status, one-off and repeating alarms, snooze, stop (voice or the
       Dot's button). `sensor.alfie_timers` and a `custom:alfie-timers` badge with live

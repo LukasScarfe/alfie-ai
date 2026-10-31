@@ -988,6 +988,10 @@ requirements, light enough for a Pi.
       ("who is Taylor Swift": HA's state intent answered "Not any").
     - Answers (and names with no article) are cached, 200 of them; kiwix down is not cached.
     - The panel's Brain tab has a "Wikipedia" card.
+  - The panel lists every command: its toggle, and "Sentences: N of his" folding his own
+    sentences (`alfie/brain/sentences`) with the user's extra ones. A "Which one?" box shows
+    which commands read a sentence, in the order a turn tries them, with their slots
+    (`alfie/brain/match`); nothing is answered or done.
   - Weak answers wait: "which one?" and "I don't know a thing called …" are held while any
     command after them, late ones included, may answer ("tell me about Vancouver" was "which
     one" of the Vancouver weather sensors). A reading whose wildcard starts or ends inside a
@@ -1116,6 +1120,9 @@ keeps the DAC, the planner, the wiring correction, music and its own screens.
   marks, so for the second or so that condense's slow ends leave the picture still, it was drawn
   a little differently from the screen itself: a visible jump just before a screen left, and
   after it arrived (Lukas saw it most on the sky).
+- **It recovers by itself.** After HA restarts (a deploy) the page reloads; if HA is still down
+  when the page connects, it retries every 5 s, and the bridge reopens a page whose card hasn't
+  come up within `CARD_WAIT` (90 s).
 - **60 Hz, from a timer** (Lukas: "always 60"). `scope/page.html` replaces
   `requestAnimationFrame` with a timer at `FPS` (default 60), so the feed can match xy-bench
   whatever its rate. Alfie's frames are long, so xy-bench used to stretch them to its 50 fps
