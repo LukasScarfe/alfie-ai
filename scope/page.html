@@ -43,7 +43,13 @@
   // No HA frontend, so no <ha-icon>: icon names resolve from bundled mdi paths.
   globalThis.ALFIE_ICONS = await (await fetch("/__alfie_scope__/mdi.json")).json();
 
-  const conn = await createConnection({ auth: createLongLivedTokenAuth(location.origin, S.token) });
+  // HA may still be down (a reload while it restarts): try again. haws rejects with a bare code.
+  let conn;
+  try { conn = await createConnection({ auth: createLongLivedTokenAuth(location.origin, S.token) }); } catch (e) {
+    console.error(`alfie-scope: HA not answering (error ${e?.message ?? e}), retrying in 5 s`);
+    setTimeout(() => location.reload(), 5000);
+    throw e;
+  }
   // A reconnect is usually HA restarting, maybe with a new Alfie: start afresh.
   conn.addEventListener("ready", () => location.reload());
 
@@ -76,5 +82,6 @@
   for (let i = 0; i < 100 && !hass.config; i++) await new Promise((r) => setTimeout(r, 100));
   el.hass = { ...hass };
   document.body.appendChild(el);
+  window.scopeUp = true;
   console.log(`alfie-scope: card up, ${S.fps} fps`);
 </script>

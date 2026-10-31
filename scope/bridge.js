@@ -32,6 +32,7 @@ const SETTINGS_PASSWORD = env("SETTINGS_PASSWORD", "");
 const DUMP = env("DUMP", "");   // a file to write the newest frame to on each status line (debugging)
 const RECORD = env("RECORD", "");   // a file to append every frame to, one JSON line each (debugging)
 const STATS = Number(env("STATS", "60"));   // seconds between status lines
+const CARD_WAIT = Number(env("CARD_WAIT", "90"));   // seconds a page may go without its card
 const WIDTH = 640;   // canvas pixels; strokes leave in [-1, 1], so only rounding sees this
 // The card's shape is Alfie's Look aspect (Appearance -> Look), down to 0.5: a
 // viewport twice as tall as wide holds the whole card, so it never counts as off screen.
@@ -240,7 +241,7 @@ async function reopen() {
 
   // A status line every STATS seconds. Frames stop on their own while a
   // house mode hides Alfie; a page that stops answering is opened afresh.
-  let was = 0;
+  let was = 0, downSince = 0;
   setInterval(async () => {
     const n = frames - was; was = frames;
     if (DUMP && newest) fs.writeFile(DUMP, JSON.stringify(newest), () => {});
@@ -249,8 +250,16 @@ async function reopen() {
       `${late} late, longest gap ${Math.round(worstGap)} ms`);
     status = { fps: n / STATS, strokes, sent, dropped, failed, error: failed ? lastError : "", late, gap: Math.round(worstGap) };
     late = 0; worstGap = 0;
-    const alive = await Promise.race([page.evaluate(() => 1).catch(() => 0),
+    const alive = await Promise.race([page.evaluate(() => (window.scopeUp ? 2 : 1)).catch(() => 0),
       new Promise((r) => setTimeout(() => r(0), 10000))]);
-    if (!alive) { console.error("alfie-scope: page not answering, reopening"); reopen(); }
+    if (!alive) { console.error("alfie-scope: page not answering, reopening"); reopen(); return; }
+    // A page that answers but whose card never came up (it stopped on an error
+    // its own retries missed) is opened afresh after CARD_WAIT seconds.
+    if (alive === 2) downSince = 0;
+    else if (!downSince) downSince = Date.now();
+    else if (Date.now() - downSince > CARD_WAIT * 1000) {
+      console.error(`alfie-scope: no card for ${CARD_WAIT} s, reopening`);
+      downSince = 0; reopen();
+    }
   }, STATS * 1000);
 })().catch((e) => { console.error(e); process.exit(1); });
