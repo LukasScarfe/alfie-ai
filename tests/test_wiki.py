@@ -92,3 +92,11 @@ def test_sentences(text, topic):
     got = [(brain.command_of(r.intent.name), {k: str(v.value).strip() for k, v in r.entities.items()})
            for r in hassil.recognize_all(text, INTENTS)]
     assert ("wiki", {"topic": topic}) in got, got
+
+
+def test_who_questions_go_early():
+    assert not brain.is_late("wiki", "Who is Taylor Swift", EN)
+    assert not brain.is_late("wiki", "tell me about Vancouver", EN)
+    assert brain.is_late("wiki", "what is the office temperature", EN)
+    assert brain.is_late("entity", "who is home", EN)
+    assert not brain.is_late("coin", "flip a coin", EN)

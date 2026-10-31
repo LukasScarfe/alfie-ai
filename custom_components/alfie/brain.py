@@ -188,6 +188,18 @@ def own_intents(words: Mapping[str, Any] | None, settings: Mapping[str, Any],
             "expansion_rules": dict(words.get("rules") or {})}
 
 
+def is_late(cmd: str, text: str, words: Mapping[str, Any] | None) -> bool:
+    """Whether a command waits for Home Assistant's intents. Wikipedia does,
+    except for questions starting with the language's `wiki.early` words
+    ("who is Taylor Swift": HA's state intent would answer "Not any")."""
+    if cmd not in LATE:
+        return False
+    if cmd == "wiki":
+        early = ((words or {}).get("wiki") or {}).get("early") or []
+        return not " ".join(text.lower().split()).startswith(tuple(early))
+    return True
+
+
 def whole_words(slots: Mapping[str, str], text: str) -> bool:
     """Whether every wildcard slot is whole words of the text. hassil can end
     a list word inside a word ("what is the meaning of life" read as the stat
