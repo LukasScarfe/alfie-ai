@@ -18,14 +18,14 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.21.1.
+Version 0.22.1.
 
 **Now: Alfie's brain, M13 to M18** (agreed with Lukas 2026-10-30; plan.md, design.md "Brain").
 A local-first voice pipeline inside Alfie, meant for the HA community too. Done: M13 Speech
 (`tts.alfie_voice`), M14 Brain (`conversation.alfie`; on production "Alfie (local)" uses it with
 "prefer local" off and `brain.delegate` = `conversation.alfie_desktop`, the Ollama LLM).
 
-**In progress: M15 Local answers, steps A and B done (0.21.1, on production).** Lukas
+**In progress: M15 Local answers, steps A, B and C done (0.22.1, on production).** Lukas
 (2026-10-30) wants tier 1 to answer as much as it can without the LLM: "any relevant question that
 could be answered by a Home Assistant entity", plus weather, dates, maths, offline Wikipedia. The
 full question catalogue is in the approved plan, summarised in plan.md M15 and design.md "Brain" →
@@ -39,7 +39,8 @@ Local answers.
   - Commands in `brain.LATE` (entity, entity_count) run after HA's intents; the rest run before.
   - `local.py` (the HA side) resolves names with `finder.py`'s index (from `voice.index()`),
     reads states, recorder history, forecasts and sun times.
-  - `answers.py` (entities) and `outside.py` (weather, sun, moon) are pure and say the reply.
+  - `answers.py` (entities), `outside.py` (weather, sun, moon) and `reckon.py` (time, dates,
+    sums) are pure and say the reply.
     A reply of None means "not mine", and the turn goes on.
 - Step A (entities): `entity`, `entity_count`, `entity_when`, `entity_history`; settings
   `off_commands`, `exposed_only`, `match_floor`, `ask_which`, `say_unknown`, `count_skip`.
@@ -59,17 +60,28 @@ Local answers.
     high tomorrow (in Whistler too), the weekend, tonight, the umbrella and the coat, sunset,
     time until sunrise, is it dark, daylight, the moon phase and the next full moon.
 
-**Next: M15 step C, time, dates and maths** (pure, in a new module like `outside.py`):
-- world clocks;
-- days until a date or holiday;
-- what weekday a date falls on;
-- arithmetic and unit conversions.
+- Step C (`reckon.py`, design.md has the detail): `world_time`, `dates`, `convert`, `maths`,
+  in `brain.RECKON`.
+  - Question types ride on lists bound to an `ask`, `wt` or `calc` slot (`{until_q:ask}`
+    `{date}`), so one command covers until, since, weekday, date, when, week, days left and
+    leap years.
+  - New wildcards: `{date}` and `{expr}`. Settings: `brain.dates` (lines "name: MM-DD"), and
+    `brain.imperial` (us or uk).
+  - The panel's Brain tab has four new toggles and a "Dates and units" card. PNG sent.
+  - Checked on production with `./dev prod ask`, all local in 2 to 120 ms: London, New York and
+    Tokyo, Christmas in days and sleeps, Easter, Thanksgiving, the date in 3 weeks, the week
+    number, days left, leap years, sums, percentages, square roots, miles to km, cups in a
+    litre, Celsius to Fahrenheit.
 
-HA's own HassGetCurrentTime and HassGetCurrentDate intents already answer "what time is it", so
-check what they cover before duplicating it.
+**Next: M15 step D, people, media, calendar and lists.**
+- People: who's home; where someone is (person zone); how long they've been home or away.
+- Media: what's playing (Music Assistant players); what's on the TV.
+- Calendar: what's on today or tomorrow, the next event, and when an event is (calendar.*
+  with `calendar.get_events`, cached).
+- Lists: what's on the shopping list (todo.* with `todo.get_items`).
+- Read-only questions only; control stays with HA's intents.
 
-After C:
-- D: people, media, calendar and lists.
+After D:
 - E: fun.
 - F: Wikipedia, from kiwix-serve :8091 directly. Port `wiki_api.py`'s parser from
   `~/Documents/containers/assistant/wiki-api/`.
@@ -78,6 +90,11 @@ After C:
 Bump the version on each deploy.
 
 Gotchas:
+- **Deploys go through the raccoon session** (Lukas, 2026-10-30: it has more permissions for HA
+  restarts and updates). After pushing, SendMessage the session launched from `/home/lukas`
+  (`lukas-<n>` in ListAgents) to run `cd ~/Documents/alfie-ai && ./dev prod deploy`. Wait for its
+  report, then check with `./dev prod ask`. If deploy says "not restarting: production still
+  differs", GitHub served HACS a stale copy; running it again fixes it.
 - `./dev prod ask "..."` asks `conversation.alfie` on production and prints the reply and the turn
   log's source, time and why. The dev HA has no equivalent yet; `devtool.token()[0]` works there.
 - The prodtool WebSocket client now answers HA's heartbeat pings. Before, a long HACS call died

@@ -896,7 +896,24 @@ requirements, light enough for a Pi.
       Brain → Outside.
     - How he says it: temperatures in whole degrees, and spans like "tonight", "on Saturday" or
       "this weekend". Days within the hourly forecast are answered from its hours.
-  - Time, dates and maths (pure); people, media, calendar and lists; fun and Alfie himself.
+  - Time, dates and maths (`reckon.py`, pure; four commands, before HA's intents except
+    where HA's own answer is fine).
+    - What HA already covers: HassGetCurrentTime and HassGetCurrentDate answer "what time is
+      it" and "what's the date", so Alfie doesn't repeat them.
+    - `world_time`: the time, day or difference in a place. Places are IANA zones by their city,
+      plus the language's `places` (countries, states, cities with no zone of their own). The
+      zone list and each zone are read once in an executor.
+    - `dates`: days, weeks or sleeps until a date; days since; its weekday; the date meant ("in
+      3 weeks", "100 days ago", "next friday"); when it is; the week number; days left in the
+      year or month; leap years.
+      - Named dates are the language's `holidays`, written as rules: MM-DD, the nth weekday,
+        the last weekday before a day, or Easter ± N. Canadian ones too, since Lukas is in BC.
+      - Also the user's own `brain.dates` ("Lukas's birthday: 03-14").
+    - `convert`: length, mass, volume, temperature, speed, time and area. Cups, pints and
+      gallons follow `brain.imperial` (us, the default, or uk).
+    - `maths`: a sum said in words or digits, evaluated by a small parser, never `eval`.
+      Anything that isn't all numbers and operators isn't a sum, so the turn goes on.
+  - People, media, calendar and lists; fun and Alfie himself.
   - Wikipedia: kiwix-serve directly (`brain.wiki_url`), only "who/what/where is X" and "tell me
     about X", only when a top hit's title matches X; the lead's first `wiki_sentences`
     sentences. Otherwise the delegate.

@@ -282,7 +282,8 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
         device classes, last changed, history today/yesterday/week, comparisons. 0.20.2.
   - [x] B. Weather and sky: conditions now, rain later from the cached forecast, highs and
         lows, umbrella/coat, sunrise and sunset, the moon. `outside.py`, 0.21.1.
-  - [ ] C. Time, dates and maths: world clocks, days until, weekdays, arithmetic, conversions.
+  - [x] C. Time, dates and maths: world clocks, days until, weekdays, arithmetic, conversions.
+        `reckon.py`, 0.22.1.
   - [ ] D. People, media, calendar and lists.
   - [ ] E. Fun and Alfie himself (coin, dice, jokes, say that again, what can you do).
   - [ ] F. Wikipedia from kiwix-serve (who/what/where is X, lead sentences).
