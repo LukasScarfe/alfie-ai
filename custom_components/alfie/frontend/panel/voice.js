@@ -253,7 +253,11 @@ const COMMANDS = [["whats_wrong", "What's wrong", "\"Is anything wrong?\": the s
   ["world_time", "The time somewhere", "\"What time is it in London?\", \"What's the time difference with Tokyo?\""],
   ["dates", "Dates", "\"How many days until Christmas?\", \"What day is the 25th?\", \"What's the date in 3 weeks?\", \"What week is it?\", \"Is 2028 a leap year?\""],
   ["convert", "Converting units", "\"Convert 5 miles to km\", \"How many cups in a litre?\", \"What's 30 Celsius in Fahrenheit?\""],
-  ["maths", "Sums", "\"What's 12 times 7?\", \"What is 15% of 80?\", \"What's the square root of 144?\""]];
+  ["maths", "Sums", "\"What's 12 times 7?\", \"What is 15% of 80?\", \"What's the square root of 144?\""],
+  ["people", "Who's home", "\"Who's home?\", \"Where is Michelle?\", \"How long has Lukas been out?\", \"When did Michelle get home?\""],
+  ["media", "What's playing", "\"What's playing?\", \"Who sings this?\", \"What's on the TV?\", \"Is anything playing in the kitchen?\""],
+  ["calendar", "The calendar", "\"What's on tomorrow?\", \"Am I free on Friday?\", \"What's next?\", \"When is my next dance?\""],
+  ["lists", "Lists", "\"What's on the shopping list?\", \"How many things are on the to-do list?\", \"Do we need milk?\""]];
 const TIER = { 1: ["mdi:lightning-bolt", "Local"], 3: ["mdi:brain", "Delegate"], 0: ["mdi:help-circle-outline", "Unanswered"] };
 const SOURCE = { trigger: "Sentence trigger", own: "Alfie", intent: "Home Assistant", delegate: "Delegate",
   none: "Fallback", error: "Delegate failed" };
@@ -271,6 +275,10 @@ function brainTab(p) {
   const weathers = [["", "The house's (one named like home, else the first)"], ...Object.keys(st).filter((e) => e.startsWith("weather.")).sort()
     .map((e) => [e, st[e].attributes?.friendly_name || e])];
   if (b.weather && !weathers.some(([e]) => e === b.weather)) weathers.push([b.weather, `${b.weather} (not found)`]);
+  const cals = Object.keys(st).filter((e) => e.startsWith("calendar.")).sort();
+  const todos = [["", "The shopping list (todo.shopping_list)"], ...Object.keys(st).filter((e) => e.startsWith("todo.")).sort()
+    .map((e) => [e, st[e].attributes?.friendly_name || e])];
+  if (b.todo_list && !todos.some(([e]) => e === b.todo_list)) todos.push([b.todo_list, `${b.todo_list} (not found)`]);
   const cmds = COMMANDS.map(([k, name, hint]) => `
       <label class="check"><input type="checkbox" class="switch" data-action="brain-cmd" data-name="${k}"${b.off_commands.includes(k) ? "" : " checked"}>
         <span><b>${U.esc(name)}</b><small>${U.esc(hint)}</small></span></label>
@@ -315,6 +323,20 @@ function brainTab(p) {
           "One per line, \"name: MM-DD\" (or YYYY-MM-DD). Then \"How many days until Lukas's birthday?\" works. Holidays like Christmas, Easter and Thanksgiving he knows already.")}
         ${U.field("Cups, pints and gallons", U.select("brain.imperial", b.imperial, [["us", "US"], ["uk", "UK (imperial)"]]),
           "A UK pint is 568 ml, a US one 473 ml.")}`) : ""}
+      ${b.own_sentences ? U.card("Home and calendar", `
+        ${U.wide("\"What's on\" reads these calendars", `<textarea data-path="brain.calendars" data-kind="lines" rows="2" placeholder="Every calendar">${U.esc((b.calendars || []).join("\n"))}</textarea>`,
+          `One calendar entity per line; empty reads every one. ${cals.length ? `You have ${cals.map((e) => `<code>${U.esc(e)}</code>`).join(", ")}.` : "You have no calendars."} \"When is …\" looks in all of them.`)}
+        ${U.check("brain.calendar_dates", b.calendar_dates, "Take named dates from the calendars", "\"How many sleeps until Christmas?\" uses a holidays calendar's date, and \"when is Dad's birthday\" finds \"Dad Birthday\". Your own dates above still win.")}
+        <div class="grid">
+        ${U.field("Read calendars again after", U.num("brain.calendar_minutes", b.calendar_minutes, { min: 1, max: 1440, step: 5, unit: "min" }), "Or as soon as a calendar changes.")}
+        ${U.field("Events said at most", U.num("brain.event_max", b.event_max, { min: 1, max: 30, step: 1 }))}
+        ${U.field("List items said at most", U.num("brain.list_max", b.list_max, { min: 1, max: 50, step: 1 }))}</div>
+        ${U.field("\"The list\" and \"what do we need\"", U.select("brain.todo_list", b.todo_list, todos),
+          "Other lists by name: \"what's on the groceries list\".")}
+        ${U.wide("\"What's playing\" asks these players", `<textarea data-path="brain.media_players" data-kind="lines" rows="2" placeholder="Every player">${U.esc((b.media_players || []).join("\n"))}</textarea>`,
+          "One media player per line; empty asks every one but Music Assistant groups.")}
+        ${b.media_players?.length ? "" : U.wide("…but not these integrations'", `<textarea data-path="brain.media_skip" data-kind="lines" rows="1">${U.esc((b.media_skip || []).join("\n"))}</textarea>`,
+          "One integration per line. Plex lists everyone streaming from your server, not just the house.")}`) : ""}
       ${U.card("Face and log", `<div class="grid">
         ${U.field("Local badge", U.text("brain.local_icon", b.local_icon, { placeholder: "None, or mdi:lightning-bolt" }))}
         ${U.field("Delegate badge", U.text("brain.delegate_icon", b.delegate_icon, { placeholder: "None, or mdi:brain" }))}

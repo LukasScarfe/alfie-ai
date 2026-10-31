@@ -32,30 +32,34 @@ from .speech import LANG_DIR, _code
 
 COMMANDS = ("whats_wrong", "how_are_you", "entity", "entity_count", "entity_when",
             "entity_history", "weather_now", "weather_forecast", "weather_gear", "sun", "moon",
-            "world_time", "dates", "convert", "maths")
+            "world_time", "dates", "convert", "maths", "people", "media", "calendar", "lists")
 INTENTS = {"whats_wrong": "AlfieWhatsWrong", "how_are_you": "AlfieHowAreYou",
            "entity": "AlfieEntity", "entity_count": "AlfieEntityCount",
            "entity_when": "AlfieEntityWhen", "entity_history": "AlfieEntityHistory",
            "weather_now": "AlfieWeatherNow", "weather_forecast": "AlfieWeatherForecast",
            "weather_gear": "AlfieWeatherGear", "sun": "AlfieSun", "moon": "AlfieMoon",
            "world_time": "AlfieWorldTime", "dates": "AlfieDates", "convert": "AlfieConvert",
-           "maths": "AlfieMaths"}
+           "maths": "AlfieMaths", "people": "AlfiePeople", "media": "AlfieMedia",
+           "calendar": "AlfieCalendar", "lists": "AlfieLists"}
 LABELS = {"whats_wrong": "what's wrong", "how_are_you": "how are you",
           "entity": "a thing's state", "entity_count": "how many things",
           "entity_when": "when a thing changed", "entity_history": "a thing's history",
           "weather_now": "the weather now", "weather_forecast": "the forecast",
           "weather_gear": "what to wear", "sun": "the sun", "moon": "the moon",
           "world_time": "the time somewhere", "dates": "dates", "convert": "converting units",
-          "maths": "a sum"}
+          "maths": "a sum", "people": "who's home", "media": "what's playing",
+          "calendar": "the calendar", "lists": "a list"}
 # Answered from a weather entity, the sun and the moon (outside.py).
 OUTSIDE = frozenset({"weather_now", "weather_forecast", "weather_gear", "sun", "moon"})
 # Answered from the clock, the calendar and arithmetic (reckon.py).
 RECKON = frozenset({"world_time", "dates", "convert", "maths"})
+# Answered from people, players, calendars and to-do lists (household.py).
+HOUSEHOLD = frozenset({"people", "media", "calendar", "lists"})
 # Tried after HA's intents: a built-in intent knows its own entities better.
 LATE = frozenset({"entity", "entity_count"})
 # Questions only the house can answer: a name that names nothing is said so.
 HOUSE_ONLY = frozenset({"entity_when", "entity_history"})
-WILDCARDS = ("name", "area", "value", "place", "date", "expr")
+WILDCARDS = ("name", "area", "value", "place", "date", "expr", "what", "item")
 # HA intents that only read a state: local unless `local_states` is off (HA's
 # own pipeline hands HassGetState to an LLM agent; the weather was invented).
 STATE_INTENTS = frozenset({"HassGetState", "HassGetWeather"})
@@ -86,6 +90,14 @@ def default_settings() -> dict[str, Any]:
             "sun_uv": 3,                    # UV index: "do I need sunscreen?"
             "dates": [],                    # "Lukas's birthday: 03-14", "Our anniversary: 2019-06-01"
             "imperial": "us",               # cups, pints, gallons: "us" or "uk"
+            "calendars": [],                # "what's on": these calendars; [] every one
+            "calendar_dates": True,         # named dates ("Christmas") taken from the calendars
+            "calendar_minutes": 60,         # events kept this long (and until a calendar changes)
+            "event_max": 6,                 # events said in one reply
+            "media_players": [],            # "what's playing": these; [] every player but...
+            "media_skip": ["plex"],         # ...these integrations' (Plex lists friends' streams)
+            "todo_list": "",                # "the list", "what do we need": "" todo.shopping_list
+            "list_max": 10,                 # list items said in one reply
             "local_intents": True, "local_states": True, "local_media_search": False,
             "fallback": "",                 # "" the language's
             "log_size": 50,

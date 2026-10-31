@@ -829,6 +829,15 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
         "sun_uv": _num(ck.number("brain sun uv", v["sun_uv"], 0, 15, 3)),
         "dates": _brain_dates(v["dates"], ck),
         "imperial": v["imperial"] if v["imperial"] in ("us", "uk") else "us",
+        "calendars": _entity_list("brain calendars", v["calendars"], ("calendar",), ck),
+        "calendar_dates": bool(v["calendar_dates"]),
+        "calendar_minutes": int(ck.number("brain calendar minutes", v["calendar_minutes"], 1, 1440, 60)),
+        "event_max": int(ck.number("brain events said", v["event_max"], 1, 30, 6)),
+        "media_players": _entity_list("brain media players", v["media_players"], ("media_player",), ck),
+        "media_skip": [str(x).strip() for x in (v["media_skip"] if isinstance(v["media_skip"], list)
+                                                 else []) if str(x).strip()][:50],
+        "todo_list": _todo(v["todo_list"], ck),
+        "list_max": int(ck.number("brain list items said", v["list_max"], 1, 50, 10)),
         "local_intents": bool(v["local_intents"]),
         "local_states": bool(v["local_states"]),
         "local_media_search": bool(v["local_media_search"]),
@@ -837,6 +846,14 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
         **icons,
         "icon_seconds": _num(ck.number("brain icon time", v["icon_seconds"], 0, 60, 3)),
     }
+
+
+def _todo(v: Any, ck: _Check) -> str:
+    t = str(v or "").strip()
+    if t and not t.startswith("todo."):
+        ck.bad("brain list", f"{t!r} is not a todo entity")
+        return ""
+    return t
 
 
 DATE_LINE = re.compile(r"^(.+?):\s*(\d{4}-)?\d{1,2}-\d{1,2}$")

@@ -12,6 +12,7 @@ goes on to the next tier.
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
@@ -21,13 +22,14 @@ from homeassistant.util import dt as dt_util
 
 from homeassistant.helpers import entity_registry as er
 
-from . import answers, brain, finder, outside, reckon
+from . import answers, brain, finder, household, outside, reckon
 from .const import DOMAIN
 from .providers.forecast import raw_forecast
 
 _LOGGER = logging.getLogger(__name__)
 
 WHEN_DAYS = 7       # "when was the door last opened": how far back to look
+CALENDAR_DAYS = 366 # events read ahead, so a birthday months away is found
 SEARCH = 8          # finder hits weighed per name
 
 
@@ -45,6 +47,15 @@ class LocalAnswers:
         self.hass, self.engine = hass, engine
         self._zones: dict[str, str] | None = None     # place -> IANA zone, read once
         self._tz: dict[str, Any] = {}                 # IANA zone -> tzinfo
+        self._events: list[household.Event] = []
+        self._events_until = 0.0                      # monotonic; 0 means fetch again
+        self._events_of: tuple[str, ...] = ()         # the calendars read, and watched
+        self._unwatch: Any = None
+
+    def close(self) -> None:
+        if self._unwatch:
+            self._unwatch()
+            self._unwatch = None
 
     # ------------------------------------------------------------ finding
 
@@ -96,6 +107,9 @@ class LocalAnswers:
         s = self.engine.config["brain"]
         if cmd in brain.RECKON:
             text = await self._reckon(cmd, slots, words, s)
+            return Reply(text, detail=cmd) if text else None
+        if cmd in brain.HOUSEHOLD:
+            text = await self._household(cmd, slots, words, s)
             return Reply(text, detail=cmd) if text else None
         if cmd in brain.OUTSIDE:
             text = await self._outside(cmd, slots, words, s)
@@ -204,8 +218,18 @@ class LocalAnswers:
             ask = slots.get("ask", "")
             if ask in ("week", "year_left", "month_left", "leap"):
                 return reckon.calendar_reply(ask, slots.get("date", ""), now.date(), words)
-            named = reckon.holidays(words, s["dates"])
-            return reckon.date_reply(ask, slots.get("date", ""), now.date(), words, named)
+            text, today = slots.get("date", ""), now.date()
+            own = reckon.holidays({}, s["dates"])
+            named = {**reckon.holidays(words), **own}
+            key, _way, year = reckon.date_key(text)
+            # A date the calendar names beats the language's rule for it
+            # (the calendar knows this year's), never the user's own.
+            if s["calendar_dates"] and ask != "since" and key and key not in own and \
+                    reckon.parse_when(text, today, {}) is None:
+                got = household.event_date(key, await self._calendar(), today)
+                if got and (not year or got[0].year == year):
+                    named[key] = reckon.When(fixed=got[0], name=got[1])
+            return reckon.date_reply(ask, text, today, words, named)
         if cmd == "world_time":
             tz = await self._zone(slots.get("place", ""), words)
             if tz is None:
@@ -230,6 +254,155 @@ class LocalAnswers:
             except (ValueError, OSError):
                 return None
         return self._tz[name]
+
+    # ------------------------------------------------------------ people, media, calendar, lists
+
+    async def _household(self, cmd: str, slots: dict[str, str], words: dict[str, Any],
+                         s: dict[str, Any]) -> str | None:
+        now = dt_util.now()
+        ask, name = slots.get("ask", ""), _clean(slots.get("name", ""))
+        if cmd == "people":
+            return await self._people(ask, name, words, s, now)
+        if cmd == "media":
+            players = self._players(s)
+            named = None
+            if name:
+                named = self._pick(name, "media_player", s)
+                if named is None:
+                    return None
+            return household.media_reply(ask, players, words, named and household.Player(
+                named.entity_id, named.name, named.state, dict(named.attributes)))
+        if cmd == "calendar":
+            events = await self._calendar()
+            span = slots.get("span", "")
+            if ask == "when":
+                asked = _clean(slots.get("what", ""))
+                if not asked or asked.lower() in reckon.holidays({}, s["dates"]):
+                    return None
+                return household.when_reply(asked, events, words, now, span)
+            if s["calendars"]:
+                events = [e for e in events if e.calendar in s["calendars"]]
+            return household.events_reply(ask, span, events, words, now, s["event_max"])
+        if cmd == "lists":
+            if ask in ("shop", "has_shop") or not name or name.lower() in ("to do", "todo", "to-do"):
+                st = self._default_list(s)
+            else:
+                st = self._pick_list(name, s)
+            if st is None:
+                return household.no_list(name, words) if name else None
+            items = await self._items(st.entity_id)
+            if items is None:
+                return None
+            ask = {"shop": "items", "has_shop": "has"}.get(ask, ask)
+            return household.list_reply(ask, st.name, items, words, slots.get("item", ""),
+                                        s["list_max"])
+        return None
+
+    def _pick(self, name: str, domain: str, s: dict[str, Any]) -> Any:
+        """The state of the one `domain` entity a name means, or None."""
+        voice = self.hass.data.get(DOMAIN, {}).get("voice")
+        idx = getattr(voice, "_index", None)
+        hit = idx.best(name, (domain,), floor=s["match_floor"]) if idx else None
+        if hit is not None and (hit.exposed or not s["exposed_only"]):
+            return self.hass.states.get(hit.entity_id)
+        states = self.hass.states.async_all(domain)
+        got = household.best_match(name, states, lambda st: st.name)
+        return got[0] if got else None
+
+    async def _people(self, ask: str, name: str, words: dict[str, Any], s: dict[str, Any],
+                      now: datetime) -> str | None:
+        await self._index()
+        people = [household.Person(st.entity_id, st.name, st.state,
+                                   last_changed=dt_util.as_local(st.last_changed))
+                  for st in sorted(self.hass.states.async_all("person"), key=lambda x: x.name)]
+        if ask in ("who", "anyone", "everyone"):
+            return household.people_reply(ask, people, None, words, now)
+        st = self._pick(name, "person", s) if name else None
+        if st is None:
+            return None
+        who = next(p for p in people if p.entity_id == st.entity_id)
+        if ask in ("how_long", "arrived", "left"):
+            who.start = now - timedelta(days=WHEN_DAYS)
+            who.changes = await self._history(who.entity_id, who.start, now)
+        return household.people_reply(ask, people, who, words, now)
+
+    def _players(self, s: dict[str, Any]) -> list[household.Player]:
+        """The players "what's playing" looks at: the chosen ones, else every
+        one but Music Assistant groups and the skipped integrations'."""
+        if s["media_players"]:
+            states = [st for e in s["media_players"] if (st := self.hass.states.get(e))]
+        else:
+            reg, skip = er.async_get(self.hass), set(s["media_skip"])
+            voice = self.hass.data.get(DOMAIN, {}).get("voice")
+            idx = getattr(voice, "_index", None)
+            states = []
+            for st in self.hass.states.async_all("media_player"):
+                if st.attributes.get("mass_player_type") == "group":
+                    continue
+                if skip and (r := reg.async_get(st.entity_id)) and r.platform in skip:
+                    continue
+                if s["exposed_only"] and idx and not getattr(idx.by_id.get(st.entity_id), "exposed", False):
+                    continue
+                states.append(st)
+        return [household.Player(st.entity_id, st.name, st.state, dict(st.attributes))
+                for st in states]
+
+    async def _calendar(self) -> list[household.Event]:
+        """Every calendar's events for the next year, from midnight today:
+        one `calendar.get_events`, kept for `calendar_minutes` and until a
+        calendar entity changes (an event starting or ending, an edit)."""
+        s = self.engine.config["brain"]
+        cals = tuple(sorted(self.hass.states.async_entity_ids("calendar")))
+        if cals != self._events_of:
+            self.close()
+            self._events_of, self._events_until = cals, 0.0
+            if cals:
+                from homeassistant.helpers.event import async_track_state_change_event  # noqa: PLC0415
+
+                def changed(_event: Any) -> None:
+                    self._events_until = 0.0
+                self._unwatch = async_track_state_change_event(self.hass, list(cals), changed)
+        if not cals:
+            return []
+        if time.monotonic() < self._events_until:
+            return self._events
+        now = dt_util.now()
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        try:
+            resp = await self.hass.services.async_call(
+                "calendar", "get_events",
+                {"entity_id": list(cals), "start_date_time": start.isoformat(),
+                 "end_date_time": (start + timedelta(days=CALENDAR_DAYS)).isoformat()},
+                blocking=True, return_response=True)
+        except Exception:  # a broken calendar: answer from what's kept
+            _LOGGER.exception("Alfie couldn't read the calendars")
+            return self._events
+        self._events = household.parse_events(resp, now.tzinfo)
+        self._events_until = time.monotonic() + 60 * s["calendar_minutes"]
+        return self._events
+
+    def _default_list(self, s: dict[str, Any]) -> Any:
+        for e in (s["todo_list"], "todo.shopping_list"):
+            if e and (st := self.hass.states.get(e)) is not None:
+                return st
+        todos = sorted(self.hass.states.async_all("todo"), key=lambda x: x.entity_id)
+        return todos[0] if todos else None
+
+    def _pick_list(self, name: str, s: dict[str, Any]) -> Any:
+        """A list by its name ("groceries", "to buy"), then by the finder."""
+        got = household.best_match(name, self.hass.states.async_all("todo"), lambda st: st.name)
+        return got[0] if got else self._pick(name, "todo", s)
+
+    async def _items(self, entity_id: str) -> list[str] | None:
+        try:
+            resp = await self.hass.services.async_call(
+                "todo", "get_items", {"entity_id": entity_id, "status": ["needs_action"]},
+                blocking=True, return_response=True)
+        except Exception:  # a broken list: the turn goes on
+            _LOGGER.exception("Alfie couldn't read %s", entity_id)
+            return None
+        items = ((resp or {}).get(entity_id) or {}).get("items") or []
+        return [str(i.get("summary") or "").strip() for i in items if str(i.get("summary") or "").strip()]
 
     # ------------------------------------------------------------ outside
 
