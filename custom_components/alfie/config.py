@@ -842,6 +842,12 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
                                                  else []) if str(x).strip()][:50],
         "todo_list": _todo(v["todo_list"], ck),
         "list_max": int(ck.number("brain list items said", v["list_max"], 1, 50, 10)),
+        "jokes": _jokes(v["jokes"], ck),
+        "builtin_jokes": bool(v["builtin_jokes"]),
+        "joke_expression": _face_name(v["joke_expression"]),
+        "joke_animation": _face_name(v["joke_animation"]),
+        "random_max": int(ck.number("brain random number most", v["random_max"], 2, 1000000, 10)),
+        "repeat_minutes": int(ck.number("brain repeat minutes", v["repeat_minutes"], 1, 1440, 10)),
         "local_intents": bool(v["local_intents"]),
         "local_states": bool(v["local_states"]),
         "local_media_search": bool(v["local_media_search"]),
@@ -850,6 +856,24 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
         **icons,
         "icon_seconds": _num(ck.number("brain icon time", v["icon_seconds"], 0, 60, 3)),
     }
+
+
+def _jokes(raw: Any, ck: _Check) -> list[str]:
+    """His own jokes, one line each ("setup | punchline")."""
+    out = []
+    for i, line in enumerate((raw if isinstance(raw, list) else [])[:200]):
+        line = " ".join(str(line).split())
+        if len(line) > 400:
+            ck.bad(f"brain joke {i + 1}", "is longer than 400 characters")
+        elif line:
+            out.append(line)
+    return out
+
+
+def _face_name(v: Any) -> str:
+    """An expression or animation name; the engine skips one it doesn't know
+    (custom ones can be added or removed after)."""
+    return str(v or "").strip()[:60]
 
 
 def _todo(v: Any, ck: _Check) -> str:

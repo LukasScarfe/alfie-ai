@@ -1082,6 +1082,19 @@ class AlfieEngine:
         self._push()
 
     @callback
+    def joke_reaction(self) -> None:
+        """He told a joke (fun.py): the brain settings' face for a while, then
+        their animation. Off by leaving joke_expression and joke_animation empty."""
+        b = self.config["brain"]
+        anim = b["joke_animation"] if b["joke_animation"] in self.animations else ""
+        if b["joke_expression"] in self.expressions:
+            self.set_expression(b["joke_expression"],
+                                max(self._anim_seconds(anim) if anim else 0.0, 6.0))
+        if anim:
+            self.play(anim, "Voice: a joke.", "voice", push=False)
+        self._push()
+
+    @callback
     def brain_badge(self, tier: int) -> None:
         """His brain answered (conversation.py): a badge beside him for the
         tier, a bolt when he knew it himself, a brain while the delegate

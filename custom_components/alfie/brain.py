@@ -32,7 +32,8 @@ from .speech import LANG_DIR, _code
 
 COMMANDS = ("whats_wrong", "how_are_you", "run", "entity", "entity_count", "entity_when",
             "entity_history", "weather_now", "weather_forecast", "weather_gear", "sun", "moon",
-            "world_time", "dates", "convert", "maths", "people", "media", "calendar", "lists")
+            "world_time", "dates", "convert", "maths", "people", "media", "calendar", "lists",
+            "repeat", "help", "coin", "dice", "number", "pick", "joke", "chat")
 INTENTS = {"whats_wrong": "AlfieWhatsWrong", "how_are_you": "AlfieHowAreYou", "run": "AlfieRun",
            "entity": "AlfieEntity", "entity_count": "AlfieEntityCount",
            "entity_when": "AlfieEntityWhen", "entity_history": "AlfieEntityHistory",
@@ -40,7 +41,9 @@ INTENTS = {"whats_wrong": "AlfieWhatsWrong", "how_are_you": "AlfieHowAreYou", "r
            "weather_gear": "AlfieWeatherGear", "sun": "AlfieSun", "moon": "AlfieMoon",
            "world_time": "AlfieWorldTime", "dates": "AlfieDates", "convert": "AlfieConvert",
            "maths": "AlfieMaths", "people": "AlfiePeople", "media": "AlfieMedia",
-           "calendar": "AlfieCalendar", "lists": "AlfieLists"}
+           "calendar": "AlfieCalendar", "lists": "AlfieLists", "repeat": "AlfieRepeat",
+           "help": "AlfieHelp", "coin": "AlfieCoin", "dice": "AlfieDice",
+           "number": "AlfieNumber", "pick": "AlfiePick", "joke": "AlfieJoke", "chat": "AlfieChat"}
 LABELS = {"whats_wrong": "what's wrong", "how_are_you": "how are you", "run": "a voice action",
           "entity": "a thing's state", "entity_count": "how many things",
           "entity_when": "when a thing changed", "entity_history": "a thing's history",
@@ -48,13 +51,18 @@ LABELS = {"whats_wrong": "what's wrong", "how_are_you": "how are you", "run": "a
           "weather_gear": "what to wear", "sun": "the sun", "moon": "the moon",
           "world_time": "the time somewhere", "dates": "dates", "convert": "converting units",
           "maths": "a sum", "people": "who's home", "media": "what's playing",
-          "calendar": "the calendar", "lists": "a list"}
+          "calendar": "the calendar", "lists": "a list", "repeat": "say that again",
+          "help": "what can you do", "coin": "a coin", "dice": "dice",
+          "number": "a random number", "pick": "picking one", "joke": "a joke",
+          "chat": "small talk"}
 # Answered from a weather entity, the sun and the moon (outside.py).
 OUTSIDE = frozenset({"weather_now", "weather_forecast", "weather_gear", "sun", "moon"})
 # Answered from the clock, the calendar and arithmetic (reckon.py).
 RECKON = frozenset({"world_time", "dates", "convert", "maths"})
 # Answered from people, players, calendars and to-do lists (household.py).
 HOUSEHOLD = frozenset({"people", "media", "calendar", "lists"})
+# Chance, jokes and small talk (fun.py). "repeat" and "help" are conversation.py's.
+FUN = frozenset({"coin", "dice", "number", "pick", "joke", "chat"})
 # What a voice action can start, and how (the `voice_label` label marks them).
 RUNNABLE = {"script": ("script", "turn_on"), "automation": ("automation", "trigger"),
             "scene": ("scene", "turn_on"), "button": ("button", "press"),
@@ -106,6 +114,12 @@ def default_settings() -> dict[str, Any]:
             "media_skip": ["plex"],         # ...these integrations' (Plex lists friends' streams)
             "todo_list": "",                # "the list", "what do we need": "" todo.shopping_list
             "list_max": 10,                 # list items said in one reply
+            "jokes": [],                    # his own jokes, "setup | punchline"
+            "builtin_jokes": True,          # the language's jokes too
+            "joke_expression": "happy",     # his face while telling one ("" none)
+            "joke_animation": "laugh",      # and an animation after it ("" none)
+            "random_max": 10,               # "pick a number": 1 to this
+            "repeat_minutes": 10,           # "say that again" remembers this long
             "local_intents": True, "local_states": True, "local_media_search": False,
             "fallback": "",                 # "" the language's
             "log_size": 50,
