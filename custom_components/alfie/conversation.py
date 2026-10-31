@@ -279,8 +279,9 @@ class AlfieAgent(conversation.ConversationEntity):
         if self._which and (result := await self._answer_which(text, language, turn, chat_log)):
             return done(result)
         matches = await self._match_own(text, language)
-        early = [m for m in matches if m[0] not in brain.LATE]
-        late = [m for m in matches if m[0] in brain.LATE]
+        words = brain.load_language(language)
+        late = [m for m in matches if brain.is_late(m[0], text, words)]
+        early = [m for m in matches if m not in late]
         held: list[Any] = []
         if early and (result := await self._try_own(early, language, turn, chat_log, held,
                                                     last=not late)):

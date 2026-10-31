@@ -938,6 +938,7 @@
   "wiki": {
     "_": "wiki.py: Wikipedia answers. skip_first: a name starting with one of these is never an article (\"my name\"); skip: whole names that aren't.",
     "replies": {"credit": "Wikipedia says: {text}"},
+    "early": ["who ", "who's ", "whos ", "tell me about ", "tell us about ", "what do you know about ", "look up ", "wikipedia ", "search wikipedia "],
     "skip_first": ["my", "our", "your", "his", "her", "their", "its", "it", "it's", "this", "that", "these", "those", "there", "here", "he", "she", "they", "we", "i", "you", "me", "him", "us", "them", "going", "happening", "wrong", "next", "left", "up", "on", "in", "for", "to", "today", "tonight", "tomorrow", "yesterday", "now", "someone", "somebody", "anyone", "anybody", "everyone", "everybody", "nobody", "something", "anything", "everything", "nothing", "which", "what", "who", "where", "how", "why", "when"],
     "skip": ["the time", "the date", "the day", "the weather", "the forecast", "the temperature", "the matter", "the problem", "the plan", "the score", "the news", "the answer", "the point", "the deal", "the difference", "the best", "the worst", "the name", "the song", "the music", "new", "playing", "good", "best", "better", "worse", "home", "out", "outside", "inside", "dinner", "lunch", "breakfast", "for dinner", "the light", "the lights"]
   },
