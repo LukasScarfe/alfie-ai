@@ -18,14 +18,14 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.22.1.
+Version 0.23.0.
 
 **Now: Alfie's brain, M13 to M18** (agreed with Lukas 2026-10-30; plan.md, design.md "Brain").
 A local-first voice pipeline inside Alfie, meant for the HA community too. Done: M13 Speech
 (`tts.alfie_voice`), M14 Brain (`conversation.alfie`; on production "Alfie (local)" uses it with
 "prefer local" off and `brain.delegate` = `conversation.alfie_desktop`, the Ollama LLM).
 
-**In progress: M15 Local answers, steps A, B and C done (0.22.1, on production).** Lukas
+**In progress: M15 Local answers, steps A to D done (0.23.0, on production).** Lukas
 (2026-10-30) wants tier 1 to answer as much as it can without the LLM: "any relevant question that
 could be answered by a Home Assistant entity", plus weather, dates, maths, offline Wikipedia. The
 full question catalogue is in the approved plan, summarised in plan.md M15 and design.md "Brain" →
@@ -39,8 +39,8 @@ Local answers.
   - Commands in `brain.LATE` (entity, entity_count) run after HA's intents; the rest run before.
   - `local.py` (the HA side) resolves names with `finder.py`'s index (from `voice.index()`),
     reads states, recorder history, forecasts and sun times.
-  - `answers.py` (entities), `outside.py` (weather, sun, moon) and `reckon.py` (time, dates,
-    sums) are pure and say the reply.
+  - `answers.py` (entities), `outside.py` (weather, sun, moon), `reckon.py` (time, dates,
+    sums) and `household.py` (people, media, calendar, lists) are pure and say the reply.
     A reply of None means "not mine", and the turn goes on.
 - Step A (entities): `entity`, `entity_count`, `entity_when`, `entity_history`; settings
   `off_commands`, `exposed_only`, `match_floor`, `ask_which`, `say_unknown`, `count_skip`.
@@ -73,21 +73,38 @@ Local answers.
     number, days left, leap years, sums, percentages, square roots, miles to km, cups in a
     litre, Celsius to Fahrenheit.
 
-**Next: M15 step D, people, media, calendar and lists.**
-- People: who's home; where someone is (person zone); how long they've been home or away.
-- Media: what's playing (Music Assistant players); what's on the TV.
-- Calendar: what's on today or tomorrow, the next event, and when an event is (calendar.*
-  with `calendar.get_events`, cached).
-- Lists: what's on the shopping list (todo.* with `todo.get_items`).
-- Read-only questions only; control stays with HA's intents.
+- Step D (`household.py`, design.md has the detail): `people`, `media`, `calendar`, `lists`,
+  in `brain.HOUSEHOLD`.
+  - New wildcards `{what}` (a calendar event) and `{item}` (a list item). `{event}` was taken:
+    it is the entity history's word list (opened, closed), and a list named like a wildcard
+    replaces it silently, so pick wildcard names not in `lists`.
+  - The calendar: one `calendar.get_events` for a year of every calendar, cached in
+    `LocalAnswers` (`calendar_minutes`, and a state listener on the calendars clears it).
+    Named dates in `dates` come from it too (`calendar_dates`): Lukas, 2026-10-30, "some of
+    those dates should be compared against the calendar". `reckon.date_key` is the key
+    `parse_when` looks named dates up by.
+  - Settings: `calendars`, `calendar_dates`, `calendar_minutes`, `event_max`, `media_players`,
+    `media_skip` (plex), `todo_list`, `list_max`; the panel's "Home and calendar" card.
+  - Checked on production with `./dev prod ask`, all local in 2 to 300 ms: who's home, is
+    anyone home, where, how long, when someone left; the TV; what's on tomorrow and this
+    weekend, free on Monday, what's next, the next dance, what time games is, when is
+    Christmas or Easter (from the holidays calendar), sleeps until Christmas, Dad's birthday;
+    the groceries list, how many on To Buy, do we need milk.
+  - On production "what's playing" is caught first by one of Lukas's automations' sentence
+    triggers ("Nothing is playing"); Alfie's answer only runs if that goes. Not changed.
+  - Production's `todo.shopping_list` is empty; Groceries (`todo.shopping`) looks like the real
+    one. `brain.todo_list` is left at "" until Lukas says.
 
-After D:
-- E: fun.
+**Next: M15 step E, fun and Alfie himself** (coin, dice, jokes, say that again, what can you
+do).
+
+After E:
 - F: Wikipedia, from kiwix-serve :8091 directly. Port `wiki_api.py`'s parser from
   `~/Documents/containers/assistant/wiki-api/`.
 - G: the panel. Every command with its toggle, sentences and a try box; PNGs for Lukas.
 
-Bump the version on each deploy.
+Bump the version on each deploy: `manifest.json` and `const.py` `VERSION` (the device's
+sw_version, which deploy checks). Run `./dev test` after bumping.
 
 Gotchas:
 - **Deploys go through the raccoon session** (Lukas, 2026-10-30: it has more permissions for HA

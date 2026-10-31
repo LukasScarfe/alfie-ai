@@ -284,7 +284,8 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
         lows, umbrella/coat, sunrise and sunset, the moon. `outside.py`, 0.21.1.
   - [x] C. Time, dates and maths: world clocks, days until, weekdays, arithmetic, conversions.
         `reckon.py`, 0.22.1.
-  - [~] D. People, media, calendar and lists.
+  - [x] D. People, media, calendar and lists; named dates checked against the calendars.
+        `household.py`, 0.23.0.
   - [ ] E. Fun and Alfie himself (coin, dice, jokes, say that again, what can you do).
   - [ ] F. Wikipedia from kiwix-serve (who/what/where is X, lead sentences).
   - [ ] G. Voice → Brain lists every command (toggle, sentences, try box); PNGs.
