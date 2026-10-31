@@ -290,7 +290,8 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
         2026-10-31, between D and E). 0.24.0.
   - [x] E. Fun and Alfie himself: coin, dice, a number, pick one, jokes, small talk, say that
         again, what can you do. `fun.py`, 0.25.0.
-  - [ ] F. Wikipedia from kiwix-serve (who/what/where is X, lead sentences).
+  - [x] F. Wikipedia from kiwix-serve (who/what/where is X, lead sentences). `wiki.py`,
+        0.26.3; on production `wiki_url` is raccoon's kiwix-serve.
   - [ ] G. Voice → Brain lists every command (toggle, sentences, try box); PNGs.
 - [ ] **16. Timers and alarms.** Persistent, ring on the satellite that set them; named timers,
       add/remove time, pause, status, one-off and repeating alarms, snooze, stop (voice or the

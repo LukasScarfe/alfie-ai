@@ -972,9 +972,26 @@ requirements, light enough for a Pi.
     - Started without waiting, so a long script runs on while he answers `run_reply` ("" the
       language's "OK, {name}."). An automation skips its conditions unless `run_conditions`.
     - The panel's Brain tab has a "Voice actions" card: the label, what carries it, the options.
-  - Wikipedia: kiwix-serve directly (`brain.wiki_url`), only "who/what/where is X" and "tell me
-    about X", only when a top hit's title matches X; the lead's first `wiki_sentences`
-    sentences. Otherwise the delegate.
+  - Wikipedia (`wiki.py`, pure; the `wiki` command; built 0.26): kiwix-serve directly
+    (`brain.wiki_url`, "" off; `wiki_book`, "" the first Wikipedia it serves). "Who/what/where is
+    X", "tell me about X", "look up X".
+    - Only an article called X answers: `/content/<book>/<Title>` is fetched for a few spellings
+      ("Cat", "Albert Einstein", "The Beatles", "NASA"; "a cat" is "Cat"). kiwix follows
+      Wikipedia's redirects. `suggest` was no good (no plain "Paris" for "paris").
+    - A disambiguation page tries the next spelling ("the meaning of life" is one, "Meaning of
+      life" isn't); none left, the delegate answers ("what is Mercury").
+    - Said: the lead's first `wiki_sentences` (2), bracketed asides dropped unless
+      `wiki_brackets`, "Wikipedia says:" with `wiki_credit`. The page is streamed only up to its
+      first section (pages run to 700 KB) and read in an executor.
+    - The language's `wiki.skip_first` and `wiki.skip` keep "my name", "it", "the time" away.
+    - Wikipedia is late (after HA's intents), except questions starting with `wiki.early`
+      ("who is Taylor Swift": HA's state intent answered "Not any").
+    - Answers (and names with no article) are cached, 200 of them; kiwix down is not cached.
+    - The panel's Brain tab has a "Wikipedia" card.
+  - Weak answers wait: "which one?" and "I don't know a thing called …" are held while any
+    command after them, late ones included, may answer ("tell me about Vancouver" was "which
+    one" of the Vancouver weather sensors). A reading whose wildcard starts or ends inside a
+    word is dropped (`brain.whole_words`: "the mean{ing of life}").
 - **Matcher** (tier 2): example phrases per command, scored by word and part-word similarity
   with synonyms (pure Python); slots filled by parsers and `finder.py`. Below `threshold`, tier 3.
   An embeddings URL may come later.
