@@ -943,7 +943,7 @@
     "skip": ["the time", "the date", "the day", "the weather", "the forecast", "the temperature", "the matter", "the problem", "the plan", "the score", "the news", "the answer", "the point", "the deal", "the difference", "the best", "the worst", "the name", "the song", "the music", "new", "playing", "good", "best", "better", "worse", "home", "out", "outside", "inside", "dinner", "lunch", "breakfast", "for dinner", "the light", "the lights"]
   },
   "agent": {
-    "_": "agent.py: the agent server (Hermes). wait: said when it starts a slow tool before saying anything, by tool name or name start (\"web_\"), \"_\" for any other tool, \"slow\" when nothing has come for a while. prompt: the system message sent with each spoken request ({where}: the speaker's area).",
+    "_": "agent.py: the agent server (Hermes). wait: said when it starts a slow tool before saying anything, by tool name or name start (\"web_\"), \"_\" for any other tool, \"slow\" when nothing has come for a while. prompt: the system message sent with each spoken request ({where}: the speaker's area, {time} and {day}: now).",
     "wait": {
       "web_": ["Give me a second while I look that up on the web.", "Hang on, let me check the web for that.", "One moment, I'm searching the web."],
       "browser": ["Give me a moment, I'm opening that page."],
@@ -956,7 +956,7 @@
       "broke": "Sorry, I lost my train of thought there.",
       "empty": "Sorry, I didn't get an answer for that."
     },
-    "prompt": "This is a spoken request from the {where} speaker, through Home Assistant voice. Your reply is read aloud: keep it short and plain, with no lists, markdown, links or emoji. Before anything slow, like a web search, first say one short sentence that you're looking it up."
+    "prompt": "This is a spoken request from the {where} speaker, through Home Assistant voice. It is {time} on {day}. Your reply is read aloud: keep it short and plain, with no lists, markdown, links or emoji. Before anything slow, like a web search, first say one short sentence that you're looking it up."
   },
   "fallback": "Sorry, I don't know that one."
 }
