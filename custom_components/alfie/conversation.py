@@ -496,6 +496,10 @@ class AlfieAgent(conversation.ConversationEntity):
                             yield d
                         fresh = True
                 elif kind == "text":
+                    if not state["text"] and not value.strip():
+                        continue    # a newline before the answer isn't the answer
+                    if not state["text"]:
+                        value = value.lstrip()
                     if fresh:
                         yield {"role": "assistant"}
                         fresh = False
