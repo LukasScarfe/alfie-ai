@@ -163,3 +163,10 @@ def test_whole_words():
     assert brain.whole_words({"value": "red green or blue"}, "Choose one of red, green or blue.")
     assert brain.whole_words({"topic": "the beatles"}, "who are The Beatles")
     assert brain.whole_words({}, "hello")
+
+
+def test_empty_state_answers_go_on():
+    assert brain.empty_answer("HassGetState", 0, 0)
+    assert not brain.empty_answer("HassGetState", 0, 3)      # "is any light on?" "No"
+    assert not brain.empty_answer("HassGetState", 1, 0)
+    assert not brain.empty_answer("HassTurnOn", 0, 0)

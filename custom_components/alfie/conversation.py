@@ -324,6 +324,12 @@ class AlfieAgent(conversation.ConversationEntity):
                 return False
             response = await conversation.async_handle_intents(self.hass, user_input, chat_log,
                                                                intent_filter=leave)
+            if response is not None and (s["agent_url"] or s["delegate"]) and brain.empty_answer(
+                    getattr(getattr(response, "intent", None), "intent_type", "") or "",
+                    len(getattr(response, "matched_states", None) or []),
+                    len(getattr(response, "unmatched_states", None) or [])):
+                passed.append(response.intent.intent_type)
+                response = None     # "Not any": the agent knows better
             if response is not None:
                 name = getattr(getattr(response, "intent", None), "intent_type", "") or "an"
                 turn.source, turn.detail = "intent", name
