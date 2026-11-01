@@ -233,10 +233,18 @@ def command_of(intent_name: str) -> str | None:
     return next((c for c, n in INTENTS.items() if n == intent_name), None)
 
 
-def empty_answer(intent_name: str, matched: int, unmatched: int) -> bool:
-    """A state question HA answered about nothing at all ("who is Taylor
-    Swift" -> "Not any"): better left to the agent or delegate."""
-    return intent_name in STATE_INTENTS and not matched and not unmatched
+def empty_answer(intent_name: str, matched: int, unmatched: int, asked: str = "",
+                 known: Iterable[str] = ()) -> bool:
+    """A state question HA answered about nothing real, better left to the
+    agent or delegate: no entity at all, or a state nobody can be in ("who is
+    Taylor Swift" reads as "who is at Taylor Swift" -> "Not any"). `asked` is
+    the state asked about, `known` the states and zones there are."""
+    if intent_name not in STATE_INTENTS or matched:
+        return False
+    if not unmatched:
+        return True
+    norm = lambda x: " ".join(str(x).lower().replace("_", " ").split())  # noqa: E731
+    return bool(asked) and norm(asked) not in {norm(k) for k in known}
 
 
 def leave_to_delegate(intent_name: str, settings: Mapping[str, Any]) -> bool:

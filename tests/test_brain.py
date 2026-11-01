@@ -170,3 +170,7 @@ def test_empty_state_answers_go_on():
     assert not brain.empty_answer("HassGetState", 0, 3)      # "is any light on?" "No"
     assert not brain.empty_answer("HassGetState", 1, 0)
     assert not brain.empty_answer("HassTurnOn", 0, 0)
+    known = ["home", "not_home", "Work"]
+    assert brain.empty_answer("HassGetState", 0, 2, "taylor swift", known)
+    assert not brain.empty_answer("HassGetState", 0, 2, "work", known)
+    assert not brain.empty_answer("HassGetState", 0, 2, "not home", known)

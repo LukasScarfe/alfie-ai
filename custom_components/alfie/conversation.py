@@ -324,10 +324,7 @@ class AlfieAgent(conversation.ConversationEntity):
                 return False
             response = await conversation.async_handle_intents(self.hass, user_input, chat_log,
                                                                intent_filter=leave)
-            if response is not None and (s["agent_url"] or s["delegate"]) and brain.empty_answer(
-                    getattr(getattr(response, "intent", None), "intent_type", "") or "",
-                    len(getattr(response, "matched_states", None) or []),
-                    len(getattr(response, "unmatched_states", None) or [])):
+            if response is not None and (s["agent_url"] or s["delegate"]) and self._empty(response):
                 passed.append(response.intent.intent_type)
                 response = None     # "Not any": the agent knows better
             if response is not None:
@@ -381,6 +378,20 @@ class AlfieAgent(conversation.ConversationEntity):
         turn.why = brain.why("none", passed=passed)
         return done(self._reply(brain.fallback(brain.load_language(language), s), language,
                                 chat_log))
+
+    def _empty(self, response: Any) -> bool:
+        """brain.empty_answer for an HA intent response."""
+        it = getattr(response, "intent", None)
+        if it is None:
+            return False
+        unmatched = getattr(response, "unmatched_states", None) or []
+        slot = (getattr(it, "slots", None) or {}).get("state") or {}
+        asked = str(slot.get("value") or "") if isinstance(slot, dict) else ""
+        known = {"home", "not_home", "away", "on", "off", "open", "closed", "locked", "unlocked"}
+        known |= {st.state for st in unmatched}
+        known |= {st.name for st in self.hass.states.async_all("zone")}
+        return brain.empty_answer(it.intent_type, len(getattr(response, "matched_states", None)
+                                                     or []), len(unmatched), asked, known)
 
     # ------------------------------------------------------------ the agent server
 
