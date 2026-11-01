@@ -18,9 +18,42 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.24.0.
+Version 0.28.5.
 
-**Now: Alfie's brain, M13 to M18** (agreed with Lukas 2026-10-30; plan.md, design.md "Brain").
+**Now (2026-11-01): voice goes to Hermes Agent.** Lukas was unhappy with voice ("strip back the
+layers before the LLM"; wants a smart, all-local agent with memory, web search and house control,
+and to be told on the speaker when something will take a while). Plan approved:
+`~/.claude/plans/wild-yawning-parrot.md` on raccoon.
+- **Hermes Agent** (Nous Research, MIT) runs in Docker on Lukas's Fedora desktop
+  (192.168.1.145, Arc B580), workspace `~/Documents/Personal/Alfie` (repo `hermes-home`, private;
+  GitHub creation waits on Lukas). AGENTS.md (with CLAUDE.md symlinked to it) holds the rules and the
+  device list; `hermes/SOUL.md` the personality. Model `hermes-qwen3.5:9b` on the desktop's
+  Ollama (64k context, no vision projector, thinking off, temperature 0.3 via the provider's
+  extra_body, because Ollama's /v1 ignores the Modelfile's sampling). Web search is raccoon's
+  SearXNG (no page extract: every extract backend is hosted). API server on :8642, key in
+  raccoon's `~/.config/alfie/hermes_api_key` (0600).
+- **Desktop work goes through the Claude session "Alfie-B580"** (SendMessage); raccoon has no
+  SSH there. That session owns the Hermes side; this repo owns the HA side.
+- HA user `hermes` (non-admin, local only) with its own long-lived token: it reads states and
+  calls services, and gets 401 on config writes, restart and reload (checked).
+- **Alfie 0.28 (agent.py):** `brain.agent_url` answers after HA's intents, streamed; the
+  delegate (`conversation.alfie_desktop`, qwen3:8b) only stands in when Hermes can't be reached.
+  Each turn's system note names the speaker's area and the local time (Hermes invented the
+  time). Wait lines when it starts a slow tool before saying anything, or after
+  `agent_wait_seconds` of quiet. A state question HA answers about nothing ("who is Taylor
+  Swift" read as a zone) goes on to Hermes (`brain.empty_answer`).
+- **Production now:** `own_sentences` off (Alfie's own commands skipped), `local_intents` and
+  `local_states` on, `agent_url` http://192.168.1.145:8642. Switch script (on, off, show; it backs up the
+  old brain settings) in this session's scratchpad; `alfie/config/set` by hand works too.
+- Measured: HA intents 0.05 s; Hermes about 1.5-2 s for knowledge, about 3.5 s for a device, 5-15 s for a
+  forecast or web search (the model itself says "Let me check…" first, which starts TTS). The
+  first turn after a dictation (OpenWhispr shares the model, and Ollama has one slot) or a restart
+  costs about 12 s more for the 10.6k-token prompt.
+- Open: Lukas to choose on thinking (proposed: voice off, "think about it" turns it on per
+  request, chat and coding on); try it on the Echo Dot; STT upgrade (Whisper large-v3-turbo vs
+  Parakeet, a separate track, not started); qwen3:8b deletion after an OpenWhispr test.
+
+**Before that: Alfie's brain, M13 to M18** (agreed with Lukas 2026-10-30; plan.md, design.md "Brain").
 A local-first voice pipeline inside Alfie, meant for the HA community too. Done: M13 Speech
 (`tts.alfie_voice`), M14 Brain (`conversation.alfie`; on production "Alfie (local)" uses it with
 "prefer local" off and `brain.delegate` = `conversation.alfie_desktop`, the Ollama LLM), and
