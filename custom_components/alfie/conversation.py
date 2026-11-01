@@ -41,6 +41,7 @@ from homeassistant.helpers import intent, llm
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from . import agent, brain, fun, tell
 from .const import DOMAIN, VERSION
@@ -399,7 +400,7 @@ class AlfieAgent(conversation.ConversationEntity):
         url = agent.endpoint(s["agent_url"])
         name = url.split("//", 1)[-1].split("/", 1)[0]
         prompt = agent.where_prompt(s["agent_prompt"] or (words.get("agent") or {}).get("prompt", ""),
-                                    self._where(user_input))
+                                    self._where(user_input), dt_util.now())
         hdrs = agent.headers(
             s["agent_key"], f"alfie-{chat_log.conversation_id}",
             f"alfie:{user_input.satellite_id or user_input.device_id or 'assist'}")

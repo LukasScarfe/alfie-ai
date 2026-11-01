@@ -32,9 +32,12 @@ def test_body_sends_only_the_new_message():
     assert agent.body("hi", "m")["messages"] == [{"role": "user", "content": "hi"}]
 
 
-def test_prompt_names_the_speaker():
-    said = agent.where_prompt(EN["agent"]["prompt"], "living room")
-    assert "the living room speaker" in said and "{where}" not in said
+def test_prompt_names_the_speaker_and_the_time():
+    from datetime import datetime
+    said = agent.where_prompt(EN["agent"]["prompt"], "living room", datetime(2026, 11, 1, 16, 5))
+    assert "the living room speaker" in said and "It is 4:05 PM on Sunday, November 1, 2026." in said
+    assert agent.where_prompt("{time}", "x", datetime(2026, 1, 1, 0, 30)) == "12:30 AM"
+    assert agent.where_prompt("", "x") == ""
 
 
 def chunk(content=None, finish=None, **extra):

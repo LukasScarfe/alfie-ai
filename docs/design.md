@@ -869,7 +869,7 @@ requirements, light enough for a Pi.
     the new message (`stream: true`); the server keeps the conversation by
     `X-Hermes-Session-Id` (`alfie-<HA conversation id>`) and scopes long-term memory by
     `X-Hermes-Session-Key` (`alfie:<speaker>`). Each turn sends a system message
-    (`agent_prompt`, "" the language's) naming the speaker's area and asking for short spoken
+    (`agent_prompt`, "" the language's) naming the speaker's area and the local time and date ({where}, {time}, {day}: the agent's cached prompt has only the date, and a 9B model guessed the time), asking for short spoken
     replies. The reply streams into the chat log. The agent's tools run on its side; each shows
     as an external tool call (`agent_<tool>`). **Wait lines:** when it starts a slow tool before
     saying anything (any tool but `agent_quick_tools`: reading the house, memory), or nothing

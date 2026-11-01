@@ -320,7 +320,7 @@ function brainTab(p) {
         ${U.check("brain.agent_wait", b.agent_wait, "Say when it'll take a moment", "Before a web search or other slow tool, or when nothing has come for a few seconds, he says \"Give me a second while I look that up\" so nobody waits in silence.")}
         ${b.agent_wait ? `${U.field("Quiet for", U.num("brain.agent_wait_seconds", b.agent_wait_seconds, { min: 1, max: 60, step: 1, unit: "s" }), "Then he says he's still on it.")}
         ${U.wide("Quick tools", `<textarea data-path="brain.agent_quick_tools" data-kind="lines" rows="3">${U.esc((b.agent_quick_tools || []).join("\n"))}</textarea>`, "Tools fast enough to need no wait line, one per line; ending in _ means every tool starting with it.")}` : ""}
-        ${U.wide("Its instructions per spoken turn", `<textarea data-path="brain.agent_prompt" rows="3" placeholder="The language's: a spoken request from the {where} speaker, keep it short, say first when something is slow.">${U.esc(b.agent_prompt || "")}</textarea>`, "{where} is the speaker's area.")}` : ""}`)}
+        ${U.wide("Its instructions per spoken turn", `<textarea data-path="brain.agent_prompt" rows="3" placeholder="The language's: a spoken request from the {where} speaker, keep it short, say first when something is slow.">${U.esc(b.agent_prompt || "")}</textarea>`, "{where} is the speaker's area, {time} and {day} the time and date now.")}` : ""}`)}
       ${U.card("Delegate", `
         ${U.field(b.agent_url ? "When the agent server can't be reached" : "Everything else goes to", U.select("brain.delegate", b.delegate, delegates, { rerender: true }),
           "Usually an LLM agent. It gets the conversation so far, so follow-ups work.")}

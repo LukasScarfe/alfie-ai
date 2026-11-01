@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import random
+from datetime import datetime
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -52,8 +53,18 @@ def body(text: str, model: str, prompt: str = "") -> dict[str, Any]:
     return {"model": model or "hermes-agent", "messages": messages, "stream": True}
 
 
-def where_prompt(template: str, where: str) -> str:
-    return template.replace("{where}", where) if template else ""
+def where_prompt(template: str, where: str, now: datetime | None = None) -> str:
+    """The turn's system message: {where} the speaker's area, {time} and
+    {day} the local time and date (the agent's cached prompt has only the
+    date, and a small model guesses the time)."""
+    if not template:
+        return ""
+    out = template.replace("{where}", where)
+    if now is not None:
+        hour = now.hour % 12 or 12
+        out = out.replace("{time}", f"{hour}:{now.minute:02d} {'AM' if now.hour < 12 else 'PM'}")
+        out = out.replace("{day}", f"{now:%A}, {now:%B} {now.day}, {now.year}")
+    return out
 
 
 # ------------------------------------------------------------ the stream
