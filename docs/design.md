@@ -861,6 +861,23 @@ requirements, light enough for a Pi.
   - The delegate (`brain.delegate`, any other conversation entity) runs in the same chat log, so
     it has the conversation so far and its reply still streams to TTS. With none, or when it
     fails, the fallback reply (`brain.fallback`, "" the language's).
+  - **Agent server** (`brain.agent_url`, `agent.py`; 0.28.0; Lukas 2026-11-01: "strip back the
+    layers before the LLM", the house's LLM should be a real agent with memory and tools, and
+    "tell us on the speaker in advance if it thinks a command is going to take a very long
+    time"). An OpenAI-compatible agent server, made for Hermes Agent's API server, answers after
+    HA's intents; the delegate then only stands in when it can't be reached. Alfie posts only
+    the new message (`stream: true`); the server keeps the conversation by
+    `X-Hermes-Session-Id` (`alfie-<HA conversation id>`) and scopes long-term memory by
+    `X-Hermes-Session-Key` (`alfie:<speaker>`). Each turn sends a system message
+    (`agent_prompt`, "" the language's) naming the speaker's area and asking for short spoken
+    replies. The reply streams into the chat log. The agent's tools run on its side; each shows
+    as an external tool call (`agent_<tool>`). **Wait lines:** when it starts a slow tool before
+    saying anything (any tool but `agent_quick_tools`: reading the house, memory), or nothing
+    has come for `agent_wait_seconds`, he says a line from the language (`agent.wait`, by tool:
+    "Give me a second while I look that up on the web."). Text followed by a tool call makes
+    HA's pipeline start speaking at once, so the line is heard while the agent works. An
+    approval request ends the turn with "That needs your approval first". Settings in Voice →
+    Brain → Agent server.
   - A pipeline using Alfie should have "Prefer handling commands locally" off: Alfie does that
     himself, and the pipeline's own matches never reach his turn log. The Brain tab says so.
   - The face: a badge by him for `icon_seconds` (a bolt when he answered, a brain while the

@@ -268,8 +268,8 @@ const COMMANDS = [["whats_wrong", "What's wrong", "\"Is anything wrong?\": the s
   ["joke", "Jokes", "\"Tell me a joke\", \"Make me laugh\": no repeats until he has told them all."],
   ["chat", "Small talk", "\"Hello\", \"Thank you\", \"What's your name?\", \"How old are you?\", \"Are you there?\""],
   ["wiki", "Wikipedia", "\"Who was Albert Einstein?\", \"What is a quasar?\", \"Tell me about Vancouver\": from your own offline Wikipedia (the card below). Only an article with that very name; anything else goes to the delegate. Tried last."]];
-const TIER = { 1: ["mdi:lightning-bolt", "Local"], 3: ["mdi:brain", "Delegate"], 0: ["mdi:help-circle-outline", "Unanswered"] };
-const SOURCE = { trigger: "Sentence trigger", own: "Alfie", intent: "Home Assistant", delegate: "Delegate",
+const TIER = { 1: ["mdi:lightning-bolt", "Local"], 3: ["mdi:brain", "Agent or delegate"], 0: ["mdi:help-circle-outline", "Unanswered"] };
+const SOURCE = { trigger: "Sentence trigger", own: "Alfie", intent: "Home Assistant", agent: "Agent server", delegate: "Delegate",
   none: "Fallback", error: "Delegate failed" };
 
 function brainTab(p) {
@@ -306,13 +306,23 @@ function brainTab(p) {
           `${SENTENCE_HINT} His own always work.`)}</details>`;
       })()}`).join("");
   return `${U.intro("Make Alfie your voice assistant's agent and he answers what he can himself, instantly and from the real states, and passes only the rest to an LLM.",
-      `He is the conversation agent <code>${BRAIN_ENTITY}</code>. Each request tries, in order: an automation's sentence trigger, his own sentences, Home Assistant's built-in intents (lights, timers, the weather, \"is the door locked\"), and only then the delegate, any other agent you have, like Ollama or Google. The delegate's reply still streams to the speaker. ${where}`)}
+      `He is the conversation agent <code>${BRAIN_ENTITY}</code>. Each request tries, in order: an automation's sentence trigger, his own sentences, Home Assistant's built-in intents (lights, timers, the weather, \"is the door locked\"), and only then the agent server (like Hermes Agent) or the delegate, any other agent you have, like Ollama or Google. Their replies still stream to the speaker. ${where}`)}
     ${U.card("Ask him", `
       <div class="row"><input id="brain-ask" class="grow" placeholder="What's the weather?" value="${U.esc(p.brainAsk ?? "")}">
         <button class="flat" data-action="brain-ask">${U.icon("mdi:send")}Ask</button></div>
       <p class="brain-said muted">${U.esc(p.brainReply || "Saved settings answer. Nothing is spoken; actions do happen.")}</p>`)}
-    ${U.cards(`${U.card("Delegate", `
-        ${U.field("Everything else goes to", U.select("brain.delegate", b.delegate, delegates, { rerender: true }),
+    ${U.cards(`${U.card("Agent server", `
+        ${U.field("Address", U.text("brain.agent_url", b.agent_url, { placeholder: "http://192.168.1.10:8642", attrs: "data-rerender" }),
+          "An agent with its own tools and memory, like Hermes Agent's API server (OpenAI-compatible). It answers whatever Home Assistant's intents don't. Empty: the delegate does.")}
+        ${b.agent_url ? `${U.field("API key", U.text("brain.agent_key", b.agent_key, { attrs: 'type="password" autocomplete="off"' }))}
+        <div class="row">${U.field("Model", U.text("brain.agent_model", b.agent_model, { placeholder: "hermes-agent" }))}
+        ${U.field("Wait at most", U.num("brain.agent_seconds", b.agent_seconds, { min: 5, max: 900, step: 5, unit: "s" }))}</div>
+        ${U.check("brain.agent_wait", b.agent_wait, "Say when it'll take a moment", "Before a web search or other slow tool, or when nothing has come for a few seconds, he says \"Give me a second while I look that up\" so nobody waits in silence.")}
+        ${b.agent_wait ? `${U.field("Quiet for", U.num("brain.agent_wait_seconds", b.agent_wait_seconds, { min: 1, max: 60, step: 1, unit: "s" }), "Then he says he's still on it.")}
+        ${U.wide("Quick tools", `<textarea data-path="brain.agent_quick_tools" data-kind="lines" rows="3">${U.esc((b.agent_quick_tools || []).join("\n"))}</textarea>`, "Tools fast enough to need no wait line, one per line; ending in _ means every tool starting with it.")}` : ""}
+        ${U.wide("Its instructions per spoken turn", `<textarea data-path="brain.agent_prompt" rows="3" placeholder="The language's: a spoken request from the {where} speaker, keep it short, say first when something is slow.">${U.esc(b.agent_prompt || "")}</textarea>`, "{where} is the speaker's area.")}` : ""}`)}
+      ${U.card("Delegate", `
+        ${U.field(b.agent_url ? "When the agent server can't be reached" : "Everything else goes to", U.select("brain.delegate", b.delegate, delegates, { rerender: true }),
           "Usually an LLM agent. It gets the conversation so far, so follow-ups work.")}
         ${U.field("When nothing answers", U.text("brain.fallback", b.fallback, { placeholder: "Sorry, I don't know that one." }),
           "Also when the delegate fails.")}`)}
