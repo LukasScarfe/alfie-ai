@@ -233,6 +233,12 @@ def command_of(intent_name: str) -> str | None:
     return next((c for c, n in INTENTS.items() if n == intent_name), None)
 
 
+def empty_answer(intent_name: str, matched: int, unmatched: int) -> bool:
+    """A state question HA answered about nothing at all ("who is Taylor
+    Swift" -> "Not any"): better left to the agent or delegate."""
+    return intent_name in STATE_INTENTS and not matched and not unmatched
+
+
 def leave_to_delegate(intent_name: str, settings: Mapping[str, Any]) -> bool:
     """Whether an HA intent that matched is left to the delegate instead."""
     if intent_name in STATE_INTENTS:
