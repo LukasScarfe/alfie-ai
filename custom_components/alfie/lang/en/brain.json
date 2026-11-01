@@ -949,7 +949,7 @@
       "browser": ["Give me a moment, I'm opening that page."],
       "terminal": ["Give me a moment, I'm working on that."],
       "_": ["One moment while I work that out.", "Give me a second on that one."],
-      "slow": ["Still with you. This one's taking a moment.", "Just a moment, I'm still on it."]
+      "slow": ["One moment, I'm on it.", "Give me a second.", "Just a moment while I check."]
     },
     "replies": {
       "approval": "That needs your approval first. Have a look on the computer.",
