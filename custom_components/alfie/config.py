@@ -809,8 +809,18 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
         icons[key] = icon if not icon or _is_icon(icon) else ""
         if icon and not icons[key]:
             ck.bad(f"brain {key.replace('_', ' ')}", f"{icon!r} is not an icon name")
+    quick = v["agent_quick_tools"] if isinstance(v["agent_quick_tools"], list) else []
     return {
         "delegate": delegate,
+        "agent_url": _url("brain agent server", v["agent_url"], ck),
+        "agent_key": str(v["agent_key"] or "").strip()[:500],
+        "agent_model": str(v["agent_model"] or "").strip()[:100] or "hermes-agent",
+        "agent_prompt": str(v["agent_prompt"] or "").strip()[:2000],
+        "agent_seconds": _num(ck.number("brain agent wait", v["agent_seconds"], 5, 900, 120)),
+        "agent_wait": bool(v["agent_wait"]),
+        "agent_wait_seconds": _num(ck.number("brain agent quiet time", v["agent_wait_seconds"],
+                                             1, 60, 4)),
+        "agent_quick_tools": [t for x in quick[:50] if (t := str(x).strip()[:60])],
         "own_sentences": bool(v["own_sentences"]),
         "off_commands": ck.names("brain commands off", v["off_commands"], brain.COMMANDS),
         "voice_label": " ".join(str(v["voice_label"] or "").split())[:60],

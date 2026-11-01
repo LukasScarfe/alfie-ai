@@ -9,16 +9,22 @@ conversation agent. brain.py decides; this runs a turn through the tiers:
      entities; state questions stay local unless `brain.local_states` is off;
      then his own answers a built-in intent may know better (`brain.LATE`:
      any entity's state, how many lights are on);
-  4. the delegate (`brain.delegate`, any other conversation agent), run in the
-     same chat log, so an LLM's reply still streams to text-to-speech.
+  4. the agent server (`brain.agent_url`, agent.py: Hermes Agent's API), its
+     reply streamed into the chat log, with a "give me a second" line when it
+     starts on something slow;
+  5. the delegate (`brain.delegate`, any other conversation agent), run in the
+     same chat log, so an LLM's reply still streams to text-to-speech. With an
+     agent server, only when that one can't be reached.
 
-With no delegate, the fallback reply. Each turn goes in the turn log
+With neither, the fallback reply. Each turn goes in the turn log
 (`alfie/brain/turns`) and puts a badge by his face for the tier.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import random
 import time
 from collections.abc import Callable
 from typing import Any, Literal
@@ -27,11 +33,16 @@ from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import MATCH_ALL
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
-from homeassistant.helpers import intent
+import aiohttp
+from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import intent, llm
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from . import brain, fun, tell
+from . import agent, brain, fun, tell
 from .const import DOMAIN, VERSION
 from .engine import AlfieEngine
 from .local import LocalAnswers
@@ -75,6 +86,7 @@ class AlfieAgent(conversation.ConversationEntity):
         self._which: dict[str, tuple[str, dict[str, str], list[str], float]] = {}
         # satellite ("" none) -> (his last reply there, monotonic said at): "say that again"
         self._said: dict[str, tuple[str, float]] = {}
+        self._rng = random.Random()
 
     @property
     def supported_languages(self) -> list[str] | Literal["*"]:
@@ -323,7 +335,13 @@ class AlfieAgent(conversation.ConversationEntity):
         if late and (result := await self._try_own(late, language, turn, chat_log, held)):
             return done(result)
 
-        # 4. the delegate
+        # 4. the agent server
+        if s["agent_url"]:
+            result = await self._agent(user_input, chat_log, language, turn, passed)
+            if result is not None:
+                return done(result)
+
+        # 5. the delegate
         delegate = s["delegate"]
         if delegate:
             st = self.hass.states.get(delegate)
@@ -356,6 +374,165 @@ class AlfieAgent(conversation.ConversationEntity):
         turn.why = brain.why("none", passed=passed)
         return done(self._reply(brain.fallback(brain.load_language(language), s), language,
                                 chat_log))
+
+    # ------------------------------------------------------------ the agent server
+
+    def _where(self, user_input: conversation.ConversationInput) -> str:
+        """The area of the speaker asked through, for the agent's prompt."""
+        area_id, device_id = None, user_input.device_id
+        if user_input.satellite_id and (
+                ent := er.async_get(self.hass).async_get(user_input.satellite_id)):
+            area_id, device_id = ent.area_id, device_id or ent.device_id
+        if not area_id and device_id and (dev := dr.async_get(self.hass).async_get(device_id)):
+            area_id = dev.area_id
+        area = ar.async_get(self.hass).async_get_area(area_id) if area_id else None
+        return area.name if area else "house"
+
+    async def _agent(self, user_input: conversation.ConversationInput,
+                     chat_log: conversation.ChatLog, language: str, turn: brain.Turn,
+                     passed: list[str]) -> conversation.ConversationResult | None:
+        """Ask the agent server, streaming its reply into the chat log (so the
+        speaker starts talking early). None when it couldn't be reached and
+        said nothing: the delegate stands in."""
+        s = self.engine.config["brain"]
+        words = brain.load_language(language) or {}
+        url = agent.endpoint(s["agent_url"])
+        name = url.split("//", 1)[-1].split("/", 1)[0]
+        prompt = agent.where_prompt(s["agent_prompt"] or (words.get("agent") or {}).get("prompt", ""),
+                                    self._where(user_input))
+        hdrs = agent.headers(
+            s["agent_key"], f"alfie-{chat_log.conversation_id}",
+            f"alfie:{user_input.satellite_id or user_input.device_id or 'assist'}")
+        events: asyncio.Queue[tuple[str, Any]] = asyncio.Queue()
+        http = async_get_clientsession(self.hass)
+        turn.detail = name
+        self.engine.brain_badge(3)
+
+        async def read() -> None:
+            try:
+                async with http.post(url, json=agent.body(user_input.text, s["agent_model"], prompt),
+                                     headers=hdrs, timeout=aiohttp.ClientTimeout(
+                                         total=s["agent_seconds"], sock_connect=5)) as resp:
+                    if resp.status != 200:
+                        await events.put(("fail", f"HTTP {resp.status} "
+                                          f"{(await resp.text())[:200]}".strip()))
+                        return
+                    sse = agent.SSE()
+                    async for raw in resp.content:
+                        for ev in sse.line(raw):
+                            await events.put(ev)
+                    for ev in sse.end():
+                        await events.put(ev)
+            except asyncio.CancelledError:
+                raise
+            except Exception as err:  # noqa: BLE001 (unreachable, timed out: say so)
+                await events.put(("fail", str(err) or type(err).__name__))
+            finally:
+                events.put_nowait(("end", None))
+
+        spoken: list[str] = []
+        state = {"text": False, "error": ""}
+
+        def mark(tool: str, label: str) -> list[dict[str, Any]]:
+            """The agent's tool, run on its side, as an external tool call: it
+            shows in the chat log, and text followed by a tool call makes the
+            pipeline start speaking at once."""
+            call = llm.ToolInput(tool_name=f"agent_{tool}", tool_args={"label": label} if label
+                                 else {}, external=True)
+            return [{"tool_calls": [call]},
+                    {"role": "tool_result", "tool_call_id": call.id, "tool_name": call.tool_name,
+                     "result": llm.ToolResult(data={"status": "started"})}]
+
+        async def stream() -> Any:
+            yield {"role": "assistant"}
+            waited, fresh = False, False      # fresh: a new assistant message is due
+            while True:
+                quiet = (s["agent_wait_seconds"] if s["agent_wait"] and not state["text"]
+                         and not waited else None)
+                try:
+                    kind, value = await asyncio.wait_for(events.get(), quiet)
+                except TimeoutError:
+                    kind, value = "quiet", None
+                if kind == "quiet" or (kind == "tool" and value.get("status") == "running"
+                                       and not agent.quick(str(value.get("tool") or ""),
+                                                           s["agent_quick_tools"])
+                                       and s["agent_wait"] and not state["text"] and not waited):
+                    tool = "slow" if kind == "quiet" else str(value.get("tool") or "")
+                    line = agent.wait_line(words, tool, self._rng)
+                    waited = True
+                    if line:
+                        if fresh:
+                            yield {"role": "assistant"}
+                        spoken.append(line + " ")
+                        yield {"content": line + " "}
+                        for d in mark(tool, ""):
+                            yield d
+                        fresh = True
+                    if kind == "quiet":
+                        continue
+                if kind == "tool":
+                    if value.get("status") == "running" and state["text"]:
+                        if fresh:
+                            yield {"role": "assistant"}
+                        for d in mark(str(value.get("tool") or ""), str(value.get("label") or "")):
+                            yield d
+                        fresh = True
+                elif kind == "text":
+                    if fresh:
+                        yield {"role": "assistant"}
+                        fresh = False
+                    state["text"] = True
+                    spoken.append(value)
+                    yield {"content": value}
+                elif kind == "approval":
+                    line = agent.say(words, "approval")
+                    if fresh:
+                        yield {"role": "assistant"}
+                    spoken.append(" " + line)
+                    yield {"content": " " + line}
+                    return
+                elif kind in ("error", "fail"):
+                    state["error"] = str(value)
+                    if kind == "fail":
+                        break
+                elif kind in ("done", "end"):
+                    break
+            if state["error"] and state["text"]:
+                line = " " + agent.say(words, "broke")
+                if fresh:
+                    yield {"role": "assistant"}
+                spoken.append(line)
+                yield {"content": line}
+
+        reader = self.hass.async_create_task(read(), "alfie agent", eager_start=False)
+        try:
+            async for _content in chat_log.async_add_delta_content_stream(self.entity_id, stream()):
+                pass
+        finally:
+            reader.cancel()
+
+        if state["error"] and not state["text"]:
+            _LOGGER.warning("Alfie's agent server %s failed: %s", name, state["error"])
+            turn.why = brain.why("error", delegate=name, error=state["error"])
+            if s["delegate"]:
+                return None
+            turn.source = "error"
+            line = brain.fallback(words, s)
+            self._add_reply(line, chat_log)
+            spoken.append(line)
+        elif not state["text"]:
+            line = agent.say(words, "empty")
+            self._add_reply(line, chat_log)
+            spoken.append(line)
+            turn.source, turn.why = "error", brain.why("error", delegate=name, error="no reply")
+        else:
+            turn.source = "agent"
+            turn.why = brain.why("agent", delegate=name, passed=passed)
+        response = intent.IntentResponse(language=language)
+        response.async_set_speech("".join(spoken).strip())
+        return conversation.ConversationResult(
+            response=response, conversation_id=chat_log.conversation_id,
+            continue_conversation=bool(getattr(chat_log, "continue_conversation", False)))
 
     def _add_reply(self, text: str, chat_log: conversation.ChatLog) -> None:
         chat_log.async_add_assistant_content_without_tools(

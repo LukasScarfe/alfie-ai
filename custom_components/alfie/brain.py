@@ -6,7 +6,8 @@ can:
           wrong, how are you), then Home Assistant's built-in intents, then his
           local answers that a built-in intent may know better (any entity's
           state, how many lights are on: `LATE`);
-  tier 3  the delegate: any other conversation agent, usually an LLM.
+  tier 3  the agent server (`agent_url`, agent.py: Hermes Agent), else the
+          delegate: any other conversation agent, usually an LLM.
 
 Tier 2, the matcher, comes in M16. Tier 1 replies come from templates, so the
 LLM is used only when nothing local is sure.
@@ -79,7 +80,8 @@ WILDCARDS = ("name", "area", "value", "place", "date", "expr", "what", "item", "
 STATE_INTENTS = frozenset({"HassGetState", "HassGetWeather"})
 MEDIA_SEARCH = "HassMediaSearchAndPlay"
 # Where a turn's answer came from, by tier.
-SOURCES = {"trigger": 1, "own": 1, "intent": 1, "delegate": 3, "none": 0, "error": 0}
+SOURCES = {"trigger": 1, "own": 1, "intent": 1, "agent": 3, "delegate": 3, "none": 0,
+           "error": 0}
 LOG_MAX = 200
 MAX_SAID = 300     # characters of a question or reply kept in the log
 
@@ -87,6 +89,17 @@ MAX_SAID = 300     # characters of a question or reply kept in the log
 def default_settings() -> dict[str, Any]:
     """The `brain` config section."""
     return {"delegate": "",                 # a conversation entity; "" none
+            "agent_url": "",                # an agent server (Hermes): it answers before the
+                                            # delegate, which is then only its stand-in; "" off
+            "agent_key": "",                # its API key
+            "agent_model": "hermes-agent",  # the model name it's asked for
+            "agent_prompt": "",             # each spoken turn's system message; "" the language's
+            "agent_seconds": 120,           # the longest it may take
+            "agent_wait": True,             # "give me a second" before something slow
+            "agent_wait_seconds": 4,        # ...or when nothing has come for this long
+            "agent_quick_tools": ["ha_", "memory", "session_search", "tool_search", "tool_call",
+                                  "todo", "clarify", "skill_view", "skills_list"],
+                                            # tools fast enough to need no wait line
             "own_sentences": True, "off_commands": [],
             "voice_label": "Alfie voice",   # a label: what carries it, he starts by voice
             "run_bare": True,               # its name alone ("movie time") starts it too
@@ -281,6 +294,8 @@ def why(source: str, detail: str = "", delegate: str = "",
         return f"Home Assistant's {detail} intent matched."
     if source == "delegate":
         return f"Nothing local matched, so {delegate or detail} answered." + note
+    if source == "agent":
+        return f"Nothing local matched, so the agent at {delegate or detail} answered." + note
     if source == "error":
         return f"Nothing local matched and {delegate or detail} failed: {error}".rstrip(": ") + "."
     return "Nothing local matched and no delegate is set." + note
