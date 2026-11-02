@@ -24,13 +24,14 @@ Version 0.29.0.
 layers before the LLM"; wants a smart, all-local agent with memory, web search and house control,
 and to be told on the speaker when something will take a while). Plan approved:
 `~/.claude/plans/wild-yawning-parrot.md` on raccoon.
-- **Hermes Agent** (Nous Research, MIT) runs in Docker on Lukas's Fedora desktop
-  (192.168.1.145, Arc B580), workspace `~/Documents/Personal/Alfie` (repo `hermes-home`, private;
-  pushed). AGENTS.md (with CLAUDE.md symlinked to it) holds the rules and the
+- **Hermes Agent** (Nous Research, MIT) runs in Docker **on raccoon** (moved 2026-11-01),
+  workspace `~/Documents/hermes-home` (repo `hermes-home`, private; compose there, backed up
+  nightly). Its model is Ollama on Lukas's Fedora desktop (192.168.1.145:11434, Arc B580); the old
+  desktop folder `~/Documents/Personal/Alfie` is a backup until about 2026-11-08. AGENTS.md (with CLAUDE.md symlinked to it) holds the rules and the
   device list; `hermes/SOUL.md` the personality. Model `hermes-qwen3.5:9b` on the desktop's
   Ollama (64k context, no vision projector, temperature 0.3 via the provider's
   extra_body, because Ollama's /v1 ignores the Modelfile's sampling). Web search is raccoon's
-  SearXNG (no page extract: every extract backend is hosted). API server on :8642, key in
+  SearXNG (`192.168.1.241:8088`; no page extract: every extract backend is hosted). API server on :8642, key in
   raccoon's `~/.config/alfie/hermes_api_key` (0600).
 - **Thinking (0.29.0):** Alfie sets reasoning per request (`model_options.reasoning`): off when
   spoken, the server's own when typed, medium when asked ("think about it", "take your time"),
@@ -40,6 +41,8 @@ and to be told on the speaker when something will take a while). Plan approved:
   for small at room noise, ~1.15 s. The Echo's silence that night was its volume at 10% (now 50%).
   The "what's playing" sentence trigger is gone from "Music by voice" (Lukas's OK), so it goes to
   Hermes (29 s, it lists every media player: an AGENTS.md line could name them; Lukas's call).
+- Alfie's `agent_url` is `http://192.168.1.241:8642`. Hermes defaults to thinking (medium);
+  spoken turns send reasoning off.
 - **Desktop work goes through the Claude session "Alfie-B580"** (SendMessage); raccoon has no
   SSH there. That session owns the Hermes side; this repo owns the HA side.
 - HA user `hermes` (non-admin, local only) with its own long-lived token: it reads states and
