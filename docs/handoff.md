@@ -41,6 +41,10 @@ and to be told on the speaker when something will take a while). Plan approved:
   for small at room noise, ~1.15 s. The Echo's silence that night was its volume at 10% (now 50%).
   The "what's playing" sentence trigger is gone from "Music by voice" (Lukas's OK), so it goes to
   Hermes (29 s, it lists every media player: an AGENTS.md line could name them; Lukas's call).
+- **No "hold on" lines (2026-11-01, Lukas):** spoken, they came out at the end with the answer,
+  not first. AGENTS.md now says not to announce tools, and production's `brain.agent_wait` is
+  off (Alfie's own wait lines; the code stays, it's a setting). Hermes reads AGENTS.md at
+  startup: restart the container after editing it.
 - Alfie's `agent_url` is `http://192.168.1.241:8642`. Hermes defaults to thinking (medium);
   spoken turns send reasoning off.
 - **Desktop work goes through the Claude session "Alfie-B580"** (SendMessage); raccoon has no
@@ -50,14 +54,14 @@ and to be told on the speaker when something will take a while). Plan approved:
 - **Alfie 0.28 (agent.py):** `brain.agent_url` answers after HA's intents, streamed; the
   delegate (`conversation.alfie_desktop`, qwen3:8b) only stands in when Hermes can't be reached.
   Each turn's system note names the speaker's area and the local time (Hermes invented the
-  time). Wait lines when it starts a slow tool before saying anything, or after
+  time). Wait lines (now off on production) when it starts a slow tool before saying anything, or after
   `agent_wait_seconds` of quiet. A state question HA answers about nothing ("who is Taylor
   Swift" read as a zone) goes on to Hermes (`brain.empty_answer`).
 - **Production now:** `own_sentences` off (Alfie's own commands skipped), `local_intents` and
   `local_states` on, `agent_url` http://192.168.1.145:8642. Switch script (on, off, show; it backs up the
   old brain settings) in this session's scratchpad; `alfie/config/set` by hand works too.
 - Measured: HA intents 0.05 s; Hermes about 1.5-2 s for knowledge, about 3.5 s for a device, 5-15 s for a
-  forecast or web search (the model itself says "Let me check…" first, which starts TTS). The
+  forecast or web search (it no longer says "Let me check…" first). The
   first turn after a dictation (OpenWhispr shares the model, and Ollama has one slot) or a restart
   costs about 12 s more for the 10.6k-token prompt.
 - Open: Lukas to choose on thinking (proposed: voice off, "think about it" turns it on per
