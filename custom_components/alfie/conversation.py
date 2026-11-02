@@ -10,7 +10,7 @@ conversation agent. brain.py decides; this runs a turn through the tiers:
      then his own answers a built-in intent may know better (`brain.LATE`:
      any entity's state, how many lights are on);
   4. the agent server (`brain.agent_url`, agent.py: Hermes Agent's API), its
-     reply streamed into the chat log, with a "give me a second" line when it
+     reply added to the chat log, with a "give me a second" line when it
      starts on something slow;
   5. the delegate (`brain.delegate`, any other conversation agent), run in the
      same chat log, so an LLM's reply still streams to text-to-speech. With an
@@ -416,14 +416,15 @@ class AlfieAgent(conversation.ConversationEntity):
         words = brain.load_language(language) or {}
         url = agent.endpoint(s["agent_url"])
         name = url.split("//", 1)[-1].split("/", 1)[0]
-        prompt = agent.where_prompt(s["agent_prompt"] or (words.get("agent") or {}).get("prompt", ""),
-                                    self._where(user_input), dt_util.now())
+        voice = bool(user_input.satellite_id or user_input.device_id)
+        said_prompt = ((s["agent_prompt"] or (words.get("agent") or {}).get("prompt", "")) if voice
+                       else (s["agent_prompt_typed"] or (words.get("agent") or {}).get("prompt_typed", "")))
+        prompt = agent.where_prompt(said_prompt, self._where(user_input), dt_util.now())
         hdrs = agent.headers(
             s["agent_key"], f"alfie-{chat_log.conversation_id}",
             f"alfie:{user_input.satellite_id or user_input.device_id or 'assist'}")
         phrases = s["agent_think_phrases"] or (words.get("agent") or {}).get("think") or []
-        think = agent.think_level(user_input.text, bool(user_input.satellite_id
-                                                        or user_input.device_id), s, phrases)
+        think = agent.think_level(user_input.text, voice, s, phrases)
         asked = (s["agent_think_asked"] not in ("default", "off")
                  and agent.asks_to_think(user_input.text, phrases))
         events: asyncio.Queue[tuple[str, Any]] = asyncio.Queue()
@@ -455,6 +456,7 @@ class AlfieAgent(conversation.ConversationEntity):
 
         spoken: list[str] = []
         state = {"text": False, "error": ""}
+        final = agent.Final() if voice and s["agent_final_only"] else None
 
         def mark(tool: str, label: str) -> list[dict[str, Any]]:
             """The agent's tool, run on its side, as an external tool call: it
@@ -503,6 +505,8 @@ class AlfieAgent(conversation.ConversationEntity):
                     if kind == "quiet":
                         continue
                 if kind == "tool":
+                    if final:
+                        final.tool()
                     if value.get("status") == "running" and state["text"]:
                         if fresh:
                             yield {"role": "assistant"}
@@ -510,6 +514,9 @@ class AlfieAgent(conversation.ConversationEntity):
                             yield d
                         fresh = True
                 elif kind == "text":
+                    if final:
+                        final.text(value)
+                        continue
                     if not state["text"] and not value.strip():
                         continue    # a newline before the answer isn't the answer
                     if not state["text"]:
@@ -533,6 +540,12 @@ class AlfieAgent(conversation.ConversationEntity):
                         break
                 elif kind in ("done", "end"):
                     break
+            if final and (answer := final.take()):
+                if fresh:
+                    yield {"role": "assistant"}
+                state["text"] = True
+                spoken.append(answer)
+                yield {"content": answer}
             if state["error"] and state["text"]:
                 line = " " + agent.say(words, "broke")
                 if fresh:

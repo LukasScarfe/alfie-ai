@@ -870,8 +870,13 @@ requirements, light enough for a Pi.
     `X-Hermes-Session-Id` (`alfie-<HA conversation id>`) and scopes long-term memory by
     `X-Hermes-Session-Key` (`alfie:<speaker>`). Each turn sends a system message
     (`agent_prompt`, "" the language's) naming the speaker's area and the local time and date ({where}, {time}, {day}: the agent's cached prompt has only the date, and a 9B model guessed the time), asking for short spoken
-    replies. The reply streams into the chat log. The agent's tools run on its side; each shows
-    as an external tool call (`agent_<tool>`). **Wait lines:** when it starts a slow tool before
+    replies; a typed request gets `agent_prompt_typed` instead, asking for as full an answer as it
+    needs. Typed replies stream into the chat log. **Spoken replies are held until the agent is
+    done** (`agent_final_only`, default on; Lukas 2026-11-01: only a final response is ever read
+    out): anything said before a tool call is dropped, because everything in the log reaches the
+    speaker and only the end of the stream shows which text was the answer. The speaker starts
+    once the reply is whole. The agent's tools run on its side; each shows
+    as an external tool call (`agent_<tool>`). **Wait lines** (`agent_wait`): when it starts a slow tool before
     saying anything (any tool but `agent_quick_tools`: reading the house, memory), or nothing
     has come for `agent_wait_seconds`, he says a line from the language (`agent.wait`, by tool:
     "Give me a second while I look that up on the web."). Text followed by a tool call makes

@@ -1,9 +1,10 @@
 """Alfie's agent (design.md "Brain" → Agent): an OpenAI-compatible agent
 server, such as Hermes Agent's API server, that answers whatever Home
 Assistant's own intents don't (`brain.agent_url`). The agent runs its tools on
-its own side; Alfie streams its reply to the speaker and, when it starts on
-something slow (a web search) before saying anything, says a short "give me
-a second" line so nobody waits in silence.
+its own side; Alfie passes on its reply, only the final answer when spoken
+(`agent_final_only`), and, when it starts on something slow (a web search)
+before saying anything, can say a short "give me a second" line
+(`agent_wait`).
 
 PURE (no HA import), so the tests run under plain python: the request, the
 server-sent events parser and the wait lines. conversation.py does the HTTP
@@ -158,6 +159,26 @@ class SSE:
                             or str(finish)))
         if not obj.get("choices") and isinstance(obj.get("error"), Mapping):
             out.append(("error", str(obj["error"].get("message") or "error")))
+        return out
+
+
+class Final:
+    """A spoken turn's reply, held until the agent is done: what it says before
+    a tool call ("I'll look that up") is working aloud, not the answer, and only
+    the end of the stream tells which text was which."""
+
+    def __init__(self) -> None:
+        self._held: list[str] = []
+
+    def text(self, value: str) -> None:
+        self._held.append(value)
+
+    def tool(self) -> None:
+        self._held.clear()
+
+    def take(self) -> str:
+        out = "".join(self._held).strip()
+        self._held.clear()
         return out
 
 

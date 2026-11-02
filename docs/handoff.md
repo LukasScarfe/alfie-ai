@@ -41,10 +41,12 @@ and to be told on the speaker when something will take a while). Plan approved:
   for small at room noise, ~1.15 s. The Echo's silence that night was its volume at 10% (now 50%).
   The "what's playing" sentence trigger is gone from "Music by voice" (Lukas's OK), so it goes to
   Hermes (29 s, it lists every media player: an AGENTS.md line could name them; Lukas's call).
-- **No "hold on" lines (2026-11-01, Lukas):** spoken, they came out at the end with the answer,
-  not first. AGENTS.md now says not to announce tools, and production's `brain.agent_wait` is
-  off (Alfie's own wait lines; the code stays, it's a setting). Hermes reads AGENTS.md at
-  startup: restart the container after editing it.
+- **No "hold on" lines (2026-11-01, Lukas): only a final response is ever spoken.** Spoken turns
+  are held and whatever precedes a tool call is dropped (`brain.agent_final_only`, on; 0.30.0), so
+  this no longer depends on the model obeying. Typed turns get their own prompt
+  (`agent_prompt_typed`) and aren't limited to spoken length. AGENTS.md also says not to announce
+  tools, and production's `brain.agent_wait` is off (Alfie's own wait lines; the code stays, it's
+  a setting). Hermes reads AGENTS.md at startup: restart the container after editing it.
 - Alfie's `agent_url` is `http://192.168.1.241:8642`. Hermes defaults to thinking (medium);
   spoken turns send reasoning off.
 - **Desktop work goes through the Claude session "Alfie-B580"** (SendMessage); raccoon has no

@@ -1249,6 +1249,8 @@
   "agent_key": "",
   "agent_model": "hermes-agent",
   "agent_prompt": "",
+  "agent_prompt_typed": "",
+  "agent_final_only": true,
   "agent_seconds": 120,
   "agent_wait": true,
   "agent_wait_seconds": 4,
