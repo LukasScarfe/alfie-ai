@@ -18,7 +18,7 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.28.5.
+Version 0.29.0.
 
 **Now (2026-11-01): voice goes to Hermes Agent.** Lukas was unhappy with voice ("strip back the
 layers before the LLM"; wants a smart, all-local agent with memory, web search and house control,
@@ -26,12 +26,20 @@ and to be told on the speaker when something will take a while). Plan approved:
 `~/.claude/plans/wild-yawning-parrot.md` on raccoon.
 - **Hermes Agent** (Nous Research, MIT) runs in Docker on Lukas's Fedora desktop
   (192.168.1.145, Arc B580), workspace `~/Documents/Personal/Alfie` (repo `hermes-home`, private;
-  GitHub creation waits on Lukas). AGENTS.md (with CLAUDE.md symlinked to it) holds the rules and the
+  pushed). AGENTS.md (with CLAUDE.md symlinked to it) holds the rules and the
   device list; `hermes/SOUL.md` the personality. Model `hermes-qwen3.5:9b` on the desktop's
-  Ollama (64k context, no vision projector, thinking off, temperature 0.3 via the provider's
+  Ollama (64k context, no vision projector, temperature 0.3 via the provider's
   extra_body, because Ollama's /v1 ignores the Modelfile's sampling). Web search is raccoon's
   SearXNG (no page extract: every extract backend is hosted). API server on :8642, key in
   raccoon's `~/.config/alfie/hermes_api_key` (0600).
+- **Thinking (0.29.0):** Alfie sets reasoning per request (`model_options.reasoning`): off when
+  spoken, the server's own when typed, medium when asked ("think about it", "take your time"),
+  with "Let me think about that" first. Hermes's default should be on (Alfie-B580 asked to move
+  `reasoning_effort: none` out of extra_body; confirm). "Think about it" took 18 s on production.
+- **Raccoon Whisper is `large-v3-turbo`** (2026-11-01, containers repo d619ddc): 29/30 vs 24/30
+  for small at room noise, ~1.15 s. The Echo's silence that night was its volume at 10% (now 50%).
+  The "what's playing" sentence trigger is gone from "Music by voice" (Lukas's OK), so it goes to
+  Hermes (29 s, it lists every media player: an AGENTS.md line could name them; Lukas's call).
 - **Desktop work goes through the Claude session "Alfie-B580"** (SendMessage); raccoon has no
   SSH there. That session owns the Hermes side; this repo owns the HA side.
 - HA user `hermes` (non-admin, local only) with its own long-lived token: it reads states and
