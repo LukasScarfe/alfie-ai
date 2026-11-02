@@ -318,6 +318,7 @@ function brainTab(p) {
         ${b.agent_url ? `${U.field("API key", U.text("brain.agent_key", b.agent_key, { attrs: 'type="password" autocomplete="off"' }))}
         <div class="row">${U.field("Model", U.text("brain.agent_model", b.agent_model, { placeholder: "hermes-agent" }))}
         ${U.field("Wait at most", U.num("brain.agent_seconds", b.agent_seconds, { min: 5, max: 900, step: 5, unit: "s" }))}</div>
+        ${U.check("brain.agent_final_only", b.agent_final_only, "Speak only the final answer", "Spoken requests only: whatever the agent says before using a tool (\"I'll look that up\") stays silent, and the speaker starts when its whole reply is ready. Typed replies are never held.")}
         ${U.check("brain.agent_wait", b.agent_wait, "Say when it'll take a moment", "Before a web search or other slow tool, or when nothing has come for a few seconds, he says \"Give me a second while I look that up\" so nobody waits in silence.")}
         ${b.agent_wait ? `${U.field("Quiet for", U.num("brain.agent_wait_seconds", b.agent_wait_seconds, { min: 1, max: 60, step: 1, unit: "s" }), "Then he says he's still on it.")}
         ${U.wide("Quick tools", `<textarea data-path="brain.agent_quick_tools" data-kind="lines" rows="3">${U.esc((b.agent_quick_tools || []).join("\n"))}</textarea>`, "Tools fast enough to need no wait line, one per line; ending in _ means every tool starting with it.")}` : ""}
@@ -325,7 +326,8 @@ function brainTab(p) {
         ${U.field("Typed", U.select("brain.agent_think_typed", b.agent_think_typed, THINK))}
         ${U.field("When asked to think", U.select("brain.agent_think_asked", b.agent_think_asked, [["default", "Ignore the asking"], ...THINK.slice(1)]), "He says \"Let me think about that\" first.")}</div>
         ${U.wide("What asks him to think", `<textarea data-path="brain.agent_think_phrases" data-kind="lines" rows="2" placeholder="The language's: think about it, think hard, take your time…">${U.esc((b.agent_think_phrases || []).join("\n"))}</textarea>`, "One per line, anywhere in the request: \"think hard: should I repot the monstera?\"")}
-        ${U.wide("Its instructions per spoken turn", `<textarea data-path="brain.agent_prompt" rows="3" placeholder="The language's: a spoken request from the {where} speaker, keep it short, say first when something is slow.">${U.esc(b.agent_prompt || "")}</textarea>`, "{where} is the speaker's area, {time} and {day} the time and date now.")}` : ""}`)}
+        ${U.wide("Its instructions per spoken turn", `<textarea data-path="brain.agent_prompt" rows="3" placeholder="The language's: a spoken request from the {where} speaker, keep it short, reply only with the final answer.">${U.esc(b.agent_prompt || "")}</textarea>`, "{where} is the speaker's area, {time} and {day} the time and date now.")}
+        ${U.wide("Its instructions per typed turn", `<textarea data-path="brain.agent_prompt_typed" rows="3" placeholder="The language's: a typed message, answer as fully as it needs.">${U.esc(b.agent_prompt_typed || "")}</textarea>`, "{time} and {day} work here too.")}` : ""}`)}
       ${U.card("Delegate", `
         ${U.field(b.agent_url ? "When the agent server can't be reached" : "Everything else goes to", U.select("brain.delegate", b.delegate, delegates, { rerender: true }),
           "Usually an LLM agent. It gets the conversation so far, so follow-ups work.")}

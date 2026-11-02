@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 import random
 
 import pytest
@@ -93,6 +94,26 @@ def test_wait_lines():
     assert agent.wait_line(EN, "slow", r) in w["slow"]
     assert agent.wait_line({}, "web_search", r) == ""
     assert agent.say(EN, "approval")
+
+
+def test_final_only_drops_what_comes_before_a_tool():
+    final = agent.Final()
+    for text in ("I'll look", " that up for you."):
+        final.text(text)
+    final.tool()
+    final.text("Let me try again.")
+    final.tool()
+    final.text("\nAbout 390,000")
+    final.text(" people.\n")
+    assert final.take() == "About 390,000 people."
+    assert final.take() == ""
+
+
+def test_the_prompts_for_spoken_and_typed_requests():
+    assert "only with the final answer" in EN["agent"]["prompt"]
+    assert "first say" not in EN["agent"]["prompt"]
+    typed = agent.where_prompt(EN["agent"]["prompt_typed"], "house", datetime(2026, 11, 1, 16, 5))
+    assert "not read aloud" in typed and "4:05 PM" in typed
 
 
 def test_settings_check():
