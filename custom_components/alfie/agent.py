@@ -19,6 +19,7 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 PATH = "/v1/chat/completions"
+THINK = ("default", "off", "low", "medium", "high")   # "default": the server decides
 
 
 def endpoint(url: str) -> str:
@@ -44,13 +45,39 @@ def headers(key: str, session: str, memory: str) -> dict[str, str]:
     return out
 
 
-def body(text: str, model: str, prompt: str = "") -> dict[str, Any]:
+def body(text: str, model: str, prompt: str = "", think: str = "default") -> dict[str, Any]:
     """Only the new message: the server keeps the conversation (by its
     session id). `prompt` is a system message for this turn ("a spoken request
-    from the kitchen speaker")."""
+    from the kitchen speaker"). `think` (THINK) asks for reasoning off or at an
+    effort for this request alone (Hermes's `model_options.reasoning`)."""
     messages = [{"role": "system", "content": prompt}] if prompt.strip() else []
     messages.append({"role": "user", "content": text})
-    return {"model": model or "hermes-agent", "messages": messages, "stream": True}
+    out: dict[str, Any] = {"model": model or "hermes-agent", "messages": messages, "stream": True}
+    if think == "off":
+        out["model_options"] = {"reasoning": {"enabled": False}}
+    elif think in THINK and think != "default":
+        out["model_options"] = {"reasoning": {"enabled": True, "effort": think}}
+    return out
+
+
+def _norm(text: str) -> str:
+    return " ".join("".join(c if c.isalnum() else " " for c in text.lower()).split())
+
+
+def asks_to_think(text: str, phrases: Iterable[str]) -> bool:
+    """Whether the request asks for thought ("think hard about...", "...take
+    your time"): one of the phrases, as whole words, anywhere in it."""
+    said = f" {_norm(text)} "
+    return any(p and f" {p} " in said for p in map(_norm, phrases))
+
+
+def think_level(text: str, voice: bool, settings: Mapping[str, Any],
+                phrases: Iterable[str]) -> str:
+    """How hard the agent thinks on this request: the asked level when it asks
+    for thought, else the spoken or typed default."""
+    if settings["agent_think_asked"] != "default" and asks_to_think(text, phrases):
+        return settings["agent_think_asked"]
+    return settings["agent_think_voice" if voice else "agent_think_typed"]
 
 
 def where_prompt(template: str, where: str, now: datetime | None = None) -> str:

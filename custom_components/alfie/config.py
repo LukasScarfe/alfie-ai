@@ -33,7 +33,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from . import brain, defaults, speech
+from . import agent, brain, defaults, speech
 from .mood import (
     COMBINE_MODES,
     DEFAULT_COUNT_THRESHOLDS,
@@ -810,6 +810,7 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
         if icon and not icons[key]:
             ck.bad(f"brain {key.replace('_', ' ')}", f"{icon!r} is not an icon name")
     quick = v["agent_quick_tools"] if isinstance(v["agent_quick_tools"], list) else []
+    phrases = v["agent_think_phrases"] if isinstance(v["agent_think_phrases"], list) else []
     return {
         "delegate": delegate,
         "agent_url": _url("brain agent server", v["agent_url"], ck),
@@ -821,6 +822,11 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
         "agent_wait_seconds": _num(ck.number("brain agent quiet time", v["agent_wait_seconds"],
                                              1, 60, 4)),
         "agent_quick_tools": [t for x in quick[:50] if (t := str(x).strip()[:60])],
+        **{f"agent_think_{k}": ck.choice(f"brain agent thinking {k}", v[f"agent_think_{k}"],
+                                         agent.THINK, brain.default_settings()[f"agent_think_{k}"])
+           for k in ("voice", "typed", "asked")},
+        "agent_think_phrases": [t for x in phrases[:30]
+                                if (t := " ".join(str(x).split())[:60])],
         "own_sentences": bool(v["own_sentences"]),
         "off_commands": ck.names("brain commands off", v["off_commands"], brain.COMMANDS),
         "voice_label": " ".join(str(v["voice_label"] or "").split())[:60],

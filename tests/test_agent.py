@@ -106,3 +106,31 @@ def test_settings_check():
         validate({"brain": {"agent_url": "pc:8642"}}, FACE)
     with pytest.raises(ConfigError):
         validate({"brain": {"agent_seconds": 9999}}, FACE)
+
+
+def test_thinking_per_request():
+    assert "model_options" not in agent.body("hi", "")
+    assert agent.body("hi", "", think="off")["model_options"] == {"reasoning": {"enabled": False}}
+    assert agent.body("hi", "", think="high")["model_options"] == {
+        "reasoning": {"enabled": True, "effort": "high"}}
+    s = brain.default_settings()
+    words = EN["agent"]["think"]
+    assert agent.think_level("is the coffee maker on", True, s, words) == "off"
+    assert agent.think_level("Think hard: should I repot the monstera?", True, s, words) == "medium"
+    assert agent.think_level("what should I cook, take your time", True, s, words) == "medium"
+    assert agent.think_level("I think the door is open", True, s, words) == "off"
+    assert agent.think_level("write me a script", False, s, words) == "default"
+    assert agent.think_level("think hard", True, {**s, "agent_think_asked": "default"}, words) == "off"
+    assert agent.asks_to_think("Have a think about it", ["have a think"])
+    assert not agent.asks_to_think("take your timer off", ["take your time"])
+
+
+def test_thinking_settings_check():
+    from alfie.config import ConfigError, validate
+    from test_config import FACE
+    b = validate({"brain": {"agent_think_asked": "high",
+                            "agent_think_phrases": ["  ponder   this ", ""]}}, FACE)["brain"]
+    assert b["agent_think_asked"] == "high" and b["agent_think_phrases"] == ["ponder this"]
+    assert b["agent_think_voice"] == "off" and b["agent_think_typed"] == "default"
+    with pytest.raises(ConfigError):
+        validate({"brain": {"agent_think_voice": "very"}}, FACE)

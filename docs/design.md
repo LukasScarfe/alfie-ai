@@ -876,8 +876,15 @@ requirements, light enough for a Pi.
     has come for `agent_wait_seconds`, he says a line from the language (`agent.wait`, by tool:
     "Give me a second while I look that up on the web."). Text followed by a tool call makes
     HA's pipeline start speaking at once, so the line is heard while the agent works. An
-    approval request ends the turn with "That needs your approval first". Settings in Voice →
-    Brain → Agent server.
+    approval request ends the turn with "That needs your approval first". **Thinking** (0.29.0;
+    Lukas 2026-11-01: "I want this to be a smart agent", with spoken answers still quick): each
+    request sets the agent's reasoning for itself (Hermes's `model_options.reasoning`).
+    `agent_think_voice` (default off) for spoken requests (a satellite or device), and
+    `agent_think_typed` (default "default", the server's own: on for Hermes) for typed ones. A
+    request that names a phrase (`agent_think_phrases`, [] the language's `agent.think`: "think
+    about it", "think hard", "take your time") anywhere, as whole words, gets
+    `agent_think_asked` (default medium; "default" ignores the asking), and he says "Let me think
+    about that" first. Settings in Voice → Brain → Agent server.
   - A pipeline using Alfie should have "Prefer handling commands locally" off: Alfie does that
     himself, and the pipeline's own matches never reach his turn log. The Brain tab says so.
   - The face: a badge by him for `icon_seconds` (a bolt when he answered, a brain while the

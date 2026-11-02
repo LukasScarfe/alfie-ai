@@ -421,14 +421,19 @@ class AlfieAgent(conversation.ConversationEntity):
         hdrs = agent.headers(
             s["agent_key"], f"alfie-{chat_log.conversation_id}",
             f"alfie:{user_input.satellite_id or user_input.device_id or 'assist'}")
+        phrases = s["agent_think_phrases"] or (words.get("agent") or {}).get("think") or []
+        think = agent.think_level(user_input.text, bool(user_input.satellite_id
+                                                        or user_input.device_id), s, phrases)
+        asked = (s["agent_think_asked"] not in ("default", "off")
+                 and agent.asks_to_think(user_input.text, phrases))
         events: asyncio.Queue[tuple[str, Any]] = asyncio.Queue()
         http = async_get_clientsession(self.hass)
-        turn.detail = name
+        turn.detail = name if think in ("default", "off") else f"{name}, thinking {think}"
         self.engine.brain_badge(3)
 
         async def read() -> None:
             try:
-                async with http.post(url, json=agent.body(user_input.text, s["agent_model"], prompt),
+                async with http.post(url, json=agent.body(user_input.text, s["agent_model"], prompt, think),
                                      headers=hdrs, timeout=aiohttp.ClientTimeout(
                                          total=s["agent_seconds"], sock_connect=5)) as resp:
                     if resp.status != 200:
@@ -464,6 +469,15 @@ class AlfieAgent(conversation.ConversationEntity):
         async def stream() -> Any:
             yield {"role": "assistant"}
             waited, fresh = False, False      # fresh: a new assistant message is due
+            if asked and s["agent_wait"]:
+                # thinking takes a while: say so before it starts
+                waited = True
+                if line := agent.wait_line(words, "think", self._rng):
+                    spoken.append(line + " ")
+                    yield {"content": line + " "}
+                    for d in mark("think", ""):
+                        yield d
+                    fresh = True
             while True:
                 quiet = (s["agent_wait_seconds"] if s["agent_wait"] and not state["text"]
                          and not waited else None)

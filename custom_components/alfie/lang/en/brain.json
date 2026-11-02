@@ -943,14 +943,18 @@
     "skip": ["the time", "the date", "the day", "the weather", "the forecast", "the temperature", "the matter", "the problem", "the plan", "the score", "the news", "the answer", "the point", "the deal", "the difference", "the best", "the worst", "the name", "the song", "the music", "new", "playing", "good", "best", "better", "worse", "home", "out", "outside", "inside", "dinner", "lunch", "breakfast", "for dinner", "the light", "the lights"]
   },
   "agent": {
-    "_": "agent.py: the agent server (Hermes). wait: said when it starts a slow tool before saying anything, by tool name or name start (\"web_\"), \"_\" for any other tool, \"slow\" when nothing has come for a while. prompt: the system message sent with each spoken request ({where}: the speaker's area, {time} and {day}: now).",
+    "_": "agent.py: the agent server (Hermes). wait: said when it starts a slow tool before saying anything, by tool name or name start (\"web_\"), \"_\" for any other tool, \"slow\" when nothing has come for a while, \"think\" when the request asks for thought (think: the phrases that do; they name it anywhere in the request). prompt: the system message sent with each spoken request ({where}: the speaker's area, {time} and {day}: now).",
     "wait": {
       "web_": ["Give me a second while I look that up on the web.", "Hang on, let me check the web for that.", "One moment, I'm searching the web."],
       "browser": ["Give me a moment, I'm opening that page."],
       "terminal": ["Give me a moment, I'm working on that."],
       "_": ["One moment while I work that out.", "Give me a second on that one."],
-      "slow": ["One moment, I'm on it.", "Give me a second.", "Just a moment while I check."]
+      "slow": ["One moment, I'm on it.", "Give me a second.", "Just a moment while I check."],
+      "think": ["Let me think about that.", "Good question, give me a moment to think.",
+                "Let me give that some thought."]
     },
+    "think": ["think about it", "think about that", "think hard", "think carefully", "think it through",
+              "take your time", "have a think"],
     "replies": {
       "approval": "That needs your approval first. Have a look on the computer.",
       "broke": "Sorry, I lost my train of thought there.",
