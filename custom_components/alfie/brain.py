@@ -100,6 +100,10 @@ def default_settings() -> dict[str, Any]:
             "agent_quick_tools": ["ha_", "memory", "session_search", "tool_search", "tool_call",
                                   "todo", "clarify", "skill_view", "skills_list"],
                                             # tools fast enough to need no wait line
+            "agent_think_voice": "off",     # thinking on spoken requests (agent.THINK): fast
+            "agent_think_typed": "default", # ...on typed ones; "default" the server's own
+            "agent_think_asked": "medium",  # ...when asked ("think about it"); "default" ignore
+            "agent_think_phrases": [],      # what asks for it; [] the language's
             "own_sentences": True, "off_commands": [],
             "voice_label": "Alfie voice",   # a label: what carries it, he starts by voice
             "run_bare": True,               # its name alone ("movie time") starts it too

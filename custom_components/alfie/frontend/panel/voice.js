@@ -281,6 +281,7 @@ function brainTab(p) {
   const agents = Object.keys(st).filter((e) => e.startsWith("conversation.") && e !== BRAIN_ENTITY).sort()
     .map((e) => [e, st[e].attributes?.friendly_name || e]);
   const delegates = [["", "None: unknown questions get the reply below"], ...agents];
+  const THINK = [["default", "The server's own"], ["off", "Off"], ["low", "Low"], ["medium", "Medium"], ["high", "High"]];
   if (b.delegate && !agents.some(([e]) => e === b.delegate)) delegates.push([b.delegate, `${b.delegate} (not found)`]);
   const weathers = [["", "The house's (one named like home, else the first)"], ...Object.keys(st).filter((e) => e.startsWith("weather.")).sort()
     .map((e) => [e, st[e].attributes?.friendly_name || e])];
@@ -320,6 +321,10 @@ function brainTab(p) {
         ${U.check("brain.agent_wait", b.agent_wait, "Say when it'll take a moment", "Before a web search or other slow tool, or when nothing has come for a few seconds, he says \"Give me a second while I look that up\" so nobody waits in silence.")}
         ${b.agent_wait ? `${U.field("Quiet for", U.num("brain.agent_wait_seconds", b.agent_wait_seconds, { min: 1, max: 60, step: 1, unit: "s" }), "Then he says he's still on it.")}
         ${U.wide("Quick tools", `<textarea data-path="brain.agent_quick_tools" data-kind="lines" rows="3">${U.esc((b.agent_quick_tools || []).join("\n"))}</textarea>`, "Tools fast enough to need no wait line, one per line; ending in _ means every tool starting with it.")}` : ""}
+        <div class="row">${U.field("Thinking, spoken", U.select("brain.agent_think_voice", b.agent_think_voice, THINK), "Off keeps spoken answers quick.")}
+        ${U.field("Typed", U.select("brain.agent_think_typed", b.agent_think_typed, THINK))}
+        ${U.field("When asked to think", U.select("brain.agent_think_asked", b.agent_think_asked, [["default", "Ignore the asking"], ...THINK.slice(1)]), "He says \"Let me think about that\" first.")}</div>
+        ${U.wide("What asks him to think", `<textarea data-path="brain.agent_think_phrases" data-kind="lines" rows="2" placeholder="The language's: think about it, think hard, take your time…">${U.esc((b.agent_think_phrases || []).join("\n"))}</textarea>`, "One per line, anywhere in the request: \"think hard: should I repot the monstera?\"")}
         ${U.wide("Its instructions per spoken turn", `<textarea data-path="brain.agent_prompt" rows="3" placeholder="The language's: a spoken request from the {where} speaker, keep it short, say first when something is slow.">${U.esc(b.agent_prompt || "")}</textarea>`, "{where} is the speaker's area, {time} and {day} the time and date now.")}` : ""}`)}
       ${U.card("Delegate", `
         ${U.field(b.agent_url ? "When the agent server can't be reached" : "Everything else goes to", U.select("brain.delegate", b.delegate, delegates, { rerender: true }),

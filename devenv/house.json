@@ -1263,6 +1263,10 @@
    "skill_view",
    "skills_list"
   ],
+  "agent_think_voice": "off",
+  "agent_think_typed": "default",
+  "agent_think_asked": "medium",
+  "agent_think_phrases": [],
   "own_sentences": true,
   "off_commands": [],
   "voice_label": "Alfie voice",
