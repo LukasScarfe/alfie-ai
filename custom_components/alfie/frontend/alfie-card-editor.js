@@ -95,7 +95,7 @@ try {
 // The same look as Alfie's panel (design.md "Panel style"): outlined 40px
 // fields with the label in the border, HA switches, 36px outlined buttons.
 const CHEVRON = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%23888' d='M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z'/%3E%3C/svg%3E\")";
-const STYLE_CSS = `
+export const STYLE_CSS = `
   :host { display: block; color: var(--primary-text-color); font: inherit; font-size: 14px;
     --edge: var(--outline-color, rgba(127,127,127,.45)); --card: var(--card-background-color, #fff); }
   details { border: 1px solid var(--divider-color); border-radius: var(--ha-card-border-radius, 12px); margin: 0 0 12px; background: var(--card); }

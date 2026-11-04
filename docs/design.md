@@ -218,13 +218,14 @@ A personality is six sliders plus a named preset. Alfie has one; a card may over
   vanilla JS). Non-admins never see it, and the `alfie/config/*` and `alfie/suggest` WS commands
   require admin. `alfie/subscribe` stays open to everyone. The integration's options flow only
   points to the panel.
-- **Six sections, some with sub-tabs** (2026-10-19, replacing ten flat tabs). The section and
+- **Eight sections, some with sub-tabs** (2026-10-19, replacing ten flat tabs; Chat added 2026-11-03). The section and
   sub-tab are in the URL hash (`#mood/signals`). How the modules fit is in
   [settings-contract.md](settings-contract.md).
 
   | Section | Sub-tabs |
   |---|---|
   | **Overview** | Alfie now (face, mood, house mode, story playing, the active signals), **Get started**, and export / import under More options |
+  | **Chat** | Typed chat with Alfie (the shared `<alfie-chat>`, see "Chat"): the admin's own conversation, the same one as their chat cards. No settings |
   | **Mood** | **Signals**, and **Levels** (how signals combine, and each level's expression and energy) |
   | **Reactions** | **Triggers**, **Stories**, and **Motion & idle** (motion sensors, the notice set, debounce, fidgets) |
   | **House modes** | The ordered modes, the hand pick, and the sleeping expression |
@@ -1033,6 +1034,44 @@ requirements, light enough for a Pi.
   (state written only on change) and a `custom:alfie-timers` badge that counts down in the
   browser. Open: a timer screen on the card, and the ring sound.
 - **Dot extras**: start_conversation, action button, room light, mic mute.
+
+## Chat (agreed 2026-11-03)
+
+Typed chat with Alfie: the panel's **Chat** section and the dashboard card
+`custom:alfie-chat-card`. Both are the one element `<alfie-chat>` (`alfie-chat.js`); the card
+(`alfie-chat-card.js`, imported by alfie-card.js so it registers with the integration) only frames
+it. It is not a mode of alfie-card.
+
+- **Route:** every message is HA's own `conversation/process` WS call, to `conversation.alfie`
+  by default (the card's `agent` picks another). So his intents answer first, then the agent
+  server (Hermes), and the delegate stands in when that is down. It works for non-admin users and
+  the agent key stays on the server. No direct agent proxy. Typed turns are typed for the brain
+  (no satellite or device), so they get `agent_prompt_typed` and nothing is held back.
+- **One conversation per user:** the id lives in HA's per-user frontend data (`alfie_chat`, with
+  the last `history` messages), so the chat follows a user from phone to tablet; the card's
+  `conversation: device` keeps it per browser instead. **New chat** starts another id. The id is
+  `chat-<user>-<random>`, not a ULID: HA treats a ULID it doesn't know as expired (after five idle
+  minutes) and swaps it, but keeps an id the client picked. So the agent server sees one session
+  (`alfie-<id>`) for the whole chat, however long the gaps.
+- **UI:** your messages right, his left; simple markdown in his replies (paragraphs, lists,
+  bold, italic, code, quotes, http links; everything escaped first); a "…" while he thinks; Enter
+  sends (Shift+Enter a new line, or Ctrl+Enter sends when `enter_sends` is off); starter prompts as
+  chips.
+- **Card options** (all in its visual editor; only non-defaults are written):
+
+  | Key | Default | |
+  |---|---|---|
+  | `title` | Alfie | empty: no title |
+  | `height` | 420 | px, 200 to 2000 (also in a sections view: grid rows `auto`) |
+  | `show_face`, `face_size`, `face_position`, `face_style` | true, 96, top, his own | the live face above, left or right of the chat; `face:` passes any alfie-card option |
+  | `starters`, `show_starters` | three prompts, empty | when: empty chat, always, never |
+  | `agent` | conversation.alfie | any conversation agent |
+  | `conversation` | user | or device |
+  | `history` | 50 | messages kept, 2 to 500 |
+  | `new_chat`, `enter_sends`, `markdown`, `show_times` | on, on, on, off | |
+  | `placeholder`, `you_name`, `alfie_name` | "Message Alfie…", none, none | |
+
+- The one-shot **Ask** box in Voice → Brain stays: a quick test with no conversation.
 
 ## Card
 
