@@ -27,7 +27,7 @@ import logging
 import random
 import time
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, Literal
 
 from homeassistant.components import conversation
@@ -59,6 +59,8 @@ ORDER = ("whats_wrong", "how_are_you", "run", "repeat", "help", "coin", "dice", 
          "maths", "entity_when", "entity_history", "entity_count", "entity", "wiki")
 TRIES = 4           # readings of one command tried (hassil splits a sentence several ways)
 WHICH_FOR = 60.0    # seconds a "which one?" waits for its answer
+EARS_SECONDS = 0.5          # the longest alfie-ears may take to say who spoke
+DROP_FACE_SECONDS = 4.0     # his face for a turn not meant for him
 UNSEEN_CONVERSATIONS = 200   # conversations whose missed turns are kept for the agent
 
 
@@ -295,6 +297,7 @@ class AlfieAgent(conversation.ConversationEntity):
         turn = brain.Turn(said=text, satellite=user_input.satellite_id or "")
 
         reached = False     # the agent server got this turn
+        voice = bool(user_input.satellite_id or user_input.device_id)
 
         def done(result: conversation.ConversationResult) -> conversation.ConversationResult:
             turn.reply = result.response.speech.get("plain", {}).get("speech", "")
@@ -303,6 +306,23 @@ class AlfieAgent(conversation.ConversationEntity):
                 self._missed(chat_log.conversation_id, text, turn.reply)
             self._finish(turn)
             return result
+
+        # 0. alfie-ears: who spoke, and whether it was meant for Alfie at all
+        verdict = None
+        if voice and (s["voice_identity"] or s["drop_not_meant"]):
+            verdict = await self._ears(text)
+            if verdict is not None:
+                turn.speaker = str(verdict.get("speaker") or "")
+                self.engine.brain_route(agent.ears_summary(verdict), "")
+        if verdict and s["drop_not_meant"] and verdict.get("drop"):
+            turn.source, turn.detail = "dropped", turn.speaker or "unknown"
+            turn.why = brain.why("dropped", turn.detail)
+            if s["drop_expression"] in self.engine.expressions:
+                self.engine.set_expression(s["drop_expression"], DROP_FACE_SECONDS)
+            response = intent.IntentResponse(language=language)
+            response.async_set_speech("")
+            return done(conversation.ConversationResult(
+                response=response, conversation_id=chat_log.conversation_id))
 
         # 1. an automation's sentence trigger
         said = await conversation.async_handle_sentence_triggers(self.hass, user_input, chat_log)
@@ -350,7 +370,9 @@ class AlfieAgent(conversation.ConversationEntity):
 
         # 4. the agent server
         if s["agent_url"]:
-            result = await self._agent(user_input, chat_log, language, turn, passed)
+            profile = self._profile(user_input, voice, verdict)
+            result = await self._agent(user_input, chat_log, language, turn, passed, profile)
+            self.engine.brain_route(agent.ears_summary(verdict), profile["id"] if profile else "")
             if result is not None:
                 reached = True
                 self._unseen.pop(chat_log.conversation_id, None)
@@ -417,26 +439,83 @@ class AlfieAgent(conversation.ConversationEntity):
         area = ar.async_get(self.hass).async_get_area(area_id) if area_id else None
         return area.name if area else "house"
 
+    async def _ears(self, text: str) -> dict[str, Any] | None:
+        """alfie-ears' verdict on this voice request (who spoke, and whether it
+        was meant for Alfie), or None: not set, down, stale, or about other
+        words. One GET, half a second at most."""
+        s = self.engine.config["brain"]
+        url = s["ears_url"]
+        if not url:
+            return None
+        if not url.endswith("/api/last"):
+            url += "/api/last"
+        try:
+            async with async_get_clientsession(self.hass).get(
+                    url, timeout=aiohttp.ClientTimeout(total=EARS_SECONDS)) as resp:
+                if resp.status != 200:
+                    return None
+                verdict = await resp.json(content_type=None)
+        except Exception as err:  # noqa: BLE001 (down or slow: the house answers)
+            _LOGGER.debug("alfie-ears not asked: %s", err or type(err).__name__)
+            return None
+        if not agent.ears_usable(verdict, text, time.time(), s["ears_fresh"],
+                                 s["ears_match"] / 100):
+            return None
+        return verdict
+
+    def _guests(self) -> bool:
+        e = self.engine.config["brain"]["guest_entity"]
+        return bool(e) and (st := self.hass.states.get(e)) is not None and st.state == "on"
+
+    def _profile(self, user_input: conversation.ConversationInput, voice: bool,
+                 verdict: dict[str, Any] | None) -> dict[str, Any] | None:
+        """The person's own agent profile for this turn, or None (the house's):
+        typed, the HA user typing; spoken, whoever ears recognised, if voice
+        identity is on and there are no guests."""
+        s = self.engine.config["brain"]
+        if not s["profiles"]:
+            return None
+        if not voice:
+            return agent.for_user(s["profiles"], user_input.context.user_id)
+        if not (s["voice_identity"] and verdict and verdict.get("profile")):
+            return None
+        if s["guest_house_only"] and self._guests():
+            return None
+        return agent.by_id(s["profiles"], verdict["profile"])
+
     async def _agent(self, user_input: conversation.ConversationInput,
                      chat_log: conversation.ChatLog, language: str, turn: brain.Turn,
-                     passed: list[str]) -> conversation.ConversationResult | None:
+                     passed: list[str], profile: Mapping[str, Any] | None = None
+                     ) -> conversation.ConversationResult | None:
         """Ask the agent server, streaming its reply into the chat log (so the
         speaker starts talking early). None when it couldn't be reached and
-        said nothing: the delegate stands in."""
+        said nothing: the delegate stands in. With a person's `profile`, their
+        own server and key; it never falls back to the house's with their turn."""
         s = self.engine.config["brain"]
         words = brain.load_language(language) or {}
-        url = agent.endpoint(s["agent_url"])
-        name = url.split("//", 1)[-1].split("/", 1)[0]
         voice = bool(user_input.satellite_id or user_input.device_id)
+        base, key = s["agent_url"], s["agent_key"]
+        memory = f"alfie:{user_input.satellite_id or user_input.device_id or 'assist'}"
+        if profile:
+            base, key = agent.profile_url(s["agent_url"], profile["url"]), profile["key"]
+            memory = f"alfie:{'voice' if voice else 'user'}:{profile['id']}"
+            turn.profile = profile["id"]
+            if not base:
+                _LOGGER.warning("Alfie: profile %s has no address", profile["id"])
+                return None
+        url = agent.endpoint(base)
+        name = url.split("//", 1)[-1].split("/", 1)[0]
+        if profile:
+            name = f"{name} ({profile['name']})"
         said_prompt = ((s["agent_prompt"] or (words.get("agent") or {}).get("prompt", "")) if voice
                        else (s["agent_prompt_typed"] or (words.get("agent") or {}).get("prompt_typed", "")))
         prompt = agent.where_prompt(said_prompt, self._where(user_input), dt_util.now())
+        if profile and voice:
+            prompt = agent.speaker_prompt(prompt, profile["name"], words.get("agent") or {})
         if s["agent_earlier"]:
             prompt = agent.earlier_prompt(prompt, self._unseen.get(chat_log.conversation_id, []),
                                           words.get("agent") or {})
-        hdrs = agent.headers(
-            s["agent_key"], f"alfie-{chat_log.conversation_id}",
-            f"alfie:{user_input.satellite_id or user_input.device_id or 'assist'}")
+        hdrs = agent.headers(key, f"alfie-{chat_log.conversation_id}", memory)
         phrases = s["agent_think_phrases"] or (words.get("agent") or {}).get("think") or []
         think = agent.think_level(user_input.text, voice, s, phrases)
         asked = (s["agent_think_asked"] not in ("default", "off")

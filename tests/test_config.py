@@ -222,3 +222,22 @@ def test_label_and_text_size_becomes_text_size():
     assert out["screens"][0]["options"] == {"text": "Hi", "text_size": 2.0}
     assert out["screens"][1]["options"] == {"text_size": 2}
     assert out["screens"][2]["options"] == {"size": 9}
+
+
+
+def test_brain_profiles_are_checked():
+    cfg = default_config()
+    cfg["brain"]["profiles"] = [
+        {"name": "Lukas", "user": "u1", "url": "/p/lukas/", "key": "k1"},
+        {"id": "Michelle!", "name": "Michelle", "url": "http://pc:8642/p/michelle"},
+        "junk",
+    ]
+    got = valid(cfg)["brain"]["profiles"]
+    assert [p["id"] for p in got] == ["lukas", "michelle"]
+    assert got[0] == {"id": "lukas", "name": "Lukas", "user": "u1", "url": "/p/lukas", "key": "k1"}
+    assert got[1]["url"] == "http://pc:8642/p/michelle"
+    cfg["brain"]["profiles"] += [{"name": "Lukas"}, {"url": "/p/x"}]   # an id twice, none
+    assert len(errors(cfg)) == 2
+    cfg = default_config()
+    cfg["brain"]["guest_entity"] = "guest mode"
+    assert errors(cfg)

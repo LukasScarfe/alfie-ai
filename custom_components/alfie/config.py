@@ -820,6 +820,15 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
         "agent_prompt_typed": str(v["agent_prompt_typed"] or "").strip()[:2000],
         "agent_final_only": bool(v["agent_final_only"]),
         "agent_earlier": bool(v["agent_earlier"]),
+        "profiles": _profiles(v["profiles"], ck),
+        "voice_identity": bool(v["voice_identity"]),
+        "ears_url": _url("brain alfie-ears", v["ears_url"], ck),
+        "ears_fresh": int(ck.number("brain ears freshness", v["ears_fresh"], 1, 120, 15)),
+        "ears_match": int(ck.number("brain ears text match", v["ears_match"], 50, 100, 85)),
+        "guest_entity": _guest(v["guest_entity"], ck),
+        "guest_house_only": bool(v["guest_house_only"]),
+        "drop_not_meant": bool(v["drop_not_meant"]),
+        "drop_expression": _face_name(v["drop_expression"]),
         "agent_seconds": _num(ck.number("brain agent wait", v["agent_seconds"], 5, 900, 120)),
         "agent_wait": bool(v["agent_wait"]),
         "agent_wait_seconds": _num(ck.number("brain agent quiet time", v["agent_wait_seconds"],
@@ -902,6 +911,38 @@ def _url(where: str, v: Any, ck: _Check) -> str:
         ck.bad(where, f"{u!r} is not an http:// address")
         return ""
     return u
+
+
+def _profiles(raw: Any, ck: _Check) -> list[dict[str, str]]:
+    """People with their own agent profile. `url` is a whole address or a
+    path on the house agent server ("/p/lukas"); `id` is what alfie-ears
+    calls them."""
+    out: list[dict[str, str]] = []
+    for i, p in enumerate(raw[:20] if isinstance(raw, list) else []):
+        if not isinstance(p, Mapping):
+            continue
+        name = " ".join(str(p.get("name") or "").split())[:60]
+        pid = re.sub(r"[^a-z0-9_-]", "", str(p.get("id") or name).strip().lower())[:40]
+        url = str(p.get("url") or "").strip().rstrip("/")
+        if url and not url.startswith("/"):
+            url = _url(f"brain profile {i + 1} address", url, ck)
+        if not pid:
+            ck.bad(f"brain profile {i + 1}", "needs a name or an id")
+            continue
+        if any(x["id"] == pid for x in out):
+            ck.bad(f"brain profile {i + 1}", f"the id {pid!r} is used twice")
+            continue
+        out.append({"id": pid, "name": name or pid, "user": str(p.get("user") or "").strip()[:64],
+                    "url": url[:300], "key": str(p.get("key") or "").strip()[:500]})
+    return out
+
+
+def _guest(v: Any, ck: _Check) -> str:
+    e = str(v or "").strip()
+    if e and "." not in e:
+        ck.bad("brain guest entity", f"{e!r} is not an entity")
+        return ""
+    return e
 
 
 def _face_name(v: Any) -> str:

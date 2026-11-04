@@ -238,6 +238,35 @@ function agents(p) {
 
 // ------------------------------------------------------------ brain
 
+// People with their own agent profile, and who's talking by voice (alfie-ears).
+function people(p, b) {
+  const users = [["", "Nobody (voice only)"], ...(p.brainUsers || []).map((u) => [u.id, u.name])];
+  for (const x of b.profiles) if (x.user && !users.some(([id]) => id === x.user)) users.push([x.user, x.user]);
+  const exprs = [["", "No change"], ...(p.choices?.expressions || []).map((e) => [e, U.human(e)])];
+  const rows = b.profiles.map((x, i) => `<div class="card prof">
+      <div class="row">${U.field("Name", U.text(`brain.profiles.${i}.name`, x.name, { placeholder: "Lukas" }))}
+        ${U.field("ID", U.text(`brain.profiles.${i}.id`, x.id, { placeholder: "lukas" }), "What alfie-ears calls them.")}
+        <button class="icon" data-action="brain-prof-rm" data-i="${i}" title="Remove" aria-label="Remove">${U.icon("mdi:delete-outline")}</button></div>
+      <div class="row">${U.field("Home Assistant user", U.select(`brain.profiles.${i}.user`, x.user, users), "Their typed chat goes to this profile.")}
+        ${U.field("Address", U.text(`brain.profiles.${i}.url`, x.url, { placeholder: "/p/lukas" }), "A path on the agent server above, or a whole address.")}</div>
+      ${U.field("API key", U.text(`brain.profiles.${i}.key`, x.key, { attrs: 'type="password" autocomplete="off"' }), "This profile's own key.")}</div>`).join("");
+  return U.card("People", `
+    <p class="muted">Each person can have their own agent profile, with its own memory: what they say to it stays theirs. Anyone else, and every turn nobody is sure about, goes to the house's (the agent server above). A profile that can't be reached hands over to the delegate, never to the house's.</p>
+    ${rows || `<p class="muted">Nobody yet: every turn is the house's.</p>`}
+    <div class="row"><button class="flat" data-action="brain-prof-add">${U.icon("mdi:account-plus-outline")}Add a person</button></div>
+    <h4>By voice</h4>
+    ${U.field("alfie-ears", U.text("brain.ears_url", b.ears_url, { placeholder: "http://192.168.1.10:8794", attrs: "data-rerender" }),
+      "A speaker-ID proxy in front of Whisper: for each voice request it says who spoke and whether it was meant for Alfie. Asked once per spoken turn, half a second at most; down means the house's.")}
+    ${b.ears_url ? `
+    ${U.check("brain.voice_identity", b.voice_identity, "Use voice identity", "A spoken turn goes to the profile of whoever alfie-ears recognised, told it's a shared room. Off: every spoken turn is the house's.")}
+    <div class="row">${U.field("Verdict good for", U.num("brain.ears_fresh", b.ears_fresh, { min: 1, max: 120, step: 1, unit: "s" }), "An older one is about another request.")}
+    ${U.field("Words must match", U.num("brain.ears_match", b.ears_match, { min: 50, max: 100, step: 1, unit: "%" }), "What ears heard against what Home Assistant was given.")}</div>
+    <div class="row">${U.field("Guests are over when", U.text("brain.guest_entity", b.guest_entity, { placeholder: "input_boolean.guest_mode", list: "entities" }), "This entity is on.")}</div>
+    ${U.check("brain.guest_house_only", b.guest_house_only, "With guests, only the house's", "Nobody's private profile answers out loud while guests are over.")}
+    ${U.check("brain.drop_not_meant", b.drop_not_meant, "Drop what wasn't meant for Alfie", "When alfie-ears says a request wasn't for him (the TV, a conversation in the room), it ends there: nothing runs, nothing is said. It shows in the turn log.")}
+    ${b.drop_not_meant ? U.field("His face then", U.select("brain.drop_expression", b.drop_expression, exprs), "For a few seconds.") : ""}` : ""}`);
+}
+
 const BRAIN_ENTITY = "conversation.alfie";
 const COMMANDS = [["whats_wrong", "What's wrong", "\"Is anything wrong?\": the same answer as the intent."],
   ["run", "Voice actions", "\"Turn on the gaming PC\", \"Start movie night\", or just \"Goodnight\": starts what carries the voice label (the card below)."],
@@ -269,7 +298,7 @@ const COMMANDS = [["whats_wrong", "What's wrong", "\"Is anything wrong?\": the s
   ["chat", "Small talk", "\"Hello\", \"Thank you\", \"What's your name?\", \"How old are you?\", \"Are you there?\""],
   ["wiki", "Wikipedia", "\"Who was Albert Einstein?\", \"What is a quasar?\", \"Tell me about Vancouver\": from your own offline Wikipedia (the card below). Only an article with that very name; anything else goes to the delegate. Tried last."]];
 const TIER = { 1: ["mdi:lightning-bolt", "Local"], 3: ["mdi:brain", "Agent or delegate"], 0: ["mdi:help-circle-outline", "Unanswered"] };
-const SOURCE = { trigger: "Sentence trigger", own: "Alfie", intent: "Home Assistant", agent: "Agent server", delegate: "Delegate",
+const SOURCE = { dropped: "Not for Alfie", trigger: "Sentence trigger", own: "Alfie", intent: "Home Assistant", agent: "Agent server", delegate: "Delegate",
   none: "Fallback", error: "Delegate failed" };
 
 function brainTab(p) {
@@ -329,6 +358,7 @@ function brainTab(p) {
         ${U.wide("What asks him to think", `<textarea data-path="brain.agent_think_phrases" data-kind="lines" rows="2" placeholder="The language's: think about it, think hard, take your time…">${U.esc((b.agent_think_phrases || []).join("\n"))}</textarea>`, "One per line, anywhere in the request: \"think hard: should I repot the monstera?\"")}
         ${U.wide("Its instructions per spoken turn", `<textarea data-path="brain.agent_prompt" rows="3" placeholder="The language's: a spoken request from the {where} speaker, keep it short, reply only with the final answer.">${U.esc(b.agent_prompt || "")}</textarea>`, "{where} is the speaker's area, {time} and {day} the time and date now.")}
         ${U.wide("Its instructions per typed turn", `<textarea data-path="brain.agent_prompt_typed" rows="3" placeholder="The language's: a typed message, answer as fully as it needs.">${U.esc(b.agent_prompt_typed || "")}</textarea>`, "{time} and {day} work here too.")}` : ""}`)}
+      ${b.agent_url ? people(p, b) : ""}
       ${U.card("Delegate", `
         ${U.field(b.agent_url ? "When the agent server can't be reached" : "Everything else goes to", U.select("brain.delegate", b.delegate, delegates, { rerender: true }),
           "Usually an LLM agent. It gets the conversation so far, so follow-ups work.")}
@@ -428,8 +458,8 @@ function brainLog(p) {
     const [ic, tier] = TIER[t.tier] || TIER[0];
     const at = new Date(t.at * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     return `<div class="turn t${t.tier}" title="${U.esc(tier)}">${U.icon(ic)}
-      <span class="said">“${U.esc(t.said)}”</span><span class="ms">${at} · ${t.ms} ms</span>
-      <span class="meta">${U.esc(SOURCE[t.source] || t.source)}: ${U.esc(t.reply || "(no reply)")}</span>
+      <span class="said">“${U.esc(t.said)}”</span><span class="ms">${t.speaker ? `${U.esc(t.speaker)} · ` : ""}${t.profile ? `${U.esc(t.profile)}'s profile · ` : ""}${at} · ${t.ms} ms</span>
+      <span class="meta">${U.esc(SOURCE[t.source] || t.source)}: ${U.esc(t.reply || (t.source === "dropped" ? "(silent)" : "(no reply)"))}</span>
       <small class="why muted">${U.esc(t.why)}</small></div>`;
   }).join("");
 }
@@ -448,6 +478,13 @@ function brainWatch(p) {
 export function mount(p, sub) {
   if (sub === "brain") {
     brainWatch(p);
+    if (!p.brainUsers) p.hass.callWS({ type: "config/auth/list" })
+      .then((r) => {
+        p.brainUsers = (r || []).filter((u) => !u.system_generated && u.is_active)
+          .map((u) => ({ id: u.id, name: u.name || u.username || u.id }));
+        if (p.sec === "voice" && p.sub === "brain") p.render();
+      })
+      .catch(() => { p.brainUsers = []; });
     if (!p.brainSentences) p.hass.callWS({ type: "alfie/brain/sentences" })
       .then((r) => { p.brainSentences = r.sentences; if (p.sec === "voice" && p.sub === "brain") p.render(); })
       .catch(() => {});
@@ -543,6 +580,13 @@ export function click(p, a, el) {
     case "voice-rm-sat": v.satellites.splice(Number(el.dataset.j), 1); p.edited(true); return true;
     case "voice-add-spk": add("speak_targets"); return true;
     case "voice-rm-spk": v.speak_targets.splice(Number(el.dataset.j), 1); p.edited(true); return true;
+    case "brain-prof-add": {
+      const b = p.draft.brain;
+      b.profiles.push({ id: U.slugId(b.profiles, "", `person_${b.profiles.length + 1}`), name: "", user: "", url: "", key: "" });
+      p.edited(true);
+      return true;
+    }
+    case "brain-prof-rm": p.draft.brain.profiles.splice(Number(el.dataset.i), 1); p.edited(true); return true;
     case "brain-cmd": {
       const b = p.draft.brain, k = el.dataset.name;
       b.off_commands = b.off_commands.includes(k) ? b.off_commands.filter((x) => x !== k) : [...b.off_commands, k];

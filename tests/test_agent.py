@@ -167,3 +167,42 @@ def test_earlier_prompt_passes_on_missed_turns():
     assert "q3" not in out and "q4" in out and "q9" in out      # only the last six
     assert "x" * (agent.EARLIER_CHARS + 1) not in out             # each cut short
     assert out.startswith("Earlier in this conversation")        # no prompt, the default words
+
+
+PROFILES = [{"id": "lukas", "name": "Lukas", "user": "u1", "url": "/p/lukas", "key": "k"},
+            {"id": "michelle", "name": "Michelle", "user": "", "url": "http://x:1/p/m", "key": ""}]
+
+
+def test_profiles_by_user_and_by_voice():
+    assert agent.for_user(PROFILES, "u1")["id"] == "lukas"
+    assert agent.for_user(PROFILES, "u2") is None
+    assert agent.for_user(PROFILES, "") is None          # an empty user matches nobody's ""
+    assert agent.by_id(PROFILES, "michelle")["name"] == "Michelle"
+    assert agent.by_id(PROFILES, "") is None
+
+
+def test_profile_url():
+    assert agent.profile_url("http://pc:8642", "/p/lukas") == "http://pc:8642/p/lukas"
+    assert agent.profile_url("http://pc:8642/v1", "/p/lukas/") == "http://pc:8642/p/lukas"
+    assert agent.endpoint(agent.profile_url("http://pc:8642", "/p/lukas")) == \
+        "http://pc:8642/p/lukas/v1/chat/completions"
+    assert agent.profile_url("", "/p/lukas") == ""        # a path needs the house's server
+    assert agent.profile_url("http://pc:8642", "http://other:1/p") == "http://other:1/p"
+
+
+def test_ears_verdict_must_be_fresh_and_about_these_words():
+    v = {"speaker": "lukas", "profile": "lukas", "text": "Turn on the kitchen light.", "heard_ts": 1000.0}
+    assert agent.ears_usable(v, "turn on the kitchen light", 1003, 15)
+    assert agent.ears_usable(v, "Turn on the kitchen lights", 1003, 15)    # a word changed by HA
+    assert not agent.ears_usable(v, "what's the weather", 1003, 15)       # other words
+    assert not agent.ears_usable(v, "turn on the kitchen light", 1020, 15)  # stale
+    assert not agent.ears_usable({**v, "heard_ts": "x"}, "turn on the kitchen light", 1003, 15)
+    assert not agent.ears_usable(None, "x", 0, 15)
+    assert agent.ears_summary({**v, "scores": [1, 2], "clip_id": "c"}) == \
+        {"speaker": "lukas", "profile": "lukas"}
+
+
+def test_speaker_prompt():
+    assert agent.speaker_prompt("Spoken.", "Lukas", {}) == \
+        "Spoken.\nYou are speaking with Lukas, recognised by voice, in a shared room."
+    assert agent.speaker_prompt("", "M", {"speaking_with": "Hi {name}."}) == "Hi M."

@@ -128,6 +128,8 @@ class AlfieEngine:
         self.override: str | None = None
         self.animation: dict[str, Any] | None = None
         self.seq = 0
+        self.route: dict[str, Any] = {"profile": "", "ears": {}}   # the last turn's (brain_route)
+        self._route_key: tuple[str, Any] = ("", None)
         self._anim_id = 0
         self._last_anim = 0.0            # monotonic
         self._last_motion = -1e9         # monotonic
@@ -1095,6 +1097,16 @@ class AlfieEngine:
         self._push()
 
     @callback
+    def brain_route(self, ears: dict[str, Any], profile: str) -> None:
+        """The last turn's agent profile ("" the house's) and alfie-ears
+        verdict, for the mood sensor. It writes state only when the profile or
+        the speaker changes."""
+        self.route = {"profile": profile, "ears": ears}
+        if (profile, ears.get("speaker")) != self._route_key:
+            self._route_key = (profile, ears.get("speaker"))
+            self._push()
+
+    @callback
     def brain_badge(self, tier: int) -> None:
         """His brain answered (conversation.py): a badge beside him for the
         tier, a bolt when he knew it himself, a brain while the delegate
@@ -1279,7 +1291,7 @@ class AlfieEngine:
         m = self.mood
         # Entities write state (a recorder row each) only when this changes,
         # never for an animation: fidgets and glances must not churn the DB.
-        self.state_key = (m.level if m else None, self.expression, self.asleep, self.mode,
+        self.state_key = (self._route_key, m.level if m else None, self.expression, self.asleep, self.mode,
                           self.mode_id, tuple(x["id"] for x in self.config.get("modes", [])),
                           tuple(r.signal.id for r in (*m.bad, *m.good)) if m else ())
         scene = self.scene()
