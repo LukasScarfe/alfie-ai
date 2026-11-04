@@ -96,6 +96,7 @@ def default_settings() -> dict[str, Any]:
             "agent_prompt": "",             # each spoken turn's system message; "" the language's
             "agent_prompt_typed": "",       # ...each typed turn's; "" the language's
             "agent_final_only": True,       # spoken: only the final answer reaches the speaker
+            "agent_earlier": True,          # tell it the turns HA answered that it never saw
             "agent_seconds": 120,           # the longest it may take
             "agent_wait": True,             # "give me a second" before something slow
             "agent_wait_seconds": 4,        # ...or when nothing has come for this long

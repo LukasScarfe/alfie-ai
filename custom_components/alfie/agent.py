@@ -23,6 +23,10 @@ PATH = "/v1/chat/completions"
 THINK = ("default", "off", "low", "medium", "high")   # "default": the server decides
 
 
+EARLIER_TURNS = 6      # turns the agent missed, passed on with the next one it gets
+EARLIER_CHARS = 400    # of each said and answered
+
+
 def endpoint(url: str) -> str:
     """The chat completions address of a server: "http://pc:8642" or
     "http://pc:8642/v1" -> "http://pc:8642/v1/chat/completions"."""
@@ -93,6 +97,22 @@ def where_prompt(template: str, where: str, now: datetime | None = None) -> str:
         out = out.replace("{time}", f"{hour}:{now.minute:02d} {'AM' if now.hour < 12 else 'PM'}")
         out = out.replace("{day}", f"{now:%A}, {now:%B} {now.day}, {now.year}")
     return out
+
+
+def earlier_prompt(prompt: str, turns: Iterable[tuple[str, str]], words: Mapping[str, Any],
+                   keep: int = EARLIER_TURNS) -> str:
+    """The turn's system message with the conversation's earlier turns that
+    the agent never saw (answered by Home Assistant's intents, Alfie's own
+    sentences or the delegate), so a follow-up ("and which is brightest?")
+    makes sense to it. Only the last `keep`, each cut short."""
+    turns = [(str(a)[:EARLIER_CHARS], str(b)[:EARLIER_CHARS]) for a, b in turns][-keep:]
+    if not turns:
+        return prompt
+    w = words.get("earlier") or {}
+    head = w.get("head") or "Earlier in this conversation, answered before it reached you:"
+    said, answer = w.get("said") or "They said", w.get("answer") or "The answer was"
+    lines = "\n".join(f"- {said}: {a}\n  {answer}: {b}" for a, b in turns)
+    return f"{prompt}\n\n{head}\n{lines}".strip()
 
 
 # ------------------------------------------------------------ the stream

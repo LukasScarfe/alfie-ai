@@ -319,6 +319,7 @@ function brainTab(p) {
         <div class="row">${U.field("Model", U.text("brain.agent_model", b.agent_model, { placeholder: "hermes-agent" }))}
         ${U.field("Wait at most", U.num("brain.agent_seconds", b.agent_seconds, { min: 5, max: 900, step: 5, unit: "s" }))}</div>
         ${U.check("brain.agent_final_only", b.agent_final_only, "Speak only the final answer", "Spoken requests only: whatever the agent says before using a tool (\"I'll look that up\") stays silent, and the speaker starts when its whole reply is ready. Typed replies are never held.")}
+        ${U.check("brain.agent_earlier", b.agent_earlier, "Tell it what Home Assistant answered", "A turn answered without it (\"Which lights are on?\" by Home Assistant's intents) is passed on with the next one it gets, so a follow-up (\"Which is brightest?\") makes sense.")}
         ${U.check("brain.agent_wait", b.agent_wait, "Say when it'll take a moment", "Before a web search or other slow tool, or when nothing has come for a few seconds, he says \"Give me a second while I look that up\" so nobody waits in silence.")}
         ${b.agent_wait ? `${U.field("Quiet for", U.num("brain.agent_wait_seconds", b.agent_wait_seconds, { min: 1, max: 60, step: 1, unit: "s" }), "Then he says he's still on it.")}
         ${U.wide("Quick tools", `<textarea data-path="brain.agent_quick_tools" data-kind="lines" rows="3">${U.esc((b.agent_quick_tools || []).join("\n"))}</textarea>`, "Tools fast enough to need no wait line, one per line; ending in _ means every tool starting with it.")}` : ""}

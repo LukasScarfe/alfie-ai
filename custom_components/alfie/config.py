@@ -819,6 +819,7 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
         "agent_prompt": str(v["agent_prompt"] or "").strip()[:2000],
         "agent_prompt_typed": str(v["agent_prompt_typed"] or "").strip()[:2000],
         "agent_final_only": bool(v["agent_final_only"]),
+        "agent_earlier": bool(v["agent_earlier"]),
         "agent_seconds": _num(ck.number("brain agent wait", v["agent_seconds"], 5, 900, 120)),
         "agent_wait": bool(v["agent_wait"]),
         "agent_wait_seconds": _num(ck.number("brain agent quiet time", v["agent_wait_seconds"],
