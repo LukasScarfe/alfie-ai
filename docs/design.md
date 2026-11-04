@@ -896,6 +896,26 @@ requirements, light enough for a Pi.
     last six) and passed on in the system message of the next turn it gets (the language's
     `agent.earlier` words). Without it, "Which lights are on?" (an intent) then "which is
     brightest?" reached Hermes with no idea what "those" were.
+  - **People and voices** (0.32.0; Lukas 2026-11-04, spec [spec-voice-identity.md](spec-voice-identity.md);
+    all off or "house only" by default, Voice → Brain → People). `brain.profiles` lists people
+    with their own agent profile: `id` (what alfie-ears calls them), `name`, `user` (HA user id),
+    `url` (a path on the house server, `/p/lukas`, or a whole address) and `key`. The house
+    server and key (`agent_url`, `agent_key`) stay the house profile.
+    - **Typed:** the HA user typing picks their profile; memory key `alfie:user:<id>`.
+    - **Spoken:** with `ears_url` set and `voice_identity` on, each voice turn asks alfie-ears
+      `/api/last` once (0.5 s at most; any failure, the house). Its verdict counts only when heard
+      within `ears_fresh` s (15) and its words match HA's at `ears_match` % (85, difflib after
+      lowercasing and dropping punctuation). Then a turn goes to `profile` unless
+      `guest_house_only` and `guest_entity` (input_boolean.guest_mode) is on. The system note
+      gains "You are speaking with <Name>, recognised by voice, in a shared room."
+      (`agent.speaking_with`); memory `alfie:voice:<id>`.
+    - **Not for Alfie:** with `drop_not_meant` on, a fresh verdict with `drop: true` ends the turn
+      at once, before sentence triggers and intents (the TV saying "turn off the lights" switches
+      nothing): no speech, source `dropped` in the turn log, his face `drop_expression` for 4 s if set.
+    - A profile that fails or has no address hands over to the delegate, never to the house
+      profile. Missed turns stay per conversation.
+    - The turn log shows the speaker and profile; `sensor.alfie_mood` has `last_profile`,
+      `last_speaker` and `last_ears` (unrecorded); it writes only when profile or speaker change.
   - A pipeline using Alfie should have "Prefer handling commands locally" off: Alfie does that
     himself, and the pipeline's own matches never reach his turn log. The Brain tab says so.
   - The face: a badge by him for `icon_seconds` (a bolt when he answered, a brain while the

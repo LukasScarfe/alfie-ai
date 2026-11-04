@@ -18,7 +18,19 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.31.1.
+Version 0.32.0.
+
+**Now (2026-11-04): people and voices (plan.md 18¾, design.md "Brain" → People and voices),
+on production.** Spec from the raccoon session, `docs/spec-voice-identity.md`. Production now has
+profiles Lukas (`/p/lukas`) and Michelle (`/p/michelle`) with their keys, `ears_url`
+`http://192.168.1.241:8794`, `voice_identity` on, `drop_not_meant` **off** (ears is watch-only too).
+Checked on production: typed as Lukas → the lukas profile's store; with his user unmapped → house;
+a spoken-style turn (assist_pipeline/run to the intent stage with a satellite's device_id) with a
+stale verdict → house; ears unreachable → house, 1.9 s, no wait. **Not yet checked (needs a real
+voice):** a recognised voice reaching its profile, and a `drop: true` turn being silent (an empty
+reply to the pipeline, whose TTS step with no text is untested). First turns on a profile took
+about 28 s (its cold prompt).
+
 
 **Now (2026-11-03): typed chat (plan.md 18½, design.md "Chat"), built and on production.**
 Asked by Lukas via the raccoon session. A panel **Chat** section and `custom:alfie-chat-card`, both

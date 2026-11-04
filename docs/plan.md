@@ -307,6 +307,10 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
   `conversation/process` to `conversation.alfie`, one conversation per user, a visual editor
   with lots of options. Built 2026-11-03 (0.31.0), plus missed turns passed on to the agent
   (0.31.1). design.md "Chat". Open: Lukas to try it as a non-admin (Michelle, the wall tablet).
+- [x] **18¾. People and voices.** Spec from the raccoon session (docs/spec-voice-identity.md),
+  approved 2026-11-04: per-person Hermes profiles (typed by HA user, spoken by alfie-ears) and
+  dropping turns not meant for Alfie. Built 0.32.0, design.md "Brain" → People and voices. Open:
+  a real spoken check by Lukas (recognised voice → his profile; drop with ears enforcing).
 
 ## How an agent continues development
 
