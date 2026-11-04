@@ -26,6 +26,7 @@ import asyncio
 import logging
 import random
 import time
+from collections import OrderedDict
 from collections.abc import Callable
 from typing import Any, Literal
 
@@ -58,6 +59,7 @@ ORDER = ("whats_wrong", "how_are_you", "run", "repeat", "help", "coin", "dice", 
          "maths", "entity_when", "entity_history", "entity_count", "entity", "wiki")
 TRIES = 4           # readings of one command tried (hassil splits a sentence several ways)
 WHICH_FOR = 60.0    # seconds a "which one?" waits for its answer
+UNSEEN_CONVERSATIONS = 200   # conversations whose missed turns are kept for the agent
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry,
@@ -85,6 +87,9 @@ class AlfieAgent(conversation.ConversationEntity):
         self.local = LocalAnswers(engine.hass, engine)
         # conversation id -> (command, slots, choices, monotonic asked at)
         self._which: dict[str, tuple[str, dict[str, str], list[str], float]] = {}
+        # Per conversation, the turns answered without the agent server (said, reply),
+        # passed on with the next turn it gets (agent.earlier_prompt). Oldest dropped.
+        self._unseen: OrderedDict[str, list[tuple[str, str]]] = OrderedDict()
         # satellite ("" none) -> (his last reply there, monotonic said at): "say that again"
         self._said: dict[str, tuple[str, float]] = {}
         self._rng = random.Random()
@@ -289,9 +294,13 @@ class AlfieAgent(conversation.ConversationEntity):
         text = user_input.text.strip()
         turn = brain.Turn(said=text, satellite=user_input.satellite_id or "")
 
+        reached = False     # the agent server got this turn
+
         def done(result: conversation.ConversationResult) -> conversation.ConversationResult:
             turn.reply = result.response.speech.get("plain", {}).get("speech", "")
             turn.ms = int((time.monotonic() - start) * 1000)
+            if s["agent_url"] and not reached and turn.reply:
+                self._missed(chat_log.conversation_id, text, turn.reply)
             self._finish(turn)
             return result
 
@@ -343,6 +352,8 @@ class AlfieAgent(conversation.ConversationEntity):
         if s["agent_url"]:
             result = await self._agent(user_input, chat_log, language, turn, passed)
             if result is not None:
+                reached = True
+                self._unseen.pop(chat_log.conversation_id, None)
                 return done(result)
 
         # 5. the delegate
@@ -420,6 +431,9 @@ class AlfieAgent(conversation.ConversationEntity):
         said_prompt = ((s["agent_prompt"] or (words.get("agent") or {}).get("prompt", "")) if voice
                        else (s["agent_prompt_typed"] or (words.get("agent") or {}).get("prompt_typed", "")))
         prompt = agent.where_prompt(said_prompt, self._where(user_input), dt_util.now())
+        if s["agent_earlier"]:
+            prompt = agent.earlier_prompt(prompt, self._unseen.get(chat_log.conversation_id, []),
+                                          words.get("agent") or {})
         hdrs = agent.headers(
             s["agent_key"], f"alfie-{chat_log.conversation_id}",
             f"alfie:{user_input.satellite_id or user_input.device_id or 'assist'}")
@@ -582,6 +596,14 @@ class AlfieAgent(conversation.ConversationEntity):
         return conversation.ConversationResult(
             response=response, conversation_id=chat_log.conversation_id,
             continue_conversation=bool(getattr(chat_log, "continue_conversation", False)))
+
+    def _missed(self, conversation_id: str, said: str, reply: str) -> None:
+        """Keep a turn the agent server didn't answer, for its next one."""
+        turns = self._unseen.pop(conversation_id, [])
+        turns.append((said, reply))
+        self._unseen[conversation_id] = turns[-agent.EARLIER_TURNS:]
+        while len(self._unseen) > UNSEEN_CONVERSATIONS:
+            self._unseen.popitem(last=False)
 
     def _add_reply(self, text: str, chat_log: conversation.ChatLog) -> None:
         chat_log.async_add_assistant_content_without_tools(

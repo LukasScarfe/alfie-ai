@@ -155,3 +155,15 @@ def test_thinking_settings_check():
     assert b["agent_think_voice"] == "off" and b["agent_think_typed"] == "default"
     with pytest.raises(ConfigError):
         validate({"brain": {"agent_think_voice": "very"}}, FACE)
+
+
+def test_earlier_prompt_passes_on_missed_turns():
+    words = {"earlier": {"head": "Before:", "said": "Q", "answer": "A"}}
+    assert agent.earlier_prompt("Typed.", [], words) == "Typed."
+    out = agent.earlier_prompt("Typed.", [("Which lights are on?", "Floor lamp and Table lamp")], words)
+    assert out == "Typed.\n\nBefore:\n- Q: Which lights are on?\n  A: Floor lamp and Table lamp"
+    many = [(f"q{i}", "x" * 1000) for i in range(10)]
+    out = agent.earlier_prompt("", many, {})
+    assert "q3" not in out and "q4" in out and "q9" in out      # only the last six
+    assert "x" * (agent.EARLIER_CHARS + 1) not in out             # each cut short
+    assert out.startswith("Earlier in this conversation")        # no prompt, the default words
