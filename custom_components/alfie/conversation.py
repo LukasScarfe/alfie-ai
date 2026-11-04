@@ -92,6 +92,11 @@ class AlfieAgent(conversation.ConversationEntity):
         # Per conversation, the turns answered without the agent server (said, reply),
         # passed on with the next turn it gets (agent.earlier_prompt). Oldest dropped.
         self._unseen: OrderedDict[str, list[tuple[str, str]]] = OrderedDict()
+        # Spoken turns per room, whoever answered (agent.room_prompt): another
+        # profile's turn reaches this one, so "turn it back down" makes sense.
+        self._room = agent.Room()
+        # speaker -> (the profile last recognised there, monotonic at): agent.sticky
+        self._voice_last: dict[str, tuple[str, float]] = {}
         # satellite ("" none) -> (his last reply there, monotonic said at): "say that again"
         self._said: dict[str, tuple[str, float]] = {}
         self._rng = random.Random()
@@ -304,6 +309,11 @@ class AlfieAgent(conversation.ConversationEntity):
             turn.ms = int((time.monotonic() - start) * 1000)
             if s["agent_url"] and not reached and turn.reply:
                 self._missed(chat_log.conversation_id, text, turn.reply)
+            if voice and turn.reply:
+                who = agent.by_id(s["profiles"], turn.profile or (verdict or {}).get("profile"))
+                self._room.add(self._room_key(user_input), time.time(), who["name"] if who else "",
+                               text, turn.reply, (turn.profile or "house") if reached else None,
+                               chat_log.conversation_id)
             self._finish(turn)
             return result
 
@@ -439,6 +449,12 @@ class AlfieAgent(conversation.ConversationEntity):
         area = ar.async_get(self.hass).async_get_area(area_id) if area_id else None
         return area.name if area else "house"
 
+    def _room_key(self, user_input: conversation.ConversationInput) -> str:
+        """Which room a spoken turn was heard in: its area, or the speaker itself."""
+        where = self._where(user_input)
+        return (f"area:{where}" if where != "house"
+                else f"dev:{user_input.satellite_id or user_input.device_id or ''}")
+
     async def _ears(self, text: str) -> dict[str, Any] | None:
         """alfie-ears' verdict on this voice request (who spoke, and whether it
         was meant for Alfie), or None: not set, down, stale, or about other
@@ -477,11 +493,18 @@ class AlfieAgent(conversation.ConversationEntity):
             return None
         if not voice:
             return agent.for_user(s["profiles"], user_input.context.user_id)
-        if not (s["voice_identity"] and verdict and verdict.get("profile")):
+        if not s["voice_identity"]:
             return None
         if s["guest_house_only"] and self._guests():
             return None
-        return agent.by_id(s["profiles"], verdict["profile"])
+        at = user_input.satellite_id or user_input.device_id or ""
+        now = time.monotonic()
+        pid = (verdict or {}).get("profile") or agent.sticky(
+            self._voice_last.get(at), now, s["voice_sticky"], verdict, s["profiles"])
+        found = agent.by_id(s["profiles"], pid)
+        if found:
+            self._voice_last[at] = (found["id"], now)
+        return found
 
     async def _agent(self, user_input: conversation.ConversationInput,
                      chat_log: conversation.ChatLog, language: str, turn: brain.Turn,
@@ -512,7 +535,12 @@ class AlfieAgent(conversation.ConversationEntity):
         prompt = agent.where_prompt(said_prompt, self._where(user_input), dt_util.now())
         if profile and voice:
             prompt = agent.speaker_prompt(prompt, profile["name"], words.get("agent") or {})
-        if s["agent_earlier"]:
+        if voice and s["room_context"]:
+            prompt = agent.room_prompt(prompt, self._room.recent(
+                self._room_key(user_input), time.time(), s["room_minutes"], s["room_turns"],
+                profile["id"] if profile else "house", chat_log.conversation_id),
+                words.get("agent") or {})
+        elif s["agent_earlier"]:
             prompt = agent.earlier_prompt(prompt, self._unseen.get(chat_log.conversation_id, []),
                                           words.get("agent") or {})
         hdrs = agent.headers(key, f"alfie-{chat_log.conversation_id}", memory)

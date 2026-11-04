@@ -943,7 +943,7 @@
     "skip": ["the time", "the date", "the day", "the weather", "the forecast", "the temperature", "the matter", "the problem", "the plan", "the score", "the news", "the answer", "the point", "the deal", "the difference", "the best", "the worst", "the name", "the song", "the music", "new", "playing", "good", "best", "better", "worse", "home", "out", "outside", "inside", "dinner", "lunch", "breakfast", "for dinner", "the light", "the lights"]
   },
   "agent": {
-    "_": "agent.py: the agent server (Hermes). wait: said when it starts a slow tool before saying anything, by tool name or name start (\"web_\"), \"_\" for any other tool, \"slow\" when nothing has come for a while, \"think\" when the request asks for thought (think: the phrases that do; they name it anywhere in the request). prompt: the system message sent with each spoken request ({where}: the speaker's area, {time} and {day}: now). prompt_typed: the same for a typed one. earlier: how the turns the agent never saw are passed on with the next. speaking_with: added to a spoken turn going to the person alfie-ears recognised ({name}).",
+    "_": "agent.py: the agent server (Hermes). wait: said when it starts a slow tool before saying anything, by tool name or name start (\"web_\"), \"_\" for any other tool, \"slow\" when nothing has come for a while, \"think\" when the request asks for thought (think: the phrases that do; they name it anywhere in the request). prompt: the system message sent with each spoken request ({where}: the speaker's area, {time} and {day}: now). prompt_typed: the same for a typed one. earlier: how the turns the agent never saw are passed on with the next. room: the same for a spoken turn, with what was said in the room lately whoever answered ({who}: who said it, someone when not known). speaking_with: added to a spoken turn going to the person alfie-ears recognised ({name}).",
     "wait": {
       "web_": ["Give me a second while I look that up on the web.", "Hang on, let me check the web for that.", "One moment, I'm searching the web."],
       "browser": ["Give me a moment, I'm opening that page."],
@@ -964,6 +964,8 @@
     "speaking_with": "You are speaking with {name}, recognised by voice, in a shared room.",
     "earlier": {"head": "Earlier in this conversation, Home Assistant answered these itself, before they reached you:",
                 "said": "They said", "answer": "The answer was"},
+    "room": {"head": "Said aloud in this room in the last few minutes, so everyone here heard it (some by other people, answered elsewhere):",
+             "said": "{who} said", "someone": "Someone", "answer": "The answer was"},
     "prompt_typed": "This is a typed chat message, shown on a screen and not read aloud. It is {time} on {day}. Answer as fully as the request needs; simple formatting is fine."
   },
   "fallback": "Sorry, I don't know that one."
