@@ -1831,3 +1831,7 @@ if (!window.customCards.some((c) => c.type === "alfie-card")) {
     preview: true,
   });
 }
+
+// The chat card (alfie-chat-card.js) comes with this module, so installing the
+// integration registers it too.
+import(`./alfie-chat-card.js${V}`).catch((e) => console.error("Alfie chat card failed to load", e));

@@ -24,6 +24,12 @@
       { type: "grid", cards: [{ type: "custom:alfie-card", style: "neon", display: "rotation", rotation: "g_test", present: "handover", aspect: 1.6 }] },
       { type: "grid", cards: [{ type: "custom:alfie-card", style: "neon", display: "rotation", rotation: "g_test", present: "corner", aspect: 1.6 }] },
     ] },
+    // The chat card: face above, face beside, and bare.
+    { title: "Chat", path: "chat", type: "sections", max_columns: 3, sections: [
+      { type: "grid", cards: [{ type: "custom:alfie-chat-card" }] },
+      { type: "grid", cards: [{ type: "custom:alfie-chat-card", title: "Ask the house", face_position: "left", face_size: 72, show_times: true }] },
+      { type: "grid", cards: [{ type: "custom:alfie-chat-card", title: "", show_face: false, height: 300, show_starters: "always" }] },
+    ] },
     // One card per screen, each held on its own one-step rotation (see ./dev js devenv/out/allscreens.js).
     { title: "Screens", path: "screens", type: "sections", max_columns: 4, sections:
       ["plants", "weather", "weather_days", "clock", "monstera", "soil", "sky", "stars", "map", "birthdays"].map((id) => (

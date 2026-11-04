@@ -26,7 +26,7 @@ const IconPick = await import(`./panel/icon-picker.js${V}`);
 const { swatchValue, perSet } = await import(`./alfie-panel-forms.js${V}`);
 const EntPick = await import(`./panel/entity-picker.js${V}`);
 const { CSS } = await import(`./panel/style.js${V}`);
-const SECTIONS = await Promise.all(["overview", "mood", "reactions", "modes", "voice", "screens", "appearance"]
+const SECTIONS = await Promise.all(["overview", "chat", "mood", "reactions", "modes", "voice", "screens", "appearance"]
   .map((n) => import(`./panel/${n}.js${V}`)));
 const BY_ID = Object.fromEntries(SECTIONS.map((s) => [s.id, s]));
 
@@ -738,7 +738,7 @@ class AlfiePanel extends HTMLElement {
 }
 
 const CSS_ESCAPE = (v) => (globalThis.CSS?.escape ? globalThis.CSS.escape(v) : String(v).replace(/["\\]/g, "\\$&"));
-const SECTION_ICONS = { overview: "mdi:view-dashboard-outline", mood: "mdi:emoticon-outline", reactions: "mdi:lightning-bolt-outline",
+const SECTION_ICONS = { overview: "mdi:view-dashboard-outline", chat: "mdi:chat-outline", mood: "mdi:emoticon-outline", reactions: "mdi:lightning-bolt-outline",
   modes: "mdi:home-switch-outline", voice: "mdi:account-voice", screens: "mdi:monitor-dashboard", appearance: "mdi:palette-outline" };
 
 
