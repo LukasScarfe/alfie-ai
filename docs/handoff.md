@@ -18,7 +18,24 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.29.0.
+Version 0.31.1.
+
+**Now (2026-11-03): typed chat (plan.md 18½, design.md "Chat"), built and on production.**
+Asked by Lukas via the raccoon session. A panel **Chat** section and `custom:alfie-chat-card`, both
+the one `<alfie-chat>` (`alfie-chat.js`; the card is `alfie-chat-card.js`, imported by
+alfie-card.js). Messages go through `conversation/process` to `conversation.alfie`, with a
+non-ULID id per user (`chat-<user>-<random>`, kept in HA's per-user frontend data `alfie_chat`)
+so HA doesn't replace it after five idle minutes and Hermes sees one session (`alfie-<id>`).
+Checked on production: two turns kept the id and landed in one Hermes session. That check found
+that a turn HA's intents answer never reaches Hermes, so "which is brightest?" after "which
+lights are on?" made no sense to it: 0.31.1 passes the missed turns on (`brain.agent_earlier`,
+on). The dev dashboard has a Chat view (`./dev dashboard`).
+- **Open:** the non-admin check (as Michelle or the wall tablet's user) still needs Lukas: this
+  session was refused using the hermes user's token. The card isn't on any production dashboard
+  yet (changing dashboards needs his OK). Typed turns still share Hermes's long-term memory key
+  `alfie:assist` across users; per-user memory would be a small change in conversation.py
+  `_agent` (his call).
+
 
 **Now (2026-11-01): voice goes to Hermes Agent.** Lukas was unhappy with voice ("strip back the
 layers before the LLM"; wants a smart, all-local agent with memory, web search and house control,

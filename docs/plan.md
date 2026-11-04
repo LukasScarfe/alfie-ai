@@ -302,6 +302,11 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
       times, numbers, `finder.py` entities), a confidence threshold below which the LLM answers.
 - [ ] **18. Dot extras.** Alfie speaks first (start_conversation), action button mapping,
       sleepiness from room light, a privacy face while the mic is muted.
+- [x] **18½. Chat.** Asked by Lukas 2026-11-03 (approved via the raccoon session): typed chat as a
+  panel **Chat** section and `custom:alfie-chat-card` (one `<alfie-chat>`), through
+  `conversation/process` to `conversation.alfie`, one conversation per user, a visual editor
+  with lots of options. Built 2026-11-03 (0.31.0), plus missed turns passed on to the agent
+  (0.31.1). design.md "Chat". Open: Lukas to try it as a non-admin (Michelle, the wall tablet).
 
 ## How an agent continues development
 

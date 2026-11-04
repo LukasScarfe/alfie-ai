@@ -890,7 +890,12 @@ requirements, light enough for a Pi.
     request that names a phrase (`agent_think_phrases`, [] the language's `agent.think`: "think
     about it", "think hard", "take your time") anywhere, as whole words, gets
     `agent_think_asked` (default medium; "default" ignores the asking), and he says "Let me think
-    about that" first. Settings in Voice → Brain → Agent server.
+    about that" first. Settings in Voice → Brain → Agent server. **Missed turns**
+    (`agent_earlier`, default on; 0.31.1): the server only sees the turns it answers, so a turn
+    answered by HA's intents, Alfie's own sentences or the delegate is kept (per conversation, the
+    last six) and passed on in the system message of the next turn it gets (the language's
+    `agent.earlier` words). Without it, "Which lights are on?" (an intent) then "which is
+    brightest?" reached Hermes with no idea what "those" were.
   - A pipeline using Alfie should have "Prefer handling commands locally" off: Alfie does that
     himself, and the pipeline's own matches never reach his turn log. The Brain tab says so.
   - The face: a badge by him for `icon_seconds` (a bolt when he answered, a brain while the
