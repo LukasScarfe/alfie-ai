@@ -311,6 +311,9 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
   approved 2026-11-04: per-person Hermes profiles (typed by HA user, spoken by alfie-ears) and
   dropping turns not meant for Alfie. Built 0.32.0, design.md "Brain" → People and voices. Open:
   a real spoken check by Lukas (recognised voice → his profile; drop with ears enforcing).
+- [x] **18⅞. Shared room.** Lukas 2026-11-04: what one person asks aloud reaches the next
+  person's profile ("turn it back down" after Michelle's "play music"), and a voice ears can't
+  place keeps the last recognised person. 0.33.0, design.md "Brain" → People and voices.
 
 ## How an agent continues development
 

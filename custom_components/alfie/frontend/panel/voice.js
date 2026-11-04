@@ -259,6 +259,7 @@ function people(p, b) {
       "A speaker-ID proxy in front of Whisper: for each voice request it says who spoke and whether it was meant for Alfie. Asked once per spoken turn, half a second at most; down means the house's.")}
     ${b.ears_url ? `
     ${U.check("brain.voice_identity", b.voice_identity, "Use voice identity", "A spoken turn goes to the profile of whoever alfie-ears recognised, told it's a shared room. Off: every spoken turn is the house's.")}
+    ${U.field("Keep the last person for", U.num("brain.voice_sticky", b.voice_sticky, { min: 0, max: 900, step: 5, unit: "s" }), "When ears hears a voice it can't place, the person it last recognised at that speaker this recently keeps the turn, instead of the house's. 0: never.")}
     <div class="row">${U.field("Verdict good for", U.num("brain.ears_fresh", b.ears_fresh, { min: 1, max: 120, step: 1, unit: "s" }), "An older one is about another request.")}
     ${U.field("Words must match", U.num("brain.ears_match", b.ears_match, { min: 50, max: 100, step: 1, unit: "%" }), "What ears heard against what Home Assistant was given.")}</div>
     <div class="row">${U.field("Guests are over when", U.text("brain.guest_entity", b.guest_entity, { placeholder: "input_boolean.guest_mode", list: "entities" }), "This entity is on.")}</div>
@@ -349,6 +350,9 @@ function brainTab(p) {
         ${U.field("Wait at most", U.num("brain.agent_seconds", b.agent_seconds, { min: 5, max: 900, step: 5, unit: "s" }))}</div>
         ${U.check("brain.agent_final_only", b.agent_final_only, "Speak only the final answer", "Spoken requests only: whatever the agent says before using a tool (\"I'll look that up\") stays silent, and the speaker starts when its whole reply is ready. Typed replies are never held.")}
         ${U.check("brain.agent_earlier", b.agent_earlier, "Tell it what Home Assistant answered", "A turn answered without it (\"Which lights are on?\" by Home Assistant's intents) is passed on with the next one it gets, so a follow-up (\"Which is brightest?\") makes sense.")}
+        ${U.check("brain.room_context", b.room_context, "Share what was said in the room", "Spoken requests only: it's told what was asked aloud in the same room lately, whoever asked and whichever profile answered, so \"turn it back down\" after someone else's \"play some music\" makes sense. Typed chat stays private.")}
+        ${b.room_context ? `<div class="row">${U.field("From the last", U.num("brain.room_minutes", b.room_minutes, { min: 1, max: 120, step: 1, unit: "min" }))}
+        ${U.field("At most", U.num("brain.room_turns", b.room_turns, { min: 1, max: 20, step: 1, unit: "turns" }))}</div>` : ""}
         ${U.check("brain.agent_wait", b.agent_wait, "Say when it'll take a moment", "Before a web search or other slow tool, or when nothing has come for a few seconds, he says \"Give me a second while I look that up\" so nobody waits in silence.")}
         ${b.agent_wait ? `${U.field("Quiet for", U.num("brain.agent_wait_seconds", b.agent_wait_seconds, { min: 1, max: 60, step: 1, unit: "s" }), "Then he says he's still on it.")}
         ${U.wide("Quick tools", `<textarea data-path="brain.agent_quick_tools" data-kind="lines" rows="3">${U.esc((b.agent_quick_tools || []).join("\n"))}</textarea>`, "Tools fast enough to need no wait line, one per line; ending in _ means every tool starting with it.")}` : ""}

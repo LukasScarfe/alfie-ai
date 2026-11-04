@@ -206,3 +206,43 @@ def test_speaker_prompt():
     assert agent.speaker_prompt("Spoken.", "Lukas", {}) == \
         "Spoken.\nYou are speaking with Lukas, recognised by voice, in a shared room."
     assert agent.speaker_prompt("", "M", {"speaking_with": "Hi {name}."}) == "Hi M."
+
+
+def test_room_shares_spoken_turns_across_profiles():
+    room = agent.Room()
+    room.add("area:Living Room", 1000, "Michelle", "Play some music", "Playing.", "michelle", "c1")
+    room.add("area:Living Room", 1010, "", "Stop", "Stopped.", None, "c1")          # an intent
+    room.add("area:Kitchen", 1020, "Lukas", "Timer", "Set.", "lukas", "c2")
+    # Lukas's profile hears Michelle's turn and the intent's, not the kitchen's
+    got = room.recent("area:Living Room", 1100, 15, 6, "lukas", "c1")
+    assert got == [("Michelle", "Play some music", "Playing."), ("", "Stop", "Stopped.")]
+    # Michelle's own profile already has her turn in this conversation's session...
+    assert room.recent("area:Living Room", 1100, 15, 6, "michelle", "c1") == [("", "Stop", "Stopped.")]
+    # ...but not in a new conversation
+    assert len(room.recent("area:Living Room", 1100, 15, 6, "michelle", "c9")) == 2
+    assert room.recent("area:Living Room", 1000 + 16 * 60, 15, 6, "lukas", "c1") == []   # too old
+    assert len(room.recent("area:Living Room", 1100, 15, 1, "lukas", "c1")) == 1
+    for i in range(agent.ROOM_KEEP + 5):
+        room.add("area:Hall", 2000 + i, "", f"q{i}", "a", None, "c")
+    assert len(room.recent("area:Hall", 2100, 15, 100, "house", "x")) == agent.ROOM_KEEP
+
+
+def test_room_prompt():
+    words = {"room": {"head": "Heard:", "said": "{who} said", "someone": "Someone", "answer": "A"}}
+    assert agent.room_prompt("P", [], words) == "P"
+    out = agent.room_prompt("P", [("Michelle", "Play music", "Playing."), ("", "Stop", "OK")], words)
+    assert out == "P\n\nHeard:\n- Michelle said: Play music\n  A: Playing.\n- Someone said: Stop\n  A: OK"
+    assert agent.room_prompt("", [("", "x", "y")], {}).startswith("Said aloud in this room")
+
+
+def test_sticky_keeps_the_last_person_only_when_ears_is_unsure():
+    unsure = {"speaker": "unknown", "profile": ""}
+    assert agent.sticky(("lukas", 100), 150, 90, unsure, PROFILES) == "lukas"
+    assert agent.sticky(("lukas", 100), 200, 90, unsure, PROFILES) == ""       # too long ago
+    assert agent.sticky(("lukas", 100), 150, 0, unsure, PROFILES) == ""        # off
+    assert agent.sticky(None, 150, 90, unsure, PROFILES) == ""
+    assert agent.sticky(("lukas", 100), 150, 90, None, PROFILES) == ""         # no verdict
+    assert agent.sticky(("lukas", 100), 150, 90, {"speaker": "tv", "profile": ""}, PROFILES) == ""
+    # ears thinks it's Michelle but isn't sure enough: not Lukas's either
+    assert agent.sticky(("lukas", 100), 150, 90, {"speaker": "michelle", "profile": ""}, PROFILES) == ""
+    assert agent.sticky(("gone", 100), 150, 90, unsure, PROFILES) == ""        # profile removed

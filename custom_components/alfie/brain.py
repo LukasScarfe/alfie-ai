@@ -97,12 +97,18 @@ def default_settings() -> dict[str, Any]:
             "agent_prompt_typed": "",       # ...each typed turn's; "" the language's
             "agent_final_only": True,       # spoken: only the final answer reaches the speaker
             "agent_earlier": True,          # tell it the turns HA answered that it never saw
+            "room_context": True,           # spoken: tell it what was said in the room lately,
+                                            # whoever answered (another person's profile too)
+            "room_minutes": 15,             # ...within this long
+            "room_turns": 6,                # ...at most this many
             "profiles": [],                 # people with their own agent profile:
                                             # {id, name, user (HA user id), url, key}
             "voice_identity": False,        # voice: the profile alfie-ears recognised
             "ears_url": "",                 # alfie-ears (its /api/last); "" none
             "ears_fresh": 15,               # seconds a verdict stays good for
             "ears_match": 85,               # % its text must match what HA heard
+            "voice_sticky": 90,             # s: a voice ears can't place keeps the last
+                                            # recognised person's profile there; 0 off
             "guest_entity": "input_boolean.guest_mode",   # on: guests are over
             "guest_house_only": True,       # ...then every voice turn is the house's
             "drop_not_meant": False,        # end turns ears says weren't for Alfie, silently

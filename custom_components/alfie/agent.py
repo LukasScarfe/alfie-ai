@@ -176,6 +176,75 @@ def earlier_prompt(prompt: str, turns: Iterable[tuple[str, str]], words: Mapping
     return f"{prompt}\n\n{head}\n{lines}".strip()
 
 
+ROOM_KEEP = 20         # spoken turns kept per room for `room_context`
+ROOM_ROOMS = 30        # rooms remembered
+
+
+class Room:
+    """The spoken turns heard in each room lately, whoever answered them
+    (design.md "Brain" → People and voices → Shared room). Each knows who
+    asked (a name, "" not known), and, when the agent server answered it,
+    which profile ("house" or a person's id) and conversation, since that
+    profile's session already holds it."""
+
+    def __init__(self) -> None:
+        self._rooms: dict[str, list[dict[str, Any]]] = {}
+
+    def add(self, room: str, at: float, who: str, said: str, reply: str,
+            audience: str | None, conversation: str) -> None:
+        if not room or not (said or reply):
+            return
+        turns = self._rooms.pop(room, [])
+        turns.append({"at": at, "who": who, "said": said, "reply": reply,
+                      "audience": audience, "conversation": conversation})
+        self._rooms[room] = turns[-ROOM_KEEP:]
+        while len(self._rooms) > ROOM_ROOMS:
+            self._rooms.pop(next(iter(self._rooms)))
+
+    def recent(self, room: str, now: float, minutes: float, keep: int, audience: str,
+               conversation: str) -> list[tuple[str, str, str]]:
+        """(who, said, reply) heard in `room` in the last `minutes`, the last
+        `keep`, leaving out what `audience` answered in this very conversation."""
+        out = [(t["who"], t["said"], t["reply"]) for t in self._rooms.get(room, [])
+               if now - t["at"] <= minutes * 60
+               and not (t["audience"] == audience and t["conversation"] == conversation)]
+        return out[-keep:] if keep > 0 else []
+
+
+def room_prompt(prompt: str, turns: Iterable[tuple[str, str, str]], words: Mapping[str, Any]) -> str:
+    """The turn's system message with what was said in the room lately and
+    hasn't reached this profile, so "turn it back down" after someone else's
+    "play music" makes sense to it."""
+    turns = [(w, str(a)[:EARLIER_CHARS], str(b)[:EARLIER_CHARS]) for w, a, b in turns]
+    if not turns:
+        return prompt
+    w = words.get("room") or {}
+    head = w.get("head") or ("Said aloud in this room in the last few minutes, "
+                             "so everyone here heard it:")
+    said = w.get("said") or "{who} said"
+    someone = w.get("someone") or "Someone"
+    answer = w.get("answer") or "The answer was"
+    lines = "\n".join(f"- {said.replace('{who}', who or someone)}: {a}\n  {answer}: {b}"
+                      for who, a, b in turns)
+    return f"{prompt}\n\n{head}\n{lines}".strip()
+
+
+def sticky(last: tuple[str, float] | None, now: float, seconds: float,
+           verdict: Mapping[str, Any] | None, profiles: Iterable[Mapping[str, Any]]) -> str:
+    """The profile id to keep for a spoken turn ears couldn't place: the
+    last recognised one at this speaker, within `seconds`, when ears heard
+    someone it wasn't sure of (not the TV, not another person it knows)."""
+    if not last or seconds <= 0 or not verdict or verdict.get("profile"):
+        return ""
+    pid, at = last
+    if now - at > seconds:
+        return ""
+    speaker = str(verdict.get("speaker") or "")
+    if speaker == "tv" or (speaker and speaker != pid and by_id(profiles, speaker)):
+        return ""
+    return pid if by_id(profiles, pid) else ""
+
+
 # ------------------------------------------------------------ the stream
 
 class SSE:

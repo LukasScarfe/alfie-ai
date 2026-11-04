@@ -912,6 +912,17 @@ requirements, light enough for a Pi.
     - **Not for Alfie:** with `drop_not_meant` on, a fresh verdict with `drop: true` ends the turn
       at once, before sentence triggers and intents (the TV saying "turn off the lights" switches
       nothing): no speech, source `dropped` in the turn log, his face `drop_expression` for 4 s if set.
+    - **Sticky voice** (`voice_sticky`, 90 s; 0 off; 0.33.0): when ears hears a voice it can't
+      place (no `profile`, and not `tv` or another known person), the profile last recognised at
+      that speaker within that long keeps the turn instead of the house's; each such turn renews it.
+    - **Shared room** (`room_context`, on; `room_minutes` 15, `room_turns` 6; 0.33.0): every spoken
+      turn with a reply is kept per room (its area, else the speaker), with who asked and which
+      profile answered. A spoken turn to the agent server is told the room's recent turns (the
+      language's `agent.room` words) except those that same profile answered in this same
+      conversation (its session has them), so Lukas's profile hears what Michelle just asked and
+      the reverse. Spoken aloud, so everyone in the room heard it; typed chat never enters it.
+      For spoken turns it replaces the missed turns (`agent_earlier`), which it includes. Lasting
+      household facts still go in Hermes's shared `docs/household.md` (hermes-home).
     - A profile that fails or has no address hands over to the delegate, never to the house
       profile. Missed turns stay per conversation.
     - The turn log shows the speaker and profile; `sensor.alfie_mood` has `last_profile`,

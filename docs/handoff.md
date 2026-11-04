@@ -18,7 +18,19 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.32.0.
+Version 0.33.0.
+
+**Now (2026-11-04): shared room and sticky voice (plan.md 18⅞, 0.33.0).** Lukas found switching
+between him and Michelle slow and context lost. Measured first: the switch itself is cheap (Hermes's
+first call reused 94-95% of the prompt cache; desktop Ollama keeps several caches). The real loss was
+history split across the profiles and ears flipping to "unknown" (house) mid-conversation. Built:
+`room_context` (spoken turns per room, whoever answered, passed to the next profile) and
+`voice_sticky` (90 s). hermes-home 7525059 turned off Hermes's model title call per new session
+(`auxiliary.title_generation.model_upgrade_enabled: false`, all three profiles). **Open:** a real
+two-person spoken check; Lukas's OK on pointing the delegate `conversation.alfie_desktop` at
+hermes-qwen3.5:9b (alfie-qwen3:8b probably evicts Hermes's model from the B580, giving the 22-28 s
+cold turns seen 3 times on 2026-11-04; unconfirmed).
+
 
 **Now (2026-11-04): people and voices (plan.md 18¾, design.md "Brain" → People and voices),
 on production.** Spec from the raccoon session, `docs/spec-voice-identity.md`. Production now has
