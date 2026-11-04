@@ -13,8 +13,10 @@ server-sent events parser and the wait lines. conversation.py does the HTTP
 
 from __future__ import annotations
 
+import difflib
 import json
 import random
+import re
 from datetime import datetime
 from collections.abc import Iterable, Mapping
 from typing import Any
@@ -97,6 +99,65 @@ def where_prompt(template: str, where: str, now: datetime | None = None) -> str:
         out = out.replace("{time}", f"{hour}:{now.minute:02d} {'AM' if now.hour < 12 else 'PM'}")
         out = out.replace("{day}", f"{now:%A}, {now:%B} {now.day}, {now.year}")
     return out
+
+
+def profile_url(house_url: str, url: str) -> str:
+    """A profile's server: its own address, a path on the house's server
+    ("/p/lukas" on "http://pc:8642" -> "http://pc:8642/p/lukas"), or "" when
+    neither is known."""
+    url = (url or "").strip().rstrip("/")
+    if not url:
+        return ""
+    if not url.startswith("/"):
+        return url
+    m = re.match(r"^(https?://[^/]+)", (house_url or "").strip())
+    return m.group(1) + url if m else ""
+
+
+def for_user(profiles: Iterable[Mapping[str, Any]], user_id: str | None) -> Mapping[str, Any] | None:
+    """The profile of the HA user typing, or None (the house's)."""
+    return next((p for p in profiles if user_id and p.get("user") == user_id), None)
+
+
+def by_id(profiles: Iterable[Mapping[str, Any]], pid: str | None) -> Mapping[str, Any] | None:
+    return next((p for p in profiles if pid and p.get("id") == pid), None)
+
+
+def same_words(a: str, b: str, floor: float = 0.85) -> bool:
+    """Whether ears heard what HA was given: case, punctuation and spacing
+    aside, at least `floor` alike (HA's STT post-processing may change a word)."""
+    a, b = _norm(a), _norm(b)
+    if not a or not b:
+        return False
+    return a == b or difflib.SequenceMatcher(None, a, b).ratio() >= floor
+
+
+def ears_usable(verdict: Any, text: str, now: float, fresh: float,
+                floor: float = 0.85) -> bool:
+    """An alfie-ears verdict that is about this request: heard within `fresh`
+    seconds and saying the same words."""
+    if not isinstance(verdict, Mapping):
+        return False
+    try:
+        age = now - float(verdict.get("heard_ts") or 0)
+    except (TypeError, ValueError):
+        return False
+    return -2 <= age <= fresh and same_words(str(verdict.get("text") or ""), text, floor)
+
+
+def ears_summary(verdict: Mapping[str, Any] | None) -> dict[str, Any]:
+    """The small part of a verdict worth keeping (turn log, sensor)."""
+    if not verdict:
+        return {}
+    keep = ("speaker", "profile", "confidence", "addressed", "drop", "watch_only", "heard_at")
+    return {k: verdict.get(k) for k in keep if k in verdict}
+
+
+def speaker_prompt(prompt: str, name: str, words: Mapping[str, Any]) -> str:
+    """The turn's system message plus who is speaking (recognised by voice)."""
+    line = (words.get("speaking_with") or
+            "You are speaking with {name}, recognised by voice, in a shared room.")
+    return f"{prompt}\n{line.replace('{name}', name)}".strip()
 
 
 def earlier_prompt(prompt: str, turns: Iterable[tuple[str, str]], words: Mapping[str, Any],

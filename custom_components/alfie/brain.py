@@ -81,7 +81,7 @@ STATE_INTENTS = frozenset({"HassGetState", "HassGetWeather"})
 MEDIA_SEARCH = "HassMediaSearchAndPlay"
 # Where a turn's answer came from, by tier.
 SOURCES = {"trigger": 1, "own": 1, "intent": 1, "agent": 3, "delegate": 3, "none": 0,
-           "error": 0}
+           "error": 0, "dropped": 0}
 LOG_MAX = 200
 MAX_SAID = 300     # characters of a question or reply kept in the log
 
@@ -97,6 +97,16 @@ def default_settings() -> dict[str, Any]:
             "agent_prompt_typed": "",       # ...each typed turn's; "" the language's
             "agent_final_only": True,       # spoken: only the final answer reaches the speaker
             "agent_earlier": True,          # tell it the turns HA answered that it never saw
+            "profiles": [],                 # people with their own agent profile:
+                                            # {id, name, user (HA user id), url, key}
+            "voice_identity": False,        # voice: the profile alfie-ears recognised
+            "ears_url": "",                 # alfie-ears (its /api/last); "" none
+            "ears_fresh": 15,               # seconds a verdict stays good for
+            "ears_match": 85,               # % its text must match what HA heard
+            "guest_entity": "input_boolean.guest_mode",   # on: guests are over
+            "guest_house_only": True,       # ...then every voice turn is the house's
+            "drop_not_meant": False,        # end turns ears says weren't for Alfie, silently
+            "drop_expression": "",          # his face for one; "" none
             "agent_seconds": 120,           # the longest it may take
             "agent_wait": True,             # "give me a second" before something slow
             "agent_wait_seconds": 4,        # ...or when nothing has come for this long
@@ -291,6 +301,8 @@ class Turn:
     ms: int = 0
     satellite: str = ""
     at: float = 0.0            # epoch seconds
+    profile: str = ""          # the agent profile it went to ("" the house's)
+    speaker: str = ""          # who alfie-ears heard ("" not asked)
 
     @property
     def tier(self) -> int:
@@ -317,6 +329,8 @@ def why(source: str, detail: str = "", delegate: str = "",
         return f"Nothing local matched, so {delegate or detail} answered." + note
     if source == "agent":
         return f"Nothing local matched, so the agent at {delegate or detail} answered." + note
+    if source == "dropped":
+        return f"alfie-ears heard it as not meant for Alfie ({detail}), so it was dropped."
     if source == "error":
         return f"Nothing local matched and {delegate or detail} failed: {error}".rstrip(": ") + "."
     return "Nothing local matched and no delegate is set." + note

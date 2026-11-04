@@ -26,7 +26,7 @@ class AlfieMoodSensor(AlfieEntity, SensorEntity):
     # The detail stays live on the entity but out of the recorder's database.
     # Animations are deliberately absent: they never write state (see
     # engine._push); the alfie_animation event and the WS carry them.
-    _unrecorded_attributes = frozenset({"signals", "energy", "score", "problems"})
+    _unrecorded_attributes = frozenset({"signals", "energy", "score", "problems", "last_ears"})
 
     @property
     def native_value(self) -> str | None:
@@ -49,6 +49,11 @@ class AlfieMoodSensor(AlfieEntity, SensorEntity):
             "signals": s["signals"],
             # For voice agents reading entities: what is wrong, in words.
             "problems": tell.summary(self.engine.mood, self._lookup),
+            # The last agent turn: whose profile it went to ("" the house's), and
+            # what alfie-ears heard (speaker, confidence, addressed, drop).
+            "last_profile": self.engine.route["profile"],
+            "last_speaker": self.engine.route["ears"].get("speaker", ""),
+            "last_ears": self.engine.route["ears"],
         }
 
     def _lookup(self, entity_id: str) -> tuple[str, str, str] | None:
