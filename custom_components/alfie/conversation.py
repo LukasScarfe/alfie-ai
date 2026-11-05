@@ -133,6 +133,7 @@ class AlfieAgent(conversation.ConversationEntity):
         the language or the brain settings change."""
         s = self.engine.config["brain"]
         key = (language, s["own_sentences"], tuple(s["off_commands"]),
+               tuple(s["own_always"]),
                repr(sorted(s["extra_sentences"].items())))
         if key != self._own_key:
             self._own_key = key

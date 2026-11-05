@@ -325,6 +325,8 @@ function brainTab(p) {
   const acts = label ? Object.entries(p.hass?.entities || {})
     .filter(([e, x]) => (x.labels || []).includes(label.label_id) && RUNNABLE.includes(e.split(".")[0]))
     .map(([e]) => [e, st[e]?.attributes?.friendly_name || e]).sort((a, c) => a[1].localeCompare(c[1])) : [];
+  const outside = b.own_sentences ? ["weather_now", "weather_forecast", "weather_gear", "sun", "moon"].some((c) => !b.off_commands.includes(c))
+    : ["weather_now", "weather_forecast", "weather_gear", "sun", "moon"].some((c) => (b.own_always || []).includes(c));
   const cmds = COMMANDS.map(([k, name, hint]) => `
       <label class="check"><input type="checkbox" class="switch" data-action="brain-cmd" data-name="${k}"${b.off_commands.includes(k) ? "" : " checked"}>
         <span><b>${U.esc(name)}</b><small>${U.esc(hint)}</small></span></label>
@@ -382,8 +384,11 @@ function brainTab(p) {
         ${U.check("brain.ask_which", b.ask_which, "Ask which one", "When two things fit a name equally, he asks. Off: the delegate gets the question.")}
         ${U.check("brain.say_unknown", b.say_unknown, "Say when he doesn't know a thing", "\"When was the front door last opened?\" with no front door: he says so. Off: the delegate gets it (an LLM may make up an answer).")}
         ${U.wide("\"How many\" ignores these integrations", `<textarea data-path="brain.count_skip" data-kind="lines" rows="2">${U.esc((b.count_skip || []).join("\n"))}</textarea>`, "One integration per line, like adaptive_lighting: their switches aren't things that are \"on\".")}
-        ${U.field("How sure a name must be", U.num("brain.match_floor", b.match_floor, { min: 30, max: 120, step: 5 }), "70: the whole name was said. Lower finds more, and guesses more.")}` : ""}`)}
-      ${b.own_sentences ? U.card("Outside", `
+        ${U.field("How sure a name must be", U.num("brain.match_floor", b.match_floor, { min: 30, max: 120, step: 5 }), "70: the whole name was said. Lower finds more, and guesses more.")}` : `
+        <p class="muted">Off, he still answers these himself, before Home Assistant's intents and the agent: the quick ones you'd rather not wait for.</p>
+        ${COMMANDS.map(([k, name, hint]) => `<label class="check"><input type="checkbox" class="switch" data-action="brain-always" data-name="${k}"${(b.own_always || []).includes(k) ? " checked" : ""}>
+          <span><b>${U.esc(name)}</b><small>${U.esc(hint)}</small></span></label>`).join("")}`}`)}
+      ${outside ? U.card("Outside", `
         ${U.field("Weather from", U.select("brain.weather", b.weather, weathers),
           "For the weather, the forecast and what to wear. \"In Whistler\" picks the weather entity with that name.")}
         <div class="grid">
@@ -393,7 +398,12 @@ function brainTab(p) {
         ${U.field("Rain when the chance is", U.num("brain.rain_chance", b.rain_chance, { min: 1, max: 100, step: 5, unit: "%" }), "An hour this likely to rain counts as rain.")}
         ${U.field("Or with no chance given", U.num("brain.rain_mm", b.rain_mm, { min: 0, max: 50, step: 0.1, unit: "mm" }), "Some forecasts (met.no) give only the amount.")}
         ${U.field("Sunscreen from UV", U.num("brain.sun_uv", b.sun_uv, { min: 0, max: 15, step: 1 }), "\"Do I need sunscreen?\"")}</div>
-        <p class="muted">Converted when the weather is in °F or mph. The sun and the moon need no entity: Home Assistant's location is enough.</p>`) : ""}
+        <p class="muted">Converted when the weather is in °F or mph. The sun and the moon need no entity: Home Assistant's location is enough.</p>
+        ${U.check("brain.weather_anywhere", b.weather_anywhere, "The weather anywhere", "\"Is it raining in London?\" with no weather entity of that name: Open-Meteo, free and with no key. The place's name and where it is leave the house. A room or floor of yours is never looked up. Off: the agent answers.")}
+        ${b.weather_anywhere ? `<div class="row">${U.field("Wait at most", U.num("brain.weather_seconds", b.weather_seconds, { min: 1, max: 15, step: 1, unit: "s" }), "Each call; then the agent answers.")}
+        ${U.field("Keep a forecast", U.num("brain.weather_minutes", b.weather_minutes, { min: 5, max: 360, step: 5, unit: "min" }), "Places are remembered until a restart.")}</div>
+        ${U.field("Places from", U.text("brain.weather_geo_url", b.weather_geo_url, { placeholder: "https://geocoding-api.open-meteo.com/v1/search" }))}
+        ${U.field("Forecasts from", U.text("brain.weather_url", b.weather_url, { placeholder: "https://api.open-meteo.com/v1/forecast" }), "A self-hosted Open-Meteo works too.")}` : ""}`) : ""}
       ${b.own_sentences ? U.card("Dates and units", `
         ${U.wide("Your own dates", `<textarea data-path="brain.dates" data-kind="lines" rows="3" placeholder="Lukas's birthday: 03-14&#10;Our anniversary: 2019-06-01">${U.esc((b.dates || []).join("\n"))}</textarea>`,
           "One per line, \"name: MM-DD\" (or YYYY-MM-DD). Then \"How many days until Lukas's birthday?\" works. Holidays like Christmas, Easter and Thanksgiving he knows already.")}
@@ -594,6 +604,12 @@ export function click(p, a, el) {
     case "brain-cmd": {
       const b = p.draft.brain, k = el.dataset.name;
       b.off_commands = b.off_commands.includes(k) ? b.off_commands.filter((x) => x !== k) : [...b.off_commands, k];
+      p.edited(true);
+      return true;
+    }
+    case "brain-always": {
+      const b = p.draft.brain, k = el.dataset.name, on = b.own_always || [];
+      b.own_always = on.includes(k) ? on.filter((x) => x !== k) : [...on, k];
       p.edited(true);
       return true;
     }

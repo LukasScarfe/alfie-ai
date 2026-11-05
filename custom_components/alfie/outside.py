@@ -49,6 +49,7 @@ class Weather:
     hourly: list[Row] = field(default_factory=list)
     daily: list[Row] = field(default_factory=list)
     place: str = ""                 # as asked ("in Whistler"), "" the house's
+    tz: Any = None                  # the place's time zone when it isn't the house's
 
     @property
     def unit(self) -> str:

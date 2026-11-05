@@ -124,6 +124,8 @@ def default_settings() -> dict[str, Any]:
             "agent_think_asked": "medium",  # ...when asked ("think about it"); "default" ignore
             "agent_think_phrases": [],      # what asks for it; [] the language's
             "own_sentences": True, "off_commands": [],
+            "own_always": sorted(OUTSIDE),  # matched even with own_sentences off (fast weather
+                                            # while an agent server takes the rest)
             "voice_label": "Alfie voice",   # a label: what carries it, he starts by voice
             "run_bare": True,               # its name alone ("movie time") starts it too
             "run_conditions": False,        # an automation started by voice checks its conditions
@@ -136,6 +138,12 @@ def default_settings() -> dict[str, Any]:
                                             # say so, not the delegate (it may invent it)
             "count_skip": ["adaptive_lighting"],   # integrations "how many" ignores
             "weather": "",                  # a weather entity; "" the house's (local.py)
+            "weather_anywhere": True,       # "in Paris" with no weather entity of that name:
+                                            # Open-Meteo (the place's name leaves the house)
+            "weather_geo_url": "https://geocoding-api.open-meteo.com/v1/search",
+            "weather_url": "https://api.open-meteo.com/v1/forecast",
+            "weather_seconds": 3,           # Open-Meteo's time to answer, each call
+            "weather_minutes": 30,          # a place's forecast kept this long
             "cold_below": 10,               # °C: "do I need a coat?", "is it cold?"
             "warm_above": 22,               # °C: "is it warm?", "do I need shorts?"
             "windy_speed": 30,              # km/h: "is it windy?"
@@ -198,13 +206,15 @@ def own_intents(words: Mapping[str, Any] | None, settings: Mapping[str, Any],
                 language: str) -> dict[str, Any] | None:
     """Alfie's own commands as Home Assistant sentence data (hassil's
     Intents.from_dict), or None when there are none to match."""
-    if not settings["own_sentences"]:
+    always = settings.get("own_always") or ()
+    if not settings["own_sentences"] and not always:
         return None
     words = words or {}
     lang_cmds = words.get("commands") or {}
     intents = {}
     for cmd in COMMANDS:
-        if cmd in settings["off_commands"]:
+        if cmd in settings["off_commands"] or (not settings["own_sentences"]
+                                               and cmd not in always):
             continue
         sentences = [*lang_cmds.get(cmd, []), *settings["extra_sentences"].get(cmd, [])]
         if sentences:
