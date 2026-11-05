@@ -609,6 +609,8 @@ class LocalAnswers:
                                      slots.get("day", ""), slots.get("until", ""),
                                      slots.get("light", ""), words, now)
         place, span = _split_span(slots.get("place", ""), slots.get("span", ""), words)
+        if cmd == "weather_now" and span and span != "now" and not slots.get("aspect"):
+            cmd = "weather_forecast"    # "the weather in Tokyo tonight": a time said
         w = await self._weather(place, s, now, hourly=True, daily=cmd != "weather_gear")
         if w is None:
             return None

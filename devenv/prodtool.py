@@ -157,11 +157,26 @@ def running_version(ws):
                  if d.get("manufacturer") == "Alfie"), None)
 
 
+def _store(ws):
+    """HACS's WebSocket prefix: "marketplace" since HA 2026.11 took HACS into
+    core, "hacs" before."""
+    for prefix in ("marketplace", "hacs"):
+        ws.id += 1
+        ws.send({"id": ws.id, "type": f"{prefix}/repositories/list"})
+        while True:
+            r = ws.recv()
+            if r.get("id") == ws.id and r.get("type") == "result":
+                break
+        if r["success"]:
+            return prefix, r["result"]
+    raise SystemExit("neither marketplace/ nor hacs/ commands answer: is HACS set up?")
+
+
 def deploy():
     ws = WS()
-    repo = next(r for r in ws.call("hacs/repositories/list")
-                if r["full_name"].lower() == REPO.lower())
-    ws.call("hacs/repository/refresh", repository=str(repo["id"]))
+    store, repos = _store(ws)
+    repo = next(r for r in repos if r["full_name"].lower() == REPO.lower())
+    ws.call(f"{store}/repository/refresh", repository=str(repo["id"]))
     rest("POST", "/api/services/homeassistant/update_entity", {"entity_id": UPDATE})
     time.sleep(3)
     st = rest("GET", "/api/states/" + UPDATE)["attributes"]
@@ -188,7 +203,7 @@ def deploy():
         if not stale:
             break
         print(f"production's files are stale ({', '.join(stale[:4])}...); downloading {st['latest_version']} again")
-        ws.call("hacs/repository/download", repository=str(repo["id"]), version=st["latest_version"])
+        ws.call(f"{store}/repository/download", repository=str(repo["id"]), version=st["latest_version"])
     if stale:
         raise SystemExit(f"not restarting: production still differs from the local copy in {stale} "
                          "(uncommitted or unpushed changes?)")
