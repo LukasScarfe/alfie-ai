@@ -108,3 +108,6 @@ def test_answers_like_a_weather_entity():
     said = outside.forecast_reply(w, "rain", "tomorrow", "", "", EN, now, S)
     assert said and "London" in said
     assert outside.now_reply(w, "", "temp", EN, now - timedelta(hours=1), S)
+    # "the weather in London today": the place is said with the weather now
+    said = outside.forecast_reply(w, "", "today", "", "", EN, now, S)
+    assert said.startswith("It's raining and 10°C in London. Today:"), said

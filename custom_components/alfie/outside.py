@@ -489,11 +489,15 @@ def _summary(w: Weather, span: str, words: Mapping[str, Any], now: datetime,
             if span == "today" or (hi is None and _covered(w, end)):
                 temps = [r.temp for r in hours_in(w, start, end) if r.temp is not None]
                 hi = hi if hi is not None else (max(temps) if temps else None)
+            now_too = span == "today" and w.cond
+            if now_too:     # the place goes first: "It's cloudy and 10°C in London. Today: ..."
+                name = cap(((_w(words).get("span_names") or {}).get(span))
+                           or say_span(span, words, now))
             text = _t(words, "day", span=name, cond=say_cond(d.cond, words, "later"),
                       temps=_temps(hi, lo, w, words), rain=_rain_said(d, words, lim))
-            if span == "today" and w.cond:
+            if now_too:
                 text = _t(words, "now", cond=say_cond(w.cond, words),
-                          temp=say_temp(w.a("temperature"), w), where="") + " " + text
+                          temp=say_temp(w.a("temperature"), w), where=_where(w, words)) + " " + text
             return text
     hrs = hours_in(w, start, end)
     if not hrs:
