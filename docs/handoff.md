@@ -18,9 +18,9 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.34.1.
+Version 0.34.2.
 
-**Now (2026-11-04): fast weather (plan.md 18⅞+, 0.34.1), on production.** Lukas wanted "very
+**Now (2026-11-04): fast weather (plan.md 18⅞+, 0.34.2), on production.** Lukas wanted "very
 very fast" weather answers, in other cities too. Production had `own_sentences` off since 11-01,
 so "is it raining" went to Hermes (5-6 s) and cities to its web search (7-11 s, once 20 °C in
 Toronto in November). Now `own_always` (default the weather and sky commands) stays local, and
