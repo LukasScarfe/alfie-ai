@@ -220,6 +220,8 @@ SENTENCES = [
     ("is it sunny in london", "weather_now", {"ask": "sun", "place": "london"}),
     ("is it snowing in toronto", "weather_now", {"ask": "snow", "place": "toronto"}),
     ("what is the weather in paris", "weather_now", {"place": "paris"}),
+    ("how's the weather in toronto", "weather_now", {"place": "toronto"}),
+    ("how's the weather looking tomorrow", "weather_forecast", {"span": "tomorrow"}),
     ("how cold is it outside", "weather_now", {"aspect": "temp"}),
     ("what's the temperature outside", "weather_now", {"aspect": "temp"}),
     ("will it rain tomorrow", "weather_forecast", {"ask": "rain", "span": "tomorrow"}),
