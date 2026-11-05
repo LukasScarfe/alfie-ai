@@ -18,7 +18,20 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.33.0.
+Version 0.34.1.
+
+**Now (2026-11-04): fast weather (plan.md 18⅞+, 0.34.1), on production.** Lukas wanted "very
+very fast" weather answers, in other cities too. Production had `own_sentences` off since 11-01,
+so "is it raining" went to Hermes (5-6 s) and cities to its web search (7-11 s, once 20 °C in
+Toronto in November). Now `own_always` (default the weather and sky commands) stays local, and
+cities with no weather entity go to Open-Meteo (`openmeteo.py`). Measured on production: home
+weather 7-70 ms, a new city 0.35-2 s (the first call after a restart sets up TLS), a city asked
+again under 10 ms. "In Tokyo tonight" answers the forecast in Tokyo's time zone.
+**HA 2026.11.0 took HACS into core as `marketplace`**: deploy now speaks `marketplace/*` (falls back
+to `hacs/*`); `marketplace/repository/download` doesn't exist, so the stale-file retry would fail if
+GitHub served a stale copy. Lukas accepted the Marketplace warning (installs refuse until then).
+0.33.0 had never reached production; it went with 0.34.0. Open: "how cold is it in the kitchen"
+still goes to Hermes (18 s; not weather, the area guard keeps it off the geocoder).
 
 **Now (2026-11-04): shared room and sticky voice (plan.md 18⅞, 0.33.0).** Lukas found switching
 between him and Michelle slow and context lost. Measured first: the switch itself is cheap (Hermes's
