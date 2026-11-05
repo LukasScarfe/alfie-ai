@@ -948,8 +948,21 @@ requirements, light enough for a Pi.
     `weather_gear`, `sun`, `moon`). They run before HA's intents, so his richer answer beats
     HassGetWeather.
     - Which weather entity: `brain.weather`; "" means the house's, the first one with "home" in its
-      id (met.no's default), else the first. "In Whistler" picks a weather entity by name; no
-      match goes to the delegate.
+      id (met.no's default), else the first. "In Whistler" picks a weather entity by name.
+    - **The weather anywhere** (Lukas 2026-11-04: "very very fast" answers to "is it raining in
+      ___"; 0.34.0, `openmeteo.py`). A place with no weather entity of its name goes to
+      Open-Meteo (`weather_anywhere`, on; free, no key; the URLs are settings, so a self-hosted
+      one works). The geocoder's result must have the very name said ("kitchen" finds
+      Kitchener), in the region or country said if any ("London, Ontario", "london ontario"),
+      the most populous of those. A name that is one of the house's areas or floors is never
+      looked up. Places (and names that aren't one) are kept until a restart, forecasts
+      `weather_minutes` (30); each call waits `weather_seconds` (3). The forecast becomes an
+      `outside.Weather` with the place's time zone ("tonight" is its night), so every reply
+      is the same as at home. Not found or not reachable: the turn goes on to the agent.
+    - **Always local** (`own_always`, 0.34.0): with `own_sentences` off (production since
+      2026-11-01, Hermes takes the rest) these commands are still matched; default the five
+      weather and sky ones. Measured before: "is it raining" 5-6 s and a city 7-11 s through
+      Hermes, which once said 20 °C in Toronto in November.
     - Where the data comes from: the state, plus the hourly and daily forecasts from
       `providers/forecast.raw_forecast`. That is the same throttled `weather.get_forecasts` the
       weather screen uses: an hour's cache, refreshed early when the entity changes.

@@ -28,7 +28,7 @@ def test_own_intents_from_language_and_extras():
     assert "you good" in data["intents"]["AlfieHowAreYou"]["data"][0]["sentences"]
 
 
-@pytest.mark.parametrize("change", [{"own_sentences": False},
+@pytest.mark.parametrize("change", [{"own_sentences": False, "own_always": []},
                                     {"off_commands": list(brain.COMMANDS)}])
 def test_own_intents_off(change):
     assert brain.own_intents(EN, {**DEFAULTS, **change}, "en") is None
@@ -40,6 +40,19 @@ def test_own_intents_only_chosen_commands():
     assert list(data["intents"]) == ["AlfieHowAreYou"]
     assert brain.command_of("AlfieHowAreYou") == "how_are_you"
     assert brain.command_of("HassTurnOn") is None
+
+
+def test_own_always_with_own_sentences_off():
+    """Off, his weather and sky commands still answer (fast) by default."""
+    data = brain.own_intents(EN, {**DEFAULTS, "own_sentences": False}, "en")
+    assert set(data["intents"]) == {brain.INTENTS[c] for c in brain.OUTSIDE}
+    data = brain.own_intents(EN, {**DEFAULTS, "own_sentences": False,
+                                  "own_always": ["weather_now"],
+                                  "off_commands": ["moon"]}, "en")
+    assert list(data["intents"]) == ["AlfieWeatherNow"]
+    data = brain.own_intents(EN, {**DEFAULTS, "own_sentences": False,
+                                  "own_always": ["weather_now"], "off_commands": ["weather_now"]}, "en")
+    assert data is None
 
 
 # (intent, settings change, left to the delegate)

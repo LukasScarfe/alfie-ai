@@ -27,7 +27,7 @@ from homeassistant.util import dt as dt_util
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from . import answers, brain, finder, fun, household, outside, reckon, wiki
+from . import answers, brain, finder, fun, household, openmeteo, outside, reckon, wiki
 from .const import DOMAIN, VERSION
 from .providers.forecast import raw_forecast
 
@@ -37,6 +37,8 @@ WHEN_DAYS = 7       # "when was the door last opened": how far back to look
 CALENDAR_DAYS = 366 # events read ahead, so a birthday months away is found
 SEARCH = 8          # finder hits weighed per name
 WIKI_CACHE = 200    # Wikipedia answers kept (and names with no article)
+PLACES = 300        # places looked up kept (and names that aren't one)
+FORECASTS = 50      # places' forecasts kept
 
 
 @dataclass
@@ -61,6 +63,8 @@ class LocalAnswers:
         self._jokes = fun.JokeBag()
         self._books: dict[tuple[str, str], str] = {}   # (url, wanted) -> kiwix book
         self._wiki: OrderedDict[tuple[Any, ...], str] = OrderedDict()   # "" no article
+        self._places: OrderedDict[tuple[str, str], dict[str, Any] | None] = OrderedDict()
+        self._forecasts: OrderedDict[tuple[Any, ...], tuple[float, dict[str, Any]]] = OrderedDict()
 
     def close(self) -> None:
         if self._unwatch:
@@ -608,6 +612,8 @@ class LocalAnswers:
         w = await self._weather(place, s, now, hourly=True, daily=cmd != "weather_gear")
         if w is None:
             return None
+        if w.tz is not None:
+            now = now.astimezone(w.tz)      # "tonight" is the place's night
         if cmd == "weather_now":
             return outside.now_reply(w, slots.get("ask", ""), slots.get("aspect", ""), words, now, s)
         if cmd == "weather_gear":
@@ -633,6 +639,8 @@ class LocalAnswers:
         if place:
             await self._index()             # built once, then kept
         entity = self._weather_entity(place, s)
+        if place and entity is None:
+            return await self._anywhere(place, s)
         st = self.hass.states.get(entity) if entity else None
         if st is None or st.state in answers.GONE:
             return None
@@ -642,6 +650,89 @@ class LocalAnswers:
             outside.rows(await raw_forecast(self.hass, entity, "hourly"), tz) if hourly else [],
             outside.rows(await raw_forecast(self.hass, entity, "daily"), tz) if daily else [],
             place=place.title() if place else "")
+
+    # ------------------------------------------------------------ anywhere
+
+    def _units(self) -> dict[str, str]:
+        u = self.hass.config.units
+        return {"temperature": str(u.temperature_unit),
+                "wind": str(getattr(u, "wind_speed_unit", "km/h") or "km/h"),
+                "rain": str(getattr(u, "accumulated_precipitation_unit", "mm") or "mm")}
+
+    def _in_house(self, place: str) -> bool:
+        """Whether a place is somewhere in the house (an area or floor, by
+        name or alias): "how cold is it in the kitchen" isn't a town."""
+        from homeassistant.helpers import area_registry as ar, floor_registry as fr  # noqa: PLC0415
+        want = openmeteo.key(place.removeprefix("the "))
+        for a in ar.async_get(self.hass).async_list_areas():
+            if want in {openmeteo.key(n) for n in (a.name, *a.aliases)}:
+                return True
+        for f in fr.async_get(self.hass).async_list_floors():
+            if want in {openmeteo.key(n) for n in (f.name, *f.aliases)}:
+                return True
+        return False
+
+    async def _anywhere(self, place: str, s: dict[str, Any]) -> outside.Weather | None:
+        """The weather in a place with no weather entity, from Open-Meteo; None
+        when it's off, not a place it knows, or it can't be asked (the turn
+        goes on)."""
+        if not s["weather_anywhere"] or not s["weather_url"] or not s["weather_geo_url"] \
+                or self._in_house(place):
+            return None
+        session = async_get_clientsession(self.hass)
+        timeout = aiohttp.ClientTimeout(total=s["weather_seconds"])
+        try:
+            spot = await self._place(session, timeout, place, s)
+            if spot is None:
+                return None
+            units = self._units()
+            fkey = (s["weather_url"], spot["lat"], spot["lon"], tuple(sorted(units.items())))
+            got = self._forecasts.get(fkey)
+            if got is None or time.monotonic() - got[0] > 60 * s["weather_minutes"]:
+                async with session.get(s["weather_url"], timeout=timeout,
+                                       params=openmeteo.forecast_params(spot["lat"], spot["lon"],
+                                                                        units)) as r:
+                    data = openmeteo.parse(await r.json(content_type=None), units) \
+                        if r.status == 200 else None
+                if data is None:
+                    _LOGGER.debug("Alfie got no forecast for %s (%s)", place, r.status)
+                    return None
+                got = (time.monotonic(), data)
+                self._forecasts[fkey] = got
+                while len(self._forecasts) > FORECASTS:
+                    self._forecasts.popitem(last=False)
+            self._forecasts.move_to_end(fkey)
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
+            _LOGGER.debug("Alfie couldn't ask Open-Meteo about %s: %s", place, err)
+            return None
+        data = got[1]
+        tz = dt_util.get_time_zone(data["tz"]) or dt_util.DEFAULT_TIME_ZONE
+        return outside.Weather(spot["name"], data["state"], data["attributes"],
+                               outside.rows(data["hourly"], tz), outside.rows(data["daily"], tz),
+                               place=place.title(), tz=tz)
+
+    async def _place(self, session: Any, timeout: Any, place: str,
+                     s: dict[str, Any]) -> dict[str, Any] | None:
+        """Where a place name is (openmeteo.pick_place), kept, and so is a name
+        that isn't a place; a geocoder that can't be asked raises."""
+        language = (self.hass.config.language or "en").split("-")[0]
+        ck = (s["weather_geo_url"], openmeteo.key(place))
+        if ck in self._places:
+            self._places.move_to_end(ck)
+            return self._places[ck]
+        spot = None
+        for name, where in openmeteo.tries(place):
+            async with session.get(s["weather_geo_url"], timeout=timeout,
+                                   params=openmeteo.geo_params(name, language)) as r:
+                if r.status != 200:
+                    raise aiohttp.ClientError(f"geocoder answered {r.status}")
+                spot = openmeteo.pick_place(await r.json(content_type=None), name, where)
+            if spot is not None:
+                break
+        self._places[ck] = spot
+        while len(self._places) > PLACES:
+            self._places.popitem(last=False)
+        return spot
 
     def _sun_times(self, now: datetime) -> dict[int, dict[str, datetime | None]]:
         """Dawn, sunrise, noon, sunset and dusk yesterday, today and tomorrow,

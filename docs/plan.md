@@ -314,6 +314,10 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
 - [x] **18⅞. Shared room.** Lukas 2026-11-04: what one person asks aloud reaches the next
   person's profile ("turn it back down" after Michelle's "play music"), and a voice ears can't
   place keeps the last recognised person. 0.33.0, design.md "Brain" → People and voices.
+- [~] **18⅞+. Fast weather.** Lukas 2026-11-04: "very very fast" answers to "is it raining",
+  "what's the weather" and both "in <city>". `own_always` keeps the weather and sky commands
+  local with `own_sentences` off; any city through Open-Meteo (`openmeteo.py`). 0.34.0,
+  design.md "Brain" → Weather and sky.
 
 ## How an agent continues development
 
