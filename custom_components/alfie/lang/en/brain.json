@@ -16,7 +16,7 @@
     ],
     "weather_now": [
       "<what_is> the weather [like] [<now>] [<in_place>]",
-      "how is the weather [<now>] [<in_place>]",
+      "(how is|how's|hows) the weather [<now>] [<in_place>]",
       "(what's|whats|what is) it like <outside> [<now>] [<in_place>]",
       "is it [still] {ask} [<outside>] [<now>] [<in_place>]",
       "how {feel:aspect} is it [<outside>] [<now>] [<in_place>]",
@@ -30,7 +30,7 @@
       "<what_is> the (weather|forecast) [going to be] [like] [for] {span} [<in_place>]",
       "<what_is> the forecast [<in_place>]",
       "<what_is> the weather forecast [for] [{span}] [<in_place>]",
-      "how is the weather [going to be] [looking] {span} [<in_place>]",
+      "(how is|how's|hows) the weather [going to be] [looking] {span} [<in_place>]",
       "<what_is> the {hilo} [temperature] [for] [{span}] [<in_place>]",
       "<what_is> (today's|tomorrow's) {hilo} [temperature] [<in_place>]",
       "how {getting:hilo} (will|is) it [going to] get [{span}] [<in_place>]",
