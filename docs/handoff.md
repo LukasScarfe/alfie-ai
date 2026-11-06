@@ -18,9 +18,9 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.35.2.
+Version 0.35.3.
 
-**Now (2026-11-05): the weather earlier (plan.md 18⅞++, 0.35.2), on production.** Lukas: "did it
+**Now (2026-11-05): the weather earlier (plan.md 18⅞++, 0.35.3), on production.** Lukas: "did it
 rain today" was wrong. Nothing local matched past tense, so Hermes answered from today's
 *forecast* (said "yes, 0.8 mm"; asked another way, "I can't know"). New `weather_past` command
 (design.md "Brain" → Weather and sky → The weather earlier): Open-Meteo's past hours
