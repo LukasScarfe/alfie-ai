@@ -167,7 +167,7 @@ def test_gauge_total_and_rate():
     assert say(w, "rain") == "Yes, it rained today: about 3.5 mm, from 6 am to 8 am."
     w = weather(hours(24))
     outside.gauge_into(w, [(h(10), "2"), (h(11, 30), "0")], "mm/h", "precipitation_intensity")
-    assert say(w, "rain", amount=True) == "About 3 mm of rain fell today, from 10 am to 12 pm."
+    assert say(w, "rain", amount=True) == "About 3 mm of rain fell today, from 10 am to noon."
 
 
 def test_parse_past_moves_each_hour_to_its_start():
