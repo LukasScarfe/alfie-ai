@@ -65,6 +65,7 @@ class LocalAnswers:
         self._wiki: OrderedDict[tuple[Any, ...], str] = OrderedDict()   # "" no article
         self._places: OrderedDict[tuple[str, str], dict[str, Any] | None] = OrderedDict()
         self._forecasts: OrderedDict[tuple[Any, ...], tuple[float, dict[str, Any]]] = OrderedDict()
+        self._pasts: OrderedDict[tuple[Any, ...], tuple[float, dict[str, Any]]] = OrderedDict()
 
     def close(self) -> None:
         if self._unwatch:
@@ -608,6 +609,17 @@ class LocalAnswers:
             return outside.sun_reply(self._sun_times(now), slots.get("sun_event", ""),
                                      slots.get("day", ""), slots.get("until", ""),
                                      slots.get("light", ""), words, now)
+        if cmd == "weather_past":
+            place, span = _split_span(slots.get("place", ""), slots.get("span", ""), words,
+                                      "past_span")
+            span = span or outside.default_past_span(now)
+            w = await self._past(place, span, s, now)
+            if w is None:
+                return None
+            if w.tz is not None:
+                now = now.astimezone(w.tz)
+            return outside.past_reply(w, slots.get("ask", ""), span, slots.get("hilo", ""),
+                                      bool(slots.get("amount")), words, now, s)
         place, span = _split_span(slots.get("place", ""), slots.get("span", ""), words)
         if cmd == "weather_now" and span and span != "now" and not slots.get("aspect"):
             cmd = "weather_forecast"    # "the weather in Tokyo tonight": a time said
@@ -713,6 +725,108 @@ class LocalAnswers:
                                outside.rows(data["hourly"], tz), outside.rows(data["daily"], tz),
                                place=place.title(), tz=tz)
 
+    # ------------------------------------------------------------ the recent past
+
+    async def _past(self, place: str, span: str, s: dict[str, Any],
+                    now: datetime) -> outside.Weather | None:
+        """The hours behind us (outside.past_reply reads them): from
+        Open-Meteo, else the weather entity's recorded history; a rain gauge's
+        amounts over them when there is one. None: nothing to tell."""
+        how = s["weather_past"]
+        if how == "off":
+            return None
+        start = outside.past_window(span, now)[0]
+        w = None
+        if how == "openmeteo":
+            w = await self._past_openmeteo(place, s)
+        if w is None and (not place or self._weather_entity(place, s)):
+            w = await self._past_history(place, s, start, now)
+        if w is not None and not place and s["rain_gauge"]:
+            await self._gauge(w, s["rain_gauge"], start, now)
+        return w
+
+    async def _past_openmeteo(self, place: str, s: dict[str, Any]) -> outside.Weather | None:
+        if not s["weather_url"]:
+            return None
+        session = async_get_clientsession(self.hass)
+        timeout = aiohttp.ClientTimeout(total=s["weather_seconds"])
+        units = self._units()
+        try:
+            if place:
+                if not s["weather_anywhere"] or not s["weather_geo_url"] or self._in_house(place):
+                    return None
+                spot = await self._place(session, timeout, place, s)
+                if spot is None:
+                    return None
+            else:           # the house, to about a kilometre
+                spot = {"lat": round(self.hass.config.latitude, 2),
+                        "lon": round(self.hass.config.longitude, 2),
+                        "name": self.hass.config.location_name}
+            key = (s["weather_url"], spot["lat"], spot["lon"], tuple(sorted(units.items())))
+            got = self._pasts.get(key)
+            if got is None or time.monotonic() - got[0] > 60 * s["weather_minutes"]:
+                async with session.get(s["weather_url"], timeout=timeout,
+                                       params=openmeteo.past_params(spot["lat"], spot["lon"],
+                                                                    units)) as r:
+                    data = openmeteo.parse_past(await r.json(content_type=None)) \
+                        if r.status == 200 else None
+                if data is None:
+                    _LOGGER.debug("Alfie got no past weather for %s (%s)", place or "home",
+                                  r.status)
+                    return None
+                got = (time.monotonic(), data)
+                self._pasts[key] = got
+                while len(self._pasts) > FORECASTS:
+                    self._pasts.popitem(last=False)
+            self._pasts.move_to_end(key)
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
+            _LOGGER.debug("Alfie couldn't ask Open-Meteo about the past (%s): %s",
+                          place or "home", err)
+            return None
+        data = got[1]
+        tz = (dt_util.get_time_zone(data["tz"]) or dt_util.DEFAULT_TIME_ZONE) if place else None
+        attrs = {"temperature_unit": units["temperature"], "wind_speed_unit": units["wind"],
+                 "precipitation_unit": units["rain"]}
+        return outside.Weather(str(spot["name"]), "", attrs,
+                               outside.rows(data["hourly"], tz or dt_util.DEFAULT_TIME_ZONE),
+                               place=place.title() if place else "", tz=tz)
+
+    async def _past_history(self, place: str, s: dict[str, Any], start: datetime,
+                            now: datetime) -> outside.Weather | None:
+        """The weather entity's recorded conditions and temperatures, an hour
+        at a time (no amounts)."""
+        entity = self._weather_entity(place, s)
+        st = self.hass.states.get(entity) if entity else None
+        if st is None or "recorder" not in self.hass.config.components:
+            return None
+        from homeassistant.components.recorder import get_instance, history  # noqa: PLC0415
+
+        def read() -> list[Any]:
+            return history.state_changes_during_period(
+                self.hass, start, now, entity_id=entity, no_attributes=False,
+                include_start_time_state=True).get(entity, [])
+        try:
+            states = await get_instance(self.hass).async_add_executor_job(read)
+        except Exception:  # a broken recorder: the agent answers
+            _LOGGER.exception("Alfie couldn't read the history of %s", entity)
+            return None
+        changes = [(dt_util.as_local(x.last_changed), x.state, dict(x.attributes))
+                   for x in states if x.state not in answers.GONE]
+        return outside.Weather(st.name, st.state, dict(st.attributes),
+                               outside.history_rows(changes, start, now),
+                               place=place.title() if place else "")
+
+    async def _gauge(self, w: outside.Weather, entity: str, start: datetime,
+                     now: datetime) -> None:
+        """A rain gauge's amounts, hour by hour, over the rows it covers."""
+        st = self.hass.states.get(entity)
+        if st is None:
+            return
+        unit = str(st.attributes.get("unit_of_measurement") or "")
+        got = await self._history(entity, start - timedelta(hours=1), now)
+        if got:
+            outside.gauge_into(w, got, unit, str(st.attributes.get("device_class") or ""))
+
     async def _place(self, session: Any, timeout: Any, place: str,
                      s: dict[str, Any]) -> dict[str, Any] | None:
         """Where a place name is (openmeteo.pick_place), kept, and so is a name
@@ -780,11 +894,12 @@ def _clean(text: str) -> str:
     return t
 
 
-def _split_span(place: str, span: str, words: dict[str, Any]) -> tuple[str, str]:
+def _split_span(place: str, span: str, words: dict[str, Any],
+                list_name: str = "span") -> tuple[str, str]:
     """("whistler tomorrow", "") -> ("whistler", "tomorrow"): a time said after
     the place lands in the place's wildcard."""
     p = _clean(place).lower()
-    spans = (words.get("lists") or {}).get("span") or {}
+    spans = (words.get("lists") or {}).get(list_name) or {}
     for phrase in sorted((k for k in spans if not k.startswith("_")), key=len, reverse=True):
         if p.endswith(" " + phrase):
             return p[:-len(phrase) - 1].strip(), span or spans[phrase]

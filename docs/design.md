@@ -944,8 +944,8 @@ requirements, light enough for a Pi.
     by default; `brain.exposed_only` limits it to Assist's exposed ones). State, attributes,
     areas and device classes, when it last changed, history (highest, lowest, average, how many
     times) and comparisons. Two equal fits: he asks which.
-  - Weather and sky (`outside.py`, pure; five commands: `weather_now`, `weather_forecast`,
-    `weather_gear`, `sun`, `moon`). They run before HA's intents, so his richer answer beats
+  - Weather and sky (`outside.py`, pure; six commands: `weather_now`, `weather_forecast`,
+    `weather_past`, `weather_gear`, `sun`, `moon`). They run before HA's intents, so his richer answer beats
     HassGetWeather.
     - Which weather entity: `brain.weather`; "" means the house's, the first one with "home" in its
       id (met.no's default), else the first. "In Whistler" picks a weather entity by name.
@@ -959,6 +959,29 @@ requirements, light enough for a Pi.
       `weather_minutes` (30); each call waits `weather_seconds` (3). The forecast becomes an
       `outside.Weather` with the place's time zone ("tonight" is its night), so every reply
       is the same as at home. Not found or not reachable: the turn goes on to the agent.
+    - **The weather earlier** (`weather_past`, Lukas 2026-11-05: "did it rain today" went to
+      Hermes, which read today's forecast as if it had happened; 0.35.0). "Did it rain today",
+      "how much rain fell last night", "was it windy on Saturday", "what was the high yesterday",
+      "what was the weather like yesterday", in a city too. Spans: today so far (the last 24
+      hours before 6 am, and with none said), this morning/afternoon/evening (the last one),
+      last night (6 pm to 6 am), yesterday and its parts, the last hour, 24 hours, few days
+      (3), week (7), this week, a weekday (the last one). Only finished hours count. Replies
+      say how much and when ("Yes, it rained today: about 4.5 mm, from 6 am to 9 am", "on and
+      off since 2 pm", "on Wednesday and today"); under `rain_mm` is "only a trace"; sunny,
+      cloudy and the like need a quarter of the hours (hail, thunder, fog, snow one). Where
+      from, `brain.weather_past`:
+      - `openmeteo` (default): its forecast URL with `past_days=7`, hour by hour (its models
+        with radar and stations, rain and snow amounts), at the house's coordinates rounded to
+        two places (about a km), or a place found as above. Kept `weather_minutes`, like the
+        forecasts. Open-Meteo stamps an hour's rain at its end; the rows move to its start.
+      - `history`, and the fallback when Open-Meteo can't answer: the weather entity's
+        recorded states (one recorder query with attributes), what it said at each hour's
+        middle. Conditions and temperatures, no amounts ("…but I can't say how much").
+      - `off`: the agent answers.
+      - `rain_gauge` (a sensor, "" none) comes first for the house: a running total counts
+        its rises (a midnight reset is no rain), a rate (mm/h, `precipitation_intensity`) is
+        added up over the time it held, into the hours they fell in.
+      A saved `own_always` that held the forecast gets `weather_past` too (config version 7).
     - **Always local** (`own_always`, 0.34.0): with `own_sentences` off (production since
       2026-11-01, Hermes takes the rest) these commands are still matched; default the five
       weather and sky ones. Measured before: "is it raining" 5-6 s and a city 7-11 s through

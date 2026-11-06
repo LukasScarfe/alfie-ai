@@ -278,6 +278,7 @@ const COMMANDS = [["whats_wrong", "What's wrong", "\"Is anything wrong?\": the s
   ["entity_history", "History", "\"What was the highest office temperature today?\", \"How many times did the door open today?\", \"Was the heater on last night?\""],
   ["weather_now", "Weather now", "\"What's the weather?\", \"Is it raining?\", \"How cold is it outside?\", \"What's the weather in Whistler?\" Before Home Assistant's own weather intent."],
   ["weather_forecast", "Forecast", "\"Will it rain tomorrow?\", \"When will the rain stop?\", \"What's the high on Saturday?\", \"What's the forecast for the weekend?\""],
+  ["weather_past", "Weather earlier", "\"Did it rain today?\", \"How much rain fell last night?\", \"What was the high yesterday?\", \"Was it windy in Whistler on Saturday?\""],
   ["weather_gear", "What to wear", "\"Do I need an umbrella?\", \"Should I wear a coat tomorrow?\", \"Do I need sunscreen?\""],
   ["sun", "The sun", "\"When is sunset?\", \"How long until sunrise?\", \"Is it dark outside?\", \"How much daylight is there today?\""],
   ["moon", "The moon", "\"What's the moon phase?\", \"Is it a full moon tonight?\", \"When is the next full moon?\""],
@@ -316,6 +317,10 @@ function brainTab(p) {
   const weathers = [["", "The house's (one named like home, else the first)"], ...Object.keys(st).filter((e) => e.startsWith("weather.")).sort()
     .map((e) => [e, st[e].attributes?.friendly_name || e])];
   if (b.weather && !weathers.some(([e]) => e === b.weather)) weathers.push([b.weather, `${b.weather} (not found)`]);
+  const gauges = [["", "None"], ...Object.keys(st).filter((e) => e.startsWith("sensor.")
+    && ["precipitation", "precipitation_intensity"].includes(st[e].attributes?.device_class)).sort()
+    .map((e) => [e, st[e].attributes?.friendly_name || e])];
+  if (b.rain_gauge && !gauges.some(([e]) => e === b.rain_gauge)) gauges.push([b.rain_gauge, `${b.rain_gauge} (not found)`]);
   const cals = Object.keys(st).filter((e) => e.startsWith("calendar.")).sort();
   const todos = [["", "The shopping list (todo.shopping_list)"], ...Object.keys(st).filter((e) => e.startsWith("todo.")).sort()
     .map((e) => [e, st[e].attributes?.friendly_name || e])];
@@ -325,8 +330,8 @@ function brainTab(p) {
   const acts = label ? Object.entries(p.hass?.entities || {})
     .filter(([e, x]) => (x.labels || []).includes(label.label_id) && RUNNABLE.includes(e.split(".")[0]))
     .map(([e]) => [e, st[e]?.attributes?.friendly_name || e]).sort((a, c) => a[1].localeCompare(c[1])) : [];
-  const outside = b.own_sentences ? ["weather_now", "weather_forecast", "weather_gear", "sun", "moon"].some((c) => !b.off_commands.includes(c))
-    : ["weather_now", "weather_forecast", "weather_gear", "sun", "moon"].some((c) => (b.own_always || []).includes(c));
+  const outside = b.own_sentences ? ["weather_now", "weather_forecast", "weather_past", "weather_gear", "sun", "moon"].some((c) => !b.off_commands.includes(c))
+    : ["weather_now", "weather_forecast", "weather_past", "weather_gear", "sun", "moon"].some((c) => (b.own_always || []).includes(c));
   const cmds = COMMANDS.map(([k, name, hint]) => `
       <label class="check"><input type="checkbox" class="switch" data-action="brain-cmd" data-name="${k}"${b.off_commands.includes(k) ? "" : " checked"}>
         <span><b>${U.esc(name)}</b><small>${U.esc(hint)}</small></span></label>
@@ -391,6 +396,10 @@ function brainTab(p) {
       ${outside ? U.card("Outside", `
         ${U.field("Weather from", U.select("brain.weather", b.weather, weathers),
           "For the weather, the forecast and what to wear. \"In Whistler\" picks the weather entity with that name.")}
+        <div class="row">${U.field("The weather earlier from", U.select("brain.weather_past", b.weather_past, [["openmeteo", "Open-Meteo (with amounts)"], ["history", "The weather entity's history"], ["off", "Off (the agent answers)"]]),
+          "\"Did it rain today?\" Open-Meteo knows the last week hour by hour, rain in mm too; the house's whereabouts (to about a kilometre) leave it, and its history answers when Open-Meteo can't. The history has no amounts.")}
+        ${U.field("Rain gauge", U.select("brain.rain_gauge", b.rain_gauge, gauges),
+          "A rain sensor of your own, a running total or a rate in mm/h: its amounts come first.")}</div>
         <div class="grid">
         ${U.field("Cold below", U.num("brain.cold_below", b.cold_below, { min: -40, max: 40, step: 1, unit: "°C" }), "\"Is it cold?\", \"Do I need a coat?\"")}
         ${U.field("Warm from", U.num("brain.warm_above", b.warm_above, { min: -20, max: 50, step: 1, unit: "°C" }), "\"Is it warm?\", \"Do I need shorts?\"")}

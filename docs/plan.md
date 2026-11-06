@@ -318,6 +318,10 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
   "what's the weather" and both "in <city>". `own_always` keeps the weather and sky commands
   local with `own_sentences` off; any city through Open-Meteo (`openmeteo.py`). 0.34.1,
   design.md "Brain" → Weather and sky.
+- [x] **18⅞++. The weather earlier.** Lukas 2026-11-05: "did it rain today" went to Hermes,
+  which guessed from the forecast. A local `weather_past` command from Open-Meteo's past hours
+  (the weather entity's history as fallback, a rain gauge first when set). 0.35.0, design.md
+  "Brain" → Weather and sky.
 
 ## How an agent continues development
 

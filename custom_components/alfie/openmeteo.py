@@ -176,3 +176,43 @@ def parse(data: Any, units: Mapping[str, str]) -> dict[str, Any] | None:
                       "wind_speed": _col(d, "wind_speed_10m_max", i)})
     return {"state": state, "attributes": {k: v for k, v in attrs.items() if v is not None},
             "hourly": hourly, "daily": daily, "tz": str(data.get("timezone") or "UTC")}
+
+
+# ------------------------------------------------------------ the recent past
+
+PAST_DAYS = 7        # how far back "did it rain" can look
+PAST_HOURLY = ("temperature_2m", "precipitation", "snowfall", "weather_code", "wind_speed_10m",
+               "is_day")
+
+
+def past_params(lat: float, lon: float, units: Mapping[str, str]) -> dict[str, str]:
+    """The last PAST_DAYS days and today, hour by hour (Open-Meteo's analysis,
+    from its models, radar and stations)."""
+    p = forecast_params(lat, lon, units)
+    for k in ("current", "daily"):
+        p.pop(k)
+    return {**p, "hourly": ",".join(PAST_HOURLY), "past_days": str(PAST_DAYS),
+            "forecast_days": "1"}
+
+
+def parse_past(data: Any) -> dict[str, Any] | None:
+    """Open-Meteo's past hours as `hourly` rows (outside.rows reads them),
+    each starting when its hour starts: Open-Meteo stamps an hour's rain,
+    snow and weather at its end. Snow is in cm (inches with
+    precipitation_unit inch). None when it isn't an answer."""
+    if not isinstance(data, Mapping) or not isinstance(data.get("hourly"), Mapping):
+        return None
+    h = data["hourly"]
+    out = []
+    for i, t in enumerate(h.get("time") or []):
+        if isinstance(t, bool) or not isinstance(t, (int, float)):
+            continue
+        out.append({"datetime": _at(t - 3600),
+                    "condition": condition(_col(h, "weather_code", i), _col(h, "is_day", i)),
+                    "temperature": _col(h, "temperature_2m", i),
+                    "precipitation": _col(h, "precipitation", i),
+                    "snowfall": _col(h, "snowfall", i),
+                    "wind_speed": _col(h, "wind_speed_10m", i)})
+    if not out:
+        return None
+    return {"hourly": out, "tz": str(data.get("timezone") or "UTC")}
