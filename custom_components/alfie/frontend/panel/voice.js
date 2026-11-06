@@ -400,6 +400,8 @@ function brainTab(p) {
           "\"Did it rain today?\" Open-Meteo knows the last week hour by hour, rain in mm too; the house's whereabouts (to about a kilometre) leave it, and its history answers when Open-Meteo can't. The history has no amounts.")}
         ${U.field("Rain gauge", U.select("brain.rain_gauge", b.rain_gauge, gauges),
           "A rain sensor of your own, a running total or a rate in mm/h: its amounts come first.")}</div>
+        ${U.wide("Rain was reported by", `<textarea data-path="brain.weather_reports" data-kind="lines" rows="2" placeholder="The weather entity above">${U.esc((b.weather_reports || []).join("\n"))}</textarea>`,
+          "Weather entities whose recorded rain or snow counts as having fallen, however little the model says. One that reports what a station saw (Environment Canada) is best.")}
         <div class="grid">
         ${U.field("Cold below", U.num("brain.cold_below", b.cold_below, { min: -40, max: 40, step: 1, unit: "°C" }), "\"Is it cold?\", \"Do I need a coat?\"")}
         ${U.field("Warm from", U.num("brain.warm_above", b.warm_above, { min: -20, max: 50, step: 1, unit: "°C" }), "\"Is it warm?\", \"Do I need shorts?\"")}
