@@ -1,5 +1,5 @@
 {
- "version": 6,
+ "version": 7,
  "signals": [
   {
    "id": "nas_drive",
@@ -1290,7 +1290,8 @@
    "sun",
    "weather_forecast",
    "weather_gear",
-   "weather_now"
+   "weather_now",
+   "weather_past"
   ],
   "voice_label": "Alfie voice",
   "run_bare": true,
@@ -1306,6 +1307,7 @@
    "entity_history": [],
    "weather_now": [],
    "weather_forecast": [],
+   "weather_past": [],
    "weather_gear": [],
    "sun": [],
    "moon": [],
@@ -1340,6 +1342,8 @@
   "weather_url": "https://api.open-meteo.com/v1/forecast",
   "weather_seconds": 3,
   "weather_minutes": 30,
+  "weather_past": "openmeteo",
+  "rain_gauge": "",
   "cold_below": 10,
   "warm_above": 22,
   "windy_speed": 30,

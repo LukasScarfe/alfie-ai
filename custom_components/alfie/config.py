@@ -55,7 +55,8 @@ from .triggers import validate_triggers
 # 3: house modes; behaviour.sleep_entity became the Night mode (migrate_v2).
 # 4: keys follow design.md "Words" (migrate_v3), and the overview section.
 # 6: label and text screens' size became text_size, a multiplier (migrate_v5).
-CONFIG_VERSION = 6
+# 7: weather_past joins a saved brain.own_always that holds the forecast (migrate).
+CONFIG_VERSION = 7
 SECTIONS = ("signals", "mood", "behaviour", "personality", "look", "expressions", "animations",
             "screens", "rotations", "stories", "triggers", "modes", "voice", "speech", "brain",
             "overview")
@@ -415,7 +416,14 @@ def migrate_v5(raw: dict[str, Any]) -> dict[str, Any]:
 
 def migrate(raw: Mapping[str, Any]) -> dict[str, Any]:
     """Any stored or imported config, in the current version's keys."""
-    return migrate_v5(migrate_v4(migrate_v3(migrate_v2(_add_appear(migrate_v1(raw))))))
+    was = raw.get("version", CONFIG_VERSION) if isinstance(raw, Mapping) else CONFIG_VERSION
+    out = migrate_v5(migrate_v4(migrate_v3(migrate_v2(_add_appear(migrate_v1(raw))))))
+    always = (out.get("brain") or {}).get("own_always") if isinstance(out.get("brain"), dict) \
+        else None
+    if isinstance(was, int) and was < 7 and isinstance(always, list) and "weather_forecast" in always \
+            and "weather_past" not in always:
+        always.append("weather_past")
+    return out
 
 
 def _add_appear(raw: dict[str, Any]) -> dict[str, Any]:
@@ -803,6 +811,10 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
     if weather and not weather.startswith("weather."):
         ck.bad("brain weather", f"{weather!r} is not a weather entity")
         weather = ""
+    rain_gauge = str(v["rain_gauge"] or "").strip()
+    if rain_gauge and not rain_gauge.startswith("sensor."):
+        ck.bad("brain rain gauge", f"{rain_gauge!r} is not a sensor")
+        rain_gauge = ""
     icons = {}
     for key in ("local_icon", "delegate_icon"):
         icon = str(v[key] or "").strip()
@@ -865,6 +877,9 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
                                           1, 15, 3)),
         "weather_minutes": int(ck.number("brain weather anywhere minutes", v["weather_minutes"],
                                          5, 360, 30)),
+        "weather_past": ck.choice("brain past weather", v["weather_past"],
+                                  ("openmeteo", "history", "off"), "openmeteo"),
+        "rain_gauge": rain_gauge,
         "cold_below": _num(ck.number("brain cold below", v["cold_below"], -40, 40, 10)),
         "warm_above": _num(ck.number("brain warm above", v["warm_above"], -20, 50, 22)),
         "windy_speed": _num(ck.number("brain windy speed", v["windy_speed"], 1, 200, 30)),

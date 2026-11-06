@@ -37,6 +37,7 @@ class Row:
     precip: float | None = None     # amount, the entity's unit
     uv: float | None = None
     wind: float | None = None
+    snow: float | None = None       # snowfall (past hours, Open-Meteo): cm, or inches
 
 
 @dataclass
@@ -79,7 +80,8 @@ def rows(items: Any, tz: Any = None) -> list[Row]:
                        r["condition"] if isinstance(r.get("condition"), str) else "",
                        number(r.get("temperature")), number(r.get("templow")),
                        number(r.get("precipitation_probability")), number(r.get("precipitation")),
-                       number(r.get("uv_index")), number(r.get("wind_speed"))))
+                       number(r.get("uv_index")), number(r.get("wind_speed")),
+                       number(r.get("snowfall"))))
     return sorted(out, key=lambda x: x.at)
 
 
@@ -746,3 +748,306 @@ def moon_reply(phase: str, nxt: str, words: Mapping[str, Any], now: datetime) ->
     at = moon_events(now, coming).astimezone(now.tzinfo)
     return _t(words, "moon", now=said, lit=pct, phase=names.get(coming, coming),
               when=say_day(at.date(), now.date(), words))
+
+
+# ------------------------------------------------------------ the recent past
+
+PAST_SPANS = ("today", "morning", "afternoon", "evening", "night", "yesterday",
+              "yesterday_morning", "yesterday_afternoon", "yesterday_evening", "1h", "24h", "3d",
+              "7d", "week", *DAYS)
+TRACE = {"mm": 0.1, "in": 0.004, "cm": 0.1}   # less than this in an hour is nothing
+MULTI_DAY = timedelta(hours=30)               # a span this long is told day by day
+HOURS_YES = 0.25                              # "was it sunny": this share of the hours
+RARE = frozenset({"hail", "storm", "fog", "snow"})   # ...but one hour of these is enough
+
+
+def past_window(key: str, now: datetime) -> tuple[datetime, datetime]:
+    """A time asked about in the past as (start, end), never past now:
+    "this evening" asked in the morning is last evening."""
+    mid = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    back = {"1h": timedelta(hours=1), "24h": timedelta(days=1), "3d": timedelta(days=3),
+            "7d": timedelta(days=7)}
+    if key in back:
+        return now - back[key], now
+    if key == "night":                  # last night: 6 pm yesterday to 6 am
+        return mid - timedelta(hours=6), min(now, mid + timedelta(hours=6))
+    if key == "yesterday":
+        return mid - timedelta(days=1), mid
+    if key == "week":
+        return mid - timedelta(days=now.weekday()), now
+    if key in DAYS:
+        start = mid - timedelta(days=(now.weekday() - DAYS.index(key)) % 7)
+        return start, min(now, start + timedelta(days=1))
+    for i, part in enumerate(("morning", "afternoon", "evening")):
+        hours = (timedelta(hours=6 + 6 * i), timedelta(hours=12 + 6 * i))
+        if key == f"yesterday_{part}":
+            return mid - timedelta(days=1) + hours[0], mid - timedelta(days=1) + hours[1]
+        if key == part:
+            day = mid if mid + hours[0] < now else mid - timedelta(days=1)
+            return day + hours[0], min(now, day + hours[1])
+    return mid, now                     # today, so far
+
+
+def default_past_span(now: datetime) -> str:
+    """"Did it rain?": today, or the last 24 hours before 6 am."""
+    return "24h" if now.hour < 6 else "today"
+
+
+def history_rows(changes: Sequence[tuple[datetime, str, Mapping[str, Any]]], start: datetime,
+                 now: datetime) -> list[Row]:
+    """A weather entity's recorded (when, condition, attributes), oldest
+    first, as an hour's Row for each finished hour since `start`: what it
+    said at the hour's middle. No amounts."""
+    hour = timedelta(hours=1)
+    at = start.replace(minute=0, second=0, microsecond=0)
+    out, i, cur = [], 0, None
+    while at + hour <= now:
+        mid = at + hour / 2
+        while i < len(changes) and changes[i][0] <= mid:
+            cur, i = changes[i], i + 1
+        if cur is not None:
+            a = cur[2]
+            out.append(Row(at, cur[1], number(a.get("temperature")),
+                           wind=number(a.get("wind_speed"))))
+        at += hour
+    return out
+
+
+def gauge_into(w: Weather, changes: Sequence[tuple[datetime, str]], unit: str,
+               device_class: str) -> None:
+    """A rain gauge's amounts into the hours they fell in. A rate (mm/h) is
+    added up over the time it held; a total counts its rises (a reset to 0
+    at midnight is no rain). Hours it covers and saw nothing get 0."""
+    if not changes or not w.hourly:
+        return
+    rate = unit.endswith("/h") or device_class == "precipitation_intensity"
+    fell: dict[int, float] = {}
+    hour = 3600
+
+    def add(t: float, mm: float) -> None:
+        fell[int(t // hour)] = fell.get(int(t // hour), 0.0) + mm
+    pts = [(at.timestamp(), v) for at, raw in changes if (v := number(raw)) is not None]
+    if not pts:
+        return
+    first = pts[0][0]
+    if rate:
+        last = w.hourly[-1].at.timestamp() + hour
+        for (t, v), nxt in zip(pts, [*pts[1:], (last, None)]):
+            t_end, t0 = nxt[0], t
+            while t0 < t_end and v > 0:
+                cut = min(t_end, (t0 // hour + 1) * hour)
+                add(t0, v * (cut - t0) / hour)
+                t0 = cut
+    else:
+        for (_, prev), (t, v) in zip(pts, pts[1:]):
+            if v > prev:
+                add(t, v - prev)
+    for r in w.hourly:
+        if r.at.timestamp() >= first:
+            r.precip = fell.get(int(r.at.timestamp() // hour), 0.0)
+    w.attributes = {**w.attributes, "precipitation_unit": unit.removesuffix("/h") or "mm"}
+
+
+def say_past_span(key: str, words: Mapping[str, Any], now: datetime) -> str:
+    if key in DAYS:
+        back = (now.weekday() - DAYS.index(key)) % 7
+        return _t(words, "today") if back == 0 else \
+            ((_w(words).get("past_spans") or {}).get("yesterday") or "yesterday") if back == 1 else \
+            _t(words, "on_day", day=_day_name(key))
+    return ((_w(words).get("past_spans") or {}).get(key)) or key
+
+
+def _say_past_day(d: date, today: date, words: Mapping[str, Any]) -> str:
+    days = (today - d).days
+    if days == 0:
+        return _t(words, "today")
+    if days == 1:
+        return ((_w(words).get("past_spans") or {}).get("yesterday")) or "yesterday"
+    return d.strftime("%A")
+
+
+def past_hours(w: Weather, start: datetime, end: datetime, now: datetime) -> list[Row]:
+    """The finished hours that touch a span."""
+    hour = timedelta(hours=1)
+    return [r for r in w.hourly if r.at + hour > start and r.at < end and r.at + hour <= now]
+
+
+def _rain_unit(w: Weather) -> str:
+    return str(w.attributes.get("precipitation_unit") or "mm")
+
+
+def _snow_unit(w: Weather) -> str:
+    return "in" if _rain_unit(w) == "in" else "cm"
+
+
+def _fell(r: Row, kind: str, words: Mapping[str, Any], w: Weather) -> bool:
+    """Whether rain (or snow) fell in an hour: by its amount when known,
+    else by its weather."""
+    kinds = _w(words).get("kinds") or {}
+    if kind == "snow":
+        if r.snow is not None:
+            return r.snow >= TRACE[_snow_unit(w)]
+        return r.cond in (kinds.get("snow") or [])
+    if r.precip is not None:
+        return r.precip >= TRACE.get(_rain_unit(w), 0.1) and r.cond not in ("snowy",)
+    return r.cond in (kinds.get("rain") or [])
+
+
+def _amount(hits: Sequence[Row], kind: str) -> float | None:
+    vals = [r.snow if kind == "snow" else r.precip for r in hits]
+    known = [v for v in vals if v is not None]
+    return sum(known) if known and len(known) == len(vals) else None
+
+
+def _past_when(hits: Sequence[Row], start: datetime, end: datetime, now: datetime,
+               words: Mapping[str, Any]) -> str:
+    """When it happened: "from 6 am to 9 am", "on and off since 2 pm",
+    "on Monday and today"."""
+    if end - start > MULTI_DAY:
+        days = sorted({r.at.astimezone(now.tzinfo).date() for r in hits})
+        if len(days) > 1:
+            return _t(words, "past_on_days", days=say_list(
+                [_say_past_day(d, now.date(), words) for d in days], words))
+    hour = timedelta(hours=1)
+    first, last = hits[0].at, hits[-1].at + hour
+    steady = len(hits) == round((last - first) / hour)
+    if len(hits) == 1:
+        return _t(words, "past_around", time=say_time(first.astimezone(now.tzinfo) + hour / 2))
+    t1 = say_time(first.astimezone(now.tzinfo))
+    if last + hour > now:               # it was still going in the last hour
+        return _t(words, "past_since" if steady else "past_on_off_since", time=t1)
+    return _t(words, "past_from" if steady else "past_on_off", t1=t1,
+              t2=say_time(last.astimezone(now.tzinfo)))
+
+
+def past_reply(w: Weather, ask: str, span: str, hilo: str, amount: bool,
+               words: Mapping[str, Any], now: datetime, s: Mapping[str, Any]) -> str:
+    """The recent past: did it rain (snow, was it sunny...) `ask`, how much
+    (`amount`), the high or low (`hilo`), or the weather over a span."""
+    span = span or default_past_span(now)
+    start, end = past_window(span, now)
+    when, where = say_past_span(span, words, now), _where(w, words)
+    hrs = past_hours(w, start, end, now)
+    if not hrs:
+        return _t(words, "past_none", span=when, where=where)
+    lim = _settings(s, w)
+    if hilo:
+        return _past_hilo(w, hrs, hilo, when, where, words)
+    if ask in ("rain", "snow", "hail") or amount:
+        return _past_fell(w, hrs, ask or "rain", amount, start, end, when, where, words, now, lim)
+    if ask in ("cold", "warm"):
+        temps = [r.temp for r in hrs if r.temp is not None]
+        if not temps:
+            return _t(words, "past_none", span=when, where=where)
+        if ask == "cold":
+            lo = min(temps)
+            return _t(words, "past_cold_yes" if lo < lim["cold"] else "past_cold_no",
+                      temp=say_temp(lo, w), span=when, where=where)
+        hi = max(temps)
+        return _t(words, "past_warm_yes" if hi >= lim["warm"] else "past_warm_no",
+                  temp=say_temp(hi, w), span=when, where=where)
+    if ask == "wind":
+        winds = [r.wind for r in hrs if r.wind is not None]
+        top = max(winds) if winds else None
+        windy = sum(1 for r in hrs if is_kind(r, "wind", words, lim))
+        if top is None:
+            return _past_kind(w, hrs, "wind", when, where, words)
+        return _t(words, "past_wind_yes" if top >= lim["windy"] or windy else "past_wind_no",
+                  wind=say_number(round(top), w.wind_unit), span=when, where=where)
+    if ask:
+        return _past_kind(w, hrs, ask, when, where, words)
+    return _past_summary(w, hrs, span, start, end, words, now, lim, where)
+
+
+def _did(kind: str, words: Mapping[str, Any], key: str) -> str:
+    return ((_w(words).get(key) or {}).get(kind)) or kind
+
+
+def _past_fell(w: Weather, hrs: Sequence[Row], kind: str, amount: bool, start: datetime,
+               end: datetime, when: str, where: str, words: Mapping[str, Any], now: datetime,
+               lim: Mapping[str, float]) -> str:
+    if kind == "hail":
+        return _past_kind(w, hrs, kind, when, where, words)
+    hits = [r for r in hrs if _fell(r, kind, words, w)]
+    noun = say_cond(kind, words, "noun")
+    total = _amount(hits, kind) if hits else _amount(hrs, kind)
+    unit = _snow_unit(w) if kind == "snow" else _rain_unit(w)
+    said = say_number(total, unit) if total is not None else ""
+    if not hits:
+        return _t(words, "past_amount_none" if amount else "past_no", noun=noun, span=when,
+                  where=where, didnt=_did(kind, words, "past_didnt"))
+    at = _past_when(hits, start, end, now, words)
+    did = _did(kind, words, "past_did")
+    mm = lim["mm"] if kind == "rain" and unit == "mm" else TRACE[unit] * 3
+    if total is None:
+        return _t(words, "past_yes_unmeasured" if amount else "past_yes", did=did, span=when,
+                  where=where, when=at)
+    if total < mm:
+        return _t(words, "past_trace", amount=said, noun=noun, span=when, where=where, when=at)
+    if amount:
+        return _t(words, "past_amount", amount=said, noun=noun, span=when, where=where, when=at)
+    return _t(words, "past_yes_amount", did=did, amount=said, span=when, where=where, when=at)
+
+
+def _past_kind(w: Weather, hrs: Sequence[Row], kind: str, when: str, where: str,
+               words: Mapping[str, Any]) -> str:
+    """Was it sunny (cloudy, foggy, stormy...): yes when enough of its hours
+    were, said with how long."""
+    pool = [r for r in hrs if r.cond != "clear-night"] if kind == "sun" else list(hrs)
+    hits = [r for r in pool if is_kind(r.cond, kind, words)]
+    enough = 1 if kind in RARE else max(1, HOURS_YES * len(pool))
+    if len(hits) >= enough:
+        key = "past_hours_one" if len(hits) == 1 else "past_hours_yes"
+        return _t(words, key, did=_did(kind, words, "past_did"), hours=len(hits), span=when,
+                  where=where)
+    most = _most(hrs)
+    looks = _t(words, "past_looks", cond=say_cond(most, words, "later")) if most else ""
+    return _t(words, "past_no", didnt=_did(kind, words, "past_didnt"), span=when, where=where) \
+        + looks
+
+
+def _past_hilo(w: Weather, hrs: Sequence[Row], hilo: str, when: str, where: str,
+               words: Mapping[str, Any]) -> str:
+    temps = [r.temp for r in hrs if r.temp is not None]
+    if not temps:
+        return _t(words, "past_none", span=when, where=where)
+    hi, lo = say_temp(max(temps), w), say_temp(min(temps), w)
+    if hilo == "max":
+        return _t(words, "past_high", span=when, where=where, temp=hi)
+    if hilo == "min":
+        return _t(words, "past_low", span=when, where=where, temp=lo)
+    return _t(words, "past_high_low", span=when, where=where, hi=hi, lo=lo)
+
+
+def _fell_said(w: Weather, hrs: Sequence[Row], words: Mapping[str, Any]) -> str:
+    """", 4 mm of rain", ", 2 cm of snow", ", and dry" for a summary."""
+    out = []
+    for kind in ("rain", "snow"):
+        hits = [r for r in hrs if _fell(r, kind, words, w)]
+        total = _amount(hits, kind) if hits else None
+        unit = _snow_unit(w) if kind == "snow" else _rain_unit(w)
+        if total is not None and total >= TRACE[unit] * 3:
+            out.append(_t(words, "past_fell", amount=say_number(total, unit),
+                          noun=say_cond(kind, words, "noun")))
+        elif hits and total is None:
+            out.append(_t(words, "past_some", noun=say_cond(kind, words, "noun")))
+    return "".join(out) or _t(words, "past_dry")
+
+
+def _past_summary(w: Weather, hrs: Sequence[Row], span: str, start: datetime, end: datetime,
+                  words: Mapping[str, Any], now: datetime, lim: Mapping[str, float],
+                  where: str) -> str:
+    if end - start > MULTI_DAY:
+        days: dict[date, list[Row]] = {}
+        for r in hrs:
+            days.setdefault(r.at.astimezone(now.tzinfo).date(), []).append(r)
+        return " ".join(
+            _t(words, "past_day", day=cap(_say_past_day(d, now.date(), words)),
+               cond=say_cond(_most(rs), words, "later"),
+               temps=_range([r.temp for r in rs if r.temp is not None], w, words),
+               fell=_fell_said(w, rs, words))
+            for d, rs in sorted(days.items()))
+    return _t(words, "past_summary", span=cap(say_past_span(span, words, now)), where=where,
+              cond=say_cond(_most(hrs), words, "later"),
+              temps=_range([r.temp for r in hrs if r.temp is not None], w, words),
+              fell=_fell_said(w, hrs, words))

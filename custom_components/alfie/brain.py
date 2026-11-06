@@ -33,13 +33,15 @@ from typing import Any
 from .speech import LANG_DIR, _code
 
 COMMANDS = ("whats_wrong", "how_are_you", "run", "entity", "entity_count", "entity_when",
-            "entity_history", "weather_now", "weather_forecast", "weather_gear", "sun", "moon",
+            "entity_history", "weather_now", "weather_forecast", "weather_past", "weather_gear",
+            "sun", "moon",
             "world_time", "dates", "convert", "maths", "people", "media", "calendar", "lists",
             "repeat", "help", "coin", "dice", "number", "pick", "joke", "chat", "wiki")
 INTENTS = {"whats_wrong": "AlfieWhatsWrong", "how_are_you": "AlfieHowAreYou", "run": "AlfieRun",
            "entity": "AlfieEntity", "entity_count": "AlfieEntityCount",
            "entity_when": "AlfieEntityWhen", "entity_history": "AlfieEntityHistory",
            "weather_now": "AlfieWeatherNow", "weather_forecast": "AlfieWeatherForecast",
+           "weather_past": "AlfieWeatherPast",
            "weather_gear": "AlfieWeatherGear", "sun": "AlfieSun", "moon": "AlfieMoon",
            "world_time": "AlfieWorldTime", "dates": "AlfieDates", "convert": "AlfieConvert",
            "maths": "AlfieMaths", "people": "AlfiePeople", "media": "AlfieMedia",
@@ -51,6 +53,7 @@ LABELS = {"whats_wrong": "what's wrong", "how_are_you": "how are you", "run": "a
           "entity": "a thing's state", "entity_count": "how many things",
           "entity_when": "when a thing changed", "entity_history": "a thing's history",
           "weather_now": "the weather now", "weather_forecast": "the forecast",
+          "weather_past": "the weather earlier",
           "weather_gear": "what to wear", "sun": "the sun", "moon": "the moon",
           "world_time": "the time somewhere", "dates": "dates", "convert": "converting units",
           "maths": "a sum", "people": "who's home", "media": "what's playing",
@@ -59,7 +62,8 @@ LABELS = {"whats_wrong": "what's wrong", "how_are_you": "how are you", "run": "a
           "number": "a random number", "pick": "picking one", "joke": "a joke",
           "chat": "small talk", "wiki": "Wikipedia"}
 # Answered from a weather entity, the sun and the moon (outside.py).
-OUTSIDE = frozenset({"weather_now", "weather_forecast", "weather_gear", "sun", "moon"})
+OUTSIDE = frozenset({"weather_now", "weather_forecast", "weather_past", "weather_gear", "sun",
+                     "moon"})
 # Answered from the clock, the calendar and arithmetic (reckon.py).
 RECKON = frozenset({"world_time", "dates", "convert", "maths"})
 # Answered from people, players, calendars and to-do lists (household.py).
@@ -144,6 +148,11 @@ def default_settings() -> dict[str, Any]:
             "weather_url": "https://api.open-meteo.com/v1/forecast",
             "weather_seconds": 3,           # Open-Meteo's time to answer, each call
             "weather_minutes": 30,          # a place's forecast kept this long
+            "weather_past": "openmeteo",    # "did it rain today": openmeteo (the house's
+                                            # whereabouts leave it; its history if that fails),
+                                            # history (the weather entity's, no amounts), off
+            "rain_gauge": "",               # a rain sensor (a total, or mm/h): its amounts
+                                            # come first; "" none
             "cold_below": 10,               # °C: "do I need a coat?", "is it cold?"
             "warm_above": 22,               # °C: "is it warm?", "do I need shorts?"
             "windy_speed": 30,              # km/h: "is it windy?"
