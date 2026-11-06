@@ -716,7 +716,8 @@
      "past_summary": "{span}{where}: mostly {cond}{temps}{fell}.", "past_day": "{day}: mostly {cond}{temps}{fell}.",
      "past_fell": ", {amount} of {noun}", "past_some": ", some {noun}", "past_dry": ", and dry",
      "past_around": "around {time}", "past_from": "from {t1} to {t2}", "past_on_off": "on and off from {t1} to {t2}",
-     "past_since": "since {time}", "past_on_off_since": "on and off since {time}", "past_on_days": "on {days}"}
+     "past_since": "since {time}", "past_on_off_since": "on and off since {time}", "past_on_days": "on {days}", "midnight": "midnight",
+     "noon": "noon"}
   },
   "reckon": {
     "_": "Alfie's words for time, dates and numbers (reckon.py): named dates and their rules (MM-DD, MM/day/n with -1 the last, MM/day/<DD the last before that day, easter±N), place names for time zones, unit names, and his replies.",

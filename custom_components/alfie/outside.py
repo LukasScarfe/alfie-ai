@@ -919,6 +919,13 @@ def _amount(hits: Sequence[Row], kind: str) -> float | None:
     return sum(known) if known and len(known) == len(vals) else None
 
 
+def _say_hour(at: datetime, words: Mapping[str, Any]) -> str:
+    """"midnight", "noon", else "3 pm"."""
+    if at.minute == 0 and at.hour in (0, 12):
+        return _t(words, "midnight" if at.hour == 0 else "noon")
+    return say_time(at)
+
+
 def _past_when(hits: Sequence[Row], start: datetime, end: datetime, now: datetime,
                words: Mapping[str, Any]) -> str:
     """When it happened: "from 6 am to 9 am", "on and off since 2 pm",
@@ -933,11 +940,11 @@ def _past_when(hits: Sequence[Row], start: datetime, end: datetime, now: datetim
     steady = len(hits) == round((last - first) / hour)
     if len(hits) == 1:
         return _t(words, "past_around", time=say_time(first.astimezone(now.tzinfo) + hour / 2))
-    t1 = say_time(first.astimezone(now.tzinfo))
+    t1 = _say_hour(first.astimezone(now.tzinfo), words)
     if last + hour > now:               # it was still going in the last hour
         return _t(words, "past_since" if steady else "past_on_off_since", time=t1)
     return _t(words, "past_from" if steady else "past_on_off", t1=t1,
-              t2=say_time(last.astimezone(now.tzinfo)))
+              t2=_say_hour(last.astimezone(now.tzinfo), words))
 
 
 def past_reply(w: Weather, ask: str, span: str, hilo: str, amount: bool,

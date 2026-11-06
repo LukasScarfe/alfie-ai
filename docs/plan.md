@@ -320,7 +320,7 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
   design.md "Brain" → Weather and sky.
 - [x] **18⅞++. The weather earlier.** Lukas 2026-11-05: "did it rain today" went to Hermes,
   which guessed from the forecast. A local `weather_past` command from Open-Meteo's past hours
-  (the weather entity's history as fallback, a rain gauge first when set, recorded rain reports counted). 0.35.1, design.md
+  (the weather entity's history as fallback, a rain gauge first when set, recorded rain reports counted). 0.35.2, design.md
   "Brain" → Weather and sky.
 
 ## How an agent continues development

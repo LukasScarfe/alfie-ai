@@ -18,7 +18,21 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.34.3.
+Version 0.35.2.
+
+**Now (2026-11-05): the weather earlier (plan.md 18⅞++, 0.35.2), on production.** Lukas: "did it
+rain today" was wrong. Nothing local matched past tense, so Hermes answered from today's
+*forecast* (said "yes, 0.8 mm"; asked another way, "I can't know"). New `weather_past` command
+(design.md "Brain" → Weather and sky → The weather earlier): Open-Meteo's past hours
+(`past_days=7`) at the house's coordinates, the weather entity's history as fallback, an optional
+`rain_gauge`. Then found Open-Meteo's model had **0 mm today while Environment Canada recorded
+rain** (00:00-00:43, 14:50-15:46, from 16:36), so `weather_reports`: an hour any listed weather
+entity called rainy counts as rain (no amount said when the model measured too little).
+Production's `weather_reports` is set to `weather.vancouver_forecast` (EC, a station's
+observation) and `weather.home_forecast_home_forecast`. Measured on production: 2-70 ms at home, a
+city about 0.8 s first time. Config version 7 adds `weather_past` to a saved `own_always` that held
+the forecast (production's did). **Gotcha:** British Columbia is on UTC-7 all year now
+(tzdata), so don't convert Vancouver times with -8 by hand.
 
 **Now (2026-11-04): fast weather (plan.md 18⅞+, 0.34.3), on production.** Lukas wanted "very
 very fast" weather answers, in other cities too. Production had `own_sentences` off since 11-01,
