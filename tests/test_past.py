@@ -135,6 +135,21 @@ def test_windows():
     assert outside.default_past_span(NOW.replace(hour=3)) == "24h"
 
 
+def test_reports_count_as_rain_the_model_missed():
+    """Production 2026-11-05: Open-Meteo had 0 mm, Environment Canada said
+    rainy 1:50-2:46 pm and from 3:36 pm."""
+    w = weather(hours(24))
+    h = lambda x, m=0: MID + timedelta(hours=x, minutes=m)  # noqa: E731
+    outside.mark_reports(w, [[(h(-1), "cloudy"), (h(13, 50), "rainy"), (h(14, 46), "partlycloudy")],
+                             [(h(-1), "cloudy"), (h(10, 4), "rainy"), (h(11, 3), "cloudy")]], EN)
+    assert say(w, "rain") == "Yes, it rained today, on and off since 10 am."
+    assert say(w, "rain", amount=True).endswith("but I can't say how much.")
+    assert say(w, "rain", "yesterday") == "No, it stayed dry yesterday."
+    wet = weather(WET_MORNING)
+    outside.mark_reports(wet, [[(h(-1), "rainy")]], EN)          # rainy all along: amounts win
+    assert say(wet, "rain", "morning").startswith("Yes, it rained this morning: about 4.5 mm")
+
+
 def test_history_rows_sample_each_hour():
     changes = [(MID - timedelta(hours=2), "cloudy", {"temperature": 7}),
                (MID + timedelta(hours=1, minutes=10), "rainy", {"temperature": 6})]

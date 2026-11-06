@@ -613,7 +613,7 @@ class LocalAnswers:
             place, span = _split_span(slots.get("place", ""), slots.get("span", ""), words,
                                       "past_span")
             span = span or outside.default_past_span(now)
-            w = await self._past(place, span, s, now)
+            w = await self._past(place, span, s, now, words)
             if w is None:
                 return None
             if w.tz is not None:
@@ -727,8 +727,8 @@ class LocalAnswers:
 
     # ------------------------------------------------------------ the recent past
 
-    async def _past(self, place: str, span: str, s: dict[str, Any],
-                    now: datetime) -> outside.Weather | None:
+    async def _past(self, place: str, span: str, s: dict[str, Any], now: datetime,
+                    words: dict[str, Any]) -> outside.Weather | None:
         """The hours behind us (outside.past_reply reads them): from
         Open-Meteo, else the weather entity's recorded history; a rain gauge's
         amounts over them when there is one. None: nothing to tell."""
@@ -741,8 +741,14 @@ class LocalAnswers:
             w = await self._past_openmeteo(place, s)
         if w is None and (not place or self._weather_entity(place, s)):
             w = await self._past_history(place, s, start, now)
-        if w is not None and not place and s["rain_gauge"]:
-            await self._gauge(w, s["rain_gauge"], start, now)
+        if w is not None and not place:
+            ids = s["weather_reports"] or [e for e in [self._weather_entity("", s)] if e]
+            reports = [got for e in ids if (got := await self._history(e, start - timedelta(hours=1),
+                                                                        now))]
+            if reports:
+                outside.mark_reports(w, reports, words)
+            if s["rain_gauge"]:
+                await self._gauge(w, s["rain_gauge"], start, now)
         return w
 
     async def _past_openmeteo(self, place: str, s: dict[str, Any]) -> outside.Weather | None:

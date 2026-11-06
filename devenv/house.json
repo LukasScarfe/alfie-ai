@@ -1343,6 +1343,7 @@
   "weather_seconds": 3,
   "weather_minutes": 30,
   "weather_past": "openmeteo",
+  "weather_reports": [],
   "rain_gauge": "",
   "cold_below": 10,
   "warm_above": 22,

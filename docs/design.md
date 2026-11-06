@@ -978,6 +978,10 @@ requirements, light enough for a Pi.
         recorded states (one recorder query with attributes), what it said at each hour's
         middle. Conditions and temperatures, no amounts ("…but I can't say how much").
       - `off`: the agent answers.
+      - `weather_reports` (weather entities, [] the house's): for the house, an hour any of
+        them called rainy (snowy) at any moment, by its recorded states, is rain (snow) however
+        little the model says; with too little measured the reply has no amount. Production
+        2026-11-05: Open-Meteo had 0 mm while Environment Canada said rainy 1:50-2:46 pm.
       - `rain_gauge` (a sensor, "" none) comes first for the house: a running total counts
         its rises (a midnight reset is no rain), a rate (mm/h, `precipitation_intensity`) is
         added up over the time it held, into the hours they fell in.

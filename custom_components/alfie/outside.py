@@ -38,6 +38,7 @@ class Row:
     uv: float | None = None
     wind: float | None = None
     snow: float | None = None       # snowfall (past hours, Open-Meteo): cm, or inches
+    seen: tuple[str, ...] = ()      # past hours: kinds a weather entity reported ("rain")
 
 
 @dataclass
@@ -848,6 +849,23 @@ def gauge_into(w: Weather, changes: Sequence[tuple[datetime, str]], unit: str,
     w.attributes = {**w.attributes, "precipitation_unit": unit.removesuffix("/h") or "mm"}
 
 
+def mark_reports(w: Weather, reports: Sequence[Sequence[tuple[datetime, str]]],
+                 words: Mapping[str, Any]) -> None:
+    """Weather entities' recorded conditions (each oldest first) onto the
+    hours: an hour any of them called rainy (snowy) at any moment is rain
+    (snow), however little the model says fell."""
+    kinds = _w(words).get("kinds") or {}
+    hour = timedelta(hours=1)
+    for r in w.hourly:
+        seen = set(r.seen)
+        for changes in reports:
+            before = [state for at, state in changes if at <= r.at][-1:]
+            during = [state for at, state in changes if r.at < at < r.at + hour]
+            for state in before + during:
+                seen.update(k for k in ("rain", "snow") if state in (kinds.get(k) or []))
+        r.seen = tuple(sorted(seen))
+
+
 def say_past_span(key: str, words: Mapping[str, Any], now: datetime) -> str:
     if key in DAYS:
         back = (now.weekday() - DAYS.index(key)) % 7
@@ -881,8 +899,10 @@ def _snow_unit(w: Weather) -> str:
 
 
 def _fell(r: Row, kind: str, words: Mapping[str, Any], w: Weather) -> bool:
-    """Whether rain (or snow) fell in an hour: by its amount when known,
-    else by its weather."""
+    """Whether rain (or snow) fell in an hour: a weather entity reported it,
+    or by its amount when known, else by its weather."""
+    if kind in r.seen:
+        return True
     kinds = _w(words).get("kinds") or {}
     if kind == "snow":
         if r.snow is not None:
@@ -979,7 +999,8 @@ def _past_fell(w: Weather, hrs: Sequence[Row], kind: str, amount: bool, start: d
     at = _past_when(hits, start, end, now, words)
     did = _did(kind, words, "past_did")
     mm = lim["mm"] if kind == "rain" and unit == "mm" else TRACE[unit] * 3
-    if total is None:
+    reported = any(kind in r.seen for r in hits)
+    if total is None or (total < mm and reported):     # reported, too little to measure
         return _t(words, "past_yes_unmeasured" if amount else "past_yes", did=did, span=when,
                   where=where, when=at)
     if total < mm:
@@ -1047,7 +1068,8 @@ def _past_summary(w: Weather, hrs: Sequence[Row], span: str, start: datetime, en
                temps=_range([r.temp for r in rs if r.temp is not None], w, words),
                fell=_fell_said(w, rs, words))
             for d, rs in sorted(days.items()))
+    day = [r for r in hrs if 6 <= r.at.astimezone(now.tzinfo).hour < 18] or hrs
     return _t(words, "past_summary", span=cap(say_past_span(span, words, now)), where=where,
-              cond=say_cond(_most(hrs), words, "later"),
+              cond=say_cond(_most(day), words, "later"),
               temps=_range([r.temp for r in hrs if r.temp is not None], w, words),
               fell=_fell_said(w, hrs, words))

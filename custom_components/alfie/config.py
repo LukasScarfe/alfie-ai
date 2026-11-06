@@ -879,6 +879,8 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
                                          5, 360, 30)),
         "weather_past": ck.choice("brain past weather", v["weather_past"],
                                   ("openmeteo", "history", "off"), "openmeteo"),
+        "weather_reports": _entity_list("brain weather reports", v["weather_reports"],
+                                        ("weather",), ck),
         "rain_gauge": rain_gauge,
         "cold_below": _num(ck.number("brain cold below", v["cold_below"], -40, 40, 10)),
         "warm_above": _num(ck.number("brain warm above", v["warm_above"], -20, 50, 22)),

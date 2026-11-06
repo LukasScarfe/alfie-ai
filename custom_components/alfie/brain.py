@@ -151,6 +151,8 @@ def default_settings() -> dict[str, Any]:
             "weather_past": "openmeteo",    # "did it rain today": openmeteo (the house's
                                             # whereabouts leave it; its history if that fails),
                                             # history (the weather entity's, no amounts), off
+            "weather_reports": [],          # weather entities whose recorded rain counts as
+                                            # rain fell; [] the house's (`weather`)
             "rain_gauge": "",               # a rain sensor (a total, or mm/h): its amounts
                                             # come first; "" none
             "cold_below": 10,               # °C: "do I need a coat?", "is it cold?"
