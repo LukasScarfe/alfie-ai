@@ -145,6 +145,7 @@ def test_reports_count_as_rain_the_model_missed():
     assert say(w, "rain") == "Yes, it rained today, on and off since 10 am."
     assert say(w, "rain", amount=True).endswith("but I can't say how much.")
     assert say(w, "rain", "yesterday") == "No, it stayed dry yesterday."
+    assert say(w, span="today").endswith(", some rain.")
     wet = weather(WET_MORNING)
     outside.mark_reports(wet, [[(h(-1), "rainy")]], EN)          # rainy all along: amounts win
     assert say(wet, "rain", "morning").startswith("Yes, it rained this morning: about 4.5 mm")

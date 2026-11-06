@@ -1057,7 +1057,7 @@ def _fell_said(w: Weather, hrs: Sequence[Row], words: Mapping[str, Any]) -> str:
         if total is not None and total >= TRACE[unit] * 3:
             out.append(_t(words, "past_fell", amount=say_number(total, unit),
                           noun=say_cond(kind, words, "noun")))
-        elif hits and total is None:
+        elif hits and (total is None or any(kind in r.seen for r in hits)):
             out.append(_t(words, "past_some", noun=say_cond(kind, words, "noun")))
     return "".join(out) or _t(words, "past_dry")
 
