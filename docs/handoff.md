@@ -18,7 +18,14 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.36.0.
+Version 0.37.0.
+
+**Now (2026-11-08): never mind (plan.md 18⅞++++, 0.37.0), on production.** Lukas: "cancel",
+"forget it" and the like should dismiss him locally. New `dismiss` command, tried first, silent
+(`dismiss_reply` ""), "stop" left out (his call). Config version 8 added it to production's
+`own_always`. Checked on production: cancel, forget it, that's all thanks, nothing, go away,
+wrong person all `own dismiss` in 1-72 ms, silent; "stop" still goes to Hermes; "cancel the
+timer" still HA's intent (its turn log detail reads "an", a quirk not looked into).
 
 **Now (2026-11-08): one profile, names in the message (plan.md 18⅞+++, 0.36.0), on production.**
 Lukas, via the raccoon session: one Hermes profile for everyone, since switching profiles caused
