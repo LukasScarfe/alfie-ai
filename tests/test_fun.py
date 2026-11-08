@@ -158,3 +158,28 @@ def test_sentences(text, cmd, want):
     got = [(brain.command_of(r.intent.name), {k: str(v.value).strip() for k, v in r.entities.items()})
            for r in hassil.recognize_all(text, INTENTS)]
     assert any(c == cmd and all(s.get(k) == v for k, v in want.items()) for c, s in got), got
+
+
+@pytest.mark.parametrize("text", [
+    "cancel", "cancel that", "oh just cancel it", "nevermind", "never mind", "forget it",
+    "forget I asked", "that's all", "that's all thanks", "nothing", "no thanks", "go away",
+    "be quiet", "i wasn't talking to you", "wrong person", "false alarm", "okay never mind then",
+])
+def test_dismiss_sentences(text):
+    names = {brain.command_of(r.intent.name) for r in hassil.recognize_all(text, INTENTS)}
+    assert "dismiss" in names, names     # tried first (conversation.ORDER)
+
+
+@pytest.mark.parametrize("text", ["stop", "cancel the timer", "cancel my alarm",
+                                  "forget it was raining", "nothing is on"])
+def test_dismiss_leaves_the_rest(text):
+    names = {brain.command_of(r.intent.name) for r in hassil.recognize_all(text, INTENTS)}
+    assert "dismiss" not in names
+
+
+def test_migration_adds_dismiss_to_own_always():
+    from alfie import config
+    raw = {"version": 7, "brain": {"own_always": ["weather_now"]}}
+    assert config.migrate(raw)["brain"]["own_always"] == ["weather_now", "dismiss"]
+    raw = {"version": 7, "brain": {"own_always": []}}       # emptied on purpose: left so
+    assert config.migrate(raw)["brain"]["own_always"] == []
