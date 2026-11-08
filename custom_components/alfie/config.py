@@ -56,7 +56,8 @@ from .triggers import validate_triggers
 # 4: keys follow design.md "Words" (migrate_v3), and the overview section.
 # 6: label and text screens' size became text_size, a multiplier (migrate_v5).
 # 7: weather_past joins a saved brain.own_always that holds the forecast (migrate).
-CONFIG_VERSION = 7
+# 8: dismiss joins a saved brain.own_always that isn't empty (migrate).
+CONFIG_VERSION = 8
 SECTIONS = ("signals", "mood", "behaviour", "personality", "look", "expressions", "animations",
             "screens", "rotations", "stories", "triggers", "modes", "voice", "speech", "brain",
             "overview")
@@ -423,6 +424,9 @@ def migrate(raw: Mapping[str, Any]) -> dict[str, Any]:
     if isinstance(was, int) and was < 7 and isinstance(always, list) and "weather_forecast" in always \
             and "weather_past" not in always:
         always.append("weather_past")
+    if isinstance(was, int) and was < 8 and isinstance(always, list) and always \
+            and "dismiss" not in always:
+        always.append("dismiss")
     return out
 
 
@@ -907,6 +911,7 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
         "joke_animation": _face_name(v["joke_animation"]),
         "random_max": int(ck.number("brain random number most", v["random_max"], 2, 1000000, 10)),
         "repeat_minutes": int(ck.number("brain repeat minutes", v["repeat_minutes"], 1, 1440, 10)),
+        "dismiss_reply": " ".join(str(v["dismiss_reply"] or "").split())[:200],
         "wiki_url": _url("brain wikipedia server", v["wiki_url"], ck),
         "wiki_book": str(v["wiki_book"] or "").strip()[:200],
         "wiki_sentences": int(ck.number("brain wikipedia sentences", v["wiki_sentences"], 1, 10, 2)),

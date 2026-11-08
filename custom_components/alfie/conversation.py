@@ -53,7 +53,7 @@ from .voice import _lookup
 _LOGGER = logging.getLogger(__name__)
 
 # The order his matched commands are tried in: the more particular first.
-ORDER = ("whats_wrong", "how_are_you", "run", "repeat", "help", "coin", "dice", "number", "pick",
+ORDER = ("dismiss", "whats_wrong", "how_are_you", "run", "repeat", "help", "coin", "dice", "number", "pick",
          "joke", "chat", "moon", "sun", "weather_gear", "weather_past",
          "weather_forecast", "weather_now", "world_time", "people", "media", "lists", "calendar", "dates", "convert",
          "maths", "entity_when", "entity_history", "entity_count", "entity", "wiki")
@@ -195,6 +195,9 @@ class AlfieAgent(conversation.ConversationEntity):
         """(reply, detail, choices, unknown), or None when the command can't
         answer this after all (the turn goes on)."""
         mood = self.engine.mood
+        if cmd == "dismiss":
+            # "cancel", "never mind": the turn ends here, quietly by default
+            return self.engine.config["brain"]["dismiss_reply"], cmd, [], False
         if cmd == "repeat":
             return self._repeat(satellite, language), cmd, [], False
         if cmd == "help":

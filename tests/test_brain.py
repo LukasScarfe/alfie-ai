@@ -45,7 +45,7 @@ def test_own_intents_only_chosen_commands():
 def test_own_always_with_own_sentences_off():
     """Off, his weather and sky commands still answer (fast) by default."""
     data = brain.own_intents(EN, {**DEFAULTS, "own_sentences": False}, "en")
-    assert set(data["intents"]) == {brain.INTENTS[c] for c in brain.OUTSIDE}
+    assert set(data["intents"]) == {brain.INTENTS[c] for c in brain.OUTSIDE | {"dismiss"}}
     data = brain.own_intents(EN, {**DEFAULTS, "own_sentences": False,
                                   "own_always": ["weather_now"],
                                   "off_commands": ["moon"]}, "en")

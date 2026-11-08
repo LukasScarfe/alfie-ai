@@ -326,6 +326,9 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
   session): one Hermes profile for everyone, "Lukas: ..." telling it who spoke
   (`brain.profile_routing: names`). Also "this week" on a weekend takes in the next week.
   0.36.0, design.md "Brain" → People and voices.
+- [x] **18⅞++++. Never mind.** Lukas 2026-11-08: "cancel", "forget it", "that's all" went to
+  Hermes. A local `dismiss` command, silent by default (`dismiss_reply`), "stop" left out.
+  0.37.0, design.md "Brain" → Fun and Alfie himself.
 
 ## How an agent continues development
 

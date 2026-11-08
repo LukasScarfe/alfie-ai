@@ -1,5 +1,5 @@
 {
- "version": 7,
+ "version": 8,
  "signals": [
   {
    "id": "nas_drive",
@@ -1287,6 +1287,7 @@
   "own_sentences": true,
   "off_commands": [],
   "own_always": [
+   "dismiss",
    "moon",
    "sun",
    "weather_forecast",
@@ -1328,7 +1329,8 @@
    "pick": [],
    "joke": [],
    "chat": [],
-   "wiki": []
+   "wiki": [],
+   "dismiss": []
   },
   "exposed_only": false,
   "match_floor": 70,
@@ -1370,6 +1372,7 @@
   "joke_animation": "laugh",
   "random_max": 10,
   "repeat_minutes": 10,
+  "dismiss_reply": "",
   "wiki_url": "",
   "wiki_book": "",
   "wiki_sentences": 2,

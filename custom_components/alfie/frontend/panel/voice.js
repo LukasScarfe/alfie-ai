@@ -294,6 +294,7 @@ const COMMANDS = [["whats_wrong", "What's wrong", "\"Is anything wrong?\": the s
   ["media", "What's playing", "\"What's playing?\", \"Who sings this?\", \"What's on the TV?\", \"Is anything playing in the kitchen?\""],
   ["calendar", "The calendar", "\"What's on tomorrow?\", \"Am I free on Friday?\", \"What's next?\", \"When is my next dance?\""],
   ["lists", "Lists", "\"What's on the shopping list?\", \"How many things are on the to-do list?\", \"Do we need milk?\""],
+  ["dismiss", "Never mind", "\"Cancel\", \"Forget it\", \"That's all\", \"Go away\": ends the turn at once, without asking the agent. Not \"stop\" (that's for music and timers)."],
   ["repeat", "Say that again", "\"Say that again\", \"What did you say?\", \"Sorry?\": his last reply on that speaker."],
   ["help", "What can you do", "\"What can you do?\": what he answers himself, from the answers that are on."],
   ["coin", "A coin", "\"Flip a coin\", \"Heads or tails?\""],
@@ -456,7 +457,8 @@ function brainTab(p) {
         ${U.field("Telling one, he looks", U.select("brain.joke_expression", b.joke_expression, [["", "Keep his face"], ...(p.choices?.expressions || []).map((e) => [e, U.human(e)])]))}
         ${U.field("And plays", U.select("brain.joke_animation", b.joke_animation, [["", "Nothing"], ...(p.choices?.animations || []).map((a) => [a, U.human(a)])]))}
         ${U.field("\"Pick a number\" goes up to", U.num("brain.random_max", b.random_max, { min: 2, max: 1000000, step: 1 }), "Unless a range is said.")}
-        ${U.field("\"Say that again\" remembers", U.num("brain.repeat_minutes", b.repeat_minutes, { min: 1, max: 1440, step: 1, unit: "min" }))}</div>`) : ""}
+        ${U.field("\"Say that again\" remembers", U.num("brain.repeat_minutes", b.repeat_minutes, { min: 1, max: 1440, step: 1, unit: "min" }))}
+        ${U.field("\"Never mind\" gets", U.text("brain.dismiss_reply", b.dismiss_reply, { placeholder: "Silence" }), "Empty: nothing said, the speaker just goes quiet.")}</div>`) : ""}
       ${b.own_sentences && !b.off_commands.includes("wiki") ? U.card("Wikipedia", `
         ${U.field("kiwix-serve", U.text("brain.wiki_url", b.wiki_url, { placeholder: "http://192.168.1.10:8080" }),
           "An offline Wikipedia served by kiwix-serve (a Docker container with a Wikipedia .zim file). Empty: no Wikipedia answers.")}

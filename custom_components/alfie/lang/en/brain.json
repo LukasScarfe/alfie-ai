@@ -135,6 +135,13 @@
       "{has_q:ask} {item} on [the|my|our] list",
       "{need_has:ask} [more|any|some] {item}"
     ],
+    "dismiss": [
+      "[oh] [ok|okay] [just|please] (cancel|forget it|forget about it|forget that|forget I asked) [(it|that)] [please|thanks|thank you]",
+      "[oh] [ok|okay] (never mind|nevermind) [(that|then)] [please|thanks|thank you]",
+      "[oh] [ok|okay] (nothing|no thanks|no thank you|nope|not now|not you) [(then|thanks|thank you)]",
+      "[oh] [ok|okay] (that's all|that is all|that'll be all|that will be all|that's it|that's everything|all done|i'm done|we're done) [(then|thanks|thank you)]",
+      "[oh] [ok|okay] (go away|dismiss|dismissed|be quiet|quiet|shush|hush|shut up|leave it|ignore that|ignore me|disregard that|my mistake|my bad|sorry wrong (person|thing)|wrong (person|thing)|i wasn't talking to you|false alarm)"
+    ],
     "repeat": [
       "(say|repeat) (that|it) again [please]",
       "repeat (that|it|yourself|the answer) [please]",

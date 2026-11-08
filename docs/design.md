@@ -1071,6 +1071,13 @@ requirements, light enough for a Pi.
     - `chat`: hello, good morning and night, thanks, praise, rudeness, are you there, his name,
       how old (days since the config entry was made), his version, who made him, "I'm bored".
       Lines are picked at random from the language's `fun.lines`.
+    - `dismiss` (0.37.0, Lukas 2026-11-08): "cancel", "forget it", "that's all", "nothing",
+      "go away", "wrong person" and the like end the turn locally, tried before every other
+      command, instead of costing 4-10 s of the agent saying "what would you like to cancel?".
+      It says `dismiss_reply` ("" nothing, Lukas's choice: silence, like HA's own
+      `HassNevermind`, which already takes a bare "never mind"). A bare "stop" is left out (music,
+      timers). In the default `own_always`, so it works with `own_sentences` off; config
+      version 8 adds it to a saved `own_always` that isn't empty.
     - `repeat`: his last reply on that satellite (or the newest anywhere, from none), kept in
       memory `repeat_minutes` (10). Not the turn log, which cuts long replies.
     - `help`: the language's `fun.help` groups whose commands are on ("I can tell you about

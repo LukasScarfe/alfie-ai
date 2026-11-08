@@ -36,7 +36,7 @@ COMMANDS = ("whats_wrong", "how_are_you", "run", "entity", "entity_count", "enti
             "entity_history", "weather_now", "weather_forecast", "weather_past", "weather_gear",
             "sun", "moon",
             "world_time", "dates", "convert", "maths", "people", "media", "calendar", "lists",
-            "repeat", "help", "coin", "dice", "number", "pick", "joke", "chat", "wiki")
+            "repeat", "help", "coin", "dice", "number", "pick", "joke", "chat", "wiki", "dismiss")
 INTENTS = {"whats_wrong": "AlfieWhatsWrong", "how_are_you": "AlfieHowAreYou", "run": "AlfieRun",
            "entity": "AlfieEntity", "entity_count": "AlfieEntityCount",
            "entity_when": "AlfieEntityWhen", "entity_history": "AlfieEntityHistory",
@@ -48,7 +48,7 @@ INTENTS = {"whats_wrong": "AlfieWhatsWrong", "how_are_you": "AlfieHowAreYou", "r
            "calendar": "AlfieCalendar", "lists": "AlfieLists", "repeat": "AlfieRepeat",
            "help": "AlfieHelp", "coin": "AlfieCoin", "dice": "AlfieDice",
            "number": "AlfieNumber", "pick": "AlfiePick", "joke": "AlfieJoke", "chat": "AlfieChat",
-           "wiki": "AlfieWiki"}
+           "wiki": "AlfieWiki", "dismiss": "AlfieDismiss"}
 LABELS = {"whats_wrong": "what's wrong", "how_are_you": "how are you", "run": "a voice action",
           "entity": "a thing's state", "entity_count": "how many things",
           "entity_when": "when a thing changed", "entity_history": "a thing's history",
@@ -60,7 +60,7 @@ LABELS = {"whats_wrong": "what's wrong", "how_are_you": "how are you", "run": "a
           "calendar": "the calendar", "lists": "a list", "repeat": "say that again",
           "help": "what can you do", "coin": "a coin", "dice": "dice",
           "number": "a random number", "pick": "picking one", "joke": "a joke",
-          "chat": "small talk", "wiki": "Wikipedia"}
+          "chat": "small talk", "wiki": "Wikipedia", "dismiss": "never mind"}
 # Answered from a weather entity, the sun and the moon (outside.py).
 OUTSIDE = frozenset({"weather_now", "weather_forecast", "weather_past", "weather_gear", "sun",
                      "moon"})
@@ -131,7 +131,7 @@ def default_settings() -> dict[str, Any]:
             "agent_think_asked": "medium",  # ...when asked ("think about it"); "default" ignore
             "agent_think_phrases": [],      # what asks for it; [] the language's
             "own_sentences": True, "off_commands": [],
-            "own_always": sorted(OUTSIDE),  # matched even with own_sentences off (fast weather
+            "own_always": sorted(OUTSIDE | {"dismiss"}),  # matched even with own_sentences off (fast weather
                                             # while an agent server takes the rest)
             "voice_label": "Alfie voice",   # a label: what carries it, he starts by voice
             "run_bare": True,               # its name alone ("movie time") starts it too
@@ -180,6 +180,7 @@ def default_settings() -> dict[str, Any]:
             "joke_animation": "laugh",      # and an animation after it ("" none)
             "random_max": 10,               # "pick a number": 1 to this
             "repeat_minutes": 10,           # "say that again" remembers this long
+            "dismiss_reply": "",            # "cancel", "forget it": what he says; "" nothing
             "wiki_url": "",                 # kiwix-serve, like http://192.168.1.10:8080; "" off
             "wiki_book": "",                # its book by name; "" the first Wikipedia
             "wiki_sentences": 2,            # of the article's lead, said
