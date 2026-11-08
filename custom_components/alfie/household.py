@@ -361,7 +361,7 @@ def _midnight(d: date, tz: Any) -> datetime:
 
 def span_range(key: str, now: datetime) -> tuple[datetime, datetime]:
     """The time a span means: today, tonight, tomorrow, tomorrow_night,
-    weekend, week (the rest of it), next_week, month (the rest), coming (the
+    weekend, week (the rest of it; on a weekend, the next one too), next_week, month (the rest), coming (the
     next 7 days) or a weekday (mon..sun, its next one, today included)."""
     tz, today = now.tzinfo, now.date()
     day = timedelta(days=1)
@@ -375,7 +375,9 @@ def span_range(key: str, now: datetime) -> tuple[datetime, datetime]:
         sat = today if today.weekday() >= 5 else today + timedelta(days=5 - today.weekday())
         return _midnight(sat, tz), _midnight(today + timedelta(days=7 - today.weekday()), tz)
     if key == "week":
-        return _midnight(today, tz), _midnight(today + timedelta(days=7 - today.weekday()), tz)
+        # on a weekend the week is nearly over: "this week" is the one starting Monday too
+        end = today + timedelta(days=7 - today.weekday() + (7 if today.weekday() >= 5 else 0))
+        return _midnight(today, tz), _midnight(end, tz)
     if key == "next_week":
         mon = today + timedelta(days=7 - today.weekday())
         return _midnight(mon, tz), _midnight(mon + 7 * day, tz)

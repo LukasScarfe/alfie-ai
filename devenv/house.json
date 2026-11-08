@@ -1256,6 +1256,7 @@
   "room_minutes": 15,
   "room_turns": 6,
   "profiles": [],
+  "profile_routing": "profiles",
   "voice_identity": false,
   "ears_url": "",
   "ears_fresh": 15,

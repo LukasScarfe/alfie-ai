@@ -246,3 +246,19 @@ def test_sticky_keeps_the_last_person_only_when_ears_is_unsure():
     # ears thinks it's Michelle but isn't sure enough: not Lukas's either
     assert agent.sticky(("lukas", 100), 150, 90, {"speaker": "michelle", "profile": ""}, PROFILES) == ""
     assert agent.sticky(("gone", 100), 150, 90, unsure, PROFILES) == ""        # profile removed
+
+
+def test_named_puts_who_spoke_first():
+    assert agent.named("turn it down", "Lukas") == "Lukas: turn it down"
+    assert agent.named("turn it down", "") == "turn it down"
+
+
+def test_room_with_one_profile_adds_only_what_this_session_missed():
+    # "names" routing: every agent turn is the house's, so the room only
+    # brings in intents' turns and other conversations
+    room = agent.Room()
+    room.add("area:Lounge", 1000, "Michelle", "Play music", "Playing.", "house", "c1")
+    room.add("area:Lounge", 1010, "Lukas", "What's on", "Nothing.", None, "c1")     # own command
+    room.add("area:Lounge", 1020, "Michelle", "Timer", "Set.", "house", "c2")       # another id
+    assert room.recent("area:Lounge", 1100, 15, 6, "house", "c1") == [
+        ("Lukas", "What's on", "Nothing."), ("Michelle", "Timer", "Set.")]

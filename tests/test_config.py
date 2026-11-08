@@ -239,5 +239,11 @@ def test_brain_profiles_are_checked():
     cfg["brain"]["profiles"] += [{"name": "Lukas"}, {"url": "/p/x"}]   # an id twice, none
     assert len(errors(cfg)) == 2
     cfg = default_config()
+    assert valid(cfg)["brain"]["profile_routing"] == "profiles"
+    cfg["brain"]["profile_routing"] = "names"
+    assert valid(cfg)["brain"]["profile_routing"] == "names"
+    cfg["brain"]["profile_routing"] = "people"
+    assert errors(cfg)
+    cfg = default_config()
     cfg["brain"]["guest_entity"] = "guest mode"
     assert errors(cfg)

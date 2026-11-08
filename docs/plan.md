@@ -322,6 +322,10 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
   which guessed from the forecast. A local `weather_past` command from Open-Meteo's past hours
   (the weather entity's history as fallback, a rain gauge first when set, recorded rain reports counted). 0.35.3, design.md
   "Brain" → Weather and sky.
+- [x] **18⅞+++. One profile, names in the message.** Lukas 2026-11-08 (via the raccoon
+  session): one Hermes profile for everyone, "Lukas: ..." telling it who spoke
+  (`brain.profile_routing: names`). Also "this week" on a weekend takes in the next week.
+  0.36.0, design.md "Brain" → People and voices.
 
 ## How an agent continues development
 

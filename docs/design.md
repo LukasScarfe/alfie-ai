@@ -901,6 +901,17 @@ requirements, light enough for a Pi.
     with their own agent profile: `id` (what alfie-ears calls them), `name`, `user` (HA user id),
     `url` (a path on the house server, `/p/lukas`, or a whole address) and `key`. The house
     server and key (`agent_url`, `agent_key`) stay the house profile.
+    - **Who gets a person's turns** (`profile_routing`, 0.36.0): `profiles` (the default) is
+      everything below, each person's own Hermes profile. `names` is **one profile for
+      everyone** (production since 2026-11-08, Lukas: switching profiles confused things):
+      `profiles` then only maps people (ears id, HA user → name); every turn goes to the house
+      server and key with memory `alfie:<satellite>` and session `alfie-<conversation id>`, and
+      the user message starts with who spoke, "Lukas: turn it down". Spoken: whoever ears
+      recognised, by the same fresh/match/sticky/guest rules below; typed: the HA user's name;
+      nobody known, no prefix. No `speaking_with` line, profile `url`/`key` unused, and nothing
+      falls to the delegate for a missing profile. The shared room then only adds what this
+      session hasn't seen (intents' and Alfie's own turns, other conversations in the room),
+      names kept. The turn log shows "as <Name>" and `last_profile` holds the name.
     - **Typed:** the HA user typing picks their profile; memory key `alfie:user:<id>`.
     - **Spoken:** with `ears_url` set and `voice_identity` on, each voice turn asks alfie-ears
       `/api/last` once (0.5 s at most; any failure, the house). Its verdict counts only when heard
@@ -986,8 +997,8 @@ requirements, light enough for a Pi.
         its rises (a midnight reset is no rain), a rate (mm/h, `precipitation_intensity`) is
         added up over the time it held, into the hours they fell in.
       A saved `own_always` that held the forecast gets `weather_past` too (config version 7).
-    - **Always local** (`own_always`, 0.34.0): with `own_sentences` off (production since
-      2026-11-01, Hermes takes the rest) these commands are still matched; default the five
+    - **Always local** (`own_always`, 0.34.0): with `own_sentences` off (production had it off
+      2026-11-01 to 11-08; it is on again since 2026-11-08, Lukas's call) these commands are still matched; default the five
       weather and sky ones. Measured before: "is it raining" 5-6 s and a city 7-11 s through
       Hermes, which once said 20 °C in Toronto in November.
     - Where the data comes from: the state, plus the hourly and daily forecasts from
@@ -1030,7 +1041,8 @@ requirements, light enough for a Pi.
       same song on two players (Music Assistant and the speaker's own integration) is said
       once. Players: `brain.media_players`, else every one but Music Assistant groups and the
       integrations in `media_skip` (`plex`: it lists friends streaming from the server).
-    - `calendar`: what's on (today, tonight, tomorrow, a weekday, this weekend or week, next
+    - `calendar`: what's on (today, tonight, tomorrow, a weekday, this weekend or week (on a
+      Saturday or Sunday, the week after too), next
       week, this month, the coming week), anything on or free, what's next, and when or what
       time an event is ("when is my next dance"). One `calendar.get_events` for a year of every
       calendar, kept `calendar_minutes` (60) and until a calendar entity changes. "What's on"
@@ -1044,7 +1056,7 @@ requirements, light enough for a Pi.
         Birthday". The user's own `brain.dates` still win.
     - `lists`: what's on a list, how many things, is X on it, "do we need milk". A list by its
       name ("the groceries list"); "the list", "to-do list" and "what do we need" mean
-      `brain.todo_list` ("" `todo.shopping_list`). `todo.get_items`, unfinished items only,
+      `brain.todo_list` ("" `todo.shopping_list`; production's is `todo.shopping`). `todo.get_items`, unfinished items only,
       `list_max` (10) said.
     - The panel's Brain tab has a "Home and calendar" card for these settings.
   - Fun and Alfie himself (`fun.py`, pure; six commands in `brain.FUN` plus `repeat` and

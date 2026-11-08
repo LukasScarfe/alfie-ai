@@ -836,6 +836,8 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
         "room_minutes": int(ck.number("brain room minutes", v["room_minutes"], 1, 120, 15)),
         "room_turns": int(ck.number("brain room turns", v["room_turns"], 1, 20, 6)),
         "profiles": _profiles(v["profiles"], ck),
+        "profile_routing": ck.choice("brain profile routing", v["profile_routing"],
+                                     ("profiles", "names"), "profiles"),
         "voice_identity": bool(v["voice_identity"]),
         "ears_url": _url("brain alfie-ears", v["ears_url"], ck),
         "ears_fresh": int(ck.number("brain ears freshness", v["ears_fresh"], 1, 120, 15)),

@@ -242,23 +242,27 @@ function agents(p) {
 function people(p, b) {
   const users = [["", "Nobody (voice only)"], ...(p.brainUsers || []).map((u) => [u.id, u.name])];
   for (const x of b.profiles) if (x.user && !users.some(([id]) => id === x.user)) users.push([x.user, x.user]);
+  const names = b.profile_routing === "names";
   const exprs = [["", "No change"], ...(p.choices?.expressions || []).map((e) => [e, U.human(e)])];
   const rows = b.profiles.map((x, i) => `<div class="card prof">
       <div class="row">${U.field("Name", U.text(`brain.profiles.${i}.name`, x.name, { placeholder: "Lukas" }))}
         ${U.field("ID", U.text(`brain.profiles.${i}.id`, x.id, { placeholder: "lukas" }), "What alfie-ears calls them.")}
         <button class="icon" data-action="brain-prof-rm" data-i="${i}" title="Remove" aria-label="Remove">${U.icon("mdi:delete-outline")}</button></div>
-      <div class="row">${U.field("Home Assistant user", U.select(`brain.profiles.${i}.user`, x.user, users), "Their typed chat goes to this profile.")}
+      ${names ? U.field("Home Assistant user", U.select(`brain.profiles.${i}.user`, x.user, users), "Their typed chat carries their name.")
+        : `<div class="row">${U.field("Home Assistant user", U.select(`brain.profiles.${i}.user`, x.user, users), "Their typed chat goes to this profile.")}
         ${U.field("Address", U.text(`brain.profiles.${i}.url`, x.url, { placeholder: "/p/lukas" }), "A path on the agent server above, or a whole address.")}</div>
-      ${U.field("API key", U.text(`brain.profiles.${i}.key`, x.key, { attrs: 'type="password" autocomplete="off"' }), "This profile's own key.")}</div>`).join("");
+      ${U.field("API key", U.text(`brain.profiles.${i}.key`, x.key, { attrs: 'type="password" autocomplete="off"' }), "This profile's own key.")}`}</div>`).join("");
   return U.card("People", `
-    <p class="muted">Each person can have their own agent profile, with its own memory: what they say to it stays theirs. Anyone else, and every turn nobody is sure about, goes to the house's (the agent server above). A profile that can't be reached hands over to the delegate, never to the house's.</p>
+    ${U.field("Who gets a person's turns", U.select("brain.profile_routing", b.profile_routing, [["profiles", "Their own agent profile"], ["names", "The house's, with their name"]], { rerender: true }),
+      names ? "One agent profile and one memory for everyone. Each turn goes to the house's (the agent server above) as \"Lukas: turn it down\", the name of whoever was recognised (by voice) or is typing; nothing when nobody is known."
+        : "Each person has their own agent profile, with its own memory: what they say to it stays theirs. Anyone else, and every turn nobody is sure about, goes to the house's (the agent server above). A profile that can't be reached hands over to the delegate, never to the house's.")}
     ${rows || `<p class="muted">Nobody yet: every turn is the house's.</p>`}
     <div class="row"><button class="flat" data-action="brain-prof-add">${U.icon("mdi:account-plus-outline")}Add a person</button></div>
     <h4>By voice</h4>
     ${U.field("alfie-ears", U.text("brain.ears_url", b.ears_url, { placeholder: "http://192.168.1.10:8794", attrs: "data-rerender" }),
       "A speaker-ID proxy in front of Whisper: for each voice request it says who spoke and whether it was meant for Alfie. Asked once per spoken turn, half a second at most; down means the house's.")}
     ${b.ears_url ? `
-    ${U.check("brain.voice_identity", b.voice_identity, "Use voice identity", "A spoken turn goes to the profile of whoever alfie-ears recognised, told it's a shared room. Off: every spoken turn is the house's.")}
+    ${U.check("brain.voice_identity", b.voice_identity, "Use voice identity", names ? "A spoken turn carries the name of whoever alfie-ears recognised. Off: no name." : "A spoken turn goes to the profile of whoever alfie-ears recognised, told it's a shared room. Off: every spoken turn is the house's.")}
     ${U.field("Keep the last person for", U.num("brain.voice_sticky", b.voice_sticky, { min: 0, max: 900, step: 5, unit: "s" }), "When ears hears a voice it can't place, the person it last recognised at that speaker this recently keeps the turn, instead of the house's. 0: never.")}
     <div class="row">${U.field("Verdict good for", U.num("brain.ears_fresh", b.ears_fresh, { min: 1, max: 120, step: 1, unit: "s" }), "An older one is about another request.")}
     ${U.field("Words must match", U.num("brain.ears_match", b.ears_match, { min: 50, max: 100, step: 1, unit: "%" }), "What ears heard against what Home Assistant was given.")}</div>
@@ -483,7 +487,7 @@ function brainLog(p) {
     const [ic, tier] = TIER[t.tier] || TIER[0];
     const at = new Date(t.at * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     return `<div class="turn t${t.tier}" title="${U.esc(tier)}">${U.icon(ic)}
-      <span class="said">“${U.esc(t.said)}”</span><span class="ms">${t.speaker ? `${U.esc(t.speaker)} · ` : ""}${t.profile ? `${U.esc(t.profile)}'s profile · ` : ""}${at} · ${t.ms} ms</span>
+      <span class="said">“${U.esc(t.said)}”</span><span class="ms">${t.speaker ? `${U.esc(t.speaker)} · ` : ""}${t.profile ? `${U.esc(t.profile)}'s profile · ` : ""}${t.person ? `as ${U.esc(t.person)} · ` : ""}${at} · ${t.ms} ms</span>
       <span class="meta">${U.esc(SOURCE[t.source] || t.source)}: ${U.esc(t.reply || (t.source === "dropped" ? "(silent)" : "(no reply)"))}</span>
       <small class="why muted">${U.esc(t.why)}</small></div>`;
   }).join("");
