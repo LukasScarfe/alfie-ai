@@ -18,7 +18,20 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.35.3.
+Version 0.36.0.
+
+**Now (2026-11-08): one profile, names in the message (plan.md 18⅞+++, 0.36.0), on production.**
+Lukas, via the raccoon session: one Hermes profile for everyone, since switching profiles caused
+confusion. `brain.profile_routing` (`profiles` default, `names` on production): every turn goes
+to the house server and key; the user message starts "Lukas: ..." (recognised voice by the usual
+rules, or the typing HA user); no `speaking_with` line; the room only adds what this session
+missed. Checked on production: typed "who am I" went to 192.168.1.241:8642 (no profile path),
+answered "You are Lukas Scarfe" in 2.8 s, `last_profile` "Lukas". **Not yet checked:** a
+recognised spoken turn. The raccoon session merges the Hermes memories and archives the
+lukas/michelle profile folders after this deploy. Also: "this week" on a Saturday or Sunday takes
+in the next week (on production Sunday it listed Monday to Saturday). The Einstein wiki line
+("developing the known theory of relativity") is not a stripping bug: kiwix's
+wikipedia_en_all_nopic_2026-06 says exactly that.
 
 **Now (2026-11-05): the weather earlier (plan.md 18⅞++, 0.35.3), on production.** Lukas: "did it
 rain today" was wrong. Nothing local matched past tense, so Hermes answered from today's
