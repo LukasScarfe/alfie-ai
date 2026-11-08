@@ -107,6 +107,9 @@ def default_settings() -> dict[str, Any]:
             "room_turns": 6,                # ...at most this many
             "profiles": [],                 # people with their own agent profile:
                                             # {id, name, user (HA user id), url, key}
+            "profile_routing": "profiles",  # "profiles": each person's turns go to their
+                                            # own profile; "names": every turn goes to the
+                                            # house's, "Lukas: ..." telling it who spoke
             "voice_identity": False,        # voice: the profile alfie-ears recognised
             "ears_url": "",                 # alfie-ears (its /api/last); "" none
             "ears_fresh": 15,               # seconds a verdict stays good for
@@ -329,6 +332,7 @@ class Turn:
     satellite: str = ""
     at: float = 0.0            # epoch seconds
     profile: str = ""          # the agent profile it went to ("" the house's)
+    person: str = ""           # "names" routing: who it was told spoke ("" nobody)
     speaker: str = ""          # who alfie-ears heard ("" not asked)
 
     @property

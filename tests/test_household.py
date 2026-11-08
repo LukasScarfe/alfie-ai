@@ -278,3 +278,15 @@ def test_sentences(text, cmd, want):
     got = [(brain.command_of(r.intent.name), {k: str(v.value).strip() for k, v in r.entities.items()})
            for r in hassil.recognize_all(text, INTENTS)]
     assert any(c == cmd and all(s.get(k) == v for k, v in want.items()) for c, s in got), got
+
+
+def test_this_week_on_a_weekend_takes_in_the_next_one():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from alfie.household import span_range
+    tz = ZoneInfo("America/Vancouver")
+    wed = datetime(2026, 11, 4, 10, tzinfo=tz)
+    assert span_range("week", wed)[1] == datetime(2026, 11, 9, tzinfo=tz)       # to Sunday's end
+    sun = datetime(2026, 11, 8, 10, tzinfo=tz)
+    assert span_range("week", sun) == (datetime(2026, 11, 8, tzinfo=tz),
+                                       datetime(2026, 11, 16, tzinfo=tz))

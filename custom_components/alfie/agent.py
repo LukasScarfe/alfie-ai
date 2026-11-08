@@ -153,6 +153,12 @@ def ears_summary(verdict: Mapping[str, Any] | None) -> dict[str, Any]:
     return {k: verdict.get(k) for k in keep if k in verdict}
 
 
+def named(text: str, name: str) -> str:
+    """The user message with who said it ("Lukas: turn it down"), for one
+    shared agent profile; unchanged when nobody is known."""
+    return f"{name}: {text}" if name else text
+
+
 def speaker_prompt(prompt: str, name: str, words: Mapping[str, Any]) -> str:
     """The turn's system message plus who is speaking (recognised by voice)."""
     line = (words.get("speaking_with") or

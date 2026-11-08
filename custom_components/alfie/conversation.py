@@ -312,7 +312,8 @@ class AlfieAgent(conversation.ConversationEntity):
                 self._missed(chat_log.conversation_id, text, turn.reply)
             if voice and turn.reply:
                 who = agent.by_id(s["profiles"], turn.profile or (verdict or {}).get("profile"))
-                self._room.add(self._room_key(user_input), time.time(), who["name"] if who else "",
+                self._room.add(self._room_key(user_input), time.time(),
+                               turn.person or (who["name"] if who else ""),
                                text, turn.reply, (turn.profile or "house") if reached else None,
                                chat_log.conversation_id)
             self._finish(turn)
@@ -382,8 +383,15 @@ class AlfieAgent(conversation.ConversationEntity):
         # 4. the agent server
         if s["agent_url"]:
             profile = self._profile(user_input, voice, verdict)
-            result = await self._agent(user_input, chat_log, language, turn, passed, profile)
-            self.engine.brain_route(agent.ears_summary(verdict), profile["id"] if profile else "")
+            if s["profile_routing"] == "names":
+                # one profile for everyone: the house's, told who spoke
+                turn.person = profile["name"] if profile else ""
+                result = await self._agent(user_input, chat_log, language, turn, passed)
+                self.engine.brain_route(agent.ears_summary(verdict), turn.person)
+            else:
+                result = await self._agent(user_input, chat_log, language, turn, passed, profile)
+                self.engine.brain_route(agent.ears_summary(verdict),
+                                        profile["id"] if profile else "")
             if result is not None:
                 reached = True
                 self._unseen.pop(chat_log.conversation_id, None)
@@ -556,7 +564,8 @@ class AlfieAgent(conversation.ConversationEntity):
 
         async def read() -> None:
             try:
-                async with http.post(url, json=agent.body(user_input.text, s["agent_model"], prompt, think),
+                async with http.post(url, json=agent.body(agent.named(user_input.text, turn.person),
+                                                          s["agent_model"], prompt, think),
                                      headers=hdrs, timeout=aiohttp.ClientTimeout(
                                          total=s["agent_seconds"], sock_connect=5)) as resp:
                     if resp.status != 200:
