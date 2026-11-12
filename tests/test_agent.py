@@ -96,6 +96,32 @@ def test_wait_lines():
     assert agent.say(EN, "approval")
 
 
+def test_sse_alfie_turn_flag():
+    got = feed([chunk("Tell me your neighbourhood.") + "\n", "\n",
+                "event: alfie.turn\n", 'data: {"expects_reply": true}\n', "\n",
+                chunk(None, "stop") + "\n", "\n", "data: [DONE]\n", "\n"])
+    assert got == [("text", "Tell me your neighbourhood."), ("turn", {"expects_reply": True}),
+                   ("done", None)]
+
+
+@pytest.mark.parametrize("tool,on,says", [
+    ("WebSearch", "web", True), ("WebFetch", "web", True), ("web_search", "web", True),
+    ("browser_navigate", "web", True), ("mcp__alfie__seerr_search", "web", False),
+    ("Bash", "web", False), ("mcp__ha__GetLiveContext", "web", False),
+    ("mcp__alfie__seerr_search", "slow", True), ("mcp__ha__GetLiveContext", "slow", False),
+    ("Read", "all", False), ("Bash", "all", True)])
+def test_wait_for(tool, on, says):
+    s = {**brain.default_settings(), "agent_wait_on": on}
+    assert agent.wait_for(tool, s) is says
+
+
+def test_harness_wait_lines():
+    r = random.Random(1)
+    w = EN["agent"]["wait"]
+    assert agent.wait_line(EN, "WebSearch", r) in w["WebSearch"]
+    assert agent.wait_line(EN, "WebFetch", r) in w["WebFetch"]
+
+
 def test_final_only_drops_what_comes_before_a_tool():
     final = agent.Final()
     for text in ("I'll look", " that up for you."):

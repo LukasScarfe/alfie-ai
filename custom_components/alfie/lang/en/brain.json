@@ -1024,6 +1024,8 @@
     "_": "agent.py: the agent server (Hermes). wait: said when it starts a slow tool before saying anything, by tool name or name start (\"web_\"), \"_\" for any other tool, \"slow\" when nothing has come for a while, \"think\" when the request asks for thought (think: the phrases that do; they name it anywhere in the request). prompt: the system message sent with each spoken request ({where}: the speaker's area, {time} and {day}: now). prompt_typed: the same for a typed one. earlier: how the turns the agent never saw are passed on with the next. room: the same for a spoken turn, with what was said in the room lately whoever answered ({who}: who said it, someone when not known). speaking_with: added to a spoken turn going to the person alfie-ears recognised ({name}).",
     "wait": {
       "web_": ["Give me a second while I look that up on the web.", "Hang on, let me check the web for that.", "One moment, I'm searching the web."],
+      "WebSearch": ["Let me search the web for you.", "Hang on, let me check the web for that.", "One moment, I'm searching the web."],
+      "WebFetch": ["Give me a moment, I'm reading that page.", "Let me look that up on the web."],
       "browser": ["Give me a moment, I'm opening that page."],
       "terminal": ["Give me a moment, I'm working on that."],
       "_": ["One moment while I work that out.", "Give me a second on that one."],

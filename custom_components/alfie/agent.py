@@ -257,7 +257,8 @@ class SSE:
     """Server-sent events, a line at a time, as (kind, value):
     ("text", str) reply text; ("tool", {tool, label, status, toolCallId}) a
     tool starting or finished; ("approval", {...}) the agent waits for a
-    person to approve a command; ("error", str); ("done", None)."""
+    person to approve a command; ("turn", {expects_reply}) what the agent says
+    about its reply (event `alfie.turn`); ("error", str); ("done", None)."""
 
     def __init__(self) -> None:
         self._event = ""
@@ -300,6 +301,8 @@ class SSE:
             return [("tool", dict(obj))]
         if event == "approval.request":
             return [("approval", dict(obj))]
+        if event == "alfie.turn":
+            return [("turn", dict(obj))]
         if event != "message":
             return []           # hermes.status and the like
         out: list[tuple[str, Any]] = []
@@ -345,6 +348,14 @@ def quick(tool: str, quick_tools: Iterable[str]) -> bool:
     (reading the house, memory): `quick_tools` are names or name starts."""
     return any(tool == q or (q.endswith(("_", ".", ":")) and tool.startswith(q))
                for q in quick_tools if q)
+
+
+def wait_for(tool: str, settings: Mapping[str, Any]) -> bool:
+    """Whether a tool starting gets a wait line (`agent_wait_on`): "web" only
+    the web's tools, else any that isn't quick."""
+    if settings.get("agent_wait_on") == "web":
+        return quick(tool, settings.get("agent_web_tools") or ())
+    return not quick(tool, settings.get("agent_quick_tools") or ())
 
 
 def wait_line(words: Mapping[str, Any], tool: str, rng: random.Random) -> str:
