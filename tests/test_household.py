@@ -257,6 +257,8 @@ SENTENCES = [
     ("whos singing", "media", {"ask": "artist"}),
     ("what's on today", "calendar", {"ask": "on", "span": "today"}),
     ("what's on my calendar tomorrow", "calendar", {"ask": "on", "span": "tomorrow"}),
+    ("what's on alfie's calendar this week", "calendar", {"ask": "on", "name": "alfie's", "span": "week"}),
+    ("what's on michelle's calendar", "calendar", {"ask": "on", "name": "michelle's"}),
     ("do i have anything on this weekend", "calendar", {"ask": "any", "span": "weekend"}),
     ("am i free on friday", "calendar", {"ask": "free", "span": "fri"}),
     ("what's next on my calendar", "calendar", {"ask": "next"}),

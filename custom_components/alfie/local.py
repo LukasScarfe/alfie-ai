@@ -215,6 +215,8 @@ class LocalAnswers:
         if idx is None:
             return None
         area = _clean(slots.get("area", ""))
+        if area.lower() in (words.get("whole_house") or ()):
+            area = ""                # "in the house": everywhere, not a room called house
         reg, skip = er.async_get(self.hass), set(s["count_skip"])
         things = [t for e in idx.entries if (e.exposed or not s["exposed_only"])
                   and not (skip and (r := reg.async_get(e.entity_id)) and r.platform in skip)
@@ -472,7 +474,13 @@ class LocalAnswers:
                 if not asked or asked.lower() in reckon.holidays({}, s["dates"]):
                     return None
                 return household.when_reply(asked, events, words, now, span)
-            if s["calendars"]:
+            if name:
+                # "what's on Alfie's calendar": that calendar alone
+                st = self._pick(f"{name} calendar", "calendar", s)
+                if st is None:
+                    return None
+                events = [e for e in events if e.calendar == st.entity_id]
+            elif s["calendars"]:
                 events = [e for e in events if e.calendar in s["calendars"]]
             return household.events_reply(ask, span, events, words, now, s["event_max"])
         if cmd == "lists":
