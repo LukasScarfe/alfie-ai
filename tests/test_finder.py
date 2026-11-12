@@ -83,3 +83,14 @@ def test_result_reads_states_and_says_what_can_be_switched():
     power = next(x for x in r["results"] if x["entity_id"].startswith("sensor."))
     assert power["unit"] == "W" and power["can_control"] is False
     assert result([], states.get)["results"] == []
+
+
+def test_a_word_inside_a_long_question_names_nothing():
+    # 2026-11-12: "what are some non-chain coffee shops near me?" answered
+    # "Coffee maker is on." (its alias "coffee" scored 71 among seven words)
+    house = Index([Entry("switch.dining_coffee_maker_outlet", "Coffee maker", ("coffee",), "",
+                         "Dining", True)])
+    hits = house.search("some non chain coffee shops near me")
+    assert not hits or hits[0][0] < 70
+    assert house.search("coffee")[0][0] >= 70
+    assert house.search("the coffee")[0][0] >= 70

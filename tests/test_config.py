@@ -247,3 +247,11 @@ def test_brain_profiles_are_checked():
     cfg = default_config()
     cfg["brain"]["guest_entity"] = "guest mode"
     assert errors(cfg)
+
+
+def test_version_matches_the_manifest():
+    import json, os
+    from alfie.const import VERSION
+    with open(os.path.join(os.path.dirname(__file__), "..", "custom_components", "alfie",
+                           "manifest.json")) as f:
+        assert json.load(f)["version"] == VERSION
