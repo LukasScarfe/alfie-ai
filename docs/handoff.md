@@ -18,7 +18,22 @@ Each step sent Lukas PNGs as it went.
 (already the dev loop), put it on `tablet-dash`. Retire the old Superintendent automations only
 with his OK.
 
-Version 0.37.0.
+Version 0.38.1.
+
+**Now (2026-11-12): listen again, say before a web search (plan.md 18⅞+++++, 0.38.1), on
+production.** From Lukas via the alfie_harness session (the agent server is now the Claude-based
+harness, `agent_url` 192.168.1.241:8643, model `alfie-harness`; Hermes is retired from Alfie's
+path). `brain.listen_again` sets `continue_conversation` in every tier for a reply ending in "?",
+or one the agent flags with `event: alfie.turn` / `{"expects_reply": true}` (the harness sends it
+for "Tell me…", "Let me know…"). `agent_wait_on: web` on production (with `agent_wait` on):
+"Give me a second while I look that up on the web" once before a web tool, nothing else.
+Checked on production by typed turns: the art-gallery hours said the line first (11 s); "which
+light" got `continue_conversation` true. **Not yet checked:** that the Scope Echo Dot
+(EchoMuse, supported_features 3) really listens again; Lukas's spoken test. Also fixed: "coffee
+shops near me" no longer answers with the coffee maker; "what's on Alfie's calendar" lists that
+calendar; "what's on in the house" counts everywhere. Open: "12 things are on" lists config
+switches ("Alfie Harness Alfie uses Claude", "Circadian lighting"); `count_skip` or exposure
+decides that. Production's brain config before 0.38: the session scratchpad only.
 
 **Now (2026-11-08): never mind (plan.md 18⅞++++, 0.37.0), on production.** Lukas: "cancel",
 "forget it" and the like should dismiss him locally. New `dismiss` command, tried first, silent

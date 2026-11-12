@@ -964,7 +964,10 @@ requirements, light enough for a Pi.
   - Any entity: a `{name}` wildcard resolved by `finder.py`'s name and area index (every entity
     by default; `brain.exposed_only` limits it to Assist's exposed ones). State, attributes,
     areas and device classes, when it last changed, history (highest, lowest, average, how many
-    times) and comparisons. Two equal fits: he asks which.
+    times) and comparisons. Two equal fits: he asks which. A name's words beyond the thing's
+    own cost 8 points each after the first (`finder.EXTRA_WORD`), so "coffee" inside "some non
+    chain coffee shops near me" isn't the coffee maker (2026-11-12). "In the house" (the
+    language's `whole_house` words) means everywhere, not a room.
   - Weather and sky (`outside.py`, pure; six commands: `weather_now`, `weather_forecast`,
     `weather_past`, `weather_gear`, `sun`, `moon`). They run before HA's intents, so his richer answer beats
     HassGetWeather.
@@ -1056,7 +1059,9 @@ requirements, light enough for a Pi.
       week, this month, the coming week), anything on or free, what's next, and when or what
       time an event is ("when is my next dance"). One `calendar.get_events` for a year of every
       calendar, kept `calendar_minutes` (60) and until a calendar entity changes. "What's on"
-      reads `brain.calendars` ([] every one); "when is" looks in all. `event_max` (6) are said.
+      reads `brain.calendars` ([] every one); "what's on Alfie's calendar" (a name before
+      "calendar" or "schedule") only that calendar, matched like any entity; "when is" looks in
+      all. `event_max` (6) are said.
       - An event is found by its words: every word asked must be in the title, the fewest
         extra words win, then the soonest. Possessives, plurals, "bday" and "(regional
         holiday)" don't count, and "Boxing Day / Christmas Holiday" is tried part by part.
