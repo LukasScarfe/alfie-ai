@@ -60,6 +60,9 @@ class Entry:
         self.area_key = _key(self.area)
 
 
+EXTRA_WORD = 8.0      # what each query word beyond one the phrase doesn't have costs
+
+
 def _score(q: tuple[str, ...], e: Entry) -> float:
     """How well the query words name this entity, 0 to about 120."""
     qs, best = set(q), 0.0
@@ -74,7 +77,11 @@ def _score(q: tuple[str, ...], e: Entry) -> float:
             if words_ == p:
                 s = 100.0
             elif ps <= ws:              # the whole phrase is in the query
-                s = 70.0 + 10 * len(ps) / len(ws)
+                # ...but every word past the first that names nothing of it
+                # costs: "coffee" in "some non chain coffee shops near me"
+                # isn't asking about the coffee maker
+                extra = len(ws - ps)
+                s = 70.0 + 10 * len(ps) / len(ws) - EXTRA_WORD * max(0, extra - 1)
             elif ws <= ps:              # the query is part of the phrase
                 s = 55.0 + 25 * len(ws) / len(ps)
             else:
