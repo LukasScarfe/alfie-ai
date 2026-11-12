@@ -877,10 +877,12 @@ requirements, light enough for a Pi.
     out): anything said before a tool call is dropped, because everything in the log reaches the
     speaker and only the end of the stream shows which text was the answer. The speaker starts
     once the reply is whole. The agent's tools run on its side; each shows
-    as an external tool call (`agent_<tool>`). **Wait lines** (`agent_wait`): when it starts a slow tool before
-    saying anything (any tool but `agent_quick_tools`: reading the house, memory), or nothing
-    has come for `agent_wait_seconds`, he says a line from the language (`agent.wait`, by tool:
-    "Give me a second while I look that up on the web."). Text followed by a tool call makes
+    as an external tool call (`agent_<tool>`). **Wait lines** (`agent_wait`, once per turn): which
+    tools get one is `agent_wait_on` (Lukas 2026-11-12: "Let me search the web for you" before
+    a web search): `web` only `agent_web_tools` (web_, WebSearch, WebFetch, browser_; production),
+    `slow` any tool but `agent_quick_tools` (reading the house, memory), `all` (the default) also
+    when nothing has come for `agent_wait_seconds`. He says a line from the language (`agent.wait`,
+    by tool name or name start: "Give me a second while I look that up on the web."). Text followed by a tool call makes
     HA's pipeline start speaking at once, so the line is heard while the agent works. An
     approval request ends the turn with "That needs your approval first". **Thinking** (0.29.0;
     Lukas 2026-11-01: "I want this to be a smart agent", with spoken answers still quick): each
@@ -938,6 +940,14 @@ requirements, light enough for a Pi.
       profile. Missed turns stay per conversation.
     - The turn log shows the speaker and profile; `sensor.alfie_mood` has `last_profile`,
       `last_speaker` and `last_ears` (unrecorded); it writes only when profile or speaker change.
+  - **Listen again** (`brain.listen_again`, 0.38.0; Lukas 2026-11-12: "Tell me your
+    neighbourhood" and the Dot had stopped listening). Every tier's result sets HA's
+    `continue_conversation`, which satellites (ESPHome, Voice PE) honour by listening again with
+    no wake word. `question` (default): a reply ending in "?" (as HA's chat log decides, closing
+    quotes aside), the agent server's flag, or a tier that asked already (his "which one?", HA's
+    intents). `flag`: only the last two. `off`: never. The flag is an SSE event the agent sends
+    before `[DONE]`: `event: alfie.turn`, `data: {"expects_reply": true}` (the harness sends it
+    for "Tell me…", "Let me know…"). The turn log has `flagged` and `listens`.
   - A pipeline using Alfie should have "Prefer handling commands locally" off: Alfie does that
     himself, and the pipeline's own matches never reach his turn log. The Brain tab says so.
   - The face: a badge by him for `icon_seconds` (a bolt when he answered, a brain while the

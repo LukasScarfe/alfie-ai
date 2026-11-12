@@ -826,9 +826,12 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
         if icon and not icons[key]:
             ck.bad(f"brain {key.replace('_', ' ')}", f"{icon!r} is not an icon name")
     quick = v["agent_quick_tools"] if isinstance(v["agent_quick_tools"], list) else []
+    web = v["agent_web_tools"] if isinstance(v["agent_web_tools"], list) else []
     phrases = v["agent_think_phrases"] if isinstance(v["agent_think_phrases"], list) else []
     return {
         "delegate": delegate,
+        "listen_again": ck.choice("brain listen again", v["listen_again"], brain.LISTEN,
+                                  "question"),
         "agent_url": _url("brain agent server", v["agent_url"], ck),
         "agent_key": str(v["agent_key"] or "").strip()[:500],
         "agent_model": str(v["agent_model"] or "").strip()[:100] or "hermes-agent",
@@ -855,6 +858,8 @@ def _brain(raw: Mapping[str, Any], base: dict[str, Any], ck: _Check) -> dict[str
         "agent_wait": bool(v["agent_wait"]),
         "agent_wait_seconds": _num(ck.number("brain agent quiet time", v["agent_wait_seconds"],
                                              1, 60, 4)),
+        "agent_wait_on": ck.choice("brain agent wait on", v["agent_wait_on"], brain.WAIT_ON, "all"),
+        "agent_web_tools": [t for x in web[:50] if (t := str(x).strip()[:60])],
         "agent_quick_tools": [t for x in quick[:50] if (t := str(x).strip()[:60])],
         **{f"agent_think_{k}": ck.choice(f"brain agent thinking {k}", v[f"agent_think_{k}"],
                                          agent.THINK, brain.default_settings()[f"agent_think_{k}"])

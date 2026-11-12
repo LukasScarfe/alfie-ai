@@ -366,7 +366,9 @@ function brainTab(p) {
         ${b.room_context ? `<div class="row">${U.field("From the last", U.num("brain.room_minutes", b.room_minutes, { min: 1, max: 120, step: 1, unit: "min" }))}
         ${U.field("At most", U.num("brain.room_turns", b.room_turns, { min: 1, max: 20, step: 1, unit: "turns" }))}</div>` : ""}
         ${U.check("brain.agent_wait", b.agent_wait, "Say when it'll take a moment", "Before a web search or other slow tool, or when nothing has come for a few seconds, he says \"Give me a second while I look that up\" so nobody waits in silence.")}
-        ${b.agent_wait ? `${U.field("Quiet for", U.num("brain.agent_wait_seconds", b.agent_wait_seconds, { min: 1, max: 60, step: 1, unit: "s" }), "Then he says he's still on it.")}
+        ${b.agent_wait ? `${U.field("Say it before", U.select("brain.agent_wait_on", b.agent_wait_on, [["web", "A web search only"], ["slow", "Any slow tool"], ["all", "Any slow tool, or a quiet spell"]], { rerender: true }), "Once per request.")}
+        ${b.agent_wait_on === "web" ? U.wide("Web tools", `<textarea data-path="brain.agent_web_tools" data-kind="lines" rows="2">${U.esc((b.agent_web_tools || []).join("\n"))}</textarea>`, "The agent's tools that reach the web, one per line; ending in _ means every tool starting with it.") : ""}
+        ${b.agent_wait_on === "all" ? U.field("Quiet for", U.num("brain.agent_wait_seconds", b.agent_wait_seconds, { min: 1, max: 60, step: 1, unit: "s" }), "Then he says he's still on it.") : ""}
         ${U.wide("Quick tools", `<textarea data-path="brain.agent_quick_tools" data-kind="lines" rows="3">${U.esc((b.agent_quick_tools || []).join("\n"))}</textarea>`, "Tools fast enough to need no wait line, one per line; ending in _ means every tool starting with it.")}` : ""}
         <div class="row">${U.field("Thinking, spoken", U.select("brain.agent_think_voice", b.agent_think_voice, THINK), "Off keeps spoken answers quick.")}
         ${U.field("Typed", U.select("brain.agent_think_typed", b.agent_think_typed, THINK))}
@@ -381,6 +383,7 @@ function brainTab(p) {
         ${U.field("When nothing answers", U.text("brain.fallback", b.fallback, { placeholder: "Sorry, I don't know that one." }),
           "Also when the delegate fails.")}`)}
       ${U.card("Answered locally", `
+        ${U.field("Listen again after", U.select("brain.listen_again", b.listen_again, [["question", "A reply that asks something"], ["flag", "Only when the agent says it waits"], ["off", "Never"]]), "The speaker starts listening without the wake word: after a reply ending in a question, or one the agent server marks as waiting for an answer (\"Tell me your neighbourhood.\"). Needs a satellite that supports it, like Voice PE or an ESPHome one.")}
         ${U.check("brain.local_intents", b.local_intents, "Home Assistant's intents", "Turn on, set, timers, the time, the weather… matched strictly against exposed entities. Off: only his own sentences are local.")}
         ${b.local_intents ? `${U.check("brain.local_states", b.local_states, "Questions about states", "\"Is the door locked?\", \"What's the weather?\" from the real state. Off: the delegate answers them (an LLM may guess).")}
         ${U.check("brain.local_media_search", b.local_media_search, "\"Play …\" searches", "Home Assistant's media search. Off: the delegate, with its own music tools.")}` : ""}`)}

@@ -93,6 +93,10 @@ MAX_SAID = 300     # characters of a question or reply kept in the log
 def default_settings() -> dict[str, Any]:
     """The `brain` config section."""
     return {"delegate": "",                 # a conversation entity; "" none
+            "listen_again": "question",     # the speaker listens again after a reply that
+                                            # asks something (LISTEN): "question" one ending
+                                            # in "?" or the agent's flag; "flag" only the flag
+                                            # (and his own "which one?"); "off" never
             "agent_url": "",                # an agent server (Hermes): it answers before the
                                             # delegate, which is then only its stand-in; "" off
             "agent_key": "",                # its API key
@@ -123,8 +127,13 @@ def default_settings() -> dict[str, Any]:
             "agent_seconds": 120,           # the longest it may take
             "agent_wait": True,             # "give me a second" before something slow
             "agent_wait_seconds": 4,        # ...or when nothing has come for this long
+            "agent_wait_on": "all",         # WAIT_ON: "web" only before a web tool; "slow" any
+                                            # slow tool; "all" also after the quiet time
+            "agent_web_tools": ["web_", "WebSearch", "WebFetch", "browser_"],
+                                            # what counts as the web for "web"
             "agent_quick_tools": ["ha_", "memory", "session_search", "tool_search", "tool_call",
-                                  "todo", "clarify", "skill_view", "skills_list"],
+                                  "todo", "clarify", "skill_view", "skills_list", "mcp__ha__",
+                                  "Read", "Grep", "Glob"],
                                             # tools fast enough to need no wait line
             "agent_think_voice": "off",     # thinking on spoken requests (agent.THINK): fast
             "agent_think_typed": "default", # ...on typed ones; "default" the server's own
@@ -314,6 +323,27 @@ def how_are_you(words: Mapping[str, Any] | None, level: str, reason: str = "") -
     return feeling
 
 
+LISTEN = ("question", "flag", "off")
+WAIT_ON = ("web", "slow", "all")
+QUESTION_ENDS = ("?", "\u037e", "\uff1f")      # as Home Assistant's chat log: ?, Greek, Chinese
+
+
+def asks(reply: str) -> bool:
+    """Whether a reply ends in a question, closing quotes and brackets aside."""
+    return reply.strip().rstrip("\"'\u201d\u2019)]* ").endswith(QUESTION_ENDS)
+
+
+def listen_again(mode: str, reply: str, flagged: bool, already: bool) -> bool:
+    """Whether the speaker should listen again after this reply: `flagged`
+    the agent said it waits for an answer, `already` the tier asked for it
+    (his "which one?", HA's own intents)."""
+    if mode == "off" or not reply.strip():
+        return False
+    if mode == "flag":
+        return flagged or already
+    return flagged or already or asks(reply)
+
+
 def fallback(words: Mapping[str, Any] | None, settings: Mapping[str, Any]) -> str:
     return settings["fallback"] or (words or {}).get("fallback") or "Sorry, I don't know that one."
 
@@ -335,6 +365,8 @@ class Turn:
     profile: str = ""          # the agent profile it went to ("" the house's)
     person: str = ""           # "names" routing: who it was told spoke ("" nobody)
     speaker: str = ""          # who alfie-ears heard ("" not asked)
+    flagged: bool = False      # the agent said its reply waits for an answer
+    listens: bool = False      # the speaker was told to listen again
 
     @property
     def tier(self) -> int:

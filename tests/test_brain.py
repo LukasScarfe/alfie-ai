@@ -187,3 +187,28 @@ def test_empty_state_answers_go_on():
     assert brain.empty_answer("HassGetState", 0, 2, "taylor swift", known)
     assert not brain.empty_answer("HassGetState", 0, 2, "work", known)
     assert not brain.empty_answer("HassGetState", 0, 2, "not home", known)
+
+
+@pytest.mark.parametrize("mode,reply,flagged,already,listens", [
+    ("question", "Which room?", False, False, True),
+    ("question", 'Did you mean "the lamp"?', False, False, True),
+    ("question", "The kitchen lights are on.", False, False, False),
+    ("question", "Tell me your neighbourhood.", True, False, True),
+    ("question", "Kitchen or bedroom?", False, True, True),
+    ("question", "", True, True, False),
+    ("flag", "Which room?", False, False, False),
+    ("flag", "Tell me your neighbourhood.", True, False, True),
+    ("flag", "Kitchen or bedroom?", False, True, True),
+    ("off", "Which room?", True, True, False)])
+def test_listen_again(mode, reply, flagged, already, listens):
+    assert brain.listen_again(mode, reply, flagged, already) is listens
+
+
+def test_listen_again_settings_validate():
+    cfg = validate_config({"brain": {"listen_again": "flag", "agent_wait_on": "web",
+                                     "agent_web_tools": ["WebSearch", " "]}})
+    assert cfg["brain"]["listen_again"] == "flag"
+    assert cfg["brain"]["agent_wait_on"] == "web"
+    assert cfg["brain"]["agent_web_tools"] == ["WebSearch"]
+    with pytest.raises(ConfigError):
+        validate_config({"brain": {"listen_again": "always"}})

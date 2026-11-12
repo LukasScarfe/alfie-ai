@@ -329,6 +329,11 @@ HA community too (agreed with Lukas 2026-10-30, see design.md "Brain").
 - [x] **18⅞++++. Never mind.** Lukas 2026-11-08: "cancel", "forget it", "that's all" went to
   Hermes. A local `dismiss` command, silent by default (`dismiss_reply`), "stop" left out.
   0.37.0, design.md "Brain" → Fun and Alfie himself.
+- [x] **18⅞+++++. Listen again, and say before a web search.** Lukas 2026-11-12 (via the
+  alfie_harness session): "Tell me your neighbourhood" left the Dot deaf without the wake word,
+  and a slow web search was silent. `brain.listen_again` (every tier; "?" or the agent's
+  `alfie.turn` `expects_reply` event), `agent_wait_on` ("web" on production) with the harness's
+  `WebSearch`/`WebFetch` lines. 0.38.0, design.md "Brain".
 
 ## How an agent continues development
 

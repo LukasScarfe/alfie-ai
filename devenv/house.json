@@ -1245,6 +1245,7 @@
  },
  "brain": {
   "delegate": "",
+  "listen_again": "question",
   "agent_url": "",
   "agent_key": "",
   "agent_model": "hermes-agent",
@@ -1269,6 +1270,13 @@
   "agent_seconds": 120,
   "agent_wait": true,
   "agent_wait_seconds": 4,
+  "agent_wait_on": "all",
+  "agent_web_tools": [
+   "web_",
+   "WebSearch",
+   "WebFetch",
+   "browser_"
+  ],
   "agent_quick_tools": [
    "ha_",
    "memory",
@@ -1278,7 +1286,11 @@
    "todo",
    "clarify",
    "skill_view",
-   "skills_list"
+   "skills_list",
+   "mcp__ha__",
+   "Read",
+   "Grep",
+   "Glob"
   ],
   "agent_think_voice": "off",
   "agent_think_typed": "default",

@@ -310,6 +310,8 @@ class AlfieAgent(conversation.ConversationEntity):
 
         def done(result: conversation.ConversationResult) -> conversation.ConversationResult:
             turn.reply = result.response.speech.get("plain", {}).get("speech", "")
+            result.continue_conversation = turn.listens = brain.listen_again(
+                s["listen_again"], turn.reply, turn.flagged, bool(result.continue_conversation))
             turn.ms = int((time.monotonic() - start) * 1000)
             if s["agent_url"] and not reached and turn.reply:
                 self._missed(chat_log.conversation_id, text, turn.reply)
@@ -615,15 +617,14 @@ class AlfieAgent(conversation.ConversationEntity):
                         yield d
                     fresh = True
             while True:
-                quiet = (s["agent_wait_seconds"] if s["agent_wait"] and not state["text"]
-                         and not waited else None)
+                quiet = (s["agent_wait_seconds"] if s["agent_wait"] and s["agent_wait_on"] == "all"
+                         and not state["text"] and not waited else None)
                 try:
                     kind, value = await asyncio.wait_for(events.get(), quiet)
                 except TimeoutError:
                     kind, value = "quiet", None
                 if kind == "quiet" or (kind == "tool" and value.get("status") == "running"
-                                       and not agent.quick(str(value.get("tool") or ""),
-                                                           s["agent_quick_tools"])
+                                       and agent.wait_for(str(value.get("tool") or ""), s)
                                        and s["agent_wait"] and not state["text"] and not waited):
                     tool = "slow" if kind == "quiet" else str(value.get("tool") or "")
                     line = agent.wait_line(words, tool, self._rng)
@@ -661,6 +662,8 @@ class AlfieAgent(conversation.ConversationEntity):
                     state["text"] = True
                     spoken.append(value)
                     yield {"content": value}
+                elif kind == "turn":
+                    turn.flagged = bool(value.get("expects_reply"))
                 elif kind == "approval":
                     line = agent.say(words, "approval")
                     if fresh:
