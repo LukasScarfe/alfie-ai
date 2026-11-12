@@ -124,6 +124,7 @@
     "calendar": [
       "{cal_alone:ask} [<now>]",
       "{cal_q:ask} [on|planned|happening|going on] [for] {cal_span:span}",
+    "{cal_q:ask} [on|in] {name} (calendar|schedule) [{cal_span:span}]",
       "{when_q:ask} [my|the|our] [next] {what} [{cal_span:span}]",
       "{time_q:ask} [my|the|our] [next] {what} [{cal_span:span}]"
     ],
@@ -240,6 +241,7 @@
       "(did|was|were) {name} {event} {period}"
     ]
   },
+  "whole_house": ["house", "home", "whole house", "the house", "the whole house", "everywhere", "the place", "the flat", "the apartment", "our place"],
   "rules": {"what_is": "(what is|what's|whats|what are|what're|tell me|give me|read me)",
    "in_area": "[(in|on|at|around|inside)] [the] {area}", "outside": "(outside|out there|outdoors|out)",
    "now": "(now|right now|at the moment|currently)", "in_place": "in {place}"},
