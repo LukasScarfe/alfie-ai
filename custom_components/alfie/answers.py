@@ -170,6 +170,13 @@ def state_reply(thing: Thing, words: Mapping[str, Any], now: datetime) -> str:
     return _t(words, "is", name=thing.name, state=say_state(thing, words, now))
 
 
+def can_be(thing: Thing, asked: str) -> bool:
+    """Whether a yes/no about this state makes sense: a zone's head count or a
+    sensor's reading is a number, so "is Costco open?" isn't about it (the
+    question goes on to the agent, which can look the hours up)."""
+    return number(thing.state) is None or number(asked) is not None
+
+
 def yes_no_reply(thing: Thing, asked: str, words: Mapping[str, Any], now: datetime) -> str:
     said = say_state(thing, words, now)
     key = "yes" if same_state(asked, said, thing.state, words) else "no"

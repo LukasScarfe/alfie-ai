@@ -180,6 +180,8 @@ class LocalAnswers:
             if slots.get("compare") and slots.get("value"):
                 return answers.compare_reply(t, slots["compare"], slots["value"], words, now)
             if slots.get("state"):
+                if not answers.can_be(t, slots["state"]):
+                    return None
                 return answers.yes_no_reply(t, slots["state"], words, now)
             return answers.state_reply(t, words, now)
         if cmd == "entity_when":

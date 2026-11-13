@@ -142,6 +142,13 @@ def test_same_state(t, asked, yes):
     assert answers.same_state(asked, said, t.state, EN) is yes
 
 
+def test_can_be():
+    assert answers.can_be(DOOR, "open")
+    assert not answers.can_be(thing("zone.costco", "0", "Costco"), "open")
+    assert not answers.can_be(thing("sensor.bathroom_humidity", "61"), "humid")
+    assert answers.can_be(thing("sensor.level", "3"), "3")
+
+
 def test_state_replies():
     t = thing("sensor.office_temperature", "21.46", "Office Temperature", unit_of_measurement="°C")
     assert answers.state_reply(t, EN, NOW) == "Office Temperature is 21.5°C."
