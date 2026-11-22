@@ -6,14 +6,18 @@ follows good and bad signals the user picks, and he presents data screens (plots
 map) on a dashboard card. One HACS integration holds the engine, an admin editor panel and a
 bundled card. It grew out of the "Superintendent" face on Lukas's oscilloscope display (xy-bench).
 
-- **What to build:** [docs/design.md](docs/design.md), which holds everything agreed with Lukas.
-- **How and in what order:** [docs/plan.md](docs/plan.md), a checklist of milestones.
-- **Where the last agent left off:** [docs/handoff.md](docs/handoff.md).
+The working notes live in a private repo, `LukasScarfe/alfie-ai-notes`, cloned to `notes/`
+(gitignored). Machine-specific details (addresses, logins) are in `CLAUDE.local.md` (gitignored, a
+symlink into `notes/`). Never copy either into this public repo.
+
+- **What to build:** `notes/design.md`, which holds everything agreed with Lukas.
+- **How and in what order:** `notes/plan.md`, a checklist of milestones.
+- **Where the last agent left off:** `notes/handoff.md`.
 
 ## "Continue development"
 
 When asked to continue, or to work on this project without a specific task, follow **"How an agent
-continues development"** at the end of [docs/plan.md](docs/plan.md):
+continues development"** at the end of `notes/plan.md`:
 
 1. Read handoff.md.
 2. Resume the `[~]` step, or pick the first `[ ]` step whose requirements are met.
@@ -33,11 +37,11 @@ Only one agent works on this repo at a time.
   changes, never for an animation, and bulky attributes stay `_unrecorded_attributes`. Cache any
   network fetch (Overpass, history). The card renders in the browser and also stays frugal: a
   frame-rate cap, and no drawing while hidden or off screen. See design.md "Resource budget".
-- **Develop against production HA** (`homeassistant.local`), which Lukas's household uses. Deploying
+- **Develop against production HA** (address in `CLAUDE.local.md`), which Lukas's household uses. Deploying
   Alfie there (`./dev prod deploy`, which restarts HA) and changing Alfie's own config is fine.
   Changing anything else in production (automations, dashboards, voice pipelines) needs Lukas's
   OK first.
-- Tooling runs in containers or a `./dev` wrapper. Don't install packages on the homeserver host.
+- Tooling runs in containers or a `./dev` wrapper. Don't install packages on the host.
 - Commits are authored as Lukas Scarfe <lukas.scarfe@gmail.com>, with **no Claude attribution**
   (no Co-Authored-By trailer, no session link, no "Generated with" footer), in commits, PRs and
   releases. The repo is public.
@@ -62,10 +66,9 @@ stops, find out why.
 ./dev prod ws alfie/story/expand     # any WebSocket command (stdlib client, token from the SMB mount)
 ```
 
-The old throwaway HA is still there for faking states and screenshots. It runs on homeserver as
-container `alfie-dev-ha` (HA 2026.10), at
-`http://localhost:8125` (user `dev` / `dev-only-password`). `custom_components/alfie` is
-bind-mounted read only. Everything goes through `./dev`; run it with no arguments for the list.
+The old throwaway HA is still there for faking states and screenshots: container `alfie-dev-ha`
+(HA 2026.10) at `http://localhost:8125`, user `dev` (password in `devenv/local.env`).
+`custom_components/alfie` is bind-mounted read only. Everything goes through `./dev`; run it with no arguments for the list.
 
 ```bash
 ./dev up && ./dev wait     # start; first time also: ./dev onboard && ./dev add

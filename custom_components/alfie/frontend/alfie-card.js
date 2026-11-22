@@ -1,7 +1,7 @@
 // Alfie's Lovelace card: the face, drawn in the browser at full frame rate.
 //
 // The engine pushes low-rate scene state over `alfie/subscribe` (see
-// docs/design.md "Scene state"); everything per frame happens here: the
+// notes/design.md (private) "Scene state"); everything per frame happens here: the
 // spring blend between expressions, blinks, breathing, animation keyframes,
 // and energy, which makes a happy Alfie quick and bouncy and a miserable one
 // slow and small. Vanilla JS, no build step. Auto-registered by the

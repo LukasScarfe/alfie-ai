@@ -1,5 +1,5 @@
-"""Production HA (homeassistant.local) for `./dev prod ...`: REST and a stdlib
-WebSocket client (homeserver has no websocket library). The token is read from
+"""Production HA (ALFIE_PROD_HOST, from devenv/local.env) for `./dev prod ...`:
+REST and a stdlib WebSocket client (the host has no websocket library). The token is read from
 /mnt/homeassistant/.env and never printed.
 
   python3 devenv/prodtool.py ws TYPE [json]   one WebSocket command, result as JSON
@@ -18,7 +18,8 @@ import sys
 import time
 import urllib.request
 
-HOST, PORT = "homeassistant.local", 8123
+HOST = os.environ.get("ALFIE_PROD_HOST", "homeassistant.local")
+PORT = int(os.environ.get("ALFIE_PROD_PORT", "8123"))
 BASE = f"http://{HOST}:{PORT}"
 REPO = "LukasScarfe/alfie-ai"
 UPDATE = "update.alfie_update"

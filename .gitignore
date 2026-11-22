@@ -12,3 +12,8 @@ node_modules/
 devenv/config/*
 !devenv/config/configuration.yaml
 devenv/out/
+
+# Machine-specific settings and private notes (never committed)
+devenv/local.env
+CLAUDE.local.md
+notes/

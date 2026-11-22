@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Alfie's dev loop. Everything runs in containers or host python3 stdlib, so
-# nothing is installed on homeserver. Run ./dev with no arguments for the list.
+# nothing is installed on the host. Run ./dev with no arguments for the list.
 set -euo pipefail
 cd "$(dirname "$0")"
 ROOT=$PWD
+# Machine-specific settings (production HA address, dev login): devenv/local.env, gitignored.
+[ -f devenv/local.env ] && { set -a; . devenv/local.env; set +a; }
 COMPOSE=(docker compose -f devenv/docker-compose.yml)
 CHROME=zenika/alpine-chrome:124-with-puppeteer
 OUT=devenv/out
@@ -16,7 +18,7 @@ chrome() {
 }
 
 case "${1:-}" in
-  up)      "${COMPOSE[@]}" up -d && echo "dev HA: http://localhost:8125 (dev / dev-only-password)" ;;
+  up)      "${COMPOSE[@]}" up -d && echo "dev HA: http://localhost:8125 (user dev)" ;;
   down)    "${COMPOSE[@]}" down ;;
   restart) "${COMPOSE[@]}" restart ;;
   logs)    docker logs alfie-dev-ha 2>&1 | tail -n "${2:-60}" ;;

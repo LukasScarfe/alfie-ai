@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Talk to the dev HA from the host, stdlib only (nothing gets installed on
-homeserver). ./dev calls this; run it directly only when debugging ./dev.
+the host). ./dev calls this; run it directly only when debugging ./dev.
 
-    devtool.py onboard            first-run user dev/dev-only-password + saved token
+    devtool.py onboard            first-run user dev (ALFIE_DEV_PASSWORD) + saved token
     devtool.py token              a fresh access token on stdout
     devtool.py add                create the Alfie config entry
     devtool.py state ID STATE [JSON-attrs]   set any entity's state (fakes)
-    devtool.py seed               Lukas's house entities, all in their good state
+    devtool.py seed               the example house's entities, all in their good state
     devtool.py call DOMAIN.SERVICE [JSON] [--response]   call a service (print its response)
     devtool.py get ID             print an entity's state + attributes
 
@@ -23,9 +23,9 @@ import urllib.request
 BASE = os.environ.get("ALFIE_DEV_URL", "http://localhost:8125")
 CLIENT_ID = BASE + "/"
 AUTH_FILE = os.path.join(os.path.dirname(__file__), "config", ".alfie-dev-auth.json")
-USER, PASSWORD = "dev", "dev-only-password"
+USER, PASSWORD = "dev", os.environ.get("ALFIE_DEV_PASSWORD", "dev-only-password")
 
-# The entity ids the hard-coded M1 defaults watch (see docs/design.md), each
+# The entity ids the hard-coded M1 defaults watch (see notes/design.md (private)), each
 # with the state it has when nothing is wrong. Seeding these makes the dev HA
 # look like Lukas's house to Alfie.
 SEED = {

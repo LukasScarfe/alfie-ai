@@ -4,7 +4,7 @@ Generic on purpose, so it means something in any house: the signals are
 patterns over entity ids (a battery, a leak, a smoke alarm, an update), there
 are no motion sensors yet, and Night is picked by hand until the panel's Get
 started sets what tells Alfie it is night. Lukas's own house, which these
-defaults used to be (see docs/design.md "Starter defaults"), is
+defaults used to be (see notes/design.md (private) "Starter defaults"), is
 devenv/house.json, loaded with `./dev house`.
 """
 

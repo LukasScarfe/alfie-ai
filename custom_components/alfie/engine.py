@@ -2,7 +2,7 @@
 
 It runs entirely on HA's event loop and does nothing heavy there: a state
 change costs a dict lookup to filter, and a recompute evaluates a handful of
-signals. It holds *what Alfie is* (the scene state, see docs/design.md
+signals. It holds *what Alfie is* (the scene state, see notes/design.md (private)
 "Scene state") and pushes it to listeners (the WS subscriptions, the
 entities); the cards do all per-frame animation themselves.
 """
