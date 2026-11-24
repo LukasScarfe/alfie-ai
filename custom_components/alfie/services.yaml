@@ -203,6 +203,21 @@ show_rotation:
           min: 0
           max: 604800
           unit_of_measurement: s
+step_rotation:
+  fields:
+    direction:
+      default: next
+      selector:
+        select:
+          translation_key: step_direction
+          options: [next, previous]
+    steps:
+      default: 1
+      example: 1
+      selector:
+        number:
+          min: 1
+          max: 50
 set_personality:
   fields:
     preset:

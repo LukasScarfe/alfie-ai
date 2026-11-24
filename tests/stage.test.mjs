@@ -264,5 +264,26 @@ eq(G.vectorStroke([[100 / 3, 0]], false, 1, 100, 100).p.length, 2, "a dot goes a
   eq(G.tourStrokes([ring]), [ring], "one stroke untouched");
 }
 
+// step: alfie.step_rotation skips on or back and starts that step's turn now.
+{
+  const three = { steps: [{ screen: "a", seconds: 10 }, { screen: "b", seconds: 10 }, { alfie: true, seconds: 10 }], face: 0 };
+  const rot = G.start(three, 0);
+  G.advance(rot, 3);
+  G.step(rot, 1, 3);
+  eq(G.advance(rot, 3).id, "b", "next: b");
+  eq(G.advance(rot, 12.9).id, "b", "b gets a full turn from the step");
+  G.step(rot, -2, 13);
+  eq(G.advance(rot, 13), { id: null, next: "a", appear: true }, "back two wraps to the Alfie step");
+  G.step(rot, 4, 14);
+  eq(G.advance(rot, 14).id, "a", "on four wraps round");
+  const gap = G.start({ ...spec, face: 20 }, 0);
+  eq(G.advance(gap, 10).id, null, "in the gap after a");
+  G.step(gap, -1, 10);
+  eq(G.advance(gap, 10).id, "a", "back from the gap: a");
+  G.advance(gap, 20); G.step(gap, 1, 20);
+  eq(G.advance(gap, 20).id, "b", "on from the gap: b");
+  eq(G.step({ steps: null }, 1, 0).steps, null, "no rotation: nothing");
+}
+
 console.log(`stage: ${checks - failures}/${checks} checks passed`);
 if (failures) process.exit(1);

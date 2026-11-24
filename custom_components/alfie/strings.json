@@ -235,6 +235,20 @@
         }
       }
     },
+    "step_rotation": {
+      "name": "Step rotation",
+      "description": "Skip every rotation card that follows steps on or back through its rotation, starting that step's turn now. For a remote's wheel or buttons.",
+      "fields": {
+        "direction": {
+          "name": "Direction",
+          "description": "Next or previous."
+        },
+        "steps": {
+          "name": "Steps",
+          "description": "How many steps to skip."
+        }
+      }
+    },
     "set_personality": {
       "name": "Set personality",
       "description": "Swap Alfie's personality preset for a while. Auto lets go.",
@@ -327,6 +341,12 @@
         "none": "Outline",
         "soft": "Soft",
         "solid": "Solid"
+      }
+    },
+    "step_direction": {
+      "options": {
+        "next": "Next",
+        "previous": "Previous"
       }
     }
   }

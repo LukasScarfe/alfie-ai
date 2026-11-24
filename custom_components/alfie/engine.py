@@ -139,6 +139,7 @@ class AlfieEngine:
         self._override_unsub: CALLBACK_TYPE | None = None
         self.screen: dict[str, Any] | None = None   # being shown now; not entity state
         self._screen_seq = 0
+        self.rotation_nudge = 0   # alfie.step_rotation's running count; cards skip the difference
         self._screen_unsub: CALLBACK_TYPE | None = None
         # Icon badges on the cards (an icon's overlay style); not entity state.
         self.overlays: list[dict[str, Any]] = []
@@ -1008,6 +1009,14 @@ class AlfieEngine:
     # ------------------------------------------------------------ screens
 
     @callback
+    def step_rotation(self, steps: int) -> None:
+        """Every rotation card that follows steps skips `steps` steps on
+        (negative: back) and starts that step's turn. Not entity state."""
+        if steps:
+            self.rotation_nudge += int(steps)
+            self._push()
+
+    @callback
     def show_screen(self, screen_id: str, seconds: float) -> None:
         """Every card presents `screen_id` for `seconds`, then goes back to
         what it was doing. Not entity state, so it never writes the recorder."""
@@ -1270,6 +1279,7 @@ class AlfieEngine:
             "story": self._story_scene(),
             "voice": self._voice_scene(),
             "screen": self.screen,
+            "rotation_nudge": self.rotation_nudge,
             "icons": self.overlays,
             "screens_rev": self.screens_rev,
             "face_rev": self.face_rev,

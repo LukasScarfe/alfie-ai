@@ -18,7 +18,7 @@ export const DEFAULTS = {
   shapes: null, personality: null, display: "companion", rotation: null,
   present: "handover", corner: "bottom_right", corner_size: 0.3, transition: null,
   text_color: null, accent_color: null, line_color: null, screen_line_width: 0.02,
-  appear_story: "auto", follow_mode: true, icons: true,
+  appear_story: "auto", follow_mode: true, follow_steps: true, icons: true,
   voice: "all", voice_satellites: null, speak_style: null, voice_screens: true,
   entity: null,
 };
@@ -371,6 +371,7 @@ if (typeof HTMLElement !== "undefined" && typeof customElements !== "undefined")
       }
       out.push(this._select("Transition", t("transition"), [["", "Default (the rotation's, else fade)"], ...TRANSITIONS.map((s) => [s, human(s)]), ["random", "Random: a different one each time"]]),
         this._bool("Follow alfie.show_rotation", t("follow_mode"), "An automation's alfie.show_rotation (or alfie.set_alfie hidden) changes this card too. Off: the card keeps its own rotation."),
+        this._bool("Follow alfie.step_rotation", t("follow_steps"), "An automation's alfie.step_rotation (a remote's wheel, say) skips this card's rotation on or back. Off: the card keeps its own pace."),
         this._bool("Show icons", t("icons"), "Icons from stories and alfie.show_icon. Off: this card leaves them out."),
         this._select("Voice assistants", t("voice"), [["all", "All: any voice satellite brings Alfie on"], ["chosen", "Chosen satellites only"],
           ["none", "None: this card ignores voice"]], { rerender: true, hint: "While one listens, thinks or answers, Alfie takes over this card." }));

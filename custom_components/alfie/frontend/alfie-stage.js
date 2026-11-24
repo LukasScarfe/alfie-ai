@@ -92,6 +92,25 @@ export function advance(rot, clock, fit = null) {
   return { id: null, next: after, appear };
 }
 
+// Skip `delta` steps through `rot` (negative: back), starting the new step's
+// turn now. An automation's alfie.step_rotation (a remote's wheel) does this.
+// In a gap of Alfie between two screens, the screen before is one back and the
+// screen after is one on.
+export function step(rot, delta, clock) {
+  const n = rot?.steps?.length;
+  if (!n || !delta) return rot;
+  let idx = rot.idx;
+  if (rot.phase === "gap") idx = delta > 0 ? idx + delta : idx + delta + 1;
+  else idx += delta;
+  rot.idx = ((idx % n) + n) % n;
+  rot.phase = isAlfie(rot.steps[rot.idx]) ? "alfie" : "screen";
+  rot.t0 = clock;
+  rot.len = null;
+  rot.idle = 0;
+  rot.appear = rot.phase !== "screen";
+  return rot;
+}
+
 // A story's length in seconds: its actions back to back.
 export const storyLength = (actions) => (actions || []).reduce((t, a) => t + (Number(a.seconds) || 0), 0);
 

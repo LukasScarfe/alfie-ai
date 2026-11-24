@@ -127,6 +127,10 @@ SERVICES: dict[str, tuple[Callable[[AlfieEngine, dict[str, Any]], Any], dict[Any
     "show_rotation": (lambda e, d: e.hold("rotation", d["rotation"], d.get("duration")), {
         vol.Required("rotation"): cv.string, vol.Optional("duration"): DURATION,
     }),
+    "step_rotation": (lambda e, d: e.step_rotation(d["steps"] if d["direction"] == "next" else -d["steps"]), {
+        vol.Optional("direction", default="next"): vol.In(["next", "previous"]),
+        vol.Optional("steps", default=1): vol.All(vol.Coerce(int), vol.Range(min=1, max=50)),
+    }),
     "set_personality": (lambda e, d: e.hold("personality", d["preset"], d.get("duration")), {
         vol.Required("preset"): cv.string, vol.Optional("duration"): DURATION,
     }),

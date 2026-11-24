@@ -135,6 +135,7 @@ const DEFAULTS = {
   corner_size: 0.3,       // Alfie's size in the corner, share of his full size (0.15 to 0.5)
   transition: null,       // an intro style; null takes the rotation's, then fade
   follow_mode: true,      // false: this card ignores house modes (hiding Alfie, swapping the rotation)
+  follow_steps: true,     // false: this card ignores alfie.step_rotation
   appear_story: "auto",   // rotation: the story Alfie plays here when he appears in it; auto: the most relevant (mood-led), none, or a story id
   text_color: null,       // screen text; null takes the face colour
   accent_color: null,     // screen accents; null takes the face colour
@@ -436,6 +437,7 @@ class AlfieCard extends HTMLElement {
       // The engine reloaded: drop this subscription and join the new one.
       try { (await this._unsub)?.(); } catch (_) { /* already gone */ }
       this._unsub = null;
+      this._nudgeSeen = null;   // a new engine counts steps from 0
       this._subscribing = false;
       setTimeout(() => this._hass && !this._subscribing && this._subscribe(), 2000);
       return;
@@ -457,6 +459,15 @@ class AlfieCard extends HTMLElement {
     if (badKey !== this._badKey) {
       this._badKey = badKey;
       if (this._rot) this._rot.stale = true;
+    }
+    // alfie.step_rotation: the engine counts steps; skip what was asked since the
+    // last scene. The first scene of a subscription only sets the count.
+    const nudge = Number(scene.rotation_nudge) || 0;
+    if (this._nudgeSeen == null || nudge < this._nudgeSeen) this._nudgeSeen = nudge;
+    else if (nudge !== this._nudgeSeen) {
+      const delta = nudge - this._nudgeSeen;
+      this._nudgeSeen = nudge;
+      if (this._config.follow_steps !== false && this._rot?.steps) G.step(this._rot, delta, this._rotClock);
     }
     // A house mode may swap this card's rotation; the card's own comes back where it was.
     // "pause" just holds the clock (see _wanted).
