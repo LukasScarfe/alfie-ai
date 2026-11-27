@@ -3,7 +3,7 @@
 // will be up when the hour hand gets there, within the next 12 hours), a
 // seconds bead, and inside and outside temperature readouts with the house.
 // The minute hand may reach the rim (`joined`), and then the rim and both
-// hands are one line. All local time comes from HA's time zone, not the browser's, and is derived
+// hands are one line. All local time comes from HA's time zone and offsets, not the browser's, and is derived
 // from `t`; nothing here touches the network or HA.
 const TAU = 2 * Math.PI;
 const RIM_N = 120;           // rim points for a full lap
@@ -12,22 +12,14 @@ const JOINED_W = 0.85;      // the rim and hands as one line: between the rim's 
 
 // States and config come from the draw context; the dev harness cannot feed
 // them, so it falls back to data.states / data.config (never set in HA).
+const V = (() => { try { return new URL(import.meta.url).search; } catch (_) { return ""; } })();
+const TZ = await import(`../alfie-tz.js${V}`);
 const pick = (v, d, key) => (v && Object.keys(v).length ? v : d?.[key] ?? {});
 
-// Seconds to add to epoch seconds to get local wall-clock seconds in `tz`.
-// Recomputed once a minute (DST), so per-frame work is plain arithmetic.
-function offsetAt(t, tz) {
-  const ms = Math.floor(t) * 1000;
-  try {
-    const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
-      timeZone: tz || undefined, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric",
-      hour: "numeric", minute: "numeric", second: "numeric",
-    }).formatToParts(ms).map((x) => [x.type, Number(x.value)]));
-    return (Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - ms) / 1000;
-  } catch (_) {
-    return -new Date(ms).getTimezoneOffset() * 60;
-  }
-}
+// Seconds to add to epoch seconds to get local wall-clock seconds in `tz`
+// (HA's own offsets, see alfie-tz.js). Recomputed once a minute (DST), so
+// per-frame work is plain arithmetic.
+const offsetAt = (t, tz) => TZ.tzOffset(Math.floor(t), tz);
 
 // Today's rise and set as local hours. HA only gives the *next* ones, which
 // after sunrise are tomorrow's: a minute or two off today's, so the time of
@@ -134,9 +126,10 @@ export default {
     states = pick(states, data, "states");
     config = pick(config, data, "config");
     const tz = config.time_zone;
-    if (memo.offMin !== Math.floor(t / 60) || memo.tz !== tz) {
+    if (memo.offMin !== Math.floor(t / 60) || memo.tz !== tz || memo.tzRev !== TZ.rev()) {
       memo.offMin = Math.floor(t / 60);
       memo.tz = tz;
+      memo.tzRev = TZ.rev();
       memo.off = offsetAt(t, tz);
       memo.light = daylight(states["sun.sun"], memo.off);
     }

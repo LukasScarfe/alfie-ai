@@ -7,6 +7,7 @@
 // Unix seconds. Latitude is north-positive and longitude east-positive.
 
 const V = (() => { try { return new URL(import.meta.url).search; } catch (_) { return ""; } })();
+const TZ = await import(`./alfie-tz.js${V}`);
 const D = Math.PI / 180;
 const sin = (deg) => Math.sin(deg * D);
 const cos = (deg) => Math.cos(deg * D);
@@ -208,24 +209,9 @@ export function loadConstellations() {
 
 // ------------------------------------------------------------ local time
 
-const FMT = new Map();
-
-// Seconds the zone `tz` is ahead of UTC at time t. Falls back to the browser's zone.
-export function tzOffset(t, tz) {
-  try {
-    if (!tz) throw new Error("no zone");
-    let f = FMT.get(tz);
-    if (!f) {
-      f = new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" });
-      FMT.set(tz, f);
-    }
-    const p = {};
-    for (const x of f.formatToParts(new Date(t * 1000))) p[x.type] = Number(x.value);
-    return Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute, p.second) / 1000 - Math.floor(t);
-  } catch (_) {
-    return -new Date(t * 1000).getTimezoneOffset() * 60;
-  }
-}
+// Seconds the zone `tz` is ahead of UTC at time t: HA's own offsets where it
+// sent them (alfie-tz.js), else the browser's Intl, else the browser's zone.
+export const tzOffset = TZ.tzOffset;
 
 // Epoch seconds of local midnight at or before t, in zone tz.
 export function localMidnight(t, tz) {

@@ -57,6 +57,7 @@ from .stories import (
     steps_of,
 )
 from .store import AlfieStore
+from .tzspans import TzTable
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -139,6 +140,7 @@ class AlfieEngine:
         self._override_unsub: CALLBACK_TYPE | None = None
         self.screen: dict[str, Any] | None = None   # being shown now; not entity state
         self._screen_seq = 0
+        self._tz = TzTable()       # HA's UTC offsets for the cards (browser tz data lags)
         self.rotation_nudge = 0   # alfie.step_rotation's running count; cards skip the difference
         self._screen_unsub: CALLBACK_TYPE | None = None
         # Icon badges on the cards (an icon's overlay style); not entity state.
@@ -1285,6 +1287,7 @@ class AlfieEngine:
             "face_rev": self.face_rev,
             "holds": {k: {"value": v, "until": self.hold_until.get(k)} for k, v in self.holds.items()},
             "now": time.time(),
+            "tz": self._tz.get(dt_util.DEFAULT_TIME_ZONE, self.hass.config.time_zone or "UTC", time.time()),
         }
 
     def _story_scene(self) -> dict[str, Any] | None:

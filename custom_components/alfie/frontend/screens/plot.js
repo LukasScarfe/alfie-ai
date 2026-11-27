@@ -10,6 +10,8 @@
 // lines' ends with the labels under them, the axes against the lines. A
 // value or time axis in a box of its own spans that box; readouts or labels
 // in one become a list, a marker on each row.
+const V = (() => { try { return new URL(import.meta.url).search; } catch (_) { return ""; } })();
+const TZ = await import(`../alfie-tz.js${V}`);
 const DEFAULT_MARKS = ["ring", "diamond", "square"];
 const WEIGHTS = { thin: 0.5, normal: 1, thick: 1.6, bold: 2.4 };
 const MARK_SIZES = { small: 0.7, normal: 1, large: 1.4, huge: 2 };
@@ -52,14 +54,7 @@ export function valueTicks(o, lo, hi, room, S) {
   return [...new Set(ticks)].filter((t) => t >= lo - 1e-9 && t <= hi + 1e-9).sort((a, b) => a - b);
 }
 
-// Seconds east of UTC in `tz` at epoch second `t`.
-function tzOffset(t, tz) {
-  try {
-    const f = new Intl.DateTimeFormat("en-US", { timeZone: tz || undefined, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" });
-    const p = Object.fromEntries(f.formatToParts(new Date(t * 1000)).map((x) => [x.type, Number(x.value)]));
-    return Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute, p.second) / 1000 - Math.floor(t);
-  } catch (_) { return 0; }
-}
+const tzOffset = TZ.tzOffset;
 
 // Round times between start and end (local), `step` seconds apart, and their labels.
 export function timeTicks(start, end, step, fmt, tz) {
@@ -69,10 +64,8 @@ export function timeTicks(start, end, step, fmt, tz) {
   if (auto) fmt = step < 86400 ? "hour" : end - start <= 8 * 86400 ? "weekday" : "date";
   const opts = { hour: { hour: "2-digit", hourCycle: "h23" }, time: { hour: "2-digit", minute: "2-digit", hourCycle: "h23" },
     weekday: { weekday: "short" }, day: { day: "numeric" }, date: { day: "numeric", month: "short" } }[fmt];
-  let f = null;
-  let day = null;
-  if (opts) try { f = new Intl.DateTimeFormat("en-GB", { ...opts, timeZone: tz || undefined }); } catch (_) { f = null; }
-  if (auto && fmt === "hour") try { day = new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: tz || undefined }); } catch (_) { day = null; }
+  const f = opts ? TZ.formatter(tz, opts) : null;
+  const day = auto && fmt === "hour" ? TZ.formatter(tz, { weekday: "short" }) : null;
   const label = (t) => {
     if (fmt === "none") return "";
     if (fmt === "relative" || !f) {
@@ -80,9 +73,9 @@ export function timeTicks(start, end, step, fmt, tz) {
       if (d < 60) return "now";
       return d < 86400 * 2 && step < 86400 ? `-${Math.round(d / 3600)}h` : `-${Math.round(d / 86400)}d`;
     }
-    const s = f.format(new Date(t * 1000));
+    const s = f(t);
     // On an hourly axis, midnight names the day it starts.
-    return fmt === "hour" && s === "00" && day ? day.format(new Date(t * 1000)) : s;
+    return fmt === "hour" && s === "00" && day ? day(t) : s;
   };
   return out.map((t) => [t, label(t)]);
 }
@@ -322,7 +315,7 @@ export default {
     const { w, h, data, options, states, memo, S } = ctx;
     // The card hands over a fresh options object each frame, so compare by value.
     const rows = Array.isArray(data?.series) ? data.series.slice(0, 6) : [];
-    const key = JSON.stringify(options) + JSON.stringify(liveOf(rows, states, S)) + S.iconStamp() + (ctx.config?.time_zone || "");
+    const key = JSON.stringify(options) + JSON.stringify(liveOf(rows, states, S)) + S.iconStamp() + (ctx.config?.time_zone || "") + TZ.rev();
     if (memo.data !== data || memo.key !== key || memo.w !== w || memo.h !== h || !memo.out) {
       const b = build(ctx);
       Object.assign(memo, { data, key, w, h, out: b.out, boxes: b.boxes });

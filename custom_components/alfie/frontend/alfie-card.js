@@ -14,6 +14,7 @@ const L = await import(`./alfie-look.js${V}`);
 const I = await import(`./alfie-intros.js${V}`);
 const G = await import(`./alfie-stage.js${V}`);
 const IC = await import(`./alfie-icons.js${V}`);
+const TZ = await import(`./alfie-tz.js${V}`);   // HA's UTC offsets, from the scene
 const FACE_URL = new URL(`./alfie-face.json${V}`, import.meta.url);
 
 // Icon names in screen text and plot markers (design.md "Icons"): the strokes
@@ -444,6 +445,7 @@ class AlfieCard extends HTMLElement {
     }
     const face = await loadFace();
     this._scene = scene;
+    TZ.setTable(scene.tz);   // the screens' local time follows HA's tz data, not the browser's
     this._applyLook();
     this._error = null;
     this._showError();

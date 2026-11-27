@@ -8,6 +8,8 @@
 // forecast (the area below, holding the rest);
 // hourly curve, temp_axis, rain_axis, hours; daily days, day_icons, highs,
 // lows, rain. A daily row in a box of its own spreads its columns across it.
+const V = (() => { try { return new URL(import.meta.url).search; } catch (_) { return ""; } })();
+const TZ = await import(`../alfie-tz.js${V}`);
 const ELEVATION_NIGHT = -0.833;     // sun.sun elevation below which it is night
 
 // A 1-2-1 moving average, ends kept, gaps kept as gaps.
@@ -86,15 +88,13 @@ function animated(icon, cx, cy, condition, t) {
 }
 
 function hourLabels(times, tz) {
-  let fmt;
-  try { fmt = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone: tz || undefined }); } catch (_) { fmt = null; }
-  return times.map((s) => (s && fmt ? fmt.format(new Date(s * 1000)).replace(/^24$/, "00") : null));
+  const fmt = TZ.formatter(tz, { hour: "2-digit", hour12: false });
+  return times.map((s) => (s && fmt ? fmt(s).replace(/^24$/, "00") : null));
 }
 
 function dayLabels(times, tz) {
-  let fmt;
-  try { fmt = new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: tz || undefined }); } catch (_) { fmt = null; }
-  return times.map((s) => (s && fmt ? fmt.format(new Date(s * 1000)) : ""));
+  const fmt = TZ.formatter(tz, { weekday: "short" });
+  return times.map((s) => (s && fmt ? fmt(s) : ""));
 }
 
 export default {
@@ -165,7 +165,7 @@ export default {
 
     if (!hasForecast) return out;
     const conv = (arr) => S.series(arr).map((v) => convert(v, forecastUnit, options.unit));
-    const key = `${mode}|${data.times?.[0]}|${data.times?.length}|${config?.time_zone}`;
+    const key = `${mode}|${data.times?.[0]}|${data.times?.length}|${config?.time_zone}|${TZ.rev()}`;
     const fr = L.box("forecast", bands.forecast || S.rect(area.x0, area.y0, area.x1, area.y0 + 0.4 * f));
     if (!L.show("forecast")) return out;
     if (mode === "daily") return out.concat(daily({ fr, f, ts, data, options, config, memo, S, L, conv, suffix, key }));
